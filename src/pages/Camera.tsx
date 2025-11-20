@@ -46,17 +46,41 @@ const Camera = () => {
   useEffect(() => {
     if (!uploadEndTime) return;
     const interval = setInterval(() => {
-      const now = new Date().getTime();
-      const endTime = new Date(uploadEndTime).getTime();
-      const distance = endTime - now;
+      const now = new Date();
+      const endTime = new Date(uploadEndTime);
+      const distance = endTime.getTime() - now.getTime();
+      
       if (distance < 0) {
         setCountdown("Evento finalizado");
         clearInterval(interval);
         return;
       }
+
       const hours = Math.floor(distance / (1000 * 60 * 60));
-      const minutes = Math.floor(distance % (1000 * 60 * 60) / (1000 * 60));
-      setCountdown(`Quedan ${hours}h ${minutes}m para subir fotos`);
+      const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+      // Determine if it's today or tomorrow
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const endDate = new Date(endTime);
+      endDate.setHours(0, 0, 0, 0);
+
+      let dayLabel = "";
+      if (endDate.getTime() === today.getTime()) {
+        dayLabel = " (Hoy)";
+      } else if (endDate.getTime() === tomorrow.getTime()) {
+        dayLabel = " (Mañana)";
+      }
+
+      const formattedDate = format(endTime, "dd/MM/yyyy", { locale: es });
+      const formattedTime = format(endTime, "HH:mm", { locale: es });
+
+      setCountdown(
+        `Puedes subir fotos hasta el día ${formattedDate}${dayLabel} a las ${formattedTime} horas. Solo quedan ${hours} horas, ${minutes} minutos y ${seconds} segundos`
+      );
     }, 1000);
     return () => clearInterval(interval);
   }, [uploadEndTime]);
@@ -201,21 +225,13 @@ const Camera = () => {
             <h2 className="text-2xl font-bold text-foreground">
               ¡Captura la magia!
             </h2>
-            {uploadStartTime && uploadEndTime && <div className="bg-card border border-border rounded-lg p-4 space-y-2 max-w-sm mx-auto">
-                <p className="text-sm text-muted-foreground">
-                  <strong>Horario de subida:</strong>
+            {countdown && (
+              <div className="bg-card border border-border rounded-lg p-4 max-w-lg mx-auto">
+                <p className="text-primary font-semibold text-sm">
+                  {countdown}
                 </p>
-                <p className="text-sm text-foreground">
-                  {format(new Date(uploadStartTime), "dd/MM/yyyy HH:mm", {
-                locale: es
-              })} - {format(new Date(uploadEndTime), "dd/MM/yyyy HH:mm", {
-                locale: es
-              })}
-                </p>
-                {countdown && <p className="text-primary font-semibold text-sm mt-2">
-                    {countdown}
-                  </p>}
-              </div>}
+              </div>
+            )}
             <p className="text-muted-foreground max-w-sm mx-auto leading-relaxed">
               Haz todas las fotos que quieras durante el evento. {revealTime && format(new Date(revealTime), "'El' dd/MM/yyyy 'a las' HH:mm", {
               locale: es
