@@ -14,6 +14,7 @@ const Camera = () => {
   const [uploadStartTime, setUploadStartTime] = useState<string>("");
   const [uploadEndTime, setUploadEndTime] = useState<string>("");
   const [countdown, setCountdown] = useState<string>("");
+  const [revealCountdown, setRevealCountdown] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const {
@@ -29,6 +30,33 @@ const Camera = () => {
     loadEventData();
     loadPhotoCount();
   }, [eventId, navigate]);
+
+  // Countdown to reveal time when event has ended
+  useEffect(() => {
+    if (!revealTime) return;
+    
+    const interval = setInterval(() => {
+      const now = new Date();
+      const reveal = new Date(revealTime);
+      const distance = reveal.getTime() - now.getTime();
+      
+      if (distance < 0) {
+        setRevealCountdown("¡Las fotos ya están reveladas!");
+        clearInterval(interval);
+        return;
+      }
+
+      const hours = Math.floor(distance / (1000 * 60 * 60));
+      const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+      setRevealCountdown(
+        `Quedan ${hours} horas, ${minutes} minutos y ${seconds} segundos para que se revelen las fotos. ¡Qué nervios!`
+      );
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, [revealTime]);
   const loadEventData = async () => {
     if (!eventId) return;
     const {
@@ -68,18 +96,19 @@ const Camera = () => {
       const endDate = new Date(endTime);
       endDate.setHours(0, 0, 0, 0);
 
-      let dayLabel = "";
+      let dateLabel = "";
       if (endDate.getTime() === today.getTime()) {
-        dayLabel = " (Hoy)";
+        dateLabel = "Hoy";
       } else if (endDate.getTime() === tomorrow.getTime()) {
-        dayLabel = " (Mañana)";
+        dateLabel = "Mañana";
+      } else {
+        dateLabel = `el día ${format(endTime, "dd/MM/yyyy", { locale: es })}`;
       }
 
-      const formattedDate = format(endTime, "dd/MM/yyyy", { locale: es });
       const formattedTime = format(endTime, "HH:mm", { locale: es });
 
       setCountdown(
-        `Puedes subir fotos hasta el día ${formattedDate}${dayLabel} a las ${formattedTime} horas. Solo quedan ${hours} horas, ${minutes} minutos y ${seconds} segundos`
+        `Puedes subir fotos hasta ${dateLabel} a las ${formattedTime} horas. Solo quedan ${hours} horas, ${minutes} minutos y ${seconds} segundos`
       );
     }, 1000);
     return () => clearInterval(interval);
@@ -183,14 +212,25 @@ const Camera = () => {
           <p className="text-muted-foreground text-lg">
             El período para subir fotos ha terminado.
           </p>
-          {revealTime && <div className="bg-card border border-border rounded-lg p-6 space-y-2">
-              <p className="text-sm text-muted-foreground">Las fotos se revelarán:</p>
-              <p className="text-xl font-bold text-foreground">
-                {format(new Date(revealTime), "dd 'de' MMMM 'a las' HH:mm", {
-              locale: es
-            })}
-              </p>
-            </div>}
+          {revealTime && (
+            <>
+              <div className="bg-card border border-border rounded-lg p-6 space-y-2">
+                <p className="text-sm text-muted-foreground">Las fotos se revelarán:</p>
+                <p className="text-xl font-bold text-foreground">
+                  {format(new Date(revealTime), "dd 'de' MMMM 'a las' HH:mm", {
+                    locale: es
+                  })}
+                </p>
+              </div>
+              {revealCountdown && (
+                <div className="bg-card border border-border rounded-lg p-4">
+                  <p className="text-primary font-semibold">
+                    {revealCountdown}
+                  </p>
+                </div>
+              )}
+            </>
+          )}
           <Button onClick={handleLogout} variant="outline" className="mt-4">
             <LogOut className="w-4 h-4 mr-2" />
             Volver al inicio
@@ -214,7 +254,7 @@ const Camera = () => {
 
       <div className="flex-1 flex flex-col items-center justify-center p-6 space-y-6">
         <div className="text-center space-y-6 animate-fade-in">
-          <button onClick={handleTakePhoto} disabled={isUploading} className="w-48 h-48 mx-auto bg-primary/10 flex items-center justify-center cursor-pointer transition-all hover:scale-105 disabled:opacity-50 p-4" style={{
+          <button onClick={handleTakePhoto} disabled={isUploading} className="w-24 h-24 mx-auto bg-primary/10 flex items-center justify-center cursor-pointer transition-all hover:scale-105 disabled:opacity-50 p-2" style={{
           imageRendering: 'pixelated'
         }}>
             <img src={cameraIcon} alt="Cámara" style={{
