@@ -106,7 +106,7 @@ const Camera = () => {
           <h1 className="text-xl font-bold text-foreground">{eventName}</h1>
           <p className="text-sm text-muted-foreground flex items-center gap-1">
             <Image className="w-4 h-4" />
-            {photoCount} {photoCount === 1 ? "foto" : "fotos"}
+            Ya hay {photoCount} fotos subidas
           </p>
         </div>
         <Button
@@ -121,8 +121,14 @@ const Camera = () => {
 
       <div className="flex-1 flex flex-col items-center justify-center p-6 space-y-6">
         <div className="text-center space-y-6 animate-fade-in">
-          <div className="w-32 h-32 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
-            <CameraIcon className="w-16 h-16 text-primary" />
+          <div className="w-32 h-32 mx-auto bg-primary/10 flex items-center justify-center" style={{ imageRendering: 'pixelated' }}>
+            <svg width="64" height="64" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ imageRendering: 'pixelated' }}>
+              <rect x="2" y="5" width="12" height="8" fill="currentColor" className="text-primary"/>
+              <rect x="4" y="3" width="8" height="2" fill="currentColor" className="text-primary"/>
+              <rect x="7" y="7" width="2" height="2" fill="currentColor" className="text-primary/30"/>
+              <circle cx="8" cy="9" r="2" fill="currentColor" className="text-primary"/>
+              <rect x="11" y="6" width="2" height="1" fill="currentColor" className="text-primary/50"/>
+            </svg>
           </div>
           <div className="space-y-2">
             <h2 className="text-2xl font-bold text-foreground">

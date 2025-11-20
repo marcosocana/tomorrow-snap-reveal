@@ -140,10 +140,10 @@ const Gallery = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b border-border bg-card">
+      <header className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-card">
         <div className="max-w-7xl mx-auto px-6 py-8 flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight uppercase text-foreground">{eventName}</h1>
+            <h1 className="text-3xl font-bold tracking-tight text-foreground">{eventName}</h1>
             <p className="text-sm text-muted-foreground mt-2 tracking-wide uppercase">
               Total ({photos.length})
             </p>
@@ -159,7 +159,7 @@ const Gallery = () => {
         </div>
       </header>
 
-      <main className="py-12">
+      <main className="py-12 pt-36">
         <div className="max-w-7xl mx-auto px-6">
           {isLoading ? (
             <div className="flex items-center justify-center min-h-[50vh]">
@@ -205,9 +205,9 @@ const Gallery = () => {
       </main>
 
       <Dialog open={!!selectedPhoto} onOpenChange={() => setSelectedPhoto(null)}>
-        <DialogContent className="max-w-4xl p-0 bg-card border-0">
+        <DialogContent className="max-w-4xl p-6 bg-card">
           {selectedPhoto && (
-            <div className="relative">
+            <div className="space-y-4">
               <DialogClose className="absolute top-4 right-4 z-10 bg-background/80 hover:bg-background rounded-full p-2">
                 <X className="w-5 h-5" />
               </DialogClose>
@@ -215,34 +215,32 @@ const Gallery = () => {
                 <img
                   src={(selectedPhoto as any).signedUrl}
                   alt="Foto ampliada"
-                  className="w-full h-auto max-h-[85vh] object-contain retro-filter"
+                  className="w-full h-auto max-h-[70vh] object-contain retro-filter rounded-lg"
                 />
               </div>
-              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-6">
-                <div className="flex justify-between items-center">
-                  <p className="text-white text-sm uppercase tracking-wider">
-                    {format(new Date(selectedPhoto.captured_at), "dd MMM yyyy - HH:mm", { locale: es })}
-                  </p>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => handleDownloadPhoto((selectedPhoto as any).signedUrl, selectedPhoto.captured_at)}
-                      className="uppercase tracking-wide"
-                    >
-                      <Download className="w-4 h-4 mr-2" />
-                      Descargar
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => handleDeletePhoto(selectedPhoto.id, selectedPhoto.image_url)}
-                      className="uppercase tracking-wide"
-                    >
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      Eliminar
-                    </Button>
-                  </div>
+              <div className="bg-muted/50 rounded-lg p-4 space-y-3">
+                <p className="text-foreground text-sm uppercase tracking-wider">
+                  {format(new Date(selectedPhoto.captured_at), "dd MMM yyyy - HH:mm", { locale: es })}
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => handleDownloadPhoto((selectedPhoto as any).signedUrl, selectedPhoto.captured_at)}
+                    className="uppercase tracking-wide flex-1"
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Descargar
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => handleDeletePhoto(selectedPhoto.id, selectedPhoto.image_url)}
+                    className="uppercase tracking-wide flex-1"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Eliminar
+                  </Button>
                 </div>
               </div>
             </div>
