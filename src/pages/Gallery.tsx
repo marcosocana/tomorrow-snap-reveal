@@ -7,6 +7,7 @@ import { LogOut, Film, X, Trash2, Download } from "lucide-react";
 import { Dialog, DialogContent, DialogClose } from "@/components/ui/dialog";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import confetti from "canvas-confetti";
 
 interface Photo {
   id: string;
@@ -18,6 +19,7 @@ const Gallery = () => {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
+  const [showWelcome, setShowWelcome] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
   const eventId = localStorage.getItem("eventId");
@@ -27,6 +29,39 @@ const Gallery = () => {
     if (!eventId) {
       navigate("/");
       return;
+    }
+
+    // Check if this is the first visit to gallery for this event
+    const hasSeenWelcome = localStorage.getItem(`gallery-welcome-${eventId}`);
+    if (!hasSeenWelcome) {
+      setShowWelcome(true);
+      localStorage.setItem(`gallery-welcome-${eventId}`, "true");
+      
+      // Trigger confetti
+      const duration = 3000;
+      const end = Date.now() + duration;
+
+      const frame = () => {
+        confetti({
+          particleCount: 3,
+          angle: 60,
+          spread: 55,
+          origin: { x: 0 },
+          colors: ['#f5e6d3', '#d4a574', '#8b4513']
+        });
+        confetti({
+          particleCount: 3,
+          angle: 120,
+          spread: 55,
+          origin: { x: 1 },
+          colors: ['#f5e6d3', '#d4a574', '#8b4513']
+        });
+
+        if (Date.now() < end) {
+          requestAnimationFrame(frame);
+        }
+      };
+      frame();
     }
 
     loadPhotos();
@@ -204,6 +239,28 @@ const Gallery = () => {
         </div>
       </main>
 
+      {/* Welcome Modal */}
+      <Dialog open={showWelcome} onOpenChange={setShowWelcome}>
+        <DialogContent className="max-w-md p-8 bg-card text-center">
+          <div className="space-y-4 animate-scale-in">
+            <div className="text-6xl">🎉</div>
+            <h2 className="text-3xl font-bold text-foreground">
+              ¡Ya están las fotos del evento reveladas!
+            </h2>
+            <p className="text-muted-foreground text-lg">
+              Disfrútalas
+            </p>
+            <Button
+              onClick={() => setShowWelcome(false)}
+              className="w-full mt-6 uppercase tracking-wide"
+            >
+              Ver fotos
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Photo Detail Modal */}
       <Dialog open={!!selectedPhoto} onOpenChange={() => setSelectedPhoto(null)}>
         <DialogContent className="max-w-4xl p-6 bg-card">
           {selectedPhoto && (
