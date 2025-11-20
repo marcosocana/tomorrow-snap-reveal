@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Camera } from "lucide-react";
+import logoRevelao from "@/assets/logo-revelao.png";
 
 const Login = () => {
   const [password, setPassword] = useState("");
@@ -104,16 +104,16 @@ const Login = () => {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-background">
       <div className="w-full max-w-md space-y-8 animate-fade-in">
-        <div className="text-center space-y-4">
+        <div className="text-center space-y-6">
           <div className="flex justify-center">
-            <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center">
-              <Camera className="w-10 h-10 text-primary" />
-            </div>
+            <img 
+              src={logoRevelao} 
+              alt="Revelao.com" 
+              className="w-64 h-auto"
+              style={{ imageRendering: 'pixelated' }}
+            />
           </div>
-          <h1 className="text-4xl font-bold tracking-tight text-foreground">
-            TomorrowCam
-          </h1>
-          <p className="text-muted-foreground text-lg">
+          <p className="text-muted-foreground text-lg font-mono tracking-wide">
             Captura hoy, revela mañana
           </p>
         </div>
