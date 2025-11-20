@@ -13,6 +13,8 @@ interface Photo {
   id: string;
   image_url: string;
   captured_at: string;
+  thumbnailUrl?: string;
+  fullQualityUrl?: string;
 }
 
 const Gallery = () => {
@@ -75,20 +77,31 @@ const Gallery = () => {
         .from("photos")
         .select("*")
         .eq("event_id", eventId)
-        .order("captured_at", { ascending: false });
+        .order("captured_at", { ascending: true });
 
       if (error) throw error;
 
-      // Get signed URLs for each photo
+      // Get signed URLs for thumbnails and full quality
       const photosWithUrls = await Promise.all(
         (data || []).map(async (photo) => {
-          const { data: urlData } = await supabase.storage
+          const { data: thumbnailData } = await supabase.storage
+            .from("event-photos")
+            .createSignedUrl(photo.image_url, 3600, {
+              transform: {
+                width: 400,
+                height: 400,
+                quality: 60
+              }
+            });
+
+          const { data: fullQualityData } = await supabase.storage
             .from("event-photos")
             .createSignedUrl(photo.image_url, 3600);
 
           return {
             ...photo,
-            signedUrl: urlData?.signedUrl || "",
+            thumbnailUrl: thumbnailData?.signedUrl || "",
+            fullQualityUrl: fullQualityData?.signedUrl || "",
           };
         })
       );
@@ -222,7 +235,7 @@ const Gallery = () => {
                 >
                   <div className="aspect-square overflow-hidden bg-muted relative film-grain">
                     <img
-                      src={(photo as any).signedUrl}
+                      src={(photo as any).thumbnailUrl}
                       alt="Foto del evento"
                       className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 retro-filter"
                     />
@@ -270,7 +283,7 @@ const Gallery = () => {
               </DialogClose>
               <div className="relative film-grain">
                 <img
-                  src={(selectedPhoto as any).signedUrl}
+                  src={(selectedPhoto as any).fullQualityUrl}
                   alt="Foto ampliada"
                   className="w-full h-auto max-h-[70vh] object-contain retro-filter rounded-lg"
                 />
@@ -283,7 +296,7 @@ const Gallery = () => {
                   <Button
                     variant="secondary"
                     size="sm"
-                    onClick={() => handleDownloadPhoto((selectedPhoto as any).signedUrl, selectedPhoto.captured_at)}
+                    onClick={() => handleDownloadPhoto((selectedPhoto as any).fullQualityUrl, selectedPhoto.captured_at)}
                     className="uppercase tracking-wide flex-1"
                   >
                     <Download className="w-4 h-4 mr-2" />
