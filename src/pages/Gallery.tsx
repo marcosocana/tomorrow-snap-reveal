@@ -21,6 +21,7 @@ const PHOTOS_PER_PAGE = 12;
 
 const Gallery = () => {
   const [photos, setPhotos] = useState<Photo[]>([]);
+  const [totalPhotos, setTotalPhotos] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(0);
@@ -75,6 +76,11 @@ const Gallery = () => {
 
       setPhotos(prev => pageNum === 0 ? photosWithUrls as any : [...prev, ...photosWithUrls as any]);
       setHasMore(count ? (from + photosWithUrls.length) < count : false);
+      
+      // Set total photos count on first load
+      if (pageNum === 0 && count !== null) {
+        setTotalPhotos(count);
+      }
     } catch (error) {
       console.error("Error loading photos:", error);
       // Silently handle errors (like 416 when reaching end of data)
@@ -223,7 +229,7 @@ const Gallery = () => {
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-foreground">{eventName}</h1>
             <p className="text-sm text-muted-foreground mt-2 tracking-wide uppercase">
-              Total ({photos.length})
+              Total ({totalPhotos})
             </p>
           </div>
           <Button
