@@ -143,13 +143,13 @@ const Camera = () => {
           <button
             onClick={handleTakePhoto}
             disabled={isUploading}
-            className="w-32 h-32 mx-auto bg-primary/10 flex items-center justify-center cursor-pointer transition-all hover:scale-105 disabled:opacity-50"
+            className="w-48 h-48 mx-auto bg-primary/10 flex items-center justify-center cursor-pointer transition-all hover:scale-105 disabled:opacity-50 p-4"
             style={{ imageRendering: 'pixelated' }}
           >
             <img 
               src={cameraIcon} 
               alt="Cámara" 
-              className="w-24 h-24"
+              className="w-full h-full"
               style={{ imageRendering: 'pixelated' }}
             />
           </button>
