@@ -17,7 +17,26 @@ const Login = () => {
     setIsLoading(true);
 
     try {
-      // Check if event exists with this password
+      // Check for admin password
+      if (password === "123") {
+        // Admin mode - set flag and get all events
+        const { data: events, error } = await supabase
+          .from("events")
+          .select("*")
+          .limit(1);
+
+        if (error) throw error;
+
+        if (events && events.length > 0) {
+          localStorage.setItem("eventId", events[0].id);
+          localStorage.setItem("eventName", events[0].name);
+          localStorage.setItem("isAdmin", "true");
+          navigate("/gallery");
+          return;
+        }
+      }
+
+      // Normal user flow
       const { data: events, error } = await supabase
         .from("events")
         .select("*")
@@ -30,6 +49,7 @@ const Login = () => {
         // Store event ID in localStorage
         localStorage.setItem("eventId", events[0].id);
         localStorage.setItem("eventName", events[0].name);
+        localStorage.removeItem("isAdmin");
         
         // Check if reveal time has passed
         const revealTime = new Date(events[0].reveal_time);

@@ -32,13 +32,29 @@ const Gallery = () => {
     if (!eventId) return;
 
     try {
-      const { data, error } = await supabase
+      const isAdmin = localStorage.getItem("isAdmin") === "true";
+      
+      let query = supabase
         .from("photos")
         .select("*")
         .eq("event_id", eventId)
         .order("captured_at", { ascending: true });
 
-      if (error) throw error;
+      // Admin mode bypasses RLS by using service role key isn't available in client
+      // Instead, we'll use a different approach - fetch with current permissions
+      // but the RLS policy will allow it if it's past reveal time
+      const { data, error } = await query;
+
+      if (error) {
+        // If error is due to RLS and we're admin, we need to handle differently
+        if (isAdmin && error.code === 'PGRST116') {
+          // No rows returned due to RLS - this is expected for admin before reveal
+          // We'll need to create an edge function or modify RLS for admin access
+          console.log("Admin mode: Photos not yet revealed");
+        } else {
+          throw error;
+        }
+      }
 
       // Get signed URLs for each photo
       const photosWithUrls = await Promise.all(
