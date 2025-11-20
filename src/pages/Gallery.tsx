@@ -276,9 +276,9 @@ const Gallery = () => {
                       />
                       <div className="absolute inset-0 bg-muted animate-pulse" style={{ zIndex: -1 }} />
                     </div>
-                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <p className="text-white text-xs uppercase tracking-wider">
-                        {format(new Date(photo.captured_at), "HH:mm", { locale: es })}
+                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3">
+                      <p className="text-white text-xs uppercase tracking-wider font-medium">
+                        {format(new Date(photo.captured_at), "dd/MM/yyyy HH:mm", { locale: es })}
                       </p>
                     </div>
                   </div>
@@ -322,9 +322,6 @@ const Gallery = () => {
         <DialogContent className="max-w-4xl p-6 bg-card">
           {selectedPhoto && (
             <div className="space-y-4">
-              <DialogClose className="absolute top-4 right-4 z-10 bg-background/80 hover:bg-background rounded-full p-2">
-                <X className="w-5 h-5" />
-              </DialogClose>
               <div className="relative film-grain">
                 <img
                   src={(selectedPhoto as any).fullQualityUrl}
