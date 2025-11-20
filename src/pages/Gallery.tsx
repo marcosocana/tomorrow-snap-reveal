@@ -77,11 +77,8 @@ const Gallery = () => {
       setHasMore(count ? (from + photosWithUrls.length) < count : false);
     } catch (error) {
       console.error("Error loading photos:", error);
-      toast({
-        title: "Error",
-        description: "No se pudieron cargar las fotos",
-        variant: "destructive",
-      });
+      // Silently handle errors (like 416 when reaching end of data)
+      setHasMore(false);
     } finally {
       setIsLoading(false);
     }
