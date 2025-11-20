@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       events: {
         Row: {
+          admin_password: string | null
           created_at: string
           id: string
           name: string
@@ -23,6 +24,7 @@ export type Database = {
           reveal_time: string
         }
         Insert: {
+          admin_password?: string | null
           created_at?: string
           id?: string
           name: string
@@ -30,6 +32,7 @@ export type Database = {
           reveal_time: string
         }
         Update: {
+          admin_password?: string | null
           created_at?: string
           id?: string
           name?: string

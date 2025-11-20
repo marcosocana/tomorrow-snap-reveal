@@ -17,6 +17,12 @@ const Login = () => {
     setIsLoading(true);
 
     try {
+      // Check for event management password
+      if (password === "CreateEvent01") {
+        navigate("/event-management");
+        return;
+      }
+
       // Check for admin password
       if (password === "123") {
         // Admin mode - set flag and get all events
@@ -34,6 +40,22 @@ const Login = () => {
           navigate("/gallery");
           return;
         }
+      }
+
+
+      // Check for event admin password (ver fotos antes del revelado)
+      const { data: adminEvents, error: adminError } = await supabase
+        .from("events")
+        .select("*")
+        .eq("admin_password", password)
+        .limit(1);
+
+      if (!adminError && adminEvents && adminEvents.length > 0) {
+        localStorage.setItem("eventId", adminEvents[0].id);
+        localStorage.setItem("eventName", adminEvents[0].name);
+        localStorage.setItem("isAdmin", "true");
+        navigate("/gallery");
+        return;
       }
 
       // Normal user flow
