@@ -3,11 +3,15 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Camera as CameraIcon, LogOut, Image } from "lucide-react";
+import { LogOut, Image } from "lucide-react";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
+import cameraIcon from "@/assets/camera.png";
 
 const Camera = () => {
   const [photoCount, setPhotoCount] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
+  const [revealTime, setRevealTime] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -20,8 +24,23 @@ const Camera = () => {
       return;
     }
 
+    loadEventData();
     loadPhotoCount();
   }, [eventId, navigate]);
+
+  const loadEventData = async () => {
+    if (!eventId) return;
+
+    const { data, error } = await supabase
+      .from("events")
+      .select("reveal_time")
+      .eq("id", eventId)
+      .single();
+
+    if (data && !error) {
+      setRevealTime(data.reveal_time);
+    }
+  };
 
   const loadPhotoCount = async () => {
     if (!eventId) return;
@@ -121,21 +140,25 @@ const Camera = () => {
 
       <div className="flex-1 flex flex-col items-center justify-center p-6 space-y-6">
         <div className="text-center space-y-6 animate-fade-in">
-          <div className="w-32 h-32 mx-auto bg-primary/10 flex items-center justify-center" style={{ imageRendering: 'pixelated' }}>
-            <svg width="64" height="64" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ imageRendering: 'pixelated' }}>
-              <rect x="2" y="5" width="12" height="8" fill="currentColor" className="text-primary"/>
-              <rect x="4" y="3" width="8" height="2" fill="currentColor" className="text-primary"/>
-              <rect x="7" y="7" width="2" height="2" fill="currentColor" className="text-primary/30"/>
-              <circle cx="8" cy="9" r="2" fill="currentColor" className="text-primary"/>
-              <rect x="11" y="6" width="2" height="1" fill="currentColor" className="text-primary/50"/>
-            </svg>
-          </div>
-          <div className="space-y-2">
+          <button
+            onClick={handleTakePhoto}
+            disabled={isUploading}
+            className="w-32 h-32 mx-auto bg-primary/10 flex items-center justify-center cursor-pointer transition-all hover:scale-105 disabled:opacity-50"
+            style={{ imageRendering: 'pixelated' }}
+          >
+            <img 
+              src={cameraIcon} 
+              alt="Cámara" 
+              className="w-24 h-24"
+              style={{ imageRendering: 'pixelated' }}
+            />
+          </button>
+          <div className="space-y-3">
             <h2 className="text-2xl font-bold text-foreground">
-              Captura tus momentos
+              ¡Captura la magia!
             </h2>
-            <p className="text-muted-foreground max-w-sm mx-auto">
-              Toma fotos durante el evento. Se revelarán todas juntas mañana a las 12:00
+            <p className="text-muted-foreground max-w-sm mx-auto leading-relaxed">
+              Haz todas las fotos que quieras durante el evento. {revealTime && format(new Date(revealTime), "'Mañana a las' HH:mm", { locale: es })} todas las imágenes serán reveladas para que revivas la experiencia 📸✨
             </p>
           </div>
           <Button
