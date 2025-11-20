@@ -12,6 +12,9 @@ const Camera = () => {
   const [photoCount, setPhotoCount] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [revealTime, setRevealTime] = useState<string>("");
+  const [uploadStartTime, setUploadStartTime] = useState<string>("");
+  const [uploadEndTime, setUploadEndTime] = useState<string>("");
+  const [countdown, setCountdown] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -33,14 +36,40 @@ const Camera = () => {
 
     const { data, error } = await supabase
       .from("events")
-      .select("reveal_time")
+      .select("reveal_time, upload_start_time, upload_end_time")
       .eq("id", eventId)
       .single();
 
     if (data && !error) {
       setRevealTime(data.reveal_time);
+      setUploadStartTime(data.upload_start_time || "");
+      setUploadEndTime(data.upload_end_time || "");
     }
   };
+
+  // Update countdown every second
+  useEffect(() => {
+    if (!uploadEndTime) return;
+
+    const interval = setInterval(() => {
+      const now = new Date().getTime();
+      const endTime = new Date(uploadEndTime).getTime();
+      const distance = endTime - now;
+
+      if (distance < 0) {
+        setCountdown("Evento finalizado");
+        clearInterval(interval);
+        return;
+      }
+
+      const hours = Math.floor(distance / (1000 * 60 * 60));
+      const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+
+      setCountdown(`Quedan ${hours}h ${minutes}m para subir fotos`);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [uploadEndTime]);
 
   const loadPhotoCount = async () => {
     if (!eventId) return;
@@ -54,6 +83,25 @@ const Camera = () => {
   };
 
   const handleTakePhoto = () => {
+    // Check if upload period is valid
+    const now = new Date();
+    const startTime = uploadStartTime ? new Date(uploadStartTime) : null;
+    const endTime = uploadEndTime ? new Date(uploadEndTime) : null;
+
+    if (startTime && now < startTime) {
+      toast({
+        title: "Evento no iniciado",
+        description: `El evento comienza el ${format(startTime, "dd/MM/yyyy 'a las' HH:mm", { locale: es })}`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (endTime && now > endTime) {
+      // Already handled by UI, but extra validation
+      return;
+    }
+
     fileInputRef.current?.click();
   };
 
@@ -118,6 +166,41 @@ const Camera = () => {
     navigate("/");
   };
 
+  // Check if event has ended
+  const now = new Date();
+  const endTime = uploadEndTime ? new Date(uploadEndTime) : null;
+  const hasEnded = endTime && now > endTime;
+
+  if (hasEnded) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
+        <div className="text-center space-y-6 max-w-md animate-fade-in">
+          <div className="text-6xl mb-4">📸</div>
+          <h1 className="text-3xl font-bold text-foreground">Evento finalizado</h1>
+          <p className="text-muted-foreground text-lg">
+            El período para subir fotos ha terminado.
+          </p>
+          {revealTime && (
+            <div className="bg-card border border-border rounded-lg p-6 space-y-2">
+              <p className="text-sm text-muted-foreground">Las fotos se revelarán:</p>
+              <p className="text-xl font-bold text-foreground">
+                {format(new Date(revealTime), "dd 'de' MMMM 'a las' HH:mm", { locale: es })}
+              </p>
+            </div>
+          )}
+          <Button
+            onClick={handleLogout}
+            variant="outline"
+            className="mt-4"
+          >
+            <LogOut className="w-4 h-4 mr-2" />
+            Volver al inicio
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <header className="p-4 flex justify-between items-center bg-card border-b border-border">
@@ -157,8 +240,23 @@ const Camera = () => {
             <h2 className="text-2xl font-bold text-foreground">
               ¡Captura la magia!
             </h2>
+            {uploadStartTime && uploadEndTime && (
+              <div className="bg-card border border-border rounded-lg p-4 space-y-2 max-w-sm mx-auto">
+                <p className="text-sm text-muted-foreground">
+                  <strong>Horario de subida:</strong>
+                </p>
+                <p className="text-sm text-foreground">
+                  {format(new Date(uploadStartTime), "dd/MM/yyyy HH:mm", { locale: es })} - {format(new Date(uploadEndTime), "dd/MM/yyyy HH:mm", { locale: es })}
+                </p>
+                {countdown && (
+                  <p className="text-primary font-semibold text-sm mt-2">
+                    {countdown}
+                  </p>
+                )}
+              </div>
+            )}
             <p className="text-muted-foreground max-w-sm mx-auto leading-relaxed">
-              Haz todas las fotos que quieras durante el evento. {revealTime && format(new Date(revealTime), "'Mañana a las' HH:mm", { locale: es })} todas las imágenes serán reveladas para que revivas la experiencia 📸✨
+              Haz todas las fotos que quieras durante el evento. {revealTime && format(new Date(revealTime), "'El' dd/MM/yyyy 'a las' HH:mm", { locale: es })} todas las imágenes serán reveladas para que revivas la experiencia 📸✨
             </p>
           </div>
           <Button

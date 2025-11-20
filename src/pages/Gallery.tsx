@@ -90,6 +90,9 @@ const Gallery = () => {
       return;
     }
 
+    // Always scroll to top when gallery loads
+    window.scrollTo(0, 0);
+
     // Check if this is the first visit to gallery for this event
     const hasSeenWelcome = localStorage.getItem(`gallery-welcome-${eventId}`);
     if (!hasSeenWelcome) {
