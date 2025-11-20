@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { LogOut, Film, X, Trash2 } from "lucide-react";
+import { LogOut, Film, X, Trash2, Download } from "lucide-react";
 import { Dialog, DialogContent, DialogClose } from "@/components/ui/dialog";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -111,6 +111,33 @@ const Gallery = () => {
     }
   };
 
+  const handleDownloadPhoto = async (signedUrl: string, capturedAt: string) => {
+    try {
+      const response = await fetch(signedUrl);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `foto-${format(new Date(capturedAt), "dd-MM-yyyy-HHmm")}.jpg`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      toast({
+        title: "Descargando foto",
+        description: "La foto se está descargando",
+      });
+    } catch (error) {
+      console.error("Error downloading photo:", error);
+      toast({
+        title: "Error",
+        description: "No se pudo descargar la foto",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card">
@@ -196,15 +223,26 @@ const Gallery = () => {
                   <p className="text-white text-sm uppercase tracking-wider">
                     {format(new Date(selectedPhoto.captured_at), "dd MMM yyyy - HH:mm", { locale: es })}
                   </p>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => handleDeletePhoto(selectedPhoto.id, selectedPhoto.image_url)}
-                    className="uppercase tracking-wide"
-                  >
-                    <Trash2 className="w-4 h-4 mr-2" />
-                    Eliminar
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => handleDownloadPhoto((selectedPhoto as any).signedUrl, selectedPhoto.captured_at)}
+                      className="uppercase tracking-wide"
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      Descargar
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => handleDeletePhoto(selectedPhoto.id, selectedPhoto.image_url)}
+                      className="uppercase tracking-wide"
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Eliminar
+                    </Button>
+                  </div>
                 </div>
               </div>
             </div>
