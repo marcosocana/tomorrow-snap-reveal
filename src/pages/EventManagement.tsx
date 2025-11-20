@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, ArrowLeft, Plus, Trash2 } from "lucide-react";
+import { Calendar, ArrowLeft, Plus, Trash2, Edit, Eye } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import {
@@ -31,6 +31,7 @@ const EventManagement = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [newEvent, setNewEvent] = useState({
     name: "",
     password: "",
@@ -73,19 +74,40 @@ const EventManagement = () => {
     try {
       const revealDateTime = new Date(`${newEvent.revealDate}T${newEvent.revealTime}`);
 
-      const { error } = await supabase.from("events").insert({
-        name: newEvent.name,
-        password_hash: newEvent.password,
-        admin_password: newEvent.adminPassword || null,
-        reveal_time: revealDateTime.toISOString(),
-      });
+      if (editingEvent) {
+        // Update existing event
+        const { error } = await supabase
+          .from("events")
+          .update({
+            name: newEvent.name,
+            password_hash: newEvent.password,
+            admin_password: newEvent.adminPassword || null,
+            reveal_time: revealDateTime.toISOString(),
+          })
+          .eq("id", editingEvent.id);
 
-      if (error) throw error;
+        if (error) throw error;
 
-      toast({
-        title: "Evento creado",
-        description: "El evento se creó correctamente",
-      });
+        toast({
+          title: "Evento actualizado",
+          description: "El evento se actualizó correctamente",
+        });
+      } else {
+        // Create new event
+        const { error } = await supabase.from("events").insert({
+          name: newEvent.name,
+          password_hash: newEvent.password,
+          admin_password: newEvent.adminPassword || null,
+          reveal_time: revealDateTime.toISOString(),
+        });
+
+        if (error) throw error;
+
+        toast({
+          title: "Evento creado",
+          description: "El evento se creó correctamente",
+        });
+      }
 
       setNewEvent({
         name: "",
@@ -94,17 +116,58 @@ const EventManagement = () => {
         revealDate: "",
         revealTime: "12:00",
       });
+      setEditingEvent(null);
       setIsDialogOpen(false);
       loadEvents();
     } catch (error) {
-      console.error("Error creating event:", error);
+      console.error("Error saving event:", error);
       toast({
         title: "Error",
-        description: "No se pudo crear el evento",
+        description: editingEvent ? "No se pudo actualizar el evento" : "No se pudo crear el evento",
         variant: "destructive",
       });
     } finally {
       setIsCreating(false);
+    }
+  };
+
+  const handleEditEvent = (event: Event) => {
+    const revealDate = new Date(event.reveal_time);
+    setEditingEvent(event);
+    setNewEvent({
+      name: event.name,
+      password: event.password_hash,
+      adminPassword: event.admin_password || "",
+      revealDate: format(revealDate, "yyyy-MM-dd"),
+      revealTime: format(revealDate, "HH:mm"),
+    });
+    setIsDialogOpen(true);
+  };
+
+  const handleRevealNow = async (eventId: string) => {
+    if (!confirm("¿Revelar todas las fotos ahora?")) return;
+
+    try {
+      const { error } = await supabase
+        .from("events")
+        .update({ reveal_time: new Date().toISOString() })
+        .eq("id", eventId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Fotos reveladas",
+        description: "Las fotos ya son visibles para todos",
+      });
+
+      loadEvents();
+    } catch (error) {
+      console.error("Error revealing photos:", error);
+      toast({
+        title: "Error",
+        description: "No se pudieron revelar las fotos",
+        variant: "destructive",
+      });
     }
   };
 
@@ -158,7 +221,19 @@ const EventManagement = () => {
             </h1>
           </div>
 
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <Dialog open={isDialogOpen} onOpenChange={(open) => {
+            setIsDialogOpen(open);
+            if (!open) {
+              setEditingEvent(null);
+              setNewEvent({
+                name: "",
+                password: "",
+                adminPassword: "",
+                revealDate: "",
+                revealTime: "12:00",
+              });
+            }
+          }}>
             <DialogTrigger asChild>
               <Button className="gap-2">
                 <Plus className="w-4 h-4" />
@@ -167,7 +242,9 @@ const EventManagement = () => {
             </DialogTrigger>
             <DialogContent className="max-w-md">
               <DialogHeader>
-                <DialogTitle>Crear Nuevo Evento</DialogTitle>
+                <DialogTitle>
+                  {editingEvent ? "Editar Evento" : "Crear Nuevo Evento"}
+                </DialogTitle>
               </DialogHeader>
               <form onSubmit={handleCreateEvent} className="space-y-4">
                 <div className="space-y-2">
@@ -239,7 +316,10 @@ const EventManagement = () => {
                 </div>
 
                 <Button type="submit" className="w-full" disabled={isCreating}>
-                  {isCreating ? "Creando..." : "Crear Evento"}
+                  {isCreating 
+                    ? (editingEvent ? "Actualizando..." : "Creando...") 
+                    : (editingEvent ? "Actualizar Evento" : "Crear Evento")
+                  }
                 </Button>
               </form>
             </DialogContent>
@@ -255,48 +335,84 @@ const EventManagement = () => {
           </Card>
         ) : (
           <div className="grid gap-4">
-            {events.map((event) => (
-              <Card key={event.id} className="p-6">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-2 flex-1">
-                    <h3 className="text-xl font-semibold text-foreground">
-                      {event.name}
-                    </h3>
-                    <div className="space-y-1 text-sm text-muted-foreground">
-                      <p>
-                        <span className="font-medium">Contraseña:</span>{" "}
-                        {event.password_hash}
-                      </p>
-                      {event.admin_password && (
+            {events.map((event) => {
+              const revealTime = new Date(event.reveal_time);
+              const now = new Date();
+              const isRevealed = now >= revealTime;
+
+              return (
+                <Card key={event.id} className="p-6">
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-2 flex-1">
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-xl font-semibold text-foreground">
+                          {event.name}
+                        </h3>
+                        {isRevealed && (
+                          <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">
+                            Revelado
+                          </span>
+                        )}
+                      </div>
+                      <div className="space-y-1 text-sm text-muted-foreground">
                         <p>
-                          <span className="font-medium">Contraseña admin:</span>{" "}
-                          {event.admin_password}
+                          <span className="font-medium">Contraseña:</span>{" "}
+                          {event.password_hash}
                         </p>
+                        {event.admin_password && (
+                          <p>
+                            <span className="font-medium">Contraseña admin:</span>{" "}
+                            {event.admin_password}
+                          </p>
+                        )}
+                        <p>
+                          <span className="font-medium">Fecha de revelado:</span>{" "}
+                          {format(revealTime, "PPP 'a las' HH:mm", {
+                            locale: es,
+                          })}
+                        </p>
+                        <p>
+                          <span className="font-medium">Creado:</span>{" "}
+                          {format(new Date(event.created_at), "PPP", { locale: es })}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                      {!isRevealed && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleRevealNow(event.id)}
+                          className="text-primary hover:text-primary hover:bg-primary/10"
+                          title="Revelar ahora"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </Button>
                       )}
-                      <p>
-                        <span className="font-medium">Fecha de revelado:</span>{" "}
-                        {format(new Date(event.reveal_time), "PPP 'a las' HH:mm", {
-                          locale: es,
-                        })}
-                      </p>
-                      <p>
-                        <span className="font-medium">Creado:</span>{" "}
-                        {format(new Date(event.created_at), "PPP", { locale: es })}
-                      </p>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleEditEvent(event)}
+                        className="hover:bg-muted"
+                        title="Editar evento"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDeleteEvent(event.id)}
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                        title="Eliminar evento"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
                     </div>
                   </div>
-
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleDeleteEvent(event.id)}
-                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-              </Card>
-            ))}
+                </Card>
+              );
+            })}
           </div>
         )}
       </div>
