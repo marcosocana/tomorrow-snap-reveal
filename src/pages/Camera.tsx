@@ -7,7 +7,6 @@ import { LogOut, Image } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import cameraIcon from "@/assets/camera.png";
-
 const Camera = () => {
   const [photoCount, setPhotoCount] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
@@ -17,29 +16,25 @@ const Camera = () => {
   const [countdown, setCountdown] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
-  const { toast } = useToast();
+  const {
+    toast
+  } = useToast();
   const eventId = localStorage.getItem("eventId");
   const eventName = localStorage.getItem("eventName");
-
   useEffect(() => {
     if (!eventId) {
       navigate("/");
       return;
     }
-
     loadEventData();
     loadPhotoCount();
   }, [eventId, navigate]);
-
   const loadEventData = async () => {
     if (!eventId) return;
-
-    const { data, error } = await supabase
-      .from("events")
-      .select("reveal_time, upload_start_time, upload_end_time")
-      .eq("id", eventId)
-      .single();
-
+    const {
+      data,
+      error
+    } = await supabase.from("events").select("reveal_time, upload_start_time, upload_end_time").eq("id", eventId).single();
     if (data && !error) {
       setRevealTime(data.reveal_time);
       setUploadStartTime(data.upload_start_time || "");
@@ -50,106 +45,93 @@ const Camera = () => {
   // Update countdown every second
   useEffect(() => {
     if (!uploadEndTime) return;
-
     const interval = setInterval(() => {
       const now = new Date().getTime();
       const endTime = new Date(uploadEndTime).getTime();
       const distance = endTime - now;
-
       if (distance < 0) {
         setCountdown("Evento finalizado");
         clearInterval(interval);
         return;
       }
-
       const hours = Math.floor(distance / (1000 * 60 * 60));
-      const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-
+      const minutes = Math.floor(distance % (1000 * 60 * 60) / (1000 * 60));
       setCountdown(`Quedan ${hours}h ${minutes}m para subir fotos`);
     }, 1000);
-
     return () => clearInterval(interval);
   }, [uploadEndTime]);
-
   const loadPhotoCount = async () => {
     if (!eventId) return;
-
-    const { count } = await supabase
-      .from("photos")
-      .select("*", { count: "exact", head: true })
-      .eq("event_id", eventId);
-
+    const {
+      count
+    } = await supabase.from("photos").select("*", {
+      count: "exact",
+      head: true
+    }).eq("event_id", eventId);
     setPhotoCount(count || 0);
   };
-
   const handleTakePhoto = () => {
     // Check if upload period is valid
     const now = new Date();
     const startTime = uploadStartTime ? new Date(uploadStartTime) : null;
     const endTime = uploadEndTime ? new Date(uploadEndTime) : null;
-
     if (startTime && now < startTime) {
       toast({
         title: "Evento no iniciado",
-        description: `El evento comienza el ${format(startTime, "dd/MM/yyyy 'a las' HH:mm", { locale: es })}`,
-        variant: "destructive",
+        description: `El evento comienza el ${format(startTime, "dd/MM/yyyy 'a las' HH:mm", {
+          locale: es
+        })}`,
+        variant: "destructive"
       });
       return;
     }
-
     if (endTime && now > endTime) {
       // Already handled by UI, but extra validation
       return;
     }
-
     fileInputRef.current?.click();
   };
-
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file || !eventId) return;
-
     setIsUploading(true);
-
     try {
       const fileName = `${eventId}/${Date.now()}.jpg`;
 
       // Upload to storage
-      const { error: uploadError } = await supabase.storage
-        .from("event-photos")
-        .upload(fileName, file);
-
+      const {
+        error: uploadError
+      } = await supabase.storage.from("event-photos").upload(fileName, file);
       if (uploadError) {
         toast({
           title: "Error",
           description: "No se pudo guardar la foto",
-          variant: "destructive",
+          variant: "destructive"
         });
         return;
       }
 
       // Save photo record
-      const { error: dbError } = await supabase.from("photos").insert({
+      const {
+        error: dbError
+      } = await supabase.from("photos").insert({
         event_id: eventId,
-        image_url: fileName,
+        image_url: fileName
       });
-
       if (dbError) {
         console.error("Error saving photo record:", dbError);
       }
-
-      setPhotoCount((prev) => prev + 1);
-      
+      setPhotoCount(prev => prev + 1);
       toast({
         title: "¡Foto capturada!",
-        description: "Se revelará mañana junto con las demás",
+        description: "Se revelará mañana junto con las demás"
       });
     } catch (error) {
       console.error("Error uploading photo:", error);
       toast({
         title: "Error",
         description: "No se pudo guardar la foto",
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setIsUploading(false);
@@ -159,7 +141,6 @@ const Camera = () => {
       }
     }
   };
-
   const handleLogout = () => {
     localStorage.removeItem("eventId");
     localStorage.removeItem("eventName");
@@ -170,39 +151,30 @@ const Camera = () => {
   const now = new Date();
   const endTime = uploadEndTime ? new Date(uploadEndTime) : null;
   const hasEnded = endTime && now > endTime;
-
   if (hasEnded) {
-    return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
+    return <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
         <div className="text-center space-y-6 max-w-md animate-fade-in">
           <div className="text-6xl mb-4">📸</div>
           <h1 className="text-3xl font-bold text-foreground">Evento finalizado</h1>
           <p className="text-muted-foreground text-lg">
             El período para subir fotos ha terminado.
           </p>
-          {revealTime && (
-            <div className="bg-card border border-border rounded-lg p-6 space-y-2">
+          {revealTime && <div className="bg-card border border-border rounded-lg p-6 space-y-2">
               <p className="text-sm text-muted-foreground">Las fotos se revelarán:</p>
               <p className="text-xl font-bold text-foreground">
-                {format(new Date(revealTime), "dd 'de' MMMM 'a las' HH:mm", { locale: es })}
+                {format(new Date(revealTime), "dd 'de' MMMM 'a las' HH:mm", {
+              locale: es
+            })}
               </p>
-            </div>
-          )}
-          <Button
-            onClick={handleLogout}
-            variant="outline"
-            className="mt-4"
-          >
+            </div>}
+          <Button onClick={handleLogout} variant="outline" className="mt-4">
             <LogOut className="w-4 h-4 mr-2" />
             Volver al inicio
           </Button>
         </div>
-      </div>
-    );
+      </div>;
   }
-
-  return (
-    <div className="min-h-screen bg-background flex flex-col">
+  return <div className="min-h-screen bg-background flex flex-col">
       <header className="p-4 flex justify-between items-center bg-card border-b border-border">
         <div>
           <h1 className="text-xl font-bold text-foreground">{eventName}</h1>
@@ -211,74 +183,52 @@ const Camera = () => {
             Ya hay {photoCount} fotos subidas
           </p>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={handleLogout}
-          className="text-muted-foreground hover:text-foreground"
-        >
+        <Button variant="ghost" size="icon" onClick={handleLogout} className="text-muted-foreground hover:text-foreground">
           <LogOut className="w-5 h-5" />
         </Button>
       </header>
 
       <div className="flex-1 flex flex-col items-center justify-center p-6 space-y-6">
         <div className="text-center space-y-6 animate-fade-in">
-          <button
-            onClick={handleTakePhoto}
-            disabled={isUploading}
-            className="w-48 h-48 mx-auto bg-primary/10 flex items-center justify-center cursor-pointer transition-all hover:scale-105 disabled:opacity-50 p-4"
-            style={{ imageRendering: 'pixelated' }}
-          >
-            <img 
-              src={cameraIcon} 
-              alt="Cámara" 
-              className="w-full h-full"
-              style={{ imageRendering: 'pixelated' }}
-            />
+          <button onClick={handleTakePhoto} disabled={isUploading} className="w-48 h-48 mx-auto bg-primary/10 flex items-center justify-center cursor-pointer transition-all hover:scale-105 disabled:opacity-50 p-4" style={{
+          imageRendering: 'pixelated'
+        }}>
+            <img src={cameraIcon} alt="Cámara" style={{
+            imageRendering: 'pixelated'
+          }} className="w-full h-full object-contain" />
           </button>
           <div className="space-y-3">
             <h2 className="text-2xl font-bold text-foreground">
               ¡Captura la magia!
             </h2>
-            {uploadStartTime && uploadEndTime && (
-              <div className="bg-card border border-border rounded-lg p-4 space-y-2 max-w-sm mx-auto">
+            {uploadStartTime && uploadEndTime && <div className="bg-card border border-border rounded-lg p-4 space-y-2 max-w-sm mx-auto">
                 <p className="text-sm text-muted-foreground">
                   <strong>Horario de subida:</strong>
                 </p>
                 <p className="text-sm text-foreground">
-                  {format(new Date(uploadStartTime), "dd/MM/yyyy HH:mm", { locale: es })} - {format(new Date(uploadEndTime), "dd/MM/yyyy HH:mm", { locale: es })}
+                  {format(new Date(uploadStartTime), "dd/MM/yyyy HH:mm", {
+                locale: es
+              })} - {format(new Date(uploadEndTime), "dd/MM/yyyy HH:mm", {
+                locale: es
+              })}
                 </p>
-                {countdown && (
-                  <p className="text-primary font-semibold text-sm mt-2">
+                {countdown && <p className="text-primary font-semibold text-sm mt-2">
                     {countdown}
-                  </p>
-                )}
-              </div>
-            )}
+                  </p>}
+              </div>}
             <p className="text-muted-foreground max-w-sm mx-auto leading-relaxed">
-              Haz todas las fotos que quieras durante el evento. {revealTime && format(new Date(revealTime), "'El' dd/MM/yyyy 'a las' HH:mm", { locale: es })} todas las imágenes serán reveladas para que revivas la experiencia 📸✨
+              Haz todas las fotos que quieras durante el evento. {revealTime && format(new Date(revealTime), "'El' dd/MM/yyyy 'a las' HH:mm", {
+              locale: es
+            })} todas las imágenes serán reveladas para que revivas la experiencia 📸✨
             </p>
           </div>
-          <Button
-            onClick={handleTakePhoto}
-            disabled={isUploading}
-            className="h-16 px-8 text-lg bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-full transition-all hover:scale-105 disabled:opacity-50"
-          >
+          <Button onClick={handleTakePhoto} disabled={isUploading} className="h-16 px-8 text-lg bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-full transition-all hover:scale-105 disabled:opacity-50">
             {isUploading ? "Subiendo..." : "Hacer foto"}
           </Button>
         </div>
       </div>
 
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        onChange={handleFileChange}
-        className="hidden"
-      />
-    </div>
-  );
+      <input ref={fileInputRef} type="file" accept="image/*" capture="environment" onChange={handleFileChange} className="hidden" />
+    </div>;
 };
-
 export default Camera;
