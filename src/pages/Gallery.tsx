@@ -158,11 +158,11 @@ const Gallery = () => {
                   className="group relative bg-muted cursor-pointer"
                   onClick={() => setSelectedPhoto(photo)}
                 >
-                  <div className="aspect-square overflow-hidden bg-muted">
+                  <div className="aspect-square overflow-hidden bg-muted relative film-grain">
                     <img
                       src={(photo as any).signedUrl}
                       alt="Foto del evento"
-                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 retro-filter"
                     />
                   </div>
                   <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-4 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -184,11 +184,13 @@ const Gallery = () => {
               <DialogClose className="absolute top-4 right-4 z-10 bg-background/80 hover:bg-background rounded-full p-2">
                 <X className="w-5 h-5" />
               </DialogClose>
-              <img
-                src={(selectedPhoto as any).signedUrl}
-                alt="Foto ampliada"
-                className="w-full h-auto max-h-[85vh] object-contain"
-              />
+              <div className="relative film-grain">
+                <img
+                  src={(selectedPhoto as any).signedUrl}
+                  alt="Foto ampliada"
+                  className="w-full h-auto max-h-[85vh] object-contain retro-filter"
+                />
+              </div>
               <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-6">
                 <div className="flex justify-between items-center">
                   <p className="text-white text-sm uppercase tracking-wider">
