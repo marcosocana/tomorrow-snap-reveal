@@ -269,7 +269,12 @@ const Gallery = () => {
                         src={(photo as any).thumbnailUrl}
                         alt="Foto del evento"
                         className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 retro-filter"
+                        loading="lazy"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                        }}
                       />
+                      <div className="absolute inset-0 bg-muted animate-pulse" style={{ zIndex: -1 }} />
                     </div>
                     <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-4 opacity-0 group-hover:opacity-100 transition-opacity">
                       <p className="text-white text-xs uppercase tracking-wider">
@@ -325,6 +330,9 @@ const Gallery = () => {
                   src={(selectedPhoto as any).fullQualityUrl}
                   alt="Foto ampliada"
                   className="w-full h-auto max-h-[70vh] object-contain retro-filter rounded-lg"
+                  onError={(e) => {
+                    e.currentTarget.src = (selectedPhoto as any).thumbnailUrl;
+                  }}
                 />
               </div>
               <div className="bg-muted/50 rounded-lg p-4 space-y-3">
