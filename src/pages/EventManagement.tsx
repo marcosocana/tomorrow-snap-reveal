@@ -23,6 +23,8 @@ interface Event {
   password_hash: string;
   admin_password: string | null;
   reveal_time: string;
+  upload_start_time: string | null;
+  upload_end_time: string | null;
   created_at: string;
 }
 
@@ -36,6 +38,10 @@ const EventManagement = () => {
     name: "",
     password: "",
     adminPassword: "",
+    uploadStartDate: "",
+    uploadStartTime: "00:00",
+    uploadEndDate: "",
+    uploadEndTime: "23:59",
     revealDate: "",
     revealTime: "12:00",
   });
@@ -72,6 +78,8 @@ const EventManagement = () => {
     setIsCreating(true);
 
     try {
+      const uploadStartDateTime = new Date(`${newEvent.uploadStartDate}T${newEvent.uploadStartTime}`);
+      const uploadEndDateTime = new Date(`${newEvent.uploadEndDate}T${newEvent.uploadEndTime}`);
       const revealDateTime = new Date(`${newEvent.revealDate}T${newEvent.revealTime}`);
 
       if (editingEvent) {
@@ -82,6 +90,8 @@ const EventManagement = () => {
             name: newEvent.name,
             password_hash: newEvent.password,
             admin_password: newEvent.adminPassword || null,
+            upload_start_time: uploadStartDateTime.toISOString(),
+            upload_end_time: uploadEndDateTime.toISOString(),
             reveal_time: revealDateTime.toISOString(),
           })
           .eq("id", editingEvent.id);
@@ -98,6 +108,8 @@ const EventManagement = () => {
           name: newEvent.name,
           password_hash: newEvent.password,
           admin_password: newEvent.adminPassword || null,
+          upload_start_time: uploadStartDateTime.toISOString(),
+          upload_end_time: uploadEndDateTime.toISOString(),
           reveal_time: revealDateTime.toISOString(),
         });
 
@@ -113,6 +125,10 @@ const EventManagement = () => {
         name: "",
         password: "",
         adminPassword: "",
+        uploadStartDate: "",
+        uploadStartTime: "00:00",
+        uploadEndDate: "",
+        uploadEndTime: "23:59",
         revealDate: "",
         revealTime: "12:00",
       });
@@ -132,12 +148,18 @@ const EventManagement = () => {
   };
 
   const handleEditEvent = (event: Event) => {
+    const uploadStartDate = event.upload_start_time ? new Date(event.upload_start_time) : new Date();
+    const uploadEndDate = event.upload_end_time ? new Date(event.upload_end_time) : new Date();
     const revealDate = new Date(event.reveal_time);
     setEditingEvent(event);
     setNewEvent({
       name: event.name,
       password: event.password_hash,
       adminPassword: event.admin_password || "",
+      uploadStartDate: format(uploadStartDate, "yyyy-MM-dd"),
+      uploadStartTime: format(uploadStartDate, "HH:mm"),
+      uploadEndDate: format(uploadEndDate, "yyyy-MM-dd"),
+      uploadEndTime: format(uploadEndDate, "HH:mm"),
       revealDate: format(revealDate, "yyyy-MM-dd"),
       revealTime: format(revealDate, "HH:mm"),
     });
@@ -229,6 +251,10 @@ const EventManagement = () => {
                 name: "",
                 password: "",
                 adminPassword: "",
+                uploadStartDate: "",
+                uploadStartTime: "00:00",
+                uploadEndDate: "",
+                uploadEndTime: "23:59",
                 revealDate: "",
                 revealTime: "12:00",
               });
@@ -287,31 +313,91 @@ const EventManagement = () => {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="revealDate">Fecha de revelado</Label>
-                    <Input
-                      id="revealDate"
-                      type="date"
-                      value={newEvent.revealDate}
-                      onChange={(e) =>
-                        setNewEvent({ ...newEvent, revealDate: e.target.value })
-                      }
-                      required
-                    />
-                  </div>
+                <div className="space-y-2">
+                  <Label className="text-base font-semibold">Período de subida de fotos</Label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="uploadStartDate">Fecha inicio</Label>
+                      <Input
+                        id="uploadStartDate"
+                        type="date"
+                        value={newEvent.uploadStartDate}
+                        onChange={(e) =>
+                          setNewEvent({ ...newEvent, uploadStartDate: e.target.value })
+                        }
+                        required
+                      />
+                    </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="revealTime">Hora</Label>
-                    <Input
-                      id="revealTime"
-                      type="time"
-                      value={newEvent.revealTime}
-                      onChange={(e) =>
-                        setNewEvent({ ...newEvent, revealTime: e.target.value })
-                      }
-                      required
-                    />
+                    <div className="space-y-2">
+                      <Label htmlFor="uploadStartTime">Hora inicio</Label>
+                      <Input
+                        id="uploadStartTime"
+                        type="time"
+                        value={newEvent.uploadStartTime}
+                        onChange={(e) =>
+                          setNewEvent({ ...newEvent, uploadStartTime: e.target.value })
+                        }
+                        required
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="uploadEndDate">Fecha fin</Label>
+                      <Input
+                        id="uploadEndDate"
+                        type="date"
+                        value={newEvent.uploadEndDate}
+                        onChange={(e) =>
+                          setNewEvent({ ...newEvent, uploadEndDate: e.target.value })
+                        }
+                        required
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="uploadEndTime">Hora fin</Label>
+                      <Input
+                        id="uploadEndTime"
+                        type="time"
+                        value={newEvent.uploadEndTime}
+                        onChange={(e) =>
+                          setNewEvent({ ...newEvent, uploadEndTime: e.target.value })
+                        }
+                        required
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-base font-semibold">Fecha de revelado</Label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="revealDate">Fecha</Label>
+                      <Input
+                        id="revealDate"
+                        type="date"
+                        value={newEvent.revealDate}
+                        onChange={(e) =>
+                          setNewEvent({ ...newEvent, revealDate: e.target.value })
+                        }
+                        required
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="revealTime">Hora</Label>
+                      <Input
+                        id="revealTime"
+                        type="time"
+                        value={newEvent.revealTime}
+                        onChange={(e) =>
+                          setNewEvent({ ...newEvent, revealTime: e.target.value })
+                        }
+                        required
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -363,6 +449,12 @@ const EventManagement = () => {
                           <p>
                             <span className="font-medium">Contraseña admin:</span>{" "}
                             {event.admin_password}
+                          </p>
+                        )}
+                        {event.upload_start_time && event.upload_end_time && (
+                          <p>
+                            <span className="font-medium">Período de subida:</span>{" "}
+                            {format(new Date(event.upload_start_time), "dd/MM/yyyy HH:mm", { locale: es })} - {format(new Date(event.upload_end_time), "dd/MM/yyyy HH:mm", { locale: es })}
                           </p>
                         )}
                         <p>

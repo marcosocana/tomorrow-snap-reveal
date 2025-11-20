@@ -22,6 +22,8 @@ export type Database = {
           name: string
           password_hash: string
           reveal_time: string
+          upload_end_time: string | null
+          upload_start_time: string | null
         }
         Insert: {
           admin_password?: string | null
@@ -30,6 +32,8 @@ export type Database = {
           name: string
           password_hash: string
           reveal_time: string
+          upload_end_time?: string | null
+          upload_start_time?: string | null
         }
         Update: {
           admin_password?: string | null
@@ -38,6 +42,8 @@ export type Database = {
           name?: string
           password_hash?: string
           reveal_time?: string
+          upload_end_time?: string | null
+          upload_start_time?: string | null
         }
         Relationships: []
       }
