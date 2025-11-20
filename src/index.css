@@ -55,7 +55,7 @@ All colors MUST be HSL.
 
 @layer components {
   .retro-filter {
-    filter: contrast(1.1) saturate(0.85) brightness(1.05) sepia(0.15);
+    filter: contrast(1.15) saturate(0.75) brightness(1.05) sepia(0.35) hue-rotate(-5deg);
     position: relative;
   }
   
@@ -66,8 +66,9 @@ All colors MUST be HSL.
     left: 0;
     right: 0;
     bottom: 0;
-    background: radial-gradient(circle, transparent 50%, rgba(0, 0, 0, 0.3) 100%);
+    background: radial-gradient(circle, transparent 40%, rgba(0, 0, 0, 0.4) 100%);
     pointer-events: none;
+    mix-blend-mode: multiply;
   }
   
   .film-grain {
