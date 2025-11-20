@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,15 +17,75 @@ interface Photo {
   fullQualityUrl?: string;
 }
 
+const PHOTOS_PER_PAGE = 12;
+
 const Gallery = () => {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasMore, setHasMore] = useState(true);
+  const [page, setPage] = useState(0);
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
   const [showWelcome, setShowWelcome] = useState(false);
+  const observerTarget = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
   const eventId = localStorage.getItem("eventId");
   const eventName = localStorage.getItem("eventName");
+
+  const loadPhotos = useCallback(async (pageNum: number) => {
+    if (!eventId) return;
+
+    try {
+      const from = pageNum * PHOTOS_PER_PAGE;
+      const to = from + PHOTOS_PER_PAGE - 1;
+
+      const { data, error, count } = await supabase
+        .from("photos")
+        .select("*", { count: 'exact' })
+        .eq("event_id", eventId)
+        .order("captured_at", { ascending: true })
+        .range(from, to);
+
+      if (error) throw error;
+
+      // Get signed URLs for thumbnails and full quality
+      const photosWithUrls = await Promise.all(
+        (data || []).map(async (photo) => {
+          const { data: thumbnailData } = await supabase.storage
+            .from("event-photos")
+            .createSignedUrl(photo.image_url, 3600, {
+              transform: {
+                width: 400,
+                height: 400,
+                quality: 60
+              }
+            });
+
+          const { data: fullQualityData } = await supabase.storage
+            .from("event-photos")
+            .createSignedUrl(photo.image_url, 3600);
+
+          return {
+            ...photo,
+            thumbnailUrl: thumbnailData?.signedUrl || "",
+            fullQualityUrl: fullQualityData?.signedUrl || "",
+          };
+        })
+      );
+
+      setPhotos(prev => pageNum === 0 ? photosWithUrls as any : [...prev, ...photosWithUrls as any]);
+      setHasMore(count ? (from + photosWithUrls.length) < count : false);
+    } catch (error) {
+      console.error("Error loading photos:", error);
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar las fotos",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [eventId, toast]);
 
   useEffect(() => {
     if (!eventId) {
@@ -66,58 +126,28 @@ const Gallery = () => {
       frame();
     }
 
-    loadPhotos();
-  }, [eventId, navigate]);
+    loadPhotos(0);
+  }, [eventId, navigate, loadPhotos]);
 
-  const loadPhotos = async () => {
-    if (!eventId) return;
+  // Infinite scroll observer
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !isLoading) {
+          const nextPage = page + 1;
+          setPage(nextPage);
+          loadPhotos(nextPage);
+        }
+      },
+      { threshold: 0.1 }
+    );
 
-    try {
-      const { data, error } = await supabase
-        .from("photos")
-        .select("*")
-        .eq("event_id", eventId)
-        .order("captured_at", { ascending: true });
-
-      if (error) throw error;
-
-      // Get signed URLs for thumbnails and full quality
-      const photosWithUrls = await Promise.all(
-        (data || []).map(async (photo) => {
-          const { data: thumbnailData } = await supabase.storage
-            .from("event-photos")
-            .createSignedUrl(photo.image_url, 3600, {
-              transform: {
-                width: 400,
-                height: 400,
-                quality: 60
-              }
-            });
-
-          const { data: fullQualityData } = await supabase.storage
-            .from("event-photos")
-            .createSignedUrl(photo.image_url, 3600);
-
-          return {
-            ...photo,
-            thumbnailUrl: thumbnailData?.signedUrl || "",
-            fullQualityUrl: fullQualityData?.signedUrl || "",
-          };
-        })
-      );
-
-      setPhotos(photosWithUrls as any);
-    } catch (error) {
-      console.error("Error loading photos:", error);
-      toast({
-        title: "Error",
-        description: "No se pudieron cargar las fotos",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
+    if (observerTarget.current) {
+      observer.observe(observerTarget.current);
     }
-  };
+
+    return () => observer.disconnect();
+  }, [hasMore, isLoading, page, loadPhotos]);
 
   const handleLogout = () => {
     localStorage.removeItem("eventId");
@@ -226,28 +256,37 @@ const Gallery = () => {
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {photos.map((photo) => (
-                <div
-                  key={photo.id}
-                  className="group relative bg-muted cursor-pointer"
-                  onClick={() => setSelectedPhoto(photo)}
-                >
-                  <div className="aspect-square overflow-hidden bg-muted relative film-grain">
-                    <img
-                      src={(photo as any).thumbnailUrl}
-                      alt="Foto del evento"
-                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 retro-filter"
-                    />
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                {photos.map((photo) => (
+                  <div
+                    key={photo.id}
+                    className="group relative bg-muted cursor-pointer"
+                    onClick={() => setSelectedPhoto(photo)}
+                  >
+                    <div className="aspect-square overflow-hidden bg-muted relative film-grain">
+                      <img
+                        src={(photo as any).thumbnailUrl}
+                        alt="Foto del evento"
+                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 retro-filter"
+                      />
+                    </div>
+                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <p className="text-white text-xs uppercase tracking-wider">
+                        {format(new Date(photo.captured_at), "HH:mm", { locale: es })}
+                      </p>
+                    </div>
                   </div>
-                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <p className="text-white text-xs uppercase tracking-wider">
-                      {format(new Date(photo.captured_at), "HH:mm", { locale: es })}
-                    </p>
-                  </div>
+                ))}
+              </div>
+              {hasMore && (
+                <div ref={observerTarget} className="flex justify-center py-8">
+                  <p className="text-muted-foreground uppercase tracking-wide text-sm">
+                    Cargando más fotos...
+                  </p>
                 </div>
-              ))}
-            </div>
+              )}
+            </>
           )}
         </div>
       </main>
