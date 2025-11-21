@@ -98,9 +98,9 @@ const Camera = () => {
 
       let dateLabel = "";
       if (endDate.getTime() === today.getTime()) {
-        dateLabel = "Hoy";
+        dateLabel = "hoy";
       } else if (endDate.getTime() === tomorrow.getTime()) {
-        dateLabel = "Mañana";
+        dateLabel = "mañana";
       } else {
         dateLabel = `el día ${format(endTime, "dd/MM/yyyy", { locale: es })}`;
       }
@@ -108,7 +108,7 @@ const Camera = () => {
       const formattedTime = format(endTime, "HH:mm", { locale: es });
 
       setCountdown(
-        `Puedes subir fotos hasta ${dateLabel} a las ${formattedTime} horas. Solo quedan ${hours} horas, ${minutes} minutos y ${seconds} segundos`
+        `Puedes subir todas las fotos que quieras hasta ${dateLabel} a las ${formattedTime} horas. ¡Solo quedan ${hours} horas, ${minutes} minutos y ${seconds} segundos!`
       );
     }, 1000);
     return () => clearInterval(interval);
@@ -273,9 +273,30 @@ const Camera = () => {
               </div>
             )}
             <p className="text-muted-foreground max-w-sm mx-auto leading-relaxed">
-              Haz todas las fotos que quieras durante el evento. {revealTime && format(new Date(revealTime), "'El' dd/MM/yyyy 'a las' HH:mm", {
-              locale: es
-            })} todas las imágenes serán reveladas para que revivas la experiencia 📸✨
+              {revealTime && (
+                <>
+                  {(() => {
+                    const reveal = new Date(revealTime);
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    const tomorrow = new Date(today);
+                    tomorrow.setDate(tomorrow.getDate() + 1);
+                    const revealDate = new Date(reveal);
+                    revealDate.setHours(0, 0, 0, 0);
+
+                    let dateLabel = "";
+                    if (revealDate.getTime() === today.getTime()) {
+                      dateLabel = "Hoy";
+                    } else if (revealDate.getTime() === tomorrow.getTime()) {
+                      dateLabel = "Mañana";
+                    } else {
+                      dateLabel = format(reveal, "dd/MM/yyyy", { locale: es });
+                    }
+
+                    return `${dateLabel} a las ${format(reveal, "HH:mm", { locale: es })} todas las imágenes serán reveladas para que revivas la experiencia 📸✨`;
+                  })()}
+                </>
+              )}
             </p>
           </div>
           <Button onClick={handleTakePhoto} disabled={isUploading} className="h-16 px-8 text-lg bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-full transition-all hover:scale-105 disabled:opacity-50">
