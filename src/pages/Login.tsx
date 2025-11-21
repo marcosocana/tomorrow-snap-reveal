@@ -42,19 +42,27 @@ const Login = () => {
         }
       }
 
+      // Check if password ends with "x2" for bulk upload mode
+      const isBulkMode = password.endsWith("x2");
+      const actualPassword = isBulkMode ? password.slice(0, -2) : password;
 
       // Check for event admin password (ver fotos antes del revelado)
       const { data: adminEvents, error: adminError } = await supabase
         .from("events")
         .select("*")
-        .eq("admin_password", password)
+        .eq("admin_password", actualPassword)
         .limit(1);
 
       if (!adminError && adminEvents && adminEvents.length > 0) {
         localStorage.setItem("eventId", adminEvents[0].id);
         localStorage.setItem("eventName", adminEvents[0].name);
         localStorage.setItem("isAdmin", "true");
-        navigate("/gallery");
+        if (isBulkMode) {
+          localStorage.setItem("bulkUploadMode", "true");
+          navigate("/bulk-upload");
+        } else {
+          navigate("/gallery");
+        }
         return;
       }
 
@@ -62,7 +70,7 @@ const Login = () => {
       const { data: events, error } = await supabase
         .from("events")
         .select("*")
-        .eq("password_hash", password)
+        .eq("password_hash", actualPassword)
         .limit(1);
 
       if (error) throw error;
@@ -72,6 +80,12 @@ const Login = () => {
         localStorage.setItem("eventId", events[0].id);
         localStorage.setItem("eventName", events[0].name);
         localStorage.removeItem("isAdmin");
+        
+        if (isBulkMode) {
+          localStorage.setItem("bulkUploadMode", "true");
+          navigate("/bulk-upload");
+          return;
+        }
         
         // Check if reveal time has passed
         const revealTime = new Date(events[0].reveal_time);
