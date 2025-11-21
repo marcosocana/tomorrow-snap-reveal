@@ -540,7 +540,7 @@ const Gallery = () => {
                     Descargar
                   </Button>
                   <Button
-                    variant="destructive"
+                    variant="secondary"
                     size="sm"
                     onClick={() => handleDeletePhoto(selectedPhoto.id, selectedPhoto.image_url)}
                     className="uppercase tracking-wide flex-1"

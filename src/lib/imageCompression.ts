@@ -49,7 +49,13 @@ export const compressImage = async (
 
         ctx.drawImage(img, 0, 0, width, height);
 
-        // Try different quality levels to get under the size limit
+        // Binary search to find optimal quality for target size
+        let minQuality = 0.1;
+        let maxQuality = 0.95;
+        let bestBlob: Blob | null = null;
+        let attempts = 0;
+        const maxAttempts = 8;
+
         const tryCompress = (quality: number) => {
           canvas.toBlob(
             (blob) => {
@@ -58,27 +64,50 @@ export const compressImage = async (
                 return;
               }
 
-              // If still too large and quality can be reduced further, try again
-              if (blob.size > maxSizeInBytes && quality > 0.1) {
-                tryCompress(quality - 0.1);
-                return;
+              attempts++;
+
+              // If this is closer to target without exceeding, save it
+              if (blob.size <= maxSizeInBytes) {
+                if (!bestBlob || blob.size > bestBlob.size) {
+                  bestBlob = blob;
+                }
               }
 
-              // Create file from blob
-              const compressedFile = new File([blob], file.name, {
-                type: "image/jpeg",
-                lastModified: Date.now(),
-              });
-
-              resolve(compressedFile);
+              // Binary search to get as close to 1MB as possible
+              if (attempts < maxAttempts) {
+                if (blob.size > maxSizeInBytes) {
+                  // Too large, reduce quality
+                  maxQuality = quality;
+                  tryCompress((minQuality + quality) / 2);
+                } else if (blob.size < maxSizeInBytes * 0.85) {
+                  // Too small (less than 85% of target), increase quality
+                  minQuality = quality;
+                  tryCompress((quality + maxQuality) / 2);
+                } else {
+                  // Close enough to target (85-100% of 1MB)
+                  const compressedFile = new File([blob], file.name, {
+                    type: "image/jpeg",
+                    lastModified: Date.now(),
+                  });
+                  resolve(compressedFile);
+                }
+              } else {
+                // Max attempts reached, use best result
+                const finalBlob = bestBlob || blob;
+                const compressedFile = new File([finalBlob], file.name, {
+                  type: "image/jpeg",
+                  lastModified: Date.now(),
+                });
+                resolve(compressedFile);
+              }
             },
             "image/jpeg",
             quality
           );
         };
 
-        // Start with 0.9 quality
-        tryCompress(0.9);
+        // Start with 0.85 quality
+        tryCompress(0.85);
       };
       img.onerror = () => reject(new Error("Could not load image"));
     };
