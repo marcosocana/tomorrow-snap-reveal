@@ -8,6 +8,7 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import cameraIcon from "@/assets/camera.png";
 import prohibidoIcon from "@/assets/prohibido.png";
+import { compressImage } from "@/lib/imageCompression";
 const Camera = () => {
   const [photoCount, setPhotoCount] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
@@ -140,12 +141,15 @@ const Camera = () => {
     if (!file || !eventId) return;
     setIsUploading(true);
     try {
+      // Compress image to max 1MB
+      const compressedFile = await compressImage(file, 1);
+      
       const fileName = `${eventId}/${Date.now()}.jpg`;
 
       // Upload to storage
       const {
         error: uploadError
-      } = await supabase.storage.from("event-photos").upload(fileName, file);
+      } = await supabase.storage.from("event-photos").upload(fileName, compressedFile);
       if (uploadError) {
         toast({
           title: "Error",
