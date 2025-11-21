@@ -7,7 +7,7 @@ import { LogOut, Image } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import cameraIcon from "@/assets/camera.png";
-import logoRevelao from "@/assets/logo-revelao.png";
+import prohibidoIcon from "@/assets/prohibido.png";
 const Camera = () => {
   const [photoCount, setPhotoCount] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
@@ -211,7 +211,7 @@ const Camera = () => {
         <div className="w-24 h-24 mx-auto bg-primary/10 flex items-center justify-center p-2 mb-4" style={{
           imageRendering: 'pixelated'
         }}>
-          <img src={logoRevelao} alt="Logo Revelao" style={{
+          <img src={prohibidoIcon} alt="Cámara prohibida" style={{
             imageRendering: 'pixelated'
           }} className="w-full h-full object-contain" />
         </div>
