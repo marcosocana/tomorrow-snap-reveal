@@ -1,0 +1,23 @@
+{
+  "name": "Revelao.cam - Captura hoy, revela mañana",
+  "short_name": "Revelao",
+  "description": "Una experiencia fotográfica nostálgica tipo cámara desechable",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FFF8F0",
+  "theme_color": "#D2691E",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
