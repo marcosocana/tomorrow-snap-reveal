@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { LogOut, Film, X, Trash2, Download } from "lucide-react";
+import { LogOut, Film, X, Trash2, Download, Heart } from "lucide-react";
 import { Dialog, DialogContent, DialogClose } from "@/components/ui/dialog";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -15,6 +15,8 @@ interface Photo {
   captured_at: string;
   thumbnailUrl?: string;
   fullQualityUrl?: string;
+  likeCount?: number;
+  hasLiked?: boolean;
 }
 
 const PHOTOS_PER_PAGE = 12;
@@ -49,6 +51,21 @@ const Gallery = () => {
 
       if (error) throw error;
 
+      // Get like counts for each photo
+      const photoIds = (data || []).map(p => p.id);
+      const { data: likesData } = await supabase
+        .from("photo_likes")
+        .select("photo_id")
+        .in("photo_id", photoIds);
+
+      const likeCounts = (likesData || []).reduce((acc: any, like: any) => {
+        acc[like.photo_id] = (acc[like.photo_id] || 0) + 1;
+        return acc;
+      }, {});
+
+      // Check which photos current user has liked
+      const likedPhotos = JSON.parse(localStorage.getItem("likedPhotos") || "[]");
+
       // Get signed URLs for thumbnails and full quality
       const photosWithUrls = await Promise.all(
         (data || []).map(async (photo) => {
@@ -70,6 +87,8 @@ const Gallery = () => {
             ...photo,
             thumbnailUrl: thumbnailData?.signedUrl || "",
             fullQualityUrl: fullQualityData?.signedUrl || "",
+            likeCount: likeCounts[photo.id] || 0,
+            hasLiked: likedPhotos.includes(photo.id),
           };
         })
       );
@@ -195,6 +214,36 @@ const Gallery = () => {
     }
   };
 
+  const handleLikePhoto = async (photoId: string) => {
+    try {
+      // Check if already liked
+      const likedPhotos = JSON.parse(localStorage.getItem("likedPhotos") || "[]");
+      if (likedPhotos.includes(photoId)) {
+        return; // Already liked, do nothing
+      }
+
+      // Add like to database
+      const { error } = await supabase
+        .from("photo_likes")
+        .insert({ photo_id: photoId });
+
+      if (error) throw error;
+
+      // Update localStorage
+      likedPhotos.push(photoId);
+      localStorage.setItem("likedPhotos", JSON.stringify(likedPhotos));
+
+      // Update UI
+      setPhotos(photos.map(p => 
+        p.id === photoId 
+          ? { ...p, likeCount: (p.likeCount || 0) + 1, hasLiked: true }
+          : p
+      ));
+    } catch (error) {
+      console.error("Error liking photo:", error);
+    }
+  };
+
   const handleDownloadPhoto = async (signedUrl: string, capturedAt: string) => {
     try {
       const response = await fetch(signedUrl);
@@ -267,10 +316,12 @@ const Gallery = () => {
                 {photos.map((photo) => (
                   <div
                     key={photo.id}
-                    className="group relative bg-muted cursor-pointer"
-                    onClick={() => setSelectedPhoto(photo)}
+                    className="group relative bg-muted"
                   >
-                    <div className="aspect-square overflow-hidden bg-muted relative film-grain">
+                    <div 
+                      className="aspect-square overflow-hidden bg-muted relative film-grain cursor-pointer"
+                      onClick={() => setSelectedPhoto(photo)}
+                    >
                       <img
                         src={(photo as any).thumbnailUrl}
                         alt="Foto del evento"
@@ -282,10 +333,37 @@ const Gallery = () => {
                       />
                       <div className="absolute inset-0 bg-muted animate-pulse" style={{ zIndex: -1 }} />
                     </div>
-                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3">
+                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3 pointer-events-none">
                       <p className="text-white text-xs uppercase tracking-wider font-medium">
                         {format(new Date(photo.captured_at), "dd/MM/yyyy HH:mm", { locale: es })}
                       </p>
+                    </div>
+                    
+                    {/* Like button and popularity bar */}
+                    <div className="p-3 space-y-2">
+                      <button
+                        onClick={() => handleLikePhoto(photo.id)}
+                        disabled={photo.hasLiked}
+                        className={`flex items-center gap-2 transition-colors ${
+                          photo.hasLiked 
+                            ? 'text-primary cursor-default' 
+                            : 'text-muted-foreground hover:text-primary'
+                        }`}
+                      >
+                        <Heart 
+                          className={`w-5 h-5 ${photo.hasLiked ? 'fill-primary' : ''}`}
+                        />
+                      </button>
+                      
+                      {/* Popularity bar */}
+                      <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-primary transition-all duration-500 ease-out"
+                          style={{ 
+                            width: `${Math.min(100, ((photo.likeCount || 0) / 10) * 100)}%` 
+                          }}
+                        />
+                      </div>
                     </div>
                   </div>
                 ))}
