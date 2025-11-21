@@ -17,6 +17,7 @@ const Camera = () => {
   const [uploadEndTime, setUploadEndTime] = useState<string>("");
   const [countdown, setCountdown] = useState<string>("");
   const [revealCountdown, setRevealCountdown] = useState<string>("");
+  const [startCountdown, setStartCountdown] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const {
@@ -52,6 +53,27 @@ const Camera = () => {
     }, 1000);
     return () => clearInterval(interval);
   }, [revealTime]);
+
+  // Countdown to start time when event hasn't started
+  useEffect(() => {
+    if (!uploadStartTime) return;
+    const interval = setInterval(() => {
+      const now = new Date();
+      const start = new Date(uploadStartTime);
+      const distance = start.getTime() - now.getTime();
+      if (distance < 0) {
+        setStartCountdown("");
+        clearInterval(interval);
+        return;
+      }
+      const hours = Math.floor(distance / (1000 * 60 * 60));
+      const minutes = Math.floor(distance % (1000 * 60 * 60) / (1000 * 60));
+      const seconds = Math.floor(distance % (1000 * 60) / 1000);
+      setStartCountdown(`Quedan ${hours} horas, ${minutes} minutos y ${seconds} segundos para que comience el evento`);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [uploadStartTime]);
+
   const loadEventData = async () => {
     if (!eventId) return;
     const {
@@ -195,10 +217,51 @@ const Camera = () => {
     navigate("/");
   };
 
-  // Check if event has ended
+  // Check if event has ended or hasn't started
   const now = new Date();
+  const startTime = uploadStartTime ? new Date(uploadStartTime) : null;
   const endTime = uploadEndTime ? new Date(uploadEndTime) : null;
+  const hasNotStarted = startTime && now < startTime;
   const hasEnded = endTime && now > endTime;
+
+  // Event hasn't started yet
+  if (hasNotStarted) {
+    return <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
+      <div className="text-center space-y-6 max-w-md animate-fade-in">
+        <div className="w-24 h-24 mx-auto flex items-center justify-center p-2 mb-4" style={{
+          imageRendering: 'pixelated'
+        }}>
+          <img src={prohibidoIcon} alt="Cámara prohibida" style={{
+            imageRendering: 'pixelated'
+          }} className="w-full h-full object-contain" />
+        </div>
+        <h1 className="text-3xl font-bold text-foreground">El evento aún no ha comenzado</h1>
+          <p className="text-muted-foreground text-lg">
+            El período para subir fotos comenzará pronto.
+          </p>
+          {uploadStartTime && <>
+              <div className="bg-card border border-border rounded-lg p-6 space-y-2">
+                <p className="text-sm text-muted-foreground">El evento comenzará:</p>
+                <p className="text-xl font-bold text-foreground">
+                  {format(new Date(uploadStartTime), "dd 'de' MMMM 'a las' HH:mm", {
+                locale: es
+              })}
+                </p>
+              </div>
+              {startCountdown && <div className="bg-card border border-border rounded-lg p-4">
+                  <p className="text-primary font-semibold">
+                    {startCountdown}
+                  </p>
+                </div>}
+            </>}
+          <Button onClick={handleLogout} variant="outline" className="mt-4">
+            <LogOut className="w-4 h-4 mr-2" />
+            Volver al inicio
+          </Button>
+        </div>
+      </div>;
+  }
+
   if (hasEnded) {
     return <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
       <div className="text-center space-y-6 max-w-md animate-fade-in">
