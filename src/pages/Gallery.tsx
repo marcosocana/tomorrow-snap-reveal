@@ -3,12 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { LogOut, Film, X, Trash2, Download, Heart } from "lucide-react";
+import { LogOut, Film, X, Trash2, Download } from "lucide-react";
 import { Dialog, DialogContent, DialogClose } from "@/components/ui/dialog";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import confetti from "canvas-confetti";
 import JSZip from "jszip";
+import heartOutline from "@/assets/heart-outline.svg";
+import heartFilled from "@/assets/heart-filled.svg";
 
 interface Photo {
   id: string;
@@ -439,8 +441,10 @@ const Gallery = () => {
                     disabled={photo.hasLiked}
                     className="absolute bottom-2 right-2 p-2 rounded-full bg-black/50 hover:bg-black/70 transition-colors disabled:opacity-50"
                   >
-                    <Heart 
-                      className={`w-5 h-5 text-like ${photo.hasLiked ? 'fill-like' : ''}`}
+                    <img 
+                      src={photo.hasLiked ? heartFilled : heartOutline}
+                      alt="like"
+                      className="w-5 h-5"
                     />
                   </button>
                 </div>
@@ -514,8 +518,10 @@ const Gallery = () => {
                   disabled={selectedPhoto.hasLiked}
                   className="absolute bottom-2 right-2 p-2 rounded-full bg-black/50 hover:bg-black/70 transition-colors disabled:opacity-50"
                 >
-                  <Heart 
-                    className={`w-6 h-6 text-like ${selectedPhoto.hasLiked ? 'fill-like' : ''}`}
+                  <img 
+                    src={selectedPhoto.hasLiked ? heartFilled : heartOutline}
+                    alt="like"
+                    className="w-6 h-6"
                   />
                 </button>
               </div>
