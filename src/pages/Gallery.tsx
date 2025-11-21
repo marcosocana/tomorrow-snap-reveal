@@ -239,6 +239,15 @@ const Gallery = () => {
           ? { ...p, likeCount: (p.likeCount || 0) + 1, hasLiked: true }
           : p
       ));
+
+      // Update selected photo if it's the one being liked
+      if (selectedPhoto && selectedPhoto.id === photoId) {
+        setSelectedPhoto({
+          ...selectedPhoto,
+          likeCount: (selectedPhoto.likeCount || 0) + 1,
+          hasLiked: true
+        });
+      }
     } catch (error) {
       console.error("Error liking photo:", error);
     }
