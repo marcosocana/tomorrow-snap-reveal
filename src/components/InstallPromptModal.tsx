@@ -39,20 +39,22 @@ export const InstallPromptModal = () => {
   }, []);
 
   const handleInstallClick = async () => {
-    if (!deferredPrompt) {
-      return;
+    if (deferredPrompt) {
+      // Si hay prompt disponible (Android Chrome/Edge), usar instalación programática
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      
+      if (outcome === "accepted") {
+        console.log("Instalación aceptada");
+      }
+      
+      setDeferredPrompt(null);
+      setCanInstall(false);
+      setShowModal(false);
+    } else {
+      // En iOS o navegadores sin soporte, las instrucciones ya están visibles
+      console.log("Instalación manual requerida - ver instrucciones");
     }
-
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    
-    if (outcome === "accepted") {
-      console.log("Instalación aceptada");
-    }
-    
-    setDeferredPrompt(null);
-    setCanInstall(false);
-    setShowModal(false);
   };
 
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
@@ -81,35 +83,33 @@ export const InstallPromptModal = () => {
               Añade Revelao a tu pantalla de inicio para acceder rápidamente y disfrutar de una experiencia como app nativa.
             </p>
 
-            {canInstall && !isIOS && (
-              <div className="pt-2">
-                <Button 
-                  onClick={handleInstallClick}
-                  className="w-full bg-destructive hover:bg-destructive/90 text-destructive-foreground font-bold"
-                  size="lg"
-                >
-                  Añadir
-                </Button>
-              </div>
-            )}
+            <div className="pt-2">
+              <Button 
+                onClick={handleInstallClick}
+                className="w-full bg-destructive hover:bg-destructive/90 text-destructive-foreground font-bold"
+                size="lg"
+              >
+                Añadir
+              </Button>
+            </div>
 
             {isIOS && (
               <div className="space-y-3 text-sm bg-muted/50 p-4 rounded-lg">
-                <p className="font-semibold">En iOS (iPhone/iPad):</p>
+                <p className="font-semibold">Instrucciones para iOS:</p>
                 <ol className="list-decimal list-inside space-y-2">
-                  <li>Toca el botón de compartir <span className="font-bold">⎙</span></li>
-                  <li>Selecciona "Añadir a pantalla de inicio"</li>
-                  <li>Confirma tocando "Añadir"</li>
+                  <li>Toca el botón de compartir ⎙</li>
+                  <li>Selecciona Añadir a pantalla de inicio</li>
+                  <li>Confirma tocando Añadir</li>
                 </ol>
               </div>
             )}
 
             {isAndroid && !canInstall && (
               <div className="space-y-3 text-sm bg-muted/50 p-4 rounded-lg">
-                <p className="font-semibold">En Android:</p>
+                <p className="font-semibold">Instrucciones para Android:</p>
                 <ol className="list-decimal list-inside space-y-2">
-                  <li>Abre el menú del navegador (⋮)</li>
-                  <li>Selecciona "Añadir a pantalla de inicio" o "Instalar app"</li>
+                  <li>Abre el menú del navegador ⋮</li>
+                  <li>Selecciona Añadir a pantalla de inicio o Instalar app</li>
                   <li>Confirma la instalación</li>
                 </ol>
               </div>
