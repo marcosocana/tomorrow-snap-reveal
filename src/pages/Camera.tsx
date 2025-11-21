@@ -208,7 +208,7 @@ const Camera = () => {
   if (hasEnded) {
     return <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
       <div className="text-center space-y-6 max-w-md animate-fade-in">
-        <div className="w-24 h-24 mx-auto bg-primary/10 flex items-center justify-center p-2 mb-4" style={{
+        <div className="w-24 h-24 mx-auto flex items-center justify-center p-2 mb-4" style={{
           imageRendering: 'pixelated'
         }}>
           <img src={prohibidoIcon} alt="Cámara prohibida" style={{
@@ -261,7 +261,7 @@ const Camera = () => {
 
       <div className="flex-1 flex flex-col items-center justify-center p-6 space-y-6">
         <div className="text-center space-y-6 animate-fade-in">
-          <button onClick={handleTakePhoto} disabled={isUploading} className="w-24 h-24 mx-auto bg-primary/10 flex items-center justify-center cursor-pointer transition-all hover:scale-105 disabled:opacity-50 p-2" style={{
+          <button onClick={handleTakePhoto} disabled={isUploading} className="w-24 h-24 mx-auto flex items-center justify-center cursor-pointer transition-all hover:scale-105 disabled:opacity-50 p-2" style={{
           imageRendering: 'pixelated'
         }}>
             <img src={cameraIcon} alt="Cámara" style={{
