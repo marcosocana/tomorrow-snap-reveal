@@ -81,21 +81,19 @@ export const InstallPromptModal = () => {
               Añade Revelao a tu pantalla de inicio para acceder rápidamente y disfrutar de una experiencia como app nativa.
             </p>
 
-            {canInstall && !isIOS && (
-              <div className="pt-2">
-                <Button 
-                  onClick={handleInstallClick}
-                  className="w-full bg-destructive hover:bg-destructive/90 text-destructive-foreground font-bold"
-                  size="lg"
-                >
-                  Añadir
-                </Button>
-              </div>
-            )}
+            <div className="pt-2">
+              <Button 
+                onClick={handleInstallClick}
+                className="w-full bg-destructive hover:bg-destructive/90 text-destructive-foreground font-bold"
+                size="lg"
+              >
+                Añadir
+              </Button>
+            </div>
 
             {isIOS && (
-              <div className="space-y-3 text-sm bg-muted/50 p-4 rounded-lg">
-                <p className="font-semibold">En iOS (iPhone/iPad):</p>
+              <div className="space-y-3 text-sm bg-muted/50 p-4 rounded-lg mt-4">
+                <p className="font-semibold">Instrucciones para iOS:</p>
                 <ol className="list-decimal list-inside space-y-2">
                   <li>Toca el botón de compartir <span className="font-bold">⎙</span></li>
                   <li>Selecciona "Añadir a pantalla de inicio"</li>
@@ -105,22 +103,11 @@ export const InstallPromptModal = () => {
             )}
 
             {isAndroid && !canInstall && (
-              <div className="space-y-3 text-sm bg-muted/50 p-4 rounded-lg">
-                <p className="font-semibold">En Android:</p>
+              <div className="space-y-3 text-sm bg-muted/50 p-4 rounded-lg mt-4">
+                <p className="font-semibold">Instrucciones para Android:</p>
                 <ol className="list-decimal list-inside space-y-2">
-                  <li>Abre el menú del navegador (⋮)</li>
-                  <li>Selecciona "Añadir a pantalla de inicio" o "Instalar app"</li>
-                  <li>Confirma la instalación</li>
-                </ol>
-              </div>
-            )}
-
-            {!isIOS && !isAndroid && !canInstall && (
-              <div className="space-y-3 text-sm bg-muted/50 p-4 rounded-lg">
-                <p className="font-semibold">En tu navegador:</p>
-                <ol className="list-decimal list-inside space-y-2">
-                  <li>Busca la opción "Instalar" en el menú</li>
-                  <li>O usa el menú del navegador para añadir a inicio</li>
+                  <li>Toca el botón "Añadir" arriba</li>
+                  <li>O abre el menú del navegador (⋮) y selecciona "Añadir a pantalla de inicio"</li>
                 </ol>
               </div>
             )}
