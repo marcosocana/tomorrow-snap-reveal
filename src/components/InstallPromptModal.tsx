@@ -75,10 +75,10 @@ export const InstallPromptModal = () => {
               <div className="pt-2">
                 <Button 
                   onClick={handleInstallClick}
-                  className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
+                  className="w-full bg-destructive hover:bg-destructive/90 text-destructive-foreground font-bold"
                   size="lg"
                 >
-                  Añadir acceso directo
+                  Añadir
                 </Button>
               </div>
             )}
