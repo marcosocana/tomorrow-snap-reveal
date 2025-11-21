@@ -35,27 +35,20 @@ const Camera = () => {
   // Countdown to reveal time when event has ended
   useEffect(() => {
     if (!revealTime) return;
-    
     const interval = setInterval(() => {
       const now = new Date();
       const reveal = new Date(revealTime);
       const distance = reveal.getTime() - now.getTime();
-      
       if (distance < 0) {
         setRevealCountdown("¡Las fotos ya están reveladas!");
         clearInterval(interval);
         return;
       }
-
       const hours = Math.floor(distance / (1000 * 60 * 60));
-      const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((distance % (1000 * 60)) / 1000);
-
-      setRevealCountdown(
-        `Quedan ${hours} horas, ${minutes} minutos y ${seconds} segundos para que se revelen las fotos. ¡Qué nervios!`
-      );
+      const minutes = Math.floor(distance % (1000 * 60 * 60) / (1000 * 60));
+      const seconds = Math.floor(distance % (1000 * 60) / 1000);
+      setRevealCountdown(`Quedan ${hours} horas, ${minutes} minutos y ${seconds} segundos para que se revelen las fotos. ¡Qué nervios!`);
     }, 1000);
-    
     return () => clearInterval(interval);
   }, [revealTime]);
   const loadEventData = async () => {
@@ -78,16 +71,14 @@ const Camera = () => {
       const now = new Date();
       const endTime = new Date(uploadEndTime);
       const distance = endTime.getTime() - now.getTime();
-      
       if (distance < 0) {
         setCountdown("Evento finalizado");
         clearInterval(interval);
         return;
       }
-
       const hours = Math.floor(distance / (1000 * 60 * 60));
-      const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+      const minutes = Math.floor(distance % (1000 * 60 * 60) / (1000 * 60));
+      const seconds = Math.floor(distance % (1000 * 60) / 1000);
 
       // Determine if it's today or tomorrow
       const today = new Date();
@@ -96,21 +87,20 @@ const Camera = () => {
       tomorrow.setDate(tomorrow.getDate() + 1);
       const endDate = new Date(endTime);
       endDate.setHours(0, 0, 0, 0);
-
       let dateLabel = "";
       if (endDate.getTime() === today.getTime()) {
         dateLabel = "hoy";
       } else if (endDate.getTime() === tomorrow.getTime()) {
         dateLabel = "mañana";
       } else {
-        dateLabel = `el día ${format(endTime, "dd/MM/yyyy", { locale: es })}`;
+        dateLabel = `el día ${format(endTime, "dd/MM/yyyy", {
+          locale: es
+        })}`;
       }
-
-      const formattedTime = format(endTime, "HH:mm", { locale: es });
-
-      setCountdown(
-        `Puedes subir todas las fotos que quieras hasta ${dateLabel} a las ${formattedTime} horas. ¡Solo quedan ${hours} horas, ${minutes} minutos y ${seconds} segundos!`
-      );
+      const formattedTime = format(endTime, "HH:mm", {
+        locale: es
+      });
+      setCountdown(`Puedes subir todas las fotos que quieras hasta ${dateLabel} a las ${formattedTime} horas. ¡Solo quedan ${hours} horas, ${minutes} minutos y ${seconds} segundos!`);
     }, 1000);
     return () => clearInterval(interval);
   }, [uploadEndTime]);
@@ -219,25 +209,21 @@ const Camera = () => {
           <p className="text-muted-foreground text-lg">
             El período para subir fotos ha terminado.
           </p>
-          {revealTime && (
-            <>
+          {revealTime && <>
               <div className="bg-card border border-border rounded-lg p-6 space-y-2">
                 <p className="text-sm text-muted-foreground">Las fotos se revelarán:</p>
                 <p className="text-xl font-bold text-foreground">
                   {format(new Date(revealTime), "dd 'de' MMMM 'a las' HH:mm", {
-                    locale: es
-                  })}
+                locale: es
+              })}
                 </p>
               </div>
-              {revealCountdown && (
-                <div className="bg-card border border-border rounded-lg p-4">
+              {revealCountdown && <div className="bg-card border border-border rounded-lg p-4">
                   <p className="text-primary font-semibold">
                     {revealCountdown}
                   </p>
-                </div>
-              )}
-            </>
-          )}
+                </div>}
+            </>}
           <Button onClick={handleLogout} variant="outline" className="mt-4">
             <LogOut className="w-4 h-4 mr-2" />
             Volver al inicio
@@ -272,41 +258,39 @@ const Camera = () => {
             <h2 className="text-2xl font-bold text-foreground">
               ¡Captura la magia!
             </h2>
-            {countdown && (
-              <div className="bg-card border border-border rounded-lg p-4 max-w-lg mx-auto">
+            {countdown && <div className="bg-card border border-border rounded-lg p-4 max-w-lg mx-auto">
                 <p className="text-primary font-semibold text-sm">
                   {countdown}
                 </p>
-              </div>
-            )}
+              </div>}
             <p className="text-muted-foreground max-w-sm mx-auto leading-relaxed">
-              {revealTime && (
-                <>
+              {revealTime && <>
                   {(() => {
-                    const reveal = new Date(revealTime);
-                    const today = new Date();
-                    today.setHours(0, 0, 0, 0);
-                    const tomorrow = new Date(today);
-                    tomorrow.setDate(tomorrow.getDate() + 1);
-                    const revealDate = new Date(reveal);
-                    revealDate.setHours(0, 0, 0, 0);
-
-                    let dateLabel = "";
-                    if (revealDate.getTime() === today.getTime()) {
-                      dateLabel = "Hoy";
-                    } else if (revealDate.getTime() === tomorrow.getTime()) {
-                      dateLabel = "Mañana";
-                    } else {
-                      dateLabel = `El ${format(reveal, "dd/MM/yyyy", { locale: es })}`;
-                    }
-
-                    return `${dateLabel} a las ${format(reveal, "HH:mm", { locale: es })} todas las imágenes serán reveladas. Accede con la misma contraseña y vuelve a revivir esta experiencia 📸✨`;
-                  })()}
-                </>
-              )}
+                const reveal = new Date(revealTime);
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const tomorrow = new Date(today);
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                const revealDate = new Date(reveal);
+                revealDate.setHours(0, 0, 0, 0);
+                let dateLabel = "";
+                if (revealDate.getTime() === today.getTime()) {
+                  dateLabel = "Hoy";
+                } else if (revealDate.getTime() === tomorrow.getTime()) {
+                  dateLabel = "Mañana";
+                } else {
+                  dateLabel = `El ${format(reveal, "dd/MM/yyyy", {
+                    locale: es
+                  })}`;
+                }
+                return `${dateLabel} a las ${format(reveal, "HH:mm", {
+                  locale: es
+                })} todas las imágenes serán reveladas. Accede con la misma contraseña y vuelve a revivir esta experiencia 📸✨`;
+              })()}
+                </>}
             </p>
           </div>
-          <Button onClick={handleTakePhoto} disabled={isUploading} className="h-16 px-8 text-lg bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-full transition-all hover:scale-105 disabled:opacity-50">
+          <Button onClick={handleTakePhoto} disabled={isUploading} className="h-16 px-8 text-lg bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-x1 transition-all hover:scale-105 disabled:opacity-50 rounded-xl">
             {isUploading ? "Subiendo..." : "Hacer foto"}
           </Button>
         </div>
