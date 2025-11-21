@@ -290,10 +290,10 @@ const Camera = () => {
                     } else if (revealDate.getTime() === tomorrow.getTime()) {
                       dateLabel = "Mañana";
                     } else {
-                      dateLabel = format(reveal, "dd/MM/yyyy", { locale: es });
+                      dateLabel = `El ${format(reveal, "dd/MM/yyyy", { locale: es })}`;
                     }
 
-                    return `${dateLabel} a las ${format(reveal, "HH:mm", { locale: es })} todas las imágenes serán reveladas para que revivas la experiencia 📸✨`;
+                    return `${dateLabel} a las ${format(reveal, "HH:mm", { locale: es })} todas las imágenes serán reveladas. Accede con la misma contraseña y vuelve a revivir esta experiencia 📸✨`;
                   })()}
                 </>
               )}
