@@ -7,6 +7,7 @@ import { LogOut, Image } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import cameraIcon from "@/assets/camera.png";
+import logoRevelao from "@/assets/logo-revelao.png";
 const Camera = () => {
   const [photoCount, setPhotoCount] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
@@ -206,9 +207,15 @@ const Camera = () => {
   const hasEnded = endTime && now > endTime;
   if (hasEnded) {
     return <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
-        <div className="text-center space-y-6 max-w-md animate-fade-in">
-          <div className="text-6xl mb-4">📸</div>
-          <h1 className="text-3xl font-bold text-foreground">Evento finalizado</h1>
+      <div className="text-center space-y-6 max-w-md animate-fade-in">
+        <div className="w-24 h-24 mx-auto bg-primary/10 flex items-center justify-center p-2 mb-4" style={{
+          imageRendering: 'pixelated'
+        }}>
+          <img src={logoRevelao} alt="Logo Revelao" style={{
+            imageRendering: 'pixelated'
+          }} className="w-full h-full object-contain" />
+        </div>
+        <h1 className="text-3xl font-bold text-foreground">Evento finalizado</h1>
           <p className="text-muted-foreground text-lg">
             El período para subir fotos ha terminado.
           </p>
