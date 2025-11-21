@@ -14,20 +14,19 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 export const InstallPromptModal = () => {
-  const [showModal, setShowModal] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [canInstall, setCanInstall] = useState(false);
+  
+  // Verificar si ya vio el modal
+  const hasSeenModal = localStorage.getItem("hasSeenInstallModal");
+  const [showModal, setShowModal] = useState(!hasSeenModal);
 
   useEffect(() => {
-    const hasSeenModal = localStorage.getItem("hasSeenInstallModal");
-    
-    if (!hasSeenModal) {
-      setShowModal(true);
-      localStorage.setItem("hasSeenInstallModal", "true");
-    }
+    console.log("InstallPromptModal - hasSeenModal:", hasSeenModal, "showModal:", showModal);
 
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
+      console.log("InstallPromptModal - beforeinstallprompt event received");
       setDeferredPrompt(e as BeforeInstallPromptEvent);
       setCanInstall(true);
     };
@@ -59,8 +58,19 @@ export const InstallPromptModal = () => {
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
   const isAndroid = /Android/.test(navigator.userAgent);
 
+  const handleModalClose = (open: boolean) => {
+    setShowModal(open);
+    if (!open) {
+      // Solo guardamos la flag cuando el usuario cierra el modal
+      localStorage.setItem("hasSeenInstallModal", "true");
+      console.log("InstallPromptModal - Modal closed, flag saved");
+    }
+  };
+
+  console.log("InstallPromptModal - Rendering. showModal:", showModal, "canInstall:", canInstall, "isIOS:", isIOS, "isAndroid:", isAndroid);
+
   return (
-    <Dialog open={showModal} onOpenChange={setShowModal}>
+    <Dialog open={showModal} onOpenChange={handleModalClose}>
       <DialogContent className="bg-background border-2 border-primary/20 max-w-md">
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold text-primary">
