@@ -412,6 +412,30 @@ const Gallery = () => {
                     e.currentTarget.src = (selectedPhoto as any).thumbnailUrl;
                   }}
                 />
+                
+                {/* Popularity bar - top overlay */}
+                <div className="absolute top-0 left-0 right-0 h-2 bg-black/30 overflow-hidden rounded-t-lg pointer-events-none">
+                  <div 
+                    className="h-full bg-like transition-all duration-500 ease-out"
+                    style={{ 
+                      width: `${Math.min(100, ((selectedPhoto.likeCount || 0) / 10) * 100)}%` 
+                    }}
+                  />
+                </div>
+                
+                {/* Like button - bottom right */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleLikePhoto(selectedPhoto.id);
+                  }}
+                  disabled={selectedPhoto.hasLiked}
+                  className="absolute bottom-2 right-2 p-2 rounded-full bg-black/50 hover:bg-black/70 transition-colors disabled:opacity-50"
+                >
+                  <Heart 
+                    className={`w-6 h-6 text-like ${selectedPhoto.hasLiked ? 'fill-like' : ''}`}
+                  />
+                </button>
               </div>
               <div className="bg-muted/50 rounded-lg p-4 space-y-3">
                 <p className="text-foreground text-sm uppercase tracking-wider">
