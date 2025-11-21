@@ -288,15 +288,32 @@ const Gallery = () => {
         description: "Descargando todas las fotos...",
       });
 
+      // Fetch ALL photos from the event
+      const { data: allPhotos, error } = await supabase
+        .from("photos")
+        .select("*")
+        .eq("event_id", eventId)
+        .order("captured_at", { ascending: true });
+
+      if (error) throw error;
+
       const zip = new JSZip();
       
       // Download all photos and add to zip
-      for (let i = 0; i < photos.length; i++) {
-        const photo = photos[i];
-        const response = await fetch(photo.fullQualityUrl || "");
-        const blob = await response.blob();
-        const filename = `foto-${format(new Date(photo.captured_at), "dd-MM-yyyy-HHmm")}.jpg`;
-        zip.file(filename, blob);
+      for (let i = 0; i < (allPhotos || []).length; i++) {
+        const photo = allPhotos![i];
+        
+        // Get signed URL for full quality
+        const { data: signedUrlData } = await supabase.storage
+          .from("event-photos")
+          .createSignedUrl(photo.image_url, 3600);
+
+        if (signedUrlData?.signedUrl) {
+          const response = await fetch(signedUrlData.signedUrl);
+          const blob = await response.blob();
+          const filename = `foto-${format(new Date(photo.captured_at), "dd-MM-yyyy-HHmm")}.jpg`;
+          zip.file(filename, blob);
+        }
       }
 
       // Generate zip file
@@ -314,7 +331,7 @@ const Gallery = () => {
 
       toast({
         title: "Descarga completada",
-        description: "Todas las fotos se descargaron correctamente",
+        description: `${allPhotos?.length || 0} fotos descargadas correctamente`,
       });
     } catch (error) {
       console.error("Error downloading all photos:", error);
