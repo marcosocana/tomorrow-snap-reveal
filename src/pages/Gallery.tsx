@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogClose } from "@/components/ui/dialog";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import confetti from "canvas-confetti";
+import JSZip from "jszip";
 
 interface Photo {
   id: string;
@@ -280,6 +281,51 @@ const Gallery = () => {
     }
   };
 
+  const handleDownloadAll = async () => {
+    try {
+      toast({
+        title: "Preparando descarga",
+        description: "Descargando todas las fotos...",
+      });
+
+      const zip = new JSZip();
+      
+      // Download all photos and add to zip
+      for (let i = 0; i < photos.length; i++) {
+        const photo = photos[i];
+        const response = await fetch(photo.fullQualityUrl || "");
+        const blob = await response.blob();
+        const filename = `foto-${format(new Date(photo.captured_at), "dd-MM-yyyy-HHmm")}.jpg`;
+        zip.file(filename, blob);
+      }
+
+      // Generate zip file
+      const content = await zip.generateAsync({ type: "blob" });
+      
+      // Download zip
+      const url = window.URL.createObjectURL(content);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${eventName}-fotos.zip`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast({
+        title: "Descarga completada",
+        description: "Todas las fotos se descargaron correctamente",
+      });
+    } catch (error) {
+      console.error("Error downloading all photos:", error);
+      toast({
+        title: "Error",
+        description: "No se pudieron descargar todas las fotos",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <header className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-card">
@@ -290,14 +336,24 @@ const Gallery = () => {
               Total ({totalPhotos})
             </p>
           </div>
-          <Button
-            variant="outline"
-            onClick={handleLogout}
-            className="uppercase text-xs tracking-wider"
-          >
-            <LogOut className="w-4 h-4 mr-2" />
-            Salir
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={handleDownloadAll}
+              className="uppercase text-xs tracking-wider"
+            >
+              <Download className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Descargar todo</span>
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleLogout}
+              className="uppercase text-xs tracking-wider"
+            >
+              <LogOut className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Salir</span>
+            </Button>
+          </div>
         </div>
       </header>
 
