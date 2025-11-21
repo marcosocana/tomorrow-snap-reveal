@@ -314,58 +314,55 @@ const Gallery = () => {
             <>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 {photos.map((photo) => (
-                  <div
-                    key={photo.id}
-                    className="group relative bg-muted"
-                  >
+              <div
+                key={photo.id}
+                className="group relative bg-muted"
+              >
+                <div 
+                  className="aspect-square overflow-hidden bg-muted relative film-grain cursor-pointer"
+                  onClick={() => setSelectedPhoto(photo)}
+                >
+                  <img
+                    src={(photo as any).thumbnailUrl}
+                    alt="Foto del evento"
+                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 retro-filter"
+                    loading="lazy"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                    }}
+                  />
+                  <div className="absolute inset-0 bg-muted animate-pulse" style={{ zIndex: -1 }} />
+                  
+                  {/* Popularity bar - top overlay */}
+                  <div className="absolute top-0 left-0 right-0 h-1.5 bg-black/30 overflow-hidden pointer-events-none">
                     <div 
-                      className="aspect-square overflow-hidden bg-muted relative film-grain cursor-pointer"
-                      onClick={() => setSelectedPhoto(photo)}
-                    >
-                      <img
-                        src={(photo as any).thumbnailUrl}
-                        alt="Foto del evento"
-                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 retro-filter"
-                        loading="lazy"
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none';
-                        }}
-                      />
-                      <div className="absolute inset-0 bg-muted animate-pulse" style={{ zIndex: -1 }} />
-                    </div>
-                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3 pointer-events-none">
-                      <p className="text-white text-xs uppercase tracking-wider font-medium">
-                        {format(new Date(photo.captured_at), "dd/MM/yyyy HH:mm", { locale: es })}
-                      </p>
-                    </div>
-                    
-                    {/* Like button and popularity bar */}
-                    <div className="p-3 space-y-2">
-                      <button
-                        onClick={() => handleLikePhoto(photo.id)}
-                        disabled={photo.hasLiked}
-                        className={`flex items-center gap-2 transition-colors ${
-                          photo.hasLiked 
-                            ? 'text-primary cursor-default' 
-                            : 'text-muted-foreground hover:text-primary'
-                        }`}
-                      >
-                        <Heart 
-                          className={`w-5 h-5 ${photo.hasLiked ? 'fill-primary' : ''}`}
-                        />
-                      </button>
-                      
-                      {/* Popularity bar */}
-                      <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-primary transition-all duration-500 ease-out"
-                          style={{ 
-                            width: `${Math.min(100, ((photo.likeCount || 0) / 10) * 100)}%` 
-                          }}
-                        />
-                      </div>
-                    </div>
+                      className="h-full bg-like transition-all duration-500 ease-out"
+                      style={{ 
+                        width: `${Math.min(100, ((photo.likeCount || 0) / 10) * 100)}%` 
+                      }}
+                    />
                   </div>
+                  
+                  {/* Date - bottom left */}
+                  <div className="absolute bottom-2 left-2 bg-black/50 text-white px-2 py-1 rounded text-xs pointer-events-none">
+                    {format(new Date(photo.captured_at), "dd/MM/yyyy HH:mm", { locale: es })}
+                  </div>
+                  
+                  {/* Like button - bottom right */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleLikePhoto(photo.id);
+                    }}
+                    disabled={photo.hasLiked}
+                    className="absolute bottom-2 right-2 p-2 rounded-full bg-black/50 hover:bg-black/70 transition-colors disabled:opacity-50"
+                  >
+                    <Heart 
+                      className={`w-5 h-5 text-like ${photo.hasLiked ? 'fill-like' : ''}`}
+                    />
+                  </button>
+                </div>
+              </div>
                 ))}
               </div>
               {hasMore && (
