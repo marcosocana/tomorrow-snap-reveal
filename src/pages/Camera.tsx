@@ -9,6 +9,7 @@ import { es } from "date-fns/locale";
 import cameraIcon from "@/assets/camera.png";
 import prohibidoIcon from "@/assets/prohibido.png";
 import { compressImage } from "@/lib/imageCompression";
+import ShareDialog from "@/components/ShareDialog";
 const Camera = () => {
   const [photoCount, setPhotoCount] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
@@ -20,11 +21,10 @@ const Camera = () => {
   const [startCountdown, setStartCountdown] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
-  const {
-    toast
-  } = useToast();
+  const { toast } = useToast();
   const eventId = localStorage.getItem("eventId");
   const eventName = localStorage.getItem("eventName");
+  const [eventPassword, setEventPassword] = useState<string>("");
   useEffect(() => {
     if (!eventId) {
       navigate("/");
@@ -76,14 +76,16 @@ const Camera = () => {
 
   const loadEventData = async () => {
     if (!eventId) return;
-    const {
-      data,
-      error
-    } = await supabase.from("events").select("reveal_time, upload_start_time, upload_end_time").eq("id", eventId).single();
+    const { data, error } = await supabase
+      .from("events")
+      .select("reveal_time, upload_start_time, upload_end_time, password_hash")
+      .eq("id", eventId)
+      .single();
     if (data && !error) {
       setRevealTime(data.reveal_time);
       setUploadStartTime(data.upload_start_time || "");
       setUploadEndTime(data.upload_end_time || "");
+      setEventPassword(data.password_hash || "");
     }
   };
 
@@ -307,9 +309,14 @@ const Camera = () => {
             Ya hay {photoCount} fotos subidas
           </p>
         </div>
-        <Button variant="ghost" size="icon" onClick={handleLogout} className="text-muted-foreground hover:text-foreground">
-          <LogOut className="w-5 h-5" />
-        </Button>
+        <div className="flex items-center gap-2">
+          {eventPassword && (
+            <ShareDialog eventPassword={eventPassword} eventName={eventName || ""} />
+          )}
+          <Button variant="ghost" size="icon" onClick={handleLogout} className="text-muted-foreground hover:text-foreground">
+            <LogOut className="w-5 h-5" />
+          </Button>
+        </div>
       </header>
 
       <div className="flex-1 flex flex-col items-center justify-center p-6 space-y-6">

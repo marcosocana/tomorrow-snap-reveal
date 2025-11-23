@@ -6,9 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, ArrowLeft, Plus, Trash2, Edit, Eye } from "lucide-react";
+import { Calendar, ArrowLeft, Plus, Trash2, Edit, Eye, Copy } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { QRCodeSVG } from "qrcode.react";
 import {
   Dialog,
   DialogContent,
@@ -214,6 +215,19 @@ const EventManagement = () => {
         description: "No se pudo eliminar el evento",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleCopyUrl = async (password: string) => {
+    const eventUrl = `${window.location.origin}/event/${password}`;
+    try {
+      await navigator.clipboard.writeText(eventUrl);
+      toast({
+        title: "URL copiada",
+        description: "La URL del evento se ha copiado al portapapeles",
+      });
+    } catch (error) {
+      console.error("Error copying URL:", error);
     }
   };
 
@@ -426,10 +440,20 @@ const EventManagement = () => {
               const now = new Date();
               const isRevealed = now >= revealTime;
 
+              const eventUrl = `${window.location.origin}/event/${event.password_hash}`;
+
               return (
                 <Card key={event.id} className="p-6">
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-2 flex-1">
+                  <div className="flex flex-col lg:flex-row items-start gap-6">
+                    {/* QR Code Section */}
+                    <div className="flex-shrink-0">
+                      <div className="bg-white p-3 rounded-lg border border-border">
+                        <QRCodeSVG value={eventUrl} size={120} />
+                      </div>
+                    </div>
+
+                    {/* Event Info */}
+                    <div className="flex-1 space-y-3">
                       <div className="flex items-center gap-2">
                         <h3 className="text-xl font-semibold text-foreground">
                           {event.name}
@@ -440,6 +464,7 @@ const EventManagement = () => {
                           </span>
                         )}
                       </div>
+                      
                       <div className="space-y-1 text-sm text-muted-foreground">
                         <p>
                           <span className="font-medium">Contraseña:</span>{" "}
@@ -468,9 +493,27 @@ const EventManagement = () => {
                           {format(new Date(event.created_at), "PPP", { locale: es })}
                         </p>
                       </div>
+
+                      {/* URL Section */}
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={eventUrl}
+                          readOnly
+                          className="flex-1 px-3 py-2 text-sm bg-muted rounded-md border border-border"
+                        />
+                        <Button
+                          size="icon"
+                          variant="outline"
+                          onClick={() => handleCopyUrl(event.password_hash)}
+                        >
+                          <Copy className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
 
-                    <div className="flex gap-2">
+                    {/* Action Buttons */}
+                    <div className="flex lg:flex-col gap-2">
                       {!isRevealed && (
                         <Button
                           variant="ghost"

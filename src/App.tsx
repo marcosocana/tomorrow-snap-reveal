@@ -9,6 +9,7 @@ import Camera from "./pages/Camera";
 import Gallery from "./pages/Gallery";
 import EventManagement from "./pages/EventManagement";
 import BulkUpload from "./pages/BulkUpload";
+import EventAccess from "./pages/EventAccess";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,6 +27,7 @@ const App = () => (
           <Route path="/gallery" element={<Gallery />} />
           <Route path="/event-management" element={<EventManagement />} />
           <Route path="/bulk-upload" element={<BulkUpload />} />
+          <Route path="/event/:password" element={<EventAccess />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
