@@ -510,14 +510,14 @@ const Gallery = () => {
       </Dialog>
 
       {/* Share Dialog */}
-      <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
-        {eventPassword && (
-          <ShareDialog
-            eventPassword={eventPassword}
-            eventName={eventName || ""}
-          />
-        )}
-      </Dialog>
+      {eventPassword && (
+        <ShareDialog
+          eventPassword={eventPassword}
+          eventName={eventName || ""}
+          open={showShareDialog}
+          onOpenChange={setShowShareDialog}
+        />
+      )}
 
       {/* Photo Detail Modal */}
       <Dialog open={!!selectedPhoto} onOpenChange={() => setSelectedPhoto(null)}>
