@@ -19,8 +19,8 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <InstallPromptModal />
       <BrowserRouter>
+        <InstallPromptModal />
         <Routes>
           <Route path="/" element={<Login />} />
           <Route path="/camera" element={<Camera />} />
