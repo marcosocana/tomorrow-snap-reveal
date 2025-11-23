@@ -3,14 +3,21 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { LogOut, Film, X, Trash2, Download } from "lucide-react";
-import { Dialog, DialogContent, DialogClose } from "@/components/ui/dialog";
+import { LogOut, Film, Trash2, Download, MoreVertical, Share2 } from "lucide-react";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import confetti from "canvas-confetti";
 import JSZip from "jszip";
 import heartOutline from "@/assets/heart-outline.svg";
 import heartFilled from "@/assets/heart-filled.svg";
+import ShareDialog from "@/components/ShareDialog";
 
 interface Photo {
   id: string;
@@ -37,6 +44,8 @@ const Gallery = () => {
   const { toast } = useToast();
   const eventId = localStorage.getItem("eventId");
   const eventName = localStorage.getItem("eventName");
+  const [eventPassword, setEventPassword] = useState<string>("");
+  const [showShareDialog, setShowShareDialog] = useState(false);
 
   const loadPhotos = useCallback(async (pageNum: number) => {
     if (!eventId) return;
@@ -117,6 +126,19 @@ const Gallery = () => {
       navigate("/");
       return;
     }
+
+    // Load event password for sharing
+    const loadEventPassword = async () => {
+      const { data } = await supabase
+        .from("events")
+        .select("password_hash")
+        .eq("id", eventId)
+        .single();
+      if (data) {
+        setEventPassword(data.password_hash);
+      }
+    };
+    loadEventPassword();
 
     // Always scroll to top when gallery loads
     window.scrollTo(0, 0);
@@ -355,24 +377,27 @@ const Gallery = () => {
               Total ({totalPhotos})
             </p>
           </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={handleDownloadAll}
-              className="uppercase text-xs tracking-wider"
-            >
-              <Download className="w-4 h-4 sm:mr-2" />
-              <span className="hidden sm:inline">Descargar todo</span>
-            </Button>
-            <Button
-              variant="outline"
-              onClick={handleLogout}
-              className="uppercase text-xs tracking-wider"
-            >
-              <LogOut className="w-4 h-4 sm:mr-2" />
-              <span className="hidden sm:inline">Salir</span>
-            </Button>
-          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon">
+                <MoreVertical className="w-5 h-5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48 bg-card">
+              <DropdownMenuItem onClick={() => setShowShareDialog(true)} className="cursor-pointer">
+                <Share2 className="w-4 h-4 mr-2" />
+                Compartir
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleDownloadAll} className="cursor-pointer">
+                <Download className="w-4 h-4 mr-2" />
+                Descargar todo
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
+                <LogOut className="w-4 h-4 mr-2" />
+                Salir
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </header>
 
@@ -482,6 +507,16 @@ const Gallery = () => {
             </Button>
           </div>
         </DialogContent>
+      </Dialog>
+
+      {/* Share Dialog */}
+      <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
+        {eventPassword && (
+          <ShareDialog
+            eventPassword={eventPassword}
+            eventName={eventName || ""}
+          />
+        )}
       </Dialog>
 
       {/* Photo Detail Modal */}

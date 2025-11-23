@@ -56,13 +56,7 @@ const ShareDialog = ({ eventPassword, eventName }: ShareDialogProps) => {
   };
 
   return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <Button variant="outline" className="gap-2">
-          <Share2 className="w-4 h-4" />
-          Compartir
-        </Button>
-      </DialogTrigger>
+    <>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Compartir evento</DialogTitle>
@@ -103,7 +97,7 @@ const ShareDialog = ({ eventPassword, eventName }: ShareDialogProps) => {
           </Button>
         </div>
       </DialogContent>
-    </Dialog>
+    </>
   );
 };
 

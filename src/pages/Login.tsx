@@ -154,7 +154,15 @@ const Login = () => {
         </form>
 
         <p className="text-center text-sm text-muted-foreground">
-          Introduce la contraseña del evento para comenzar
+          ¿Algún problema?{" "}
+          <a
+            href="https://wa.me/34695834018?text=Hola%2C%20tengo%20un%20problema%20con%20Revelao.%20%C2%BFMe%20puedes%20ayudar%3F"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary hover:underline font-semibold"
+          >
+            ¡Contáctanos!
+          </a>
         </p>
       </div>
     </div>
