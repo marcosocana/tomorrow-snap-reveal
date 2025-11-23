@@ -28,6 +28,7 @@ const App = () => (
           <Route path="/event-management" element={<EventManagement />} />
           <Route path="/bulk-upload" element={<BulkUpload />} />
           <Route path="/event/:password" element={<EventAccess />} />
+          <Route path="/events/:password" element={<EventAccess />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
