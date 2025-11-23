@@ -6,7 +6,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Share2, Copy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -14,9 +13,11 @@ import { useToast } from "@/hooks/use-toast";
 interface ShareDialogProps {
   eventPassword: string;
   eventName: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }
 
-const ShareDialog = ({ eventPassword, eventName }: ShareDialogProps) => {
+const ShareDialog = ({ eventPassword, eventName, open, onOpenChange }: ShareDialogProps) => {
   const { toast } = useToast();
   const eventUrl = `${window.location.origin}/event/${eventPassword}`;
 
@@ -56,7 +57,7 @@ const ShareDialog = ({ eventPassword, eventName }: ShareDialogProps) => {
   };
 
   return (
-    <>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Compartir evento</DialogTitle>
@@ -97,7 +98,7 @@ const ShareDialog = ({ eventPassword, eventName }: ShareDialogProps) => {
           </Button>
         </div>
       </DialogContent>
-    </>
+    </Dialog>
   );
 };
 

@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { LogOut, Image } from "lucide-react";
+import { LogOut, Image, Share2 } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import cameraIcon from "@/assets/camera.png";
@@ -19,6 +19,7 @@ const Camera = () => {
   const [countdown, setCountdown] = useState<string>("");
   const [revealCountdown, setRevealCountdown] = useState<string>("");
   const [startCountdown, setStartCountdown] = useState<string>("");
+  const [showShareDialog, setShowShareDialog] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -312,7 +313,22 @@ const Camera = () => {
         </div>
         <div className="flex items-center gap-2">
           {eventPassword && (
-            <ShareDialog eventPassword={eventPassword} eventName={eventName || ""} />
+            <>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowShareDialog(true)}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <Share2 className="w-5 h-5" />
+              </Button>
+              <ShareDialog
+                eventPassword={eventPassword}
+                eventName={eventName || ""}
+                open={showShareDialog}
+                onOpenChange={setShowShareDialog}
+              />
+            </>
           )}
           <Button variant="ghost" size="icon" onClick={handleLogout} className="text-muted-foreground hover:text-foreground">
             <LogOut className="w-5 h-5" />
