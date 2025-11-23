@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import {
   Dialog,
   DialogContent,
@@ -14,15 +15,25 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 export const InstallPromptModal = () => {
+  const location = useLocation();
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [canInstall, setCanInstall] = useState(false);
   
   // Verificar si ya vio el modal
   const hasSeenModal = localStorage.getItem("hasSeenInstallModal");
-  const [showModal, setShowModal] = useState(!hasSeenModal);
+  const [showModal, setShowModal] = useState(false);
+
+  // No mostrar en páginas de login o acceso a eventos
+  const shouldShow = !['/', '/event-management'].some(path => location.pathname === path) && 
+                     !location.pathname.startsWith('/event/');
 
   useEffect(() => {
     console.log("InstallPromptModal - hasSeenModal:", hasSeenModal, "showModal:", showModal);
+
+    // Solo mostrar si no ha visto el modal y está en una página válida
+    if (!hasSeenModal && shouldShow) {
+      setShowModal(true);
+    }
 
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
@@ -36,7 +47,7 @@ export const InstallPromptModal = () => {
     return () => {
       window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
     };
-  }, []);
+  }, [hasSeenModal, shouldShow]);
 
   const handleInstallClick = async () => {
     if (!deferredPrompt) {
