@@ -32,6 +32,7 @@ const Camera = () => {
     }
     loadEventData();
     loadPhotoCount();
+    window.scrollTo(0, 0);
   }, [eventId, navigate]);
 
   // Countdown to reveal time when event has ended
@@ -301,7 +302,7 @@ const Camera = () => {
       </div>;
   }
   return <div className="min-h-screen bg-background flex flex-col">
-      <header className="p-4 flex justify-between items-center bg-card border-b border-border">
+      <header className="fixed top-0 left-0 right-0 z-50 p-4 flex justify-between items-center bg-card border-b border-border">
         <div>
           <h1 className="text-xl font-bold text-foreground">{eventName}</h1>
           <p className="text-sm text-muted-foreground flex items-center gap-1">
@@ -319,7 +320,7 @@ const Camera = () => {
         </div>
       </header>
 
-      <div className="flex-1 flex flex-col items-center justify-center p-6 space-y-6">
+      <div className="flex-1 flex flex-col items-center justify-center p-6 space-y-6 pt-24">
         <div className="text-center space-y-6 animate-fade-in">
           <button onClick={handleTakePhoto} disabled={isUploading} className="w-24 h-24 mx-auto flex items-center justify-center cursor-pointer transition-all hover:scale-105 disabled:opacity-50 p-2" style={{
           imageRendering: 'pixelated'
