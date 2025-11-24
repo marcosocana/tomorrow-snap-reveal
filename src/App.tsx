@@ -10,6 +10,7 @@ import Gallery from "./pages/Gallery";
 import EventManagement from "./pages/EventManagement";
 import BulkUpload from "./pages/BulkUpload";
 import EventAccess from "./pages/EventAccess";
+import AdminLogin from "./pages/AdminLogin";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -25,6 +26,7 @@ const App = () => (
           <Route path="/" element={<Login />} />
           <Route path="/camera" element={<Camera />} />
           <Route path="/gallery" element={<Gallery />} />
+          <Route path="/admin-login" element={<AdminLogin />} />
           <Route path="/event-management" element={<EventManagement />} />
           <Route path="/bulk-upload" element={<BulkUpload />} />
           <Route path="/event/:password" element={<EventAccess />} />
