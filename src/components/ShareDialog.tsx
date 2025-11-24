@@ -19,7 +19,7 @@ interface ShareDialogProps {
 
 const ShareDialog = ({ eventPassword, eventName, open, onOpenChange }: ShareDialogProps) => {
   const { toast } = useToast();
-  const eventUrl = `https://www.revelao.cam/events/${eventPassword}`;
+  const eventUrl = `https://acceso.revelao.cam/events/${eventPassword}`;
 
   const handleCopyUrl = async () => {
     try {

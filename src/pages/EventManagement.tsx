@@ -219,7 +219,7 @@ const EventManagement = () => {
   };
 
   const handleCopyUrl = async (password: string) => {
-    const eventUrl = `https://www.revelao.cam/events/${password}`;
+    const eventUrl = `https://acceso.revelao.cam/events/${password}`;
     try {
       await navigator.clipboard.writeText(eventUrl);
       toast({
@@ -440,7 +440,7 @@ const EventManagement = () => {
               const now = new Date();
               const isRevealed = now >= revealTime;
 
-              const eventUrl = `https://www.revelao.cam/events/${event.password_hash}`;
+              const eventUrl = `https://acceso.revelao.cam/events/${event.password_hash}`;
 
               return (
                 <Card key={event.id} className="p-6">
