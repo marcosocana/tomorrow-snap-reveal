@@ -50,8 +50,27 @@ const EventManagement = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    loadEvents();
-  }, []);
+    // Check authentication
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        navigate("/admin-login");
+        return;
+      }
+      loadEvents();
+    };
+
+    checkAuth();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!session) {
+        navigate("/admin-login");
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [navigate]);
 
   const loadEvents = async () => {
     try {
@@ -247,7 +266,10 @@ const EventManagement = () => {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => navigate("/")}
+              onClick={async () => {
+                await supabase.auth.signOut();
+                navigate("/admin-login");
+              }}
               className="rounded-full"
             >
               <ArrowLeft className="w-5 h-5" />
