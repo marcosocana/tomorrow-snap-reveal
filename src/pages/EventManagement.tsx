@@ -61,6 +61,7 @@ const EventManagement = () => {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
+      console.log("Events loaded:", data?.length || 0, "eventos");
       setEvents(data || []);
     } catch (error) {
       console.error("Error loading events:", error);
