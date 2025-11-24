@@ -1,4 +1,4 @@
-const CACHE_NAME = 'revelao-v1';
+const CACHE_NAME = 'revelao-v2';
 const urlsToCache = [
   '/',
   '/index.html',
