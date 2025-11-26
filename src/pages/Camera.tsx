@@ -10,6 +10,12 @@ import cameraIcon from "@/assets/camera.png";
 import prohibidoIcon from "@/assets/prohibido.png";
 import { compressImage } from "@/lib/imageCompression";
 import ShareDialog from "@/components/ShareDialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 const Camera = () => {
   const [photoCount, setPhotoCount] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
@@ -225,8 +231,35 @@ const Camera = () => {
   const now = new Date();
   const startTime = uploadStartTime ? new Date(uploadStartTime) : null;
   const endTime = uploadEndTime ? new Date(uploadEndTime) : null;
+  const reveal = revealTime ? new Date(revealTime) : null;
   const hasNotStarted = startTime && now < startTime;
   const hasEnded = endTime && now > endTime;
+  const hasRevealed = reveal && now >= reveal;
+
+  // Photos already revealed - show modal
+  if (hasRevealed) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-6">
+        <Dialog open={true}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-2xl text-center">
+                ¡Ya se han revelado las fotos!
+              </DialogTitle>
+            </DialogHeader>
+            <div className="flex justify-center pt-4">
+              <Button
+                onClick={() => navigate("/gallery")}
+                className="px-8"
+              >
+                Ver
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+    );
+  }
 
   // Event hasn't started yet
   if (hasNotStarted) {
