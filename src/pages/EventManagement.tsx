@@ -26,6 +26,7 @@ interface Event {
   reveal_time: string;
   upload_start_time: string | null;
   upload_end_time: string | null;
+  max_photos: number | null;
   created_at: string;
 }
 
@@ -45,6 +46,7 @@ const EventManagement = () => {
     uploadEndTime: "23:59",
     revealDate: "",
     revealTime: "12:00",
+    maxPhotos: "",
   });
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -113,6 +115,7 @@ const EventManagement = () => {
             upload_start_time: uploadStartDateTime.toISOString(),
             upload_end_time: uploadEndDateTime.toISOString(),
             reveal_time: revealDateTime.toISOString(),
+            max_photos: newEvent.maxPhotos ? parseInt(newEvent.maxPhotos) : null,
           })
           .eq("id", editingEvent.id);
 
@@ -131,6 +134,7 @@ const EventManagement = () => {
           upload_start_time: uploadStartDateTime.toISOString(),
           upload_end_time: uploadEndDateTime.toISOString(),
           reveal_time: revealDateTime.toISOString(),
+          max_photos: newEvent.maxPhotos ? parseInt(newEvent.maxPhotos) : null,
         });
 
         if (error) throw error;
@@ -151,6 +155,7 @@ const EventManagement = () => {
         uploadEndTime: "23:59",
         revealDate: "",
         revealTime: "12:00",
+        maxPhotos: "",
       });
       setEditingEvent(null);
       setIsDialogOpen(false);
@@ -182,6 +187,7 @@ const EventManagement = () => {
       uploadEndTime: format(uploadEndDate, "HH:mm"),
       revealDate: format(revealDate, "yyyy-MM-dd"),
       revealTime: format(revealDate, "HH:mm"),
+      maxPhotos: event.max_photos ? event.max_photos.toString() : "",
     });
     setIsDialogOpen(true);
   };
@@ -208,6 +214,37 @@ const EventManagement = () => {
       toast({
         title: "Error",
         description: "No se pudieron revelar las fotos",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleReopenEvent = async (eventId: string) => {
+    if (!confirm("¿Abrir evento de nuevo? Se podrán subir más fotos y se establecerá una nueva fecha de revelado.")) return;
+
+    try {
+      // Set reveal time to 24 hours from now
+      const newRevealTime = new Date();
+      newRevealTime.setHours(newRevealTime.getHours() + 24);
+
+      const { error } = await supabase
+        .from("events")
+        .update({ reveal_time: newRevealTime.toISOString() })
+        .eq("id", eventId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Evento reabierto",
+        description: "El evento se ha abierto de nuevo. Las fotos se revelarán en 24 horas.",
+      });
+
+      loadEvents();
+    } catch (error) {
+      console.error("Error reopening event:", error);
+      toast({
+        title: "Error",
+        description: "No se pudo reabrir el evento",
         variant: "destructive",
       });
     }
@@ -293,6 +330,7 @@ const EventManagement = () => {
                 uploadEndTime: "23:59",
                 revealDate: "",
                 revealTime: "12:00",
+                maxPhotos: "",
               });
             }
           }}>
@@ -346,6 +384,22 @@ const EventManagement = () => {
                       setNewEvent({ ...newEvent, adminPassword: e.target.value })
                     }
                     placeholder="Opcional"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="maxPhotos">
+                    Máximo de fotos permitido
+                  </Label>
+                  <Input
+                    id="maxPhotos"
+                    type="number"
+                    min="1"
+                    value={newEvent.maxPhotos}
+                    onChange={(e) =>
+                      setNewEvent({ ...newEvent, maxPhotos: e.target.value })
+                    }
+                    placeholder="Ilimitado si se deja vacío"
                   />
                 </div>
 
@@ -498,6 +552,12 @@ const EventManagement = () => {
                             {event.admin_password}
                           </p>
                         )}
+                        {event.max_photos && (
+                          <p>
+                            <span className="font-medium">Máximo de fotos:</span>{" "}
+                            {event.max_photos}
+                          </p>
+                        )}
                         {event.upload_start_time && event.upload_end_time && (
                           <p>
                             <span className="font-medium">Período de subida:</span>{" "}
@@ -536,7 +596,17 @@ const EventManagement = () => {
 
                     {/* Action Buttons */}
                     <div className="flex lg:flex-col gap-2">
-                      {!isRevealed && (
+                      {isRevealed ? (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleReopenEvent(event.id)}
+                          className="text-primary hover:text-primary hover:bg-primary/10"
+                          title="Abrir evento de nuevo"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </Button>
+                      ) : (
                         <Button
                           variant="ghost"
                           size="icon"

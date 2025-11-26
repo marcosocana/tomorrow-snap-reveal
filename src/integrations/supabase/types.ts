@@ -19,6 +19,7 @@ export type Database = {
           admin_password: string | null
           created_at: string
           id: string
+          max_photos: number | null
           name: string
           password_hash: string
           reveal_time: string
@@ -29,6 +30,7 @@ export type Database = {
           admin_password?: string | null
           created_at?: string
           id?: string
+          max_photos?: number | null
           name: string
           password_hash: string
           reveal_time: string
@@ -39,6 +41,7 @@ export type Database = {
           admin_password?: string | null
           created_at?: string
           id?: string
+          max_photos?: number | null
           name?: string
           password_hash?: string
           reveal_time?: string

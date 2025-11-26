@@ -86,7 +86,7 @@ const Camera = () => {
     if (!eventId) return;
     const { data, error } = await supabase
       .from("events")
-      .select("reveal_time, upload_start_time, upload_end_time, password_hash")
+      .select("reveal_time, upload_start_time, upload_end_time, password_hash, max_photos")
       .eq("id", eventId)
       .single();
     if (data && !error) {
@@ -94,6 +94,19 @@ const Camera = () => {
       setUploadStartTime(data.upload_start_time || "");
       setUploadEndTime(data.upload_end_time || "");
       setEventPassword(data.password_hash || "");
+      
+      // Check if max photos limit reached
+      if (data.max_photos) {
+        const { count } = await supabase
+          .from("photos")
+          .select("*", { count: "exact", head: true })
+          .eq("event_id", eventId);
+        
+        if (count && count >= data.max_photos) {
+          // Treat as event ended
+          setUploadEndTime(new Date().toISOString());
+        }
+      }
     }
   };
 
@@ -173,6 +186,29 @@ const Camera = () => {
     if (!file || !eventId) return;
     setIsUploading(true);
     try {
+      // Check max photos limit before uploading
+      const { data: eventData } = await supabase
+        .from("events")
+        .select("max_photos")
+        .eq("id", eventId)
+        .single();
+
+      if (eventData?.max_photos) {
+        const { count } = await supabase
+          .from("photos")
+          .select("*", { count: "exact", head: true })
+          .eq("event_id", eventId);
+
+        if (count && count >= eventData.max_photos) {
+          toast({
+            title: "Límite alcanzado",
+            description: `El evento ha alcanzado el límite de ${eventData.max_photos} fotos`,
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+
       // Compress image to max 1MB
       const compressedFile = await compressImage(file, 1);
       
@@ -206,6 +242,9 @@ const Camera = () => {
         title: "¡Foto capturada!",
         description: "Se revelará mañana junto con las demás"
       });
+
+      // Reload event data to check if max photos reached
+      loadEventData();
     } catch (error) {
       console.error("Error uploading photo:", error);
       toast({
