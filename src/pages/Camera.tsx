@@ -22,6 +22,7 @@ const Camera = () => {
   const [revealTime, setRevealTime] = useState<string>("");
   const [uploadStartTime, setUploadStartTime] = useState<string>("");
   const [uploadEndTime, setUploadEndTime] = useState<string>("");
+  const [customImageUrl, setCustomImageUrl] = useState<string>("");
   const [countdown, setCountdown] = useState<string>("");
   const [revealCountdown, setRevealCountdown] = useState<string>("");
   const [startCountdown, setStartCountdown] = useState<string>("");
@@ -86,7 +87,7 @@ const Camera = () => {
     if (!eventId) return;
     const { data, error } = await supabase
       .from("events")
-      .select("reveal_time, upload_start_time, upload_end_time, password_hash, max_photos")
+      .select("reveal_time, upload_start_time, upload_end_time, password_hash, max_photos, custom_image_url")
       .eq("id", eventId)
       .single();
     if (data && !error) {
@@ -94,6 +95,7 @@ const Camera = () => {
       setUploadStartTime(data.upload_start_time || "");
       setUploadEndTime(data.upload_end_time || "");
       setEventPassword(data.password_hash || "");
+      setCustomImageUrl(data.custom_image_url || "");
       
       // Check if max photos limit reached
       if (data.max_photos) {
@@ -286,6 +288,15 @@ const Camera = () => {
                 ¡Ya se han revelado las fotos!
               </DialogTitle>
             </DialogHeader>
+            {customImageUrl && (
+              <div className="flex justify-center py-4">
+                <img 
+                  src={customImageUrl} 
+                  alt="Evento" 
+                  className="max-w-[160px] max-h-[100px] object-contain"
+                />
+              </div>
+            )}
             <div className="flex justify-center pt-4">
               <Button
                 onClick={() => navigate("/gallery")}
@@ -307,7 +318,7 @@ const Camera = () => {
         <div className="w-24 h-24 mx-auto flex items-center justify-center p-2 mb-4" style={{
           imageRendering: 'pixelated'
         }}>
-          <img src={prohibidoIcon} alt="Cámara prohibida" style={{
+          <img src={customImageUrl || prohibidoIcon} alt="Cámara prohibida" style={{
             imageRendering: 'pixelated'
           }} className="w-full h-full object-contain" />
         </div>
@@ -344,7 +355,7 @@ const Camera = () => {
         <div className="w-24 h-24 mx-auto flex items-center justify-center p-2 mb-4" style={{
           imageRendering: 'pixelated'
         }}>
-          <img src={prohibidoIcon} alt="Cámara prohibida" style={{
+          <img src={customImageUrl || prohibidoIcon} alt="Cámara prohibida" style={{
             imageRendering: 'pixelated'
           }} className="w-full h-full object-contain" />
         </div>
@@ -413,7 +424,7 @@ const Camera = () => {
           <button onClick={handleTakePhoto} disabled={isUploading} className="w-24 h-24 mx-auto flex items-center justify-center cursor-pointer transition-all hover:scale-105 disabled:opacity-50 p-2" style={{
           imageRendering: 'pixelated'
         }}>
-            <img src={cameraIcon} alt="Cámara" style={{
+            <img src={customImageUrl || cameraIcon} alt="Cámara" style={{
             imageRendering: 'pixelated'
           }} className="w-full h-full object-contain" />
           </button>

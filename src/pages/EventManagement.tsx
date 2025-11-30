@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, ArrowLeft, Plus, Trash2, Edit, Eye, Copy } from "lucide-react";
+import { Calendar, ArrowLeft, Plus, Trash2, Edit, Eye, Copy, Upload, Home } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { QRCodeSVG } from "qrcode.react";
@@ -27,15 +28,18 @@ interface Event {
   upload_start_time: string | null;
   upload_end_time: string | null;
   max_photos: number | null;
+  custom_image_url: string | null;
   created_at: string;
 }
 
 const EventManagement = () => {
   const [events, setEvents] = useState<Event[]>([]);
+  const [eventPhotoCounts, setEventPhotoCounts] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [newEvent, setNewEvent] = useState({
     name: "",
     password: "",
@@ -47,6 +51,8 @@ const EventManagement = () => {
     revealDate: "",
     revealTime: "12:00",
     maxPhotos: "",
+    customImage: null as File | null,
+    customImageUrl: "",
   });
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -83,6 +89,22 @@ const EventManagement = () => {
 
       if (error) throw error;
       setEvents(data || []);
+
+      // Load photo counts for each event
+      if (data) {
+        const counts: Record<string, number> = {};
+        for (const event of data) {
+          const { count, error: countError } = await supabase
+            .from("photos")
+            .select("*", { count: "exact", head: true })
+            .eq("event_id", event.id);
+          
+          if (!countError) {
+            counts[event.id] = count || 0;
+          }
+        }
+        setEventPhotoCounts(counts);
+      }
     } catch (error) {
       console.error("Error loading events:", error);
       toast({
@@ -95,6 +117,37 @@ const EventManagement = () => {
     }
   };
 
+  const handleImageUpload = async (file: File): Promise<string | null> => {
+    try {
+      setUploadingImage(true);
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${Math.random()}.${fileExt}`;
+      const filePath = `event-images/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("event-photos")
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from("event-photos")
+        .getPublicUrl(filePath);
+
+      return publicUrl;
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      toast({
+        title: "Error",
+        description: "No se pudo subir la imagen",
+        variant: "destructive",
+      });
+      return null;
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
   const handleCreateEvent = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsCreating(true);
@@ -103,6 +156,14 @@ const EventManagement = () => {
       const uploadStartDateTime = new Date(`${newEvent.uploadStartDate}T${newEvent.uploadStartTime}`);
       const uploadEndDateTime = new Date(`${newEvent.uploadEndDate}T${newEvent.uploadEndTime}`);
       const revealDateTime = new Date(`${newEvent.revealDate}T${newEvent.revealTime}`);
+
+      let customImageUrl = newEvent.customImageUrl;
+      if (newEvent.customImage) {
+        const uploadedUrl = await handleImageUpload(newEvent.customImage);
+        if (uploadedUrl) {
+          customImageUrl = uploadedUrl;
+        }
+      }
 
       if (editingEvent) {
         // Update existing event
@@ -116,6 +177,7 @@ const EventManagement = () => {
             upload_end_time: uploadEndDateTime.toISOString(),
             reveal_time: revealDateTime.toISOString(),
             max_photos: newEvent.maxPhotos ? parseInt(newEvent.maxPhotos) : null,
+            custom_image_url: customImageUrl,
           })
           .eq("id", editingEvent.id);
 
@@ -135,6 +197,7 @@ const EventManagement = () => {
           upload_end_time: uploadEndDateTime.toISOString(),
           reveal_time: revealDateTime.toISOString(),
           max_photos: newEvent.maxPhotos ? parseInt(newEvent.maxPhotos) : null,
+          custom_image_url: customImageUrl,
         });
 
         if (error) throw error;
@@ -156,6 +219,8 @@ const EventManagement = () => {
         revealDate: "",
         revealTime: "12:00",
         maxPhotos: "",
+        customImage: null,
+        customImageUrl: "",
       });
       setEditingEvent(null);
       setIsDialogOpen(false);
@@ -188,6 +253,8 @@ const EventManagement = () => {
       revealDate: format(revealDate, "yyyy-MM-dd"),
       revealTime: format(revealDate, "HH:mm"),
       maxPhotos: event.max_photos ? event.max_photos.toString() : "",
+      customImage: null,
+      customImageUrl: event.custom_image_url || "",
     });
     setIsDialogOpen(true);
   };
@@ -219,32 +286,45 @@ const EventManagement = () => {
     }
   };
 
-  const handleReopenEvent = async (eventId: string) => {
-    if (!confirm("¿Abrir evento de nuevo? Se podrán subir más fotos y se establecerá una nueva fecha de revelado.")) return;
-
+  const handleToggleReveal = async (event: Event, isRevealed: boolean) => {
     try {
-      // Set reveal time to 24 hours from now
-      const newRevealTime = new Date();
-      newRevealTime.setHours(newRevealTime.getHours() + 24);
+      if (isRevealed) {
+        // Reopen event - set reveal time to 24 hours from now
+        const newRevealTime = new Date();
+        newRevealTime.setHours(newRevealTime.getHours() + 24);
 
-      const { error } = await supabase
-        .from("events")
-        .update({ reveal_time: newRevealTime.toISOString() })
-        .eq("id", eventId);
+        const { error } = await supabase
+          .from("events")
+          .update({ reveal_time: newRevealTime.toISOString() })
+          .eq("id", event.id);
 
-      if (error) throw error;
+        if (error) throw error;
 
-      toast({
-        title: "Evento reabierto",
-        description: "El evento se ha abierto de nuevo. Las fotos se revelarán en 24 horas.",
-      });
+        toast({
+          title: "Evento reabierto",
+          description: "El evento se ha abierto de nuevo. Las fotos se revelarán en 24 horas.",
+        });
+      } else {
+        // Reveal now
+        const { error } = await supabase
+          .from("events")
+          .update({ reveal_time: new Date().toISOString() })
+          .eq("id", event.id);
+
+        if (error) throw error;
+
+        toast({
+          title: "Fotos reveladas",
+          description: "Las fotos ya son visibles para todos",
+        });
+      }
 
       loadEvents();
     } catch (error) {
-      console.error("Error reopening event:", error);
+      console.error("Error toggling reveal:", error);
       toast({
         title: "Error",
-        description: "No se pudo reabrir el evento",
+        description: "No se pudo cambiar el estado del evento",
         variant: "destructive",
       });
     }
@@ -303,13 +383,11 @@ const EventManagement = () => {
             <Button
               variant="ghost"
               size="icon"
-              onClick={async () => {
-                await supabase.auth.signOut();
-                navigate("/admin-login");
-              }}
+              onClick={() => navigate("/")}
               className="rounded-full"
+              title="Volver al inicio"
             >
-              <ArrowLeft className="w-5 h-5" />
+              <Home className="w-5 h-5" />
             </Button>
             <h1 className="text-3xl font-bold text-foreground">
               Gestión de Eventos
@@ -331,6 +409,8 @@ const EventManagement = () => {
                 revealDate: "",
                 revealTime: "12:00",
                 maxPhotos: "",
+                customImage: null,
+                customImageUrl: "",
               });
             }
           }}>
@@ -400,6 +480,44 @@ const EventManagement = () => {
                       setNewEvent({ ...newEvent, maxPhotos: e.target.value })
                     }
                     placeholder="Ilimitado si se deja vacío"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="customImage">
+                    Imagen personalizada (opcional)
+                  </Label>
+                  <div className="text-xs text-muted-foreground mb-2">
+                    Máximo 160px ancho × 100px alto
+                  </div>
+                  {newEvent.customImageUrl && !newEvent.customImage && (
+                    <div className="mb-2">
+                      <img 
+                        src={newEvent.customImageUrl} 
+                        alt="Preview" 
+                        className="max-w-[160px] max-h-[100px] object-contain border border-border rounded"
+                      />
+                    </div>
+                  )}
+                  {newEvent.customImage && (
+                    <div className="mb-2">
+                      <img 
+                        src={URL.createObjectURL(newEvent.customImage)} 
+                        alt="Preview" 
+                        className="max-w-[160px] max-h-[100px] object-contain border border-border rounded"
+                      />
+                    </div>
+                  )}
+                  <Input
+                    id="customImage"
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        setNewEvent({ ...newEvent, customImage: file });
+                      }
+                    }}
                   />
                 </div>
 
@@ -491,10 +609,12 @@ const EventManagement = () => {
                   </div>
                 </div>
 
-                <Button type="submit" className="w-full" disabled={isCreating}>
-                  {isCreating 
-                    ? (editingEvent ? "Actualizando..." : "Creando...") 
-                    : (editingEvent ? "Actualizar Evento" : "Crear Evento")
+                <Button type="submit" className="w-full" disabled={isCreating || uploadingImage}>
+                  {uploadingImage
+                    ? "Subiendo imagen..."
+                    : isCreating 
+                      ? (editingEvent ? "Actualizando..." : "Creando...") 
+                      : (editingEvent ? "Actualizar Evento" : "Crear Evento")
                   }
                 </Button>
               </form>
@@ -515,6 +635,7 @@ const EventManagement = () => {
               const revealTime = new Date(event.reveal_time);
               const now = new Date();
               const isRevealed = now >= revealTime;
+              const photoCount = eventPhotoCounts[event.id] || 0;
 
               const eventUrl = `https://acceso.revelao.cam/events/${event.password_hash}`;
 
@@ -530,15 +651,19 @@ const EventManagement = () => {
 
                     {/* Event Info */}
                     <div className="flex-1 space-y-3">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="text-xl font-semibold text-foreground">
                           {event.name}
                         </h3>
-                        {isRevealed && (
-                          <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">
-                            Revelado
+                        <div className="flex items-center gap-2">
+                          <Switch
+                            checked={isRevealed}
+                            onCheckedChange={() => handleToggleReveal(event, isRevealed)}
+                          />
+                          <span className="text-sm text-muted-foreground">
+                            {isRevealed ? "Revelado" : "No revelado"}
                           </span>
-                        )}
+                        </div>
                       </div>
                       
                       <div className="space-y-1 text-sm text-muted-foreground">
@@ -552,6 +677,10 @@ const EventManagement = () => {
                             {event.admin_password}
                           </p>
                         )}
+                        <p>
+                          <span className="font-medium">Fotos añadidas:</span>{" "}
+                          {photoCount}{event.max_photos ? ` / ${event.max_photos}` : ""}
+                        </p>
                         {event.max_photos && (
                           <p>
                             <span className="font-medium">Máximo de fotos:</span>{" "}
@@ -596,27 +725,6 @@ const EventManagement = () => {
 
                     {/* Action Buttons */}
                     <div className="flex lg:flex-col gap-2">
-                      {isRevealed ? (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleReopenEvent(event.id)}
-                          className="text-primary hover:text-primary hover:bg-primary/10"
-                          title="Abrir evento de nuevo"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </Button>
-                      ) : (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleRevealNow(event.id)}
-                          className="text-primary hover:text-primary hover:bg-primary/10"
-                          title="Revelar ahora"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </Button>
-                      )}
                       <Button
                         variant="ghost"
                         size="icon"

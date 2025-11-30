@@ -18,6 +18,7 @@ export type Database = {
         Row: {
           admin_password: string | null
           created_at: string
+          custom_image_url: string | null
           id: string
           max_photos: number | null
           name: string
@@ -29,6 +30,7 @@ export type Database = {
         Insert: {
           admin_password?: string | null
           created_at?: string
+          custom_image_url?: string | null
           id?: string
           max_photos?: number | null
           name: string
@@ -40,6 +42,7 @@ export type Database = {
         Update: {
           admin_password?: string | null
           created_at?: string
+          custom_image_url?: string | null
           id?: string
           max_photos?: number | null
           name?: string
