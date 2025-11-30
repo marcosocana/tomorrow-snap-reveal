@@ -483,7 +483,7 @@ const Camera = () => {
                   }
                   return `${dateLabel} a las ${format(reveal, "HH:mm", {
                     locale: es
-                  })} todas las imágenes serán reveladas. Accede con la misma contraseña y vuelve a revivir esta experiencia 📸✨`;
+                  })} todas las imágenes serán reveladas en este mismo espacio 📸✨`;
                 })()}
                   </>}
               </p>
