@@ -488,14 +488,14 @@ const EventManagement = () => {
                     Imagen personalizada (opcional)
                   </Label>
                   <div className="text-xs text-muted-foreground mb-2">
-                    Máximo 200px ancho × 200px alto
+                    Máximo 240px ancho × 100px alto
                   </div>
                   {newEvent.customImageUrl && !newEvent.customImage && (
                     <div className="mb-2">
                       <img 
                         src={newEvent.customImageUrl} 
                         alt="Preview" 
-                        className="max-w-[200px] max-h-[200px] object-contain border border-border rounded"
+                        className="max-w-[240px] max-h-[100px] object-contain border border-border rounded"
                       />
                     </div>
                   )}
@@ -504,7 +504,7 @@ const EventManagement = () => {
                       <img 
                         src={URL.createObjectURL(newEvent.customImage)} 
                         alt="Preview" 
-                        className="max-w-[200px] max-h-[200px] object-contain border border-border rounded"
+                        className="max-w-[240px] max-h-[100px] object-contain border border-border rounded"
                       />
                     </div>
                   )}
