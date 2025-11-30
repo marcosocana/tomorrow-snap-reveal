@@ -241,8 +241,8 @@ const Camera = () => {
       }
       setPhotoCount(prev => prev + 1);
       toast({
-        title: "¡Foto capturada!",
-        description: "Se revelará mañana junto con las demás"
+        title: "Foto subida con éxito",
+        description: "La podrás ver cuando se revelen"
       });
 
       // Reload event data to check if max photos reached
@@ -322,13 +322,13 @@ const Camera = () => {
       </header>
       
       <div className="flex-1 flex flex-col pt-20 p-6">
-        <div className="flex justify-center py-6">
-          <div className="w-32 h-32 flex items-center justify-center" style={{
+        <div className="flex justify-center py-4">
+          <div className="w-40 h-40 flex items-center justify-center" style={{
             imageRendering: 'pixelated'
           }}>
             <img src={customImageUrl || prohibidoIcon} alt="Cámara prohibida" style={{
               imageRendering: 'pixelated'
-            }} className="w-full h-full object-contain" />
+            }} className="max-w-[160px] max-h-[160px] object-contain" />
           </div>
         </div>
         
@@ -369,13 +369,13 @@ const Camera = () => {
       </header>
       
       <div className="flex-1 flex flex-col pt-20 p-6">
-        <div className="flex justify-center py-6">
-          <div className="w-32 h-32 flex items-center justify-center" style={{
+        <div className="flex justify-center py-4">
+          <div className="w-40 h-40 flex items-center justify-center" style={{
             imageRendering: 'pixelated'
           }}>
             <img src={customImageUrl || prohibidoIcon} alt="Cámara prohibida" style={{
               imageRendering: 'pixelated'
-            }} className="w-full h-full object-contain" />
+            }} className="max-w-[160px] max-h-[160px] object-contain" />
           </div>
         </div>
         
@@ -440,13 +440,13 @@ const Camera = () => {
       </header>
 
       <div className="flex-1 flex flex-col pt-20 p-6">
-        <div className="flex justify-center py-6">
-          <button onClick={handleTakePhoto} disabled={isUploading} className="w-32 h-32 flex items-center justify-center cursor-pointer transition-all hover:scale-105 disabled:opacity-50" style={{
+        <div className="flex justify-center py-4">
+          <button onClick={handleTakePhoto} disabled={isUploading} className="w-40 h-40 flex items-center justify-center cursor-pointer transition-all hover:scale-105 disabled:opacity-50" style={{
             imageRendering: 'pixelated'
           }}>
             <img src={customImageUrl || cameraIcon} alt="Cámara" style={{
               imageRendering: 'pixelated'
-            }} className="w-full h-full object-contain" />
+            }} className="max-w-[160px] max-h-[160px] object-contain" />
           </button>
         </div>
         
@@ -488,6 +488,9 @@ const Camera = () => {
                   </>}
               </p>
             </div>
+            <Button onClick={handleTakePhoto} disabled={isUploading} className="h-16 px-8 text-lg bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl transition-all hover:scale-105 disabled:opacity-50">
+              {isUploading ? "Subiendo..." : "Hacer foto"}
+            </Button>
           </div>
         </div>
       </div>
