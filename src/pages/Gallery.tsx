@@ -511,12 +511,13 @@ const Gallery = () => {
 
       {/* Share Dialog */}
       {eventPassword && (
-        <ShareDialog
-          eventPassword={eventPassword}
-          eventName={eventName || ""}
-          open={showShareDialog}
-          onOpenChange={setShowShareDialog}
-        />
+               <ShareDialog
+                 eventPassword={eventPassword}
+                 eventName={eventName || ""}
+                 open={showShareDialog}
+                 onOpenChange={setShowShareDialog}
+                 isRevealed={true}
+               />
       )}
 
       {/* Photo Detail Modal */}

@@ -15,9 +15,10 @@ interface ShareDialogProps {
   eventName: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  isRevealed?: boolean;
 }
 
-const ShareDialog = ({ eventPassword, eventName, open, onOpenChange }: ShareDialogProps) => {
+const ShareDialog = ({ eventPassword, eventName, open, onOpenChange, isRevealed = false }: ShareDialogProps) => {
   const { toast } = useToast();
   const eventUrl = `https://acceso.revelao.cam/events/${eventPassword}`;
 
@@ -34,7 +35,9 @@ const ShareDialog = ({ eventPassword, eventName, open, onOpenChange }: ShareDial
   };
 
   const handleShare = async () => {
-    const shareText = `¡Únete al evento "${eventName}" en Revelao! 📸\n\nAccede directamente aquí: ${eventUrl}`;
+    const shareText = isRevealed 
+      ? `Ya se han revelado las fotos del evento "${eventName}". Accede a través de:`
+      : `¡Únete al evento "${eventName}" en Revelao! 📸`;
     
     if (navigator.share) {
       try {
@@ -48,7 +51,7 @@ const ShareDialog = ({ eventPassword, eventName, open, onOpenChange }: ShareDial
       }
     } else {
       // Fallback: copy to clipboard
-      await navigator.clipboard.writeText(shareText);
+      await navigator.clipboard.writeText(`${shareText}\n\n${eventUrl}`);
       toast({
         title: "Texto copiado",
         description: "El mensaje se ha copiado al portapapeles",
