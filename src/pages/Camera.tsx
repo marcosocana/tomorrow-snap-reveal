@@ -322,7 +322,7 @@ const Camera = () => {
       </header>
       
       <div className="flex-1 flex flex-col pt-20 p-6">
-        <div className="flex justify-center py-4">
+        <div className="flex justify-center py-2">
           <div className="w-40 h-40 flex items-center justify-center" style={{
             imageRendering: 'pixelated'
           }}>
@@ -333,8 +333,8 @@ const Camera = () => {
         </div>
         
         <div className="flex-1 flex items-center justify-center">
-          <div className="text-center space-y-6 max-w-md animate-fade-in">
-            <h1 className="text-3xl font-bold text-foreground">El evento aún no ha comenzado</h1>
+          <div className="text-center space-y-4 max-w-md animate-fade-in">
+            <h1 className="text-2xl font-bold text-foreground">El evento aún no ha comenzado</h1>
             <p className="text-muted-foreground text-lg">
               El período para subir fotos comenzará pronto.
             </p>
@@ -369,7 +369,7 @@ const Camera = () => {
       </header>
       
       <div className="flex-1 flex flex-col pt-20 p-6">
-        <div className="flex justify-center py-4">
+        <div className="flex justify-center py-2">
           <div className="w-40 h-40 flex items-center justify-center" style={{
             imageRendering: 'pixelated'
           }}>
@@ -380,8 +380,8 @@ const Camera = () => {
         </div>
         
         <div className="flex-1 flex items-center justify-center">
-          <div className="text-center space-y-6 max-w-md animate-fade-in">
-            <h1 className="text-3xl font-bold text-foreground">Evento finalizado</h1>
+          <div className="text-center space-y-4 max-w-md animate-fade-in">
+            <h1 className="text-2xl font-bold text-foreground">Evento finalizado</h1>
             <p className="text-muted-foreground text-lg">
               El período para subir fotos ha terminado.
             </p>
@@ -440,7 +440,7 @@ const Camera = () => {
       </header>
 
       <div className="flex-1 flex flex-col pt-20 p-6">
-        <div className="flex justify-center py-4">
+        <div className="flex justify-center py-2">
           <button onClick={handleTakePhoto} disabled={isUploading} className="w-40 h-40 flex items-center justify-center cursor-pointer transition-all hover:scale-105 disabled:opacity-50" style={{
             imageRendering: 'pixelated'
           }}>
@@ -451,8 +451,8 @@ const Camera = () => {
         </div>
         
         <div className="flex-1 flex items-center justify-center">
-          <div className="text-center space-y-6 animate-fade-in max-w-lg">
-            <div className="space-y-3">
+          <div className="text-center space-y-4 animate-fade-in max-w-lg">
+            <div className="space-y-2">
               <h2 className="text-2xl font-bold text-foreground">
                 ¡Captura la magia!
               </h2>
