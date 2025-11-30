@@ -293,7 +293,7 @@ const Camera = () => {
                 <img 
                   src={customImageUrl} 
                   alt="Evento" 
-                  className="max-w-[160px] max-h-[100px] object-contain"
+                  className="max-w-[200px] max-h-[200px] object-contain"
                 />
               </div>
             )}
@@ -313,77 +313,97 @@ const Camera = () => {
 
   // Event hasn't started yet
   if (hasNotStarted) {
-    return <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
-      <div className="text-center space-y-6 max-w-md animate-fade-in">
-        <div className="w-24 h-24 mx-auto flex items-center justify-center p-2 mb-4" style={{
-          imageRendering: 'pixelated'
-        }}>
-          <img src={customImageUrl || prohibidoIcon} alt="Cámara prohibida" style={{
+    return <div className="min-h-screen bg-background flex flex-col">
+      <header className="fixed top-0 left-0 right-0 z-50 p-4 flex justify-between items-center bg-card border-b border-border">
+        <h1 className="text-xl font-bold text-foreground">{eventName}</h1>
+        <Button variant="ghost" size="icon" onClick={handleLogout} className="text-muted-foreground hover:text-foreground">
+          <LogOut className="w-5 h-5" />
+        </Button>
+      </header>
+      
+      <div className="flex-1 flex flex-col pt-20 p-6">
+        <div className="flex justify-center py-6">
+          <div className="w-32 h-32 flex items-center justify-center" style={{
             imageRendering: 'pixelated'
-          }} className="w-full h-full object-contain" />
+          }}>
+            <img src={customImageUrl || prohibidoIcon} alt="Cámara prohibida" style={{
+              imageRendering: 'pixelated'
+            }} className="w-full h-full object-contain" />
+          </div>
         </div>
-        <h1 className="text-3xl font-bold text-foreground">El evento aún no ha comenzado</h1>
-          <p className="text-muted-foreground text-lg">
-            El período para subir fotos comenzará pronto.
-          </p>
-          {uploadStartTime && <>
-              <div className="bg-card border border-border rounded-lg p-6 space-y-2">
-                <p className="text-sm text-muted-foreground">El evento comenzará:</p>
-                <p className="text-xl font-bold text-foreground">
-                  {format(new Date(uploadStartTime), "dd 'de' MMMM 'a las' HH:mm", {
-                locale: es
-              })}
-                </p>
-              </div>
-              {startCountdown && <div className="bg-card border border-border rounded-lg p-4">
-                  <p className="text-primary font-semibold">
-                    {startCountdown}
+        
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center space-y-6 max-w-md animate-fade-in">
+            <h1 className="text-3xl font-bold text-foreground">El evento aún no ha comenzado</h1>
+            <p className="text-muted-foreground text-lg">
+              El período para subir fotos comenzará pronto.
+            </p>
+            {uploadStartTime && <>
+                <div className="bg-card border border-border rounded-lg p-6 space-y-2">
+                  <p className="text-sm text-muted-foreground">El evento comenzará:</p>
+                  <p className="text-xl font-bold text-foreground">
+                    {format(new Date(uploadStartTime), "dd 'de' MMMM 'a las' HH:mm", {
+                  locale: es
+                })}
                   </p>
-                </div>}
-            </>}
-          <Button onClick={handleLogout} variant="outline" className="mt-4">
-            <LogOut className="w-4 h-4 mr-2" />
-            Volver al inicio
-          </Button>
+                </div>
+                {startCountdown && <div className="bg-card border border-border rounded-lg p-4">
+                    <p className="text-primary font-semibold">
+                      {startCountdown}
+                    </p>
+                  </div>}
+              </>}
+          </div>
         </div>
-      </div>;
+      </div>
+    </div>;
   }
 
   if (hasEnded) {
-    return <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
-      <div className="text-center space-y-6 max-w-md animate-fade-in">
-        <div className="w-24 h-24 mx-auto flex items-center justify-center p-2 mb-4" style={{
-          imageRendering: 'pixelated'
-        }}>
-          <img src={customImageUrl || prohibidoIcon} alt="Cámara prohibida" style={{
+    return <div className="min-h-screen bg-background flex flex-col">
+      <header className="fixed top-0 left-0 right-0 z-50 p-4 flex justify-between items-center bg-card border-b border-border">
+        <h1 className="text-xl font-bold text-foreground">{eventName}</h1>
+        <Button variant="ghost" size="icon" onClick={handleLogout} className="text-muted-foreground hover:text-foreground">
+          <LogOut className="w-5 h-5" />
+        </Button>
+      </header>
+      
+      <div className="flex-1 flex flex-col pt-20 p-6">
+        <div className="flex justify-center py-6">
+          <div className="w-32 h-32 flex items-center justify-center" style={{
             imageRendering: 'pixelated'
-          }} className="w-full h-full object-contain" />
+          }}>
+            <img src={customImageUrl || prohibidoIcon} alt="Cámara prohibida" style={{
+              imageRendering: 'pixelated'
+            }} className="w-full h-full object-contain" />
+          </div>
         </div>
-        <h1 className="text-3xl font-bold text-foreground">Evento finalizado</h1>
-          <p className="text-muted-foreground text-lg">
-            El período para subir fotos ha terminado.
-          </p>
-          {revealTime && <>
-              <div className="bg-card border border-border rounded-lg p-6 space-y-2">
-                <p className="text-sm text-muted-foreground">Las fotos se revelarán:</p>
-                <p className="text-xl font-bold text-foreground">
-                  {format(new Date(revealTime), "dd 'de' MMMM 'a las' HH:mm", {
-                locale: es
-              })}
-                </p>
-              </div>
-              {revealCountdown && <div className="bg-card border border-border rounded-lg p-4">
-                  <p className="text-primary font-semibold">
-                    {revealCountdown}
+        
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center space-y-6 max-w-md animate-fade-in">
+            <h1 className="text-3xl font-bold text-foreground">Evento finalizado</h1>
+            <p className="text-muted-foreground text-lg">
+              El período para subir fotos ha terminado.
+            </p>
+            {revealTime && <>
+                <div className="bg-card border border-border rounded-lg p-6 space-y-2">
+                  <p className="text-sm text-muted-foreground">Las fotos se revelarán:</p>
+                  <p className="text-xl font-bold text-foreground">
+                    {format(new Date(revealTime), "dd 'de' MMMM 'a las' HH:mm", {
+                  locale: es
+                })}
                   </p>
-                </div>}
-            </>}
-          <Button onClick={handleLogout} variant="outline" className="mt-4">
-            <LogOut className="w-4 h-4 mr-2" />
-            Volver al inicio
-          </Button>
+                </div>
+                {revealCountdown && <div className="bg-card border border-border rounded-lg p-4">
+                    <p className="text-primary font-semibold">
+                      {revealCountdown}
+                    </p>
+                  </div>}
+              </>}
+          </div>
         </div>
-      </div>;
+      </div>
+    </div>;
   }
   return <div className="min-h-screen bg-background flex flex-col">
       <header className="fixed top-0 left-0 right-0 z-50 p-4 flex justify-between items-center bg-card border-b border-border">
@@ -419,54 +439,56 @@ const Camera = () => {
         </div>
       </header>
 
-      <div className="flex-1 flex flex-col items-center justify-center p-6 space-y-6 pt-24">
-        <div className="text-center space-y-6 animate-fade-in">
-          <button onClick={handleTakePhoto} disabled={isUploading} className="w-24 h-24 mx-auto flex items-center justify-center cursor-pointer transition-all hover:scale-105 disabled:opacity-50 p-2" style={{
-          imageRendering: 'pixelated'
-        }}>
-            <img src={customImageUrl || cameraIcon} alt="Cámara" style={{
+      <div className="flex-1 flex flex-col pt-20 p-6">
+        <div className="flex justify-center py-6">
+          <button onClick={handleTakePhoto} disabled={isUploading} className="w-32 h-32 flex items-center justify-center cursor-pointer transition-all hover:scale-105 disabled:opacity-50" style={{
             imageRendering: 'pixelated'
-          }} className="w-full h-full object-contain" />
+          }}>
+            <img src={customImageUrl || cameraIcon} alt="Cámara" style={{
+              imageRendering: 'pixelated'
+            }} className="w-full h-full object-contain" />
           </button>
-          <div className="space-y-3">
-            <h2 className="text-2xl font-bold text-foreground">
-              ¡Captura la magia!
-            </h2>
-            {countdown && <div className="bg-card border border-border rounded-lg p-4 max-w-lg mx-auto">
-                <p className="text-primary font-semibold text-sm">
-                  {countdown}
-                </p>
-              </div>}
-            <p className="text-muted-foreground max-w-sm mx-auto leading-relaxed">
-              {revealTime && <>
-                  {(() => {
-                const reveal = new Date(revealTime);
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-                const tomorrow = new Date(today);
-                tomorrow.setDate(tomorrow.getDate() + 1);
-                const revealDate = new Date(reveal);
-                revealDate.setHours(0, 0, 0, 0);
-                let dateLabel = "";
-                if (revealDate.getTime() === today.getTime()) {
-                  dateLabel = "Hoy";
-                } else if (revealDate.getTime() === tomorrow.getTime()) {
-                  dateLabel = "Mañana";
-                } else {
-                  dateLabel = `El ${format(reveal, "dd/MM/yyyy", {
+        </div>
+        
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center space-y-6 animate-fade-in max-w-lg">
+            <div className="space-y-3">
+              <h2 className="text-2xl font-bold text-foreground">
+                ¡Captura la magia!
+              </h2>
+              {countdown && <div className="bg-card border border-border rounded-lg p-4">
+                  <p className="text-primary font-semibold text-sm">
+                    {countdown}
+                  </p>
+                </div>}
+              <p className="text-muted-foreground leading-relaxed">
+                {revealTime && <>
+                    {(() => {
+                  const reveal = new Date(revealTime);
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  const tomorrow = new Date(today);
+                  tomorrow.setDate(tomorrow.getDate() + 1);
+                  const revealDate = new Date(reveal);
+                  revealDate.setHours(0, 0, 0, 0);
+                  let dateLabel = "";
+                  if (revealDate.getTime() === today.getTime()) {
+                    dateLabel = "Hoy";
+                  } else if (revealDate.getTime() === tomorrow.getTime()) {
+                    dateLabel = "Mañana";
+                  } else {
+                    dateLabel = `El ${format(reveal, "dd/MM/yyyy", {
+                      locale: es
+                    })}`;
+                  }
+                  return `${dateLabel} a las ${format(reveal, "HH:mm", {
                     locale: es
-                  })}`;
-                }
-                return `${dateLabel} a las ${format(reveal, "HH:mm", {
-                  locale: es
-                })} todas las imágenes serán reveladas. Accede con la misma contraseña y vuelve a revivir esta experiencia 📸✨`;
-              })()}
-                </>}
-            </p>
+                  })} todas las imágenes serán reveladas. Accede con la misma contraseña y vuelve a revivir esta experiencia 📸✨`;
+                })()}
+                  </>}
+              </p>
+            </div>
           </div>
-          <Button onClick={handleTakePhoto} disabled={isUploading} className="h-16 px-8 text-lg bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-x1 transition-all hover:scale-105 disabled:opacity-50 rounded-xl">
-            {isUploading ? "Subiendo..." : "Hacer foto"}
-          </Button>
         </div>
       </div>
 
