@@ -18,6 +18,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface Event {
   id: string;
@@ -376,10 +377,10 @@ const EventManagement = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="max-w-6xl mx-auto space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+    <div className="min-h-screen bg-background p-4 md:p-6">
+      <div className="max-w-6xl mx-auto space-y-4 md:space-y-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
             <Button
               variant="ghost"
               size="icon"
@@ -389,7 +390,7 @@ const EventManagement = () => {
             >
               <Home className="w-5 h-5" />
             </Button>
-            <h1 className="text-3xl font-bold text-foreground">
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
               Gestión de Eventos
             </h1>
           </div>
@@ -415,209 +416,211 @@ const EventManagement = () => {
             }
           }}>
             <DialogTrigger asChild>
-              <Button className="gap-2">
+              <Button className="gap-2 w-full sm:w-auto">
                 <Plus className="w-4 h-4" />
                 Nuevo Evento
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
+            <DialogContent className="max-w-md max-h-[90vh] flex flex-col p-0">
+              <DialogHeader className="px-6 pt-6 pb-4">
                 <DialogTitle>
                   {editingEvent ? "Editar Evento" : "Crear Nuevo Evento"}
                 </DialogTitle>
               </DialogHeader>
-              <form onSubmit={handleCreateEvent} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Nombre del evento</Label>
-                  <Input
-                    id="name"
-                    value={newEvent.name}
-                    onChange={(e) =>
-                      setNewEvent({ ...newEvent, name: e.target.value })
-                    }
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="password">Contraseña del evento</Label>
-                  <Input
-                    id="password"
-                    type="text"
-                    value={newEvent.password}
-                    onChange={(e) =>
-                      setNewEvent({ ...newEvent, password: e.target.value })
-                    }
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="adminPassword">
-                    Contraseña admin (ver fotos antes del revelado)
-                  </Label>
-                  <Input
-                    id="adminPassword"
-                    type="text"
-                    value={newEvent.adminPassword}
-                    onChange={(e) =>
-                      setNewEvent({ ...newEvent, adminPassword: e.target.value })
-                    }
-                    placeholder="Opcional"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="maxPhotos">
-                    Máximo de fotos permitido
-                  </Label>
-                  <Input
-                    id="maxPhotos"
-                    type="number"
-                    min="1"
-                    value={newEvent.maxPhotos}
-                    onChange={(e) =>
-                      setNewEvent({ ...newEvent, maxPhotos: e.target.value })
-                    }
-                    placeholder="Ilimitado si se deja vacío"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="customImage">
-                    Imagen personalizada (opcional)
-                  </Label>
-                  <div className="text-xs text-muted-foreground mb-2">
-                    Máximo 240px ancho × 100px alto
-                  </div>
-                  {newEvent.customImageUrl && !newEvent.customImage && (
-                    <div className="mb-2">
-                      <img 
-                        src={newEvent.customImageUrl} 
-                        alt="Preview" 
-                        className="max-w-[240px] max-h-[100px] object-contain border border-border rounded"
-                      />
-                    </div>
-                  )}
-                  {newEvent.customImage && (
-                    <div className="mb-2">
-                      <img 
-                        src={URL.createObjectURL(newEvent.customImage)} 
-                        alt="Preview" 
-                        className="max-w-[240px] max-h-[100px] object-contain border border-border rounded"
-                      />
-                    </div>
-                  )}
-                  <Input
-                    id="customImage"
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        setNewEvent({ ...newEvent, customImage: file });
+              <ScrollArea className="flex-1 px-6">
+                <form onSubmit={handleCreateEvent} className="space-y-4 pb-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Nombre del evento</Label>
+                    <Input
+                      id="name"
+                      value={newEvent.name}
+                      onChange={(e) =>
+                        setNewEvent({ ...newEvent, name: e.target.value })
                       }
-                    }}
-                  />
-                </div>
+                      required
+                    />
+                  </div>
 
-                <div className="space-y-2">
-                  <Label className="text-base font-semibold">Período de subida de fotos</Label>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="uploadStartDate">Fecha inicio</Label>
-                      <Input
-                        id="uploadStartDate"
-                        type="date"
-                        value={newEvent.uploadStartDate}
-                        onChange={(e) =>
-                          setNewEvent({ ...newEvent, uploadStartDate: e.target.value })
-                        }
-                        required
-                      />
+                  <div className="space-y-2">
+                    <Label htmlFor="password">Contraseña del evento</Label>
+                    <Input
+                      id="password"
+                      type="text"
+                      value={newEvent.password}
+                      onChange={(e) =>
+                        setNewEvent({ ...newEvent, password: e.target.value })
+                      }
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="adminPassword">
+                      Contraseña admin (ver fotos antes del revelado)
+                    </Label>
+                    <Input
+                      id="adminPassword"
+                      type="text"
+                      value={newEvent.adminPassword}
+                      onChange={(e) =>
+                        setNewEvent({ ...newEvent, adminPassword: e.target.value })
+                      }
+                      placeholder="Opcional"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="maxPhotos">
+                      Máximo de fotos permitido
+                    </Label>
+                    <Input
+                      id="maxPhotos"
+                      type="number"
+                      min="1"
+                      value={newEvent.maxPhotos}
+                      onChange={(e) =>
+                        setNewEvent({ ...newEvent, maxPhotos: e.target.value })
+                      }
+                      placeholder="Ilimitado si se deja vacío"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="customImage">
+                      Imagen personalizada (opcional)
+                    </Label>
+                    <div className="text-xs text-muted-foreground mb-2">
+                      Máximo 240px ancho × 100px alto
                     </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="uploadStartTime">Hora inicio</Label>
-                      <Input
-                        id="uploadStartTime"
-                        type="time"
-                        value={newEvent.uploadStartTime}
-                        onChange={(e) =>
-                          setNewEvent({ ...newEvent, uploadStartTime: e.target.value })
+                    {newEvent.customImageUrl && !newEvent.customImage && (
+                      <div className="mb-2">
+                        <img 
+                          src={newEvent.customImageUrl} 
+                          alt="Preview" 
+                          className="max-w-[240px] max-h-[100px] object-contain border border-border rounded"
+                        />
+                      </div>
+                    )}
+                    {newEvent.customImage && (
+                      <div className="mb-2">
+                        <img 
+                          src={URL.createObjectURL(newEvent.customImage)} 
+                          alt="Preview" 
+                          className="max-w-[240px] max-h-[100px] object-contain border border-border rounded"
+                        />
+                      </div>
+                    )}
+                    <Input
+                      id="customImage"
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setNewEvent({ ...newEvent, customImage: file });
                         }
-                        required
-                      />
-                    </div>
+                      }}
+                    />
+                  </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="uploadEndDate">Fecha fin</Label>
-                      <Input
-                        id="uploadEndDate"
-                        type="date"
-                        value={newEvent.uploadEndDate}
-                        onChange={(e) =>
-                          setNewEvent({ ...newEvent, uploadEndDate: e.target.value })
-                        }
-                        required
-                      />
-                    </div>
+                  <div className="space-y-2">
+                    <Label className="text-base font-semibold">Período de subida de fotos</Label>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="uploadStartDate">Fecha inicio</Label>
+                        <Input
+                          id="uploadStartDate"
+                          type="date"
+                          value={newEvent.uploadStartDate}
+                          onChange={(e) =>
+                            setNewEvent({ ...newEvent, uploadStartDate: e.target.value })
+                          }
+                          required
+                        />
+                      </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="uploadEndTime">Hora fin</Label>
-                      <Input
-                        id="uploadEndTime"
-                        type="time"
-                        value={newEvent.uploadEndTime}
-                        onChange={(e) =>
-                          setNewEvent({ ...newEvent, uploadEndTime: e.target.value })
-                        }
-                        required
-                      />
+                      <div className="space-y-2">
+                        <Label htmlFor="uploadStartTime">Hora inicio</Label>
+                        <Input
+                          id="uploadStartTime"
+                          type="time"
+                          value={newEvent.uploadStartTime}
+                          onChange={(e) =>
+                            setNewEvent({ ...newEvent, uploadStartTime: e.target.value })
+                          }
+                          required
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="uploadEndDate">Fecha fin</Label>
+                        <Input
+                          id="uploadEndDate"
+                          type="date"
+                          value={newEvent.uploadEndDate}
+                          onChange={(e) =>
+                            setNewEvent({ ...newEvent, uploadEndDate: e.target.value })
+                          }
+                          required
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="uploadEndTime">Hora fin</Label>
+                        <Input
+                          id="uploadEndTime"
+                          type="time"
+                          value={newEvent.uploadEndTime}
+                          onChange={(e) =>
+                            setNewEvent({ ...newEvent, uploadEndTime: e.target.value })
+                          }
+                          required
+                        />
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="space-y-2">
-                  <Label className="text-base font-semibold">Fecha de revelado</Label>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="revealDate">Fecha</Label>
-                      <Input
-                        id="revealDate"
-                        type="date"
-                        value={newEvent.revealDate}
-                        onChange={(e) =>
-                          setNewEvent({ ...newEvent, revealDate: e.target.value })
-                        }
-                        required
-                      />
-                    </div>
+                  <div className="space-y-2">
+                    <Label className="text-base font-semibold">Fecha de revelado</Label>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="revealDate">Fecha</Label>
+                        <Input
+                          id="revealDate"
+                          type="date"
+                          value={newEvent.revealDate}
+                          onChange={(e) =>
+                            setNewEvent({ ...newEvent, revealDate: e.target.value })
+                          }
+                          required
+                        />
+                      </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="revealTime">Hora</Label>
-                      <Input
-                        id="revealTime"
-                        type="time"
-                        value={newEvent.revealTime}
-                        onChange={(e) =>
-                          setNewEvent({ ...newEvent, revealTime: e.target.value })
-                        }
-                        required
-                      />
+                      <div className="space-y-2">
+                        <Label htmlFor="revealTime">Hora</Label>
+                        <Input
+                          id="revealTime"
+                          type="time"
+                          value={newEvent.revealTime}
+                          onChange={(e) =>
+                            setNewEvent({ ...newEvent, revealTime: e.target.value })
+                          }
+                          required
+                        />
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <Button type="submit" className="w-full" disabled={isCreating || uploadingImage}>
-                  {uploadingImage
-                    ? "Subiendo imagen..."
-                    : isCreating 
-                      ? (editingEvent ? "Actualizando..." : "Creando...") 
-                      : (editingEvent ? "Actualizar Evento" : "Crear Evento")
-                  }
-                </Button>
-              </form>
+                  <Button type="submit" className="w-full" disabled={isCreating || uploadingImage}>
+                    {uploadingImage
+                      ? "Subiendo imagen..."
+                      : isCreating 
+                        ? (editingEvent ? "Actualizando..." : "Creando...") 
+                        : (editingEvent ? "Actualizar Evento" : "Crear Evento")
+                    }
+                  </Button>
+                </form>
+              </ScrollArea>
             </DialogContent>
           </Dialog>
         </div>
