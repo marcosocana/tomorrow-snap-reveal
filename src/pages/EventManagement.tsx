@@ -18,7 +18,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface Event {
   id: string;
@@ -421,14 +420,14 @@ const EventManagement = () => {
                 Nuevo Evento
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-md max-h-[90vh] flex flex-col p-0">
-              <DialogHeader className="px-6 pt-6 pb-4">
+            <DialogContent className="max-w-md max-h-[90vh] overflow-hidden">
+              <DialogHeader>
                 <DialogTitle>
                   {editingEvent ? "Editar Evento" : "Crear Nuevo Evento"}
                 </DialogTitle>
               </DialogHeader>
-              <ScrollArea className="flex-1 px-6">
-                <form onSubmit={handleCreateEvent} className="space-y-4 pb-6">
+              <div className="overflow-y-auto max-h-[calc(90vh-120px)]">
+                <form onSubmit={handleCreateEvent} className="space-y-4 pr-2">
                   <div className="space-y-2">
                     <Label htmlFor="name">Nombre del evento</Label>
                     <Input
@@ -620,7 +619,7 @@ const EventManagement = () => {
                     }
                   </Button>
                 </form>
-              </ScrollArea>
+              </div>
             </DialogContent>
           </Dialog>
         </div>
