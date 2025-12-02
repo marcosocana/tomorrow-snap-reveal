@@ -16,6 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+
 const Camera = () => {
   const [photoCount, setPhotoCount] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
@@ -33,6 +34,7 @@ const Camera = () => {
   const eventId = localStorage.getItem("eventId");
   const eventName = localStorage.getItem("eventName");
   const [eventPassword, setEventPassword] = useState<string>("");
+
   useEffect(() => {
     if (!eventId) {
       navigate("/");
@@ -56,8 +58,8 @@ const Camera = () => {
         return;
       }
       const hours = Math.floor(distance / (1000 * 60 * 60));
-      const minutes = Math.floor(distance % (1000 * 60 * 60) / (1000 * 60));
-      const seconds = Math.floor(distance % (1000 * 60) / 1000);
+      const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((distance % (1000 * 60)) / 1000);
       setRevealCountdown(`Quedan ${hours} horas, ${minutes} minutos y ${seconds} segundos para que se revelen las fotos. ¡Qué nervios!`);
     }, 1000);
     return () => clearInterval(interval);
@@ -76,8 +78,8 @@ const Camera = () => {
         return;
       }
       const hours = Math.floor(distance / (1000 * 60 * 60));
-      const minutes = Math.floor(distance % (1000 * 60 * 60) / (1000 * 60));
-      const seconds = Math.floor(distance % (1000 * 60) / 1000);
+      const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((distance % (1000 * 60)) / 1000);
       setStartCountdown(`Quedan ${hours} horas, ${minutes} minutos y ${seconds} segundos para que comience el evento`);
     }, 1000);
     return () => clearInterval(interval);
@@ -125,8 +127,8 @@ const Camera = () => {
         return;
       }
       const hours = Math.floor(distance / (1000 * 60 * 60));
-      const minutes = Math.floor(distance % (1000 * 60 * 60) / (1000 * 60));
-      const seconds = Math.floor(distance % (1000 * 60) / 1000);
+      const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((distance % (1000 * 60)) / 1000);
 
       // Determine if it's today or tomorrow
       const today = new Date();
@@ -141,27 +143,23 @@ const Camera = () => {
       } else if (endDate.getTime() === tomorrow.getTime()) {
         dateLabel = "mañana";
       } else {
-        dateLabel = `el día ${format(endTime, "dd/MM/yyyy", {
-          locale: es
-        })}`;
+        dateLabel = `el día ${format(endTime, "dd/MM/yyyy", { locale: es })}`;
       }
-      const formattedTime = format(endTime, "HH:mm", {
-        locale: es
-      });
+      const formattedTime = format(endTime, "HH:mm", { locale: es });
       setCountdown(`Puedes subir todas las fotos que quieras hasta ${dateLabel} a las ${formattedTime} horas. ¡Solo quedan ${hours} horas, ${minutes} minutos y ${seconds} segundos!`);
     }, 1000);
     return () => clearInterval(interval);
   }, [uploadEndTime]);
+
   const loadPhotoCount = async () => {
     if (!eventId) return;
-    const {
-      count
-    } = await supabase.from("photos").select("*", {
-      count: "exact",
-      head: true
-    }).eq("event_id", eventId);
+    const { count } = await supabase
+      .from("photos")
+      .select("*", { count: "exact", head: true })
+      .eq("event_id", eventId);
     setPhotoCount(count || 0);
   };
+
   const handleTakePhoto = () => {
     // Check if upload period is valid
     const now = new Date();
@@ -170,10 +168,8 @@ const Camera = () => {
     if (startTime && now < startTime) {
       toast({
         title: "Evento no iniciado",
-        description: `El evento comienza el ${format(startTime, "dd/MM/yyyy 'a las' HH:mm", {
-          locale: es
-        })}`,
-        variant: "destructive"
+        description: `El evento comienza el ${format(startTime, "dd/MM/yyyy 'a las' HH:mm", { locale: es })}`,
+        variant: "destructive",
       });
       return;
     }
@@ -183,6 +179,7 @@ const Camera = () => {
     }
     fileInputRef.current?.click();
   };
+
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file || !eventId) return;
@@ -217,32 +214,30 @@ const Camera = () => {
       const fileName = `${eventId}/${Date.now()}.jpg`;
 
       // Upload to storage
-      const {
-        error: uploadError
-      } = await supabase.storage.from("event-photos").upload(fileName, compressedFile);
+      const { error: uploadError } = await supabase.storage
+        .from("event-photos")
+        .upload(fileName, compressedFile);
       if (uploadError) {
         toast({
           title: "Error",
           description: "No se pudo guardar la foto",
-          variant: "destructive"
+          variant: "destructive",
         });
         return;
       }
 
       // Save photo record
-      const {
-        error: dbError
-      } = await supabase.from("photos").insert({
+      const { error: dbError } = await supabase.from("photos").insert({
         event_id: eventId,
-        image_url: fileName
+        image_url: fileName,
       });
       if (dbError) {
         console.error("Error saving photo record:", dbError);
       }
-      setPhotoCount(prev => prev + 1);
+      setPhotoCount((prev) => prev + 1);
       toast({
         title: "Foto subida con éxito",
-        description: "La podrás ver cuando se revelen"
+        description: "La podrás ver cuando se revelen",
       });
 
       // Reload event data to check if max photos reached
@@ -252,7 +247,7 @@ const Camera = () => {
       toast({
         title: "Error",
         description: "No se pudo guardar la foto",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setIsUploading(false);
@@ -262,6 +257,7 @@ const Camera = () => {
       }
     }
   };
+
   const handleLogout = () => {
     localStorage.removeItem("eventId");
     localStorage.removeItem("eventName");
@@ -313,97 +309,117 @@ const Camera = () => {
 
   // Event hasn't started yet
   if (hasNotStarted) {
-    return <div className="min-h-screen bg-background flex flex-col">
-      <header className="fixed top-0 left-0 right-0 z-50 p-4 flex justify-between items-center bg-card border-b border-border">
-        <h1 className="text-xl font-bold text-foreground">{eventName}</h1>
-        <Button variant="ghost" size="icon" onClick={handleLogout} className="text-muted-foreground hover:text-foreground">
-          <LogOut className="w-5 h-5" />
-        </Button>
-      </header>
-      
-      <div className="pt-16 pb-6 px-6">
-        <div className="flex justify-center pt-4 pb-6">
-          <div className="w-60 h-25 flex items-center justify-center" style={{
-            imageRendering: 'pixelated'
-          }}>
-            <img src={customImageUrl || prohibidoIcon} alt="Cámara prohibida" style={{
-              imageRendering: 'pixelated'
-            }} className="max-w-[240px] max-h-[100px] object-contain" />
-          </div>
-        </div>
+    return (
+      <div className="min-h-screen bg-background flex flex-col">
+        <header className="fixed top-0 left-0 right-0 z-50 p-4 flex justify-between items-center bg-card border-b border-border">
+          <h1 className="text-xl font-bold text-foreground">{eventName}</h1>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleLogout}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <LogOut className="w-5 h-5" />
+          </Button>
+        </header>
         
-        <div className="text-center space-y-4 max-w-md mx-auto animate-fade-in">
-          <h1 className="text-2xl font-bold text-foreground">El evento aún no ha comenzado</h1>
+        <div className="pt-16 pb-6 px-6">
+          <div className="flex justify-center pt-4 pb-6">
+            <div className="w-60 h-25 flex items-center justify-center" style={{ imageRendering: 'pixelated' }}>
+              <img
+                src={customImageUrl || prohibidoIcon}
+                alt="Cámara prohibida"
+                style={{ imageRendering: 'pixelated' }}
+                className="max-w-[240px] max-h-[100px] object-contain"
+              />
+            </div>
+          </div>
+          
+          <div className="text-center space-y-4 max-w-md mx-auto animate-fade-in">
+            <h1 className="text-2xl font-bold text-foreground">El evento aún no ha comenzado</h1>
             <p className="text-muted-foreground text-lg">
               El período para subir fotos comenzará pronto.
             </p>
-            {uploadStartTime && <>
+            {uploadStartTime && (
+              <>
                 <div className="bg-card border border-border rounded-lg p-6 space-y-2">
                   <p className="text-sm text-muted-foreground">El evento comenzará:</p>
                   <p className="text-xl font-bold text-foreground">
-                    {format(new Date(uploadStartTime), "dd 'de' MMMM 'a las' HH:mm", {
-                  locale: es
-                })}
+                    {format(new Date(uploadStartTime), "dd 'de' MMMM 'a las' HH:mm", { locale: es })}
                   </p>
                 </div>
-                {startCountdown && <div className="bg-card border border-border rounded-lg p-4">
+                {startCountdown && (
+                  <div className="bg-card border border-border rounded-lg p-4">
                     <p className="text-primary font-semibold">
                       {startCountdown}
                     </p>
-                  </div>}
-              </>}
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </div>
       </div>
-    </div>;
+    );
   }
 
   if (hasEnded) {
-    return <div className="min-h-screen bg-background flex flex-col">
-      <header className="fixed top-0 left-0 right-0 z-50 p-4 flex justify-between items-center bg-card border-b border-border">
-        <h1 className="text-xl font-bold text-foreground">{eventName}</h1>
-        <Button variant="ghost" size="icon" onClick={handleLogout} className="text-muted-foreground hover:text-foreground">
-          <LogOut className="w-5 h-5" />
-        </Button>
-      </header>
-      
-      <div className="pt-16 pb-6 px-6">
-        <div className="flex justify-center pt-4 pb-6">
-          <div className="w-60 h-25 flex items-center justify-center" style={{
-            imageRendering: 'pixelated'
-          }}>
-            <img src={customImageUrl || prohibidoIcon} alt="Cámara prohibida" style={{
-              imageRendering: 'pixelated'
-            }} className="max-w-[240px] max-h-[100px] object-contain" />
-          </div>
-        </div>
+    return (
+      <div className="min-h-screen bg-background flex flex-col">
+        <header className="fixed top-0 left-0 right-0 z-50 p-4 flex justify-between items-center bg-card border-b border-border">
+          <h1 className="text-xl font-bold text-foreground">{eventName}</h1>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleLogout}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <LogOut className="w-5 h-5" />
+          </Button>
+        </header>
         
-        <div className="text-center space-y-4 max-w-md mx-auto animate-fade-in">
-          <h1 className="text-2xl font-bold text-foreground">Evento finalizado</h1>
+        <div className="pt-16 pb-6 px-6">
+          <div className="flex justify-center pt-4 pb-6">
+            <div className="w-60 h-25 flex items-center justify-center" style={{ imageRendering: 'pixelated' }}>
+              <img
+                src={customImageUrl || prohibidoIcon}
+                alt="Cámara prohibida"
+                style={{ imageRendering: 'pixelated' }}
+                className="max-w-[240px] max-h-[100px] object-contain"
+              />
+            </div>
+          </div>
+          
+          <div className="text-center space-y-4 max-w-md mx-auto animate-fade-in">
+            <h1 className="text-2xl font-bold text-foreground">Evento finalizado</h1>
             <p className="text-muted-foreground text-lg">
               El período para subir fotos ha terminado.
             </p>
-            {revealTime && <>
+            {revealTime && (
+              <>
                 <div className="bg-card border border-border rounded-lg p-6 space-y-2">
                   <p className="text-sm text-muted-foreground">Las fotos se revelarán:</p>
                   <p className="text-xl font-bold text-foreground">
-                    {format(new Date(revealTime), "dd 'de' MMMM 'a las' HH:mm", {
-                  locale: es
-                })}
+                    {format(new Date(revealTime), "dd 'de' MMMM 'a las' HH:mm", { locale: es })}
                   </p>
                 </div>
-                {revealCountdown && <div className="bg-card border border-border rounded-lg p-4">
+                {revealCountdown && (
+                  <div className="bg-card border border-border rounded-lg p-4">
                     <p className="text-primary font-semibold">
                       {revealCountdown}
                     </p>
-                  </div>}
-              </>}
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </div>
       </div>
-    </div>;
+    );
   }
-  return <div className="min-h-screen bg-background flex flex-col">
+
+  return (
+    <div className="min-h-screen bg-background flex flex-col">
       <header className="fixed top-0 left-0 right-0 z-50 p-4 flex justify-between items-center bg-card border-b border-border">
         <div>
           <h1 className="text-xl font-bold text-foreground">{eventName}</h1>
@@ -431,7 +447,12 @@ const Camera = () => {
               />
             </>
           )}
-          <Button variant="ghost" size="icon" onClick={handleLogout} className="text-muted-foreground hover:text-foreground">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleLogout}
+            className="text-muted-foreground hover:text-foreground"
+          >
             <LogOut className="w-5 h-5" />
           </Button>
         </div>
@@ -439,60 +460,78 @@ const Camera = () => {
 
       <div className="pt-16 pb-6 px-6">
         <div className="flex justify-center pt-4 pb-6">
-          <button onClick={handleTakePhoto} disabled={isUploading} className="w-60 h-25 flex items-center justify-center cursor-pointer transition-all hover:scale-105 disabled:opacity-50" style={{
-            imageRendering: 'pixelated'
-          }}>
-            <img src={customImageUrl || cameraIcon} alt="Cámara" style={{
-              imageRendering: 'pixelated'
-            }} className="max-w-[240px] max-h-[100px] object-contain" />
+          <button
+            onClick={handleTakePhoto}
+            disabled={isUploading}
+            className="w-60 h-25 flex items-center justify-center cursor-pointer transition-all hover:scale-105 disabled:opacity-50"
+            style={{ imageRendering: 'pixelated' }}
+          >
+            <img
+              src={customImageUrl || cameraIcon}
+              alt="Cámara"
+              style={{ imageRendering: 'pixelated' }}
+              className="max-w-[240px] max-h-[100px] object-contain"
+            />
           </button>
         </div>
         
         <div className="text-center space-y-4 max-w-lg mx-auto animate-fade-in">
-            <div className="space-y-2">
-              <h2 className="text-2xl font-bold text-foreground">
-                ¡Captura la magia!
-              </h2>
-              {countdown && <div className="bg-card border border-border rounded-lg p-4">
-                  <p className="text-primary font-semibold text-sm">
-                    {countdown}
-                  </p>
-                </div>}
-              <p className="text-muted-foreground leading-relaxed">
-                {revealTime && <>
-                    {(() => {
-                  const reveal = new Date(revealTime);
-                  const today = new Date();
-                  today.setHours(0, 0, 0, 0);
-                  const tomorrow = new Date(today);
-                  tomorrow.setDate(tomorrow.getDate() + 1);
-                  const revealDate = new Date(reveal);
-                  revealDate.setHours(0, 0, 0, 0);
-                  let dateLabel = "";
-                  if (revealDate.getTime() === today.getTime()) {
-                    dateLabel = "Hoy";
-                  } else if (revealDate.getTime() === tomorrow.getTime()) {
-                    dateLabel = "Mañana";
-                  } else {
-                    dateLabel = `El ${format(reveal, "dd/MM/yyyy", {
-                      locale: es
-                    })}`;
-                  }
-                  return `${dateLabel} a las ${format(reveal, "HH:mm", {
-                    locale: es
-                  })} todas las imágenes serán reveladas en este mismo espacio 📸✨`;
-                })()}
-                  </>}
-              </p>
-            </div>
-            <Button onClick={handleTakePhoto} disabled={isUploading} className="h-16 px-8 text-lg bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl transition-all hover:scale-105 disabled:opacity-50">
-              {isUploading ? "Subiendo..." : "Hacer foto"}
-            </Button>
+          <div className="space-y-2">
+            <h2 className="text-2xl font-bold text-foreground">
+              ¡Captura la magia!
+            </h2>
+            {countdown && (
+              <div className="bg-card border border-border rounded-lg p-4">
+                <p className="text-primary font-semibold text-sm">
+                  {countdown}
+                </p>
+              </div>
+            )}
+            <p className="text-muted-foreground leading-relaxed">
+              {revealTime && (
+                <>
+                  {(() => {
+                    const reveal = new Date(revealTime);
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    const tomorrow = new Date(today);
+                    tomorrow.setDate(tomorrow.getDate() + 1);
+                    const revealDate = new Date(reveal);
+                    revealDate.setHours(0, 0, 0, 0);
+                    let dateLabel = "";
+                    if (revealDate.getTime() === today.getTime()) {
+                      dateLabel = "Hoy";
+                    } else if (revealDate.getTime() === tomorrow.getTime()) {
+                      dateLabel = "Mañana";
+                    } else {
+                      dateLabel = `El ${format(reveal, "dd/MM/yyyy", { locale: es })}`;
+                    }
+                    return `${dateLabel} a las ${format(reveal, "HH:mm", { locale: es })} todas las imágenes serán reveladas en este mismo espacio 📸✨`;
+                  })()}
+                </>
+              )}
+            </p>
           </div>
+          <Button
+            onClick={handleTakePhoto}
+            disabled={isUploading}
+            className="h-16 px-8 text-lg bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl transition-all hover:scale-105 disabled:opacity-50"
+          >
+            {isUploading ? "Subiendo..." : "Hacer foto"}
+          </Button>
         </div>
       </div>
 
-      <input ref={fileInputRef} type="file" accept="image/*" capture="environment" onChange={handleFileChange} className="hidden" />
-    </div>;
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={handleFileChange}
+        className="hidden"
+      />
+    </div>
+  );
 };
+
 export default Camera;
