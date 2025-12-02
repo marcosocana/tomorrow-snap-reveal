@@ -321,8 +321,8 @@ const Camera = () => {
         </Button>
       </header>
       
-      <div className="flex-1 flex flex-col pt-20 p-6">
-        <div className="flex justify-center py-2">
+      <div className="flex-1 flex flex-col pt-24 p-6">
+        <div className="flex justify-center py-4">
           <div className="w-60 h-25 flex items-center justify-center" style={{
             imageRendering: 'pixelated'
           }}>
@@ -368,8 +368,8 @@ const Camera = () => {
         </Button>
       </header>
       
-      <div className="flex-1 flex flex-col pt-20 p-6">
-        <div className="flex justify-center py-2">
+      <div className="flex-1 flex flex-col pt-24 p-6">
+        <div className="flex justify-center py-4">
           <div className="w-60 h-25 flex items-center justify-center" style={{
             imageRendering: 'pixelated'
           }}>
@@ -439,8 +439,8 @@ const Camera = () => {
         </div>
       </header>
 
-      <div className="flex-1 flex flex-col pt-20 p-6">
-        <div className="flex justify-center py-2">
+      <div className="flex-1 flex flex-col pt-24 p-6">
+        <div className="flex justify-center py-4">
           <button onClick={handleTakePhoto} disabled={isUploading} className="w-60 h-25 flex items-center justify-center cursor-pointer transition-all hover:scale-105 disabled:opacity-50" style={{
             imageRendering: 'pixelated'
           }}>
