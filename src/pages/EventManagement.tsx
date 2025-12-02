@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, ArrowLeft, Plus, Trash2, Edit, Eye, Copy, Upload, Home } from "lucide-react";
+import { Calendar, ArrowLeft, Plus, Trash2, Edit, Eye, Copy, Upload, Home, Download } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { QRCodeSVG } from "qrcode.react";
@@ -367,6 +367,92 @@ const EventManagement = () => {
     }
   };
 
+  const handleDownloadQR = async (eventUrl: string, eventName: string, eventId: string) => {
+    try {
+      // Create a temporary container with QR code
+      const container = document.createElement('div');
+      container.style.position = 'absolute';
+      container.style.left = '-9999px';
+      document.body.appendChild(container);
+
+      // Create a React root and render QR code
+      const qrSize = 1024;
+      const qrWrapper = document.createElement('div');
+      container.appendChild(qrWrapper);
+      
+      // Import and use React to render the QR
+      const { createRoot } = await import('react-dom/client');
+      const root = createRoot(qrWrapper);
+      
+      // Render QR code
+      await new Promise<void>((resolve) => {
+        root.render(
+          <QRCodeSVG value={eventUrl} size={qrSize} level="H" />
+        );
+        setTimeout(resolve, 100);
+      });
+
+      // Get the SVG element
+      const svgElement = qrWrapper.querySelector('svg');
+      if (!svgElement) throw new Error('No se pudo generar el QR');
+
+      // Create canvas
+      const canvas = document.createElement('canvas');
+      canvas.width = qrSize;
+      canvas.height = qrSize;
+      const ctx = canvas.getContext('2d');
+      
+      if (!ctx) throw new Error('No se pudo crear el canvas');
+
+      // Convert SVG to image
+      const svgData = new XMLSerializer().serializeToString(svgElement);
+      const img = new Image();
+      const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(svgBlob);
+
+      img.onload = () => {
+        // Draw on canvas (transparent background by default)
+        ctx.drawImage(img, 0, 0);
+        
+        // Convert to PNG and download
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const link = document.createElement('a');
+            link.download = `qr-${eventName.replace(/\s+/g, '-').toLowerCase()}.png`;
+            link.href = URL.createObjectURL(blob);
+            link.click();
+            
+            toast({
+              title: "QR descargado",
+              description: "El código QR se ha descargado correctamente",
+            });
+          }
+          
+          // Cleanup
+          URL.revokeObjectURL(url);
+          root.unmount();
+          document.body.removeChild(container);
+        }, 'image/png');
+      };
+
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        root.unmount();
+        document.body.removeChild(container);
+        throw new Error('Error al cargar la imagen');
+      };
+
+      img.src = url;
+    } catch (error) {
+      console.error("Error downloading QR:", error);
+      toast({
+        title: "Error",
+        description: "No se pudo descargar el código QR",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -645,10 +731,19 @@ const EventManagement = () => {
                 <Card key={event.id} className="p-6">
                   <div className="flex flex-col lg:flex-row items-start gap-6">
                     {/* QR Code Section */}
-                    <div className="flex-shrink-0">
+                    <div className="flex-shrink-0 space-y-2">
                       <div className="bg-white p-3 rounded-lg border border-border">
                         <QRCodeSVG value={eventUrl} size={120} />
                       </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDownloadQR(eventUrl, event.name, event.id)}
+                        className="w-full gap-2"
+                      >
+                        <Download className="w-4 h-4" />
+                        Descargar QR
+                      </Button>
                     </div>
 
                     {/* Event Info */}
