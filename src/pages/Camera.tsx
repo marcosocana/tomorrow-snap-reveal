@@ -321,8 +321,8 @@ const Camera = () => {
         </Button>
       </header>
       
-      <div className="flex-1 flex flex-col pt-24 p-6">
-        <div className="flex justify-center py-4">
+      <div className="pt-16 pb-6 px-6">
+        <div className="flex justify-center pt-4 pb-6">
           <div className="w-60 h-25 flex items-center justify-center" style={{
             imageRendering: 'pixelated'
           }}>
@@ -332,9 +332,8 @@ const Camera = () => {
           </div>
         </div>
         
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center space-y-4 max-w-md animate-fade-in">
-            <h1 className="text-2xl font-bold text-foreground">El evento aún no ha comenzado</h1>
+        <div className="text-center space-y-4 max-w-md mx-auto animate-fade-in">
+          <h1 className="text-2xl font-bold text-foreground">El evento aún no ha comenzado</h1>
             <p className="text-muted-foreground text-lg">
               El período para subir fotos comenzará pronto.
             </p>
@@ -368,8 +367,8 @@ const Camera = () => {
         </Button>
       </header>
       
-      <div className="flex-1 flex flex-col pt-24 p-6">
-        <div className="flex justify-center py-4">
+      <div className="pt-16 pb-6 px-6">
+        <div className="flex justify-center pt-4 pb-6">
           <div className="w-60 h-25 flex items-center justify-center" style={{
             imageRendering: 'pixelated'
           }}>
@@ -379,9 +378,8 @@ const Camera = () => {
           </div>
         </div>
         
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center space-y-4 max-w-md animate-fade-in">
-            <h1 className="text-2xl font-bold text-foreground">Evento finalizado</h1>
+        <div className="text-center space-y-4 max-w-md mx-auto animate-fade-in">
+          <h1 className="text-2xl font-bold text-foreground">Evento finalizado</h1>
             <p className="text-muted-foreground text-lg">
               El período para subir fotos ha terminado.
             </p>
@@ -439,8 +437,8 @@ const Camera = () => {
         </div>
       </header>
 
-      <div className="flex-1 flex flex-col pt-24 p-6">
-        <div className="flex justify-center py-4">
+      <div className="pt-16 pb-6 px-6">
+        <div className="flex justify-center pt-4 pb-6">
           <button onClick={handleTakePhoto} disabled={isUploading} className="w-60 h-25 flex items-center justify-center cursor-pointer transition-all hover:scale-105 disabled:opacity-50" style={{
             imageRendering: 'pixelated'
           }}>
@@ -450,8 +448,7 @@ const Camera = () => {
           </button>
         </div>
         
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center space-y-4 animate-fade-in max-w-lg">
+        <div className="text-center space-y-4 max-w-lg mx-auto animate-fade-in">
             <div className="space-y-2">
               <h2 className="text-2xl font-bold text-foreground">
                 ¡Captura la magia!
