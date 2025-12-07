@@ -19,6 +19,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
+import { FilterType, FILTER_LABELS } from "@/lib/photoFilters";
+
 interface Event {
   id: string;
   name: string;
@@ -29,6 +31,7 @@ interface Event {
   upload_end_time: string | null;
   max_photos: number | null;
   custom_image_url: string | null;
+  filter_type: FilterType;
   created_at: string;
 }
 
@@ -53,6 +56,7 @@ const EventManagement = () => {
     maxPhotos: "",
     customImage: null as File | null,
     customImageUrl: "",
+    filterType: "vintage" as FilterType,
   });
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -88,7 +92,7 @@ const EventManagement = () => {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setEvents(data || []);
+      setEvents((data || []) as Event[]);
 
       // Load photo counts for each event
       if (data) {
@@ -178,6 +182,7 @@ const EventManagement = () => {
             reveal_time: revealDateTime.toISOString(),
             max_photos: newEvent.maxPhotos ? parseInt(newEvent.maxPhotos) : null,
             custom_image_url: customImageUrl,
+            filter_type: newEvent.filterType,
           })
           .eq("id", editingEvent.id);
 
@@ -198,6 +203,7 @@ const EventManagement = () => {
           reveal_time: revealDateTime.toISOString(),
           max_photos: newEvent.maxPhotos ? parseInt(newEvent.maxPhotos) : null,
           custom_image_url: customImageUrl,
+          filter_type: newEvent.filterType,
         });
 
         if (error) throw error;
@@ -221,6 +227,7 @@ const EventManagement = () => {
         maxPhotos: "",
         customImage: null,
         customImageUrl: "",
+        filterType: "vintage",
       });
       setEditingEvent(null);
       setIsDialogOpen(false);
@@ -255,6 +262,7 @@ const EventManagement = () => {
       maxPhotos: event.max_photos ? event.max_photos.toString() : "",
       customImage: null,
       customImageUrl: event.custom_image_url || "",
+      filterType: event.filter_type || "vintage",
     });
     setIsDialogOpen(true);
   };
@@ -497,6 +505,7 @@ const EventManagement = () => {
                 maxPhotos: "",
                 customImage: null,
                 customImageUrl: "",
+                filterType: "vintage",
               });
             }
           }}>
@@ -568,6 +577,28 @@ const EventManagement = () => {
                       }
                       placeholder="Ilimitado si se deja vacío"
                     />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="filterType">
+                      Filtro de fotos
+                    </Label>
+                    <div className="flex gap-2">
+                      {(["vintage", "35mm", "none"] as const).map((filter) => (
+                        <button
+                          key={filter}
+                          type="button"
+                          onClick={() => setNewEvent({ ...newEvent, filterType: filter })}
+                          className={`flex-1 px-3 py-2 text-sm rounded-md border transition-colors ${
+                            newEvent.filterType === filter
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "bg-muted border-border hover:bg-muted/80"
+                          }`}
+                        >
+                          {FILTER_LABELS[filter]}
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   <div className="space-y-2">

@@ -19,6 +19,7 @@ export type Database = {
           admin_password: string | null
           created_at: string
           custom_image_url: string | null
+          filter_type: string
           id: string
           max_photos: number | null
           name: string
@@ -31,6 +32,7 @@ export type Database = {
           admin_password?: string | null
           created_at?: string
           custom_image_url?: string | null
+          filter_type?: string
           id?: string
           max_photos?: number | null
           name: string
@@ -43,6 +45,7 @@ export type Database = {
           admin_password?: string | null
           created_at?: string
           custom_image_url?: string | null
+          filter_type?: string
           id?: string
           max_photos?: number | null
           name?: string

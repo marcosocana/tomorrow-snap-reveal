@@ -10,6 +10,9 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -18,6 +21,7 @@ import JSZip from "jszip";
 import heartOutline from "@/assets/heart-outline.svg";
 import heartFilled from "@/assets/heart-filled.svg";
 import ShareDialog from "@/components/ShareDialog";
+import { FilterType, getFilterClass, getGrainClass, applyFilterToCanvas } from "@/lib/photoFilters";
 
 interface Photo {
   id: string;
@@ -45,6 +49,7 @@ const Gallery = () => {
   const eventId = localStorage.getItem("eventId");
   const eventName = localStorage.getItem("eventName");
   const [eventPassword, setEventPassword] = useState<string>("");
+  const [filterType, setFilterType] = useState<FilterType>("vintage");
   const [showShareDialog, setShowShareDialog] = useState(false);
 
   const loadPhotos = useCallback(async (pageNum: number) => {
@@ -127,18 +132,19 @@ const Gallery = () => {
       return;
     }
 
-    // Load event password for sharing
-    const loadEventPassword = async () => {
+    // Load event password and filter type for sharing
+    const loadEventData = async () => {
       const { data } = await supabase
         .from("events")
-        .select("password_hash")
+        .select("password_hash, filter_type")
         .eq("id", eventId)
-        .single();
+        .maybeSingle();
       if (data) {
         setEventPassword(data.password_hash);
+        setFilterType((data.filter_type as FilterType) || "vintage");
       }
     };
-    loadEventPassword();
+    loadEventData();
 
     // Always scroll to top when gallery loads
     window.scrollTo(0, 0);
@@ -278,22 +284,37 @@ const Gallery = () => {
     }
   };
 
-  const handleDownloadPhoto = async (signedUrl: string, capturedAt: string) => {
+  const handleDownloadPhoto = async (signedUrl: string, capturedAt: string, withFilter: boolean = true) => {
     try {
-      const response = await fetch(signedUrl);
-      const blob = await response.blob();
+      toast({
+        title: "Preparando descarga",
+        description: withFilter ? "Aplicando filtro..." : "Descargando original...",
+      });
+
+      let blob: Blob;
+      
+      if (withFilter && filterType !== 'none') {
+        // Apply filter before download
+        blob = await applyFilterToCanvas(signedUrl, filterType);
+      } else {
+        // Download original
+        const response = await fetch(signedUrl);
+        blob = await response.blob();
+      }
+      
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `foto-${format(new Date(capturedAt), "dd-MM-yyyy-HHmm")}.jpg`;
+      const suffix = withFilter && filterType !== 'none' ? `-${filterType}` : '-original';
+      a.download = `foto-${format(new Date(capturedAt), "dd-MM-yyyy-HHmm")}${suffix}.jpg`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
       
       toast({
-        title: "Descargando foto",
-        description: "La foto se está descargando",
+        title: "Foto descargada",
+        description: "La foto se ha descargado correctamente",
       });
     } catch (error) {
       console.error("Error downloading photo:", error);
@@ -305,11 +326,11 @@ const Gallery = () => {
     }
   };
 
-  const handleDownloadAll = async () => {
+  const handleDownloadAll = async (withFilter: boolean = true) => {
     try {
       toast({
         title: "Preparando descarga",
-        description: "Descargando todas las fotos...",
+        description: `Descargando todas las fotos${withFilter && filterType !== 'none' ? ' con filtro' : ' originales'}...`,
       });
 
       // Fetch ALL photos from the event
@@ -333,9 +354,17 @@ const Gallery = () => {
           .createSignedUrl(photo.image_url, 3600);
 
         if (signedUrlData?.signedUrl) {
-          const response = await fetch(signedUrlData.signedUrl);
-          const blob = await response.blob();
-          const filename = `foto-${format(new Date(photo.captured_at), "dd-MM-yyyy-HHmm")}.jpg`;
+          let blob: Blob;
+          
+          if (withFilter && filterType !== 'none') {
+            blob = await applyFilterToCanvas(signedUrlData.signedUrl, filterType);
+          } else {
+            const response = await fetch(signedUrlData.signedUrl);
+            blob = await response.blob();
+          }
+          
+          const suffix = withFilter && filterType !== 'none' ? `-${filterType}` : '-original';
+          const filename = `foto-${format(new Date(photo.captured_at), "dd-MM-yyyy-HHmm")}${suffix}.jpg`;
           zip.file(filename, blob);
         }
       }
@@ -347,7 +376,8 @@ const Gallery = () => {
       const url = window.URL.createObjectURL(content);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${eventName}-fotos.zip`;
+      const suffix = withFilter && filterType !== 'none' ? `-${filterType}` : '-originales';
+      a.download = `${eventName}-fotos${suffix}.zip`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -383,15 +413,27 @@ const Gallery = () => {
                 <MoreVertical className="w-5 h-5" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48 bg-card">
+            <DropdownMenuContent align="end" className="w-56 bg-card">
               <DropdownMenuItem onClick={() => setShowShareDialog(true)} className="cursor-pointer">
                 <Share2 className="w-4 h-4 mr-2" />
                 Compartir
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleDownloadAll} className="cursor-pointer">
-                <Download className="w-4 h-4 mr-2" />
-                Descargar todo
-              </DropdownMenuItem>
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger className="cursor-pointer">
+                  <Download className="w-4 h-4 mr-2" />
+                  Descargar todo
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent className="bg-card">
+                  {filterType !== 'none' && (
+                    <DropdownMenuItem onClick={() => handleDownloadAll(true)} className="cursor-pointer">
+                      Con filtro
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem onClick={() => handleDownloadAll(false)} className="cursor-pointer">
+                    {filterType !== 'none' ? 'Sin filtro (original)' : 'Descargar todo'}
+                  </DropdownMenuItem>
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
               <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
                 <LogOut className="w-4 h-4 mr-2" />
                 Salir
@@ -428,13 +470,13 @@ const Gallery = () => {
                 className="group relative bg-muted"
               >
                 <div 
-                  className="aspect-square overflow-hidden bg-muted relative film-grain cursor-pointer"
+                  className={`aspect-square overflow-hidden bg-muted relative ${getGrainClass(filterType)} cursor-pointer`}
                   onClick={() => setSelectedPhoto(photo)}
                 >
                   <img
                     src={(photo as any).thumbnailUrl}
                     alt="Foto del evento"
-                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 retro-filter"
+                    className={`w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 ${getFilterClass(filterType)}`}
                     loading="lazy"
                     onError={(e) => {
                       e.currentTarget.style.display = 'none';
@@ -525,11 +567,11 @@ const Gallery = () => {
         <DialogContent className="max-w-4xl p-6 bg-card">
           {selectedPhoto && (
             <div className="space-y-4">
-              <div className="relative film-grain">
+              <div className={`relative ${getGrainClass(filterType)}`}>
                 <img
                   src={(selectedPhoto as any).fullQualityUrl}
                   alt="Foto ampliada"
-                  className="w-full h-auto max-h-[70vh] object-contain retro-filter rounded-lg"
+                  className={`w-full h-auto max-h-[70vh] object-contain ${getFilterClass(filterType)} rounded-lg`}
                   onError={(e) => {
                     e.currentTarget.src = (selectedPhoto as any).thumbnailUrl;
                   }}
@@ -566,15 +608,34 @@ const Gallery = () => {
                   {format(new Date(selectedPhoto.captured_at), "dd MMM yyyy - HH:mm", { locale: es })}
                 </p>
                 <div className="flex gap-2">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => handleDownloadPhoto((selectedPhoto as any).fullQualityUrl, selectedPhoto.captured_at)}
-                    className="uppercase tracking-wide flex-1"
-                  >
-                    <Download className="w-4 h-4 mr-2" />
-                    Descargar
-                  </Button>
+                  {filterType !== 'none' ? (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="secondary" size="sm" className="uppercase tracking-wide flex-1">
+                          <Download className="w-4 h-4 mr-2" />
+                          Descargar
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent className="bg-card">
+                        <DropdownMenuItem onClick={() => handleDownloadPhoto((selectedPhoto as any).fullQualityUrl, selectedPhoto.captured_at, true)} className="cursor-pointer">
+                          Con filtro
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleDownloadPhoto((selectedPhoto as any).fullQualityUrl, selectedPhoto.captured_at, false)} className="cursor-pointer">
+                          Sin filtro (original)
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  ) : (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => handleDownloadPhoto((selectedPhoto as any).fullQualityUrl, selectedPhoto.captured_at, false)}
+                      className="uppercase tracking-wide flex-1"
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      Descargar
+                    </Button>
+                  )}
                   <Button
                     variant="secondary"
                     size="sm"
