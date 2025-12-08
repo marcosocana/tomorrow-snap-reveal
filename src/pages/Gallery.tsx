@@ -110,7 +110,12 @@ const Gallery = () => {
         })
       );
 
-      setPhotos(prev => pageNum === 0 ? photosWithUrls as any : [...prev, ...photosWithUrls as any]);
+      // Sort photos by captured_at to ensure correct order (oldest first)
+      const sortedPhotos = photosWithUrls.sort((a, b) => 
+        new Date(a.captured_at).getTime() - new Date(b.captured_at).getTime()
+      );
+
+      setPhotos(prev => pageNum === 0 ? sortedPhotos as any : [...prev, ...sortedPhotos as any]);
       setHasMore(count ? (from + photosWithUrls.length) < count : false);
       
       // Set total photos count on first load
