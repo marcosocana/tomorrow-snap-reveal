@@ -744,6 +744,19 @@ const EventManagement = () => {
                         />
                       </div>
                     </div>
+                    {newEvent.countryCode !== "ES" && newEvent.uploadStartDate && newEvent.uploadEndDate && (
+                      <p className="text-xs text-muted-foreground">
+                        🇪🇸 En España: {(() => {
+                          try {
+                            const startLocal = new Date(`${newEvent.uploadStartDate}T${newEvent.uploadStartTime}`);
+                            const endLocal = new Date(`${newEvent.uploadEndDate}T${newEvent.uploadEndTime}`);
+                            return `${formatInTimeZone(startLocal, "Europe/Madrid", "dd/MM/yyyy HH:mm")} - ${formatInTimeZone(endLocal, "Europe/Madrid", "dd/MM/yyyy HH:mm")}`;
+                          } catch {
+                            return "";
+                          }
+                        })()}
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -775,6 +788,18 @@ const EventManagement = () => {
                         />
                       </div>
                     </div>
+                    {newEvent.countryCode !== "ES" && newEvent.revealDate && (
+                      <p className="text-xs text-muted-foreground">
+                        🇪🇸 En España: {(() => {
+                          try {
+                            const revealLocal = new Date(`${newEvent.revealDate}T${newEvent.revealTime}`);
+                            return formatInTimeZone(revealLocal, "Europe/Madrid", "dd/MM/yyyy HH:mm");
+                          } catch {
+                            return "";
+                          }
+                        })()}
+                      </p>
+                    )}
                   </div>
 
                   <Button type="submit" className="w-full" disabled={isCreating || uploadingImage}>
@@ -883,14 +908,21 @@ const EventManagement = () => {
                           </p>
                         )}
                         {event.upload_start_time && event.upload_end_time && (
-                          <p>
-                            <span className="font-medium">Período de subida:</span>{" "}
-                            {formatInTimeZone(new Date(event.upload_start_time), event.timezone || "Europe/Madrid", "dd/MM/yyyy HH:mm", { locale: es })} - {formatInTimeZone(new Date(event.upload_end_time), event.timezone || "Europe/Madrid", "dd/MM/yyyy HH:mm", { locale: es })}
-                            <span className="text-xs ml-1">({(() => {
-                              const country = getCountryByCode(event.country_code || "ES");
-                              return country ? country.name : "España";
-                            })()})</span>
-                          </p>
+                          <>
+                            <p>
+                              <span className="font-medium">Período de subida:</span>{" "}
+                              {formatInTimeZone(new Date(event.upload_start_time), event.timezone || "Europe/Madrid", "dd/MM/yyyy HH:mm", { locale: es })} - {formatInTimeZone(new Date(event.upload_end_time), event.timezone || "Europe/Madrid", "dd/MM/yyyy HH:mm", { locale: es })}
+                              <span className="text-xs ml-1">({(() => {
+                                const country = getCountryByCode(event.country_code || "ES");
+                                return country ? country.name : "España";
+                              })()})</span>
+                            </p>
+                            {(event.country_code || "ES") !== "ES" && (
+                              <p className="text-xs text-muted-foreground pl-4">
+                                🇪🇸 En España: {formatInTimeZone(new Date(event.upload_start_time), "Europe/Madrid", "dd/MM/yyyy HH:mm", { locale: es })} - {formatInTimeZone(new Date(event.upload_end_time), "Europe/Madrid", "dd/MM/yyyy HH:mm", { locale: es })}
+                              </p>
+                            )}
+                          </>
                         )}
                         <p>
                           <span className="font-medium">Fecha de revelado:</span>{" "}
@@ -900,6 +932,11 @@ const EventManagement = () => {
                             return country ? country.name : "España";
                           })()})</span>
                         </p>
+                        {(event.country_code || "ES") !== "ES" && (
+                          <p className="text-xs text-muted-foreground pl-4">
+                            🇪🇸 En España: {formatInTimeZone(revealTime, "Europe/Madrid", "PPP 'a las' HH:mm", { locale: es })}
+                          </p>
+                        )}
                         <p>
                           <span className="font-medium">Creado:</span>{" "}
                           {format(new Date(event.created_at), "PPP", { locale: es })}
