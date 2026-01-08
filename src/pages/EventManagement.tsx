@@ -12,7 +12,9 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { toZonedTime, fromZonedTime, formatInTimeZone } from "date-fns-tz";
 import CountrySelect from "@/components/CountrySelect";
+import LanguageSelect from "@/components/LanguageSelect";
 import { COUNTRIES, getCountryByCode } from "@/lib/countries";
+import { Language, getLanguageByCode } from "@/lib/translations";
 import { QRCodeSVG } from "qrcode.react";
 import {
   Dialog,
@@ -39,6 +41,7 @@ interface Event {
   is_demo: boolean;
   country_code: string;
   timezone: string;
+  language: string;
 }
 
 const EventManagement = () => {
@@ -66,6 +69,7 @@ const EventManagement = () => {
     filterType: "vintage" as FilterType,
     countryCode: "ES",
     timezone: "Europe/Madrid",
+    language: "es",
   });
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -173,12 +177,12 @@ const EventManagement = () => {
     setIsCreating(true);
 
     try {
-      // Times are always entered in Spanish timezone (Europe/Madrid)
-      // We use fromZonedTime to treat the input as Spanish time and convert to UTC
-      const spainTz = "Europe/Madrid";
-      const uploadStartDateTime = fromZonedTime(`${newEvent.uploadStartDate}T${newEvent.uploadStartTime}:00`, spainTz);
-      const uploadEndDateTime = fromZonedTime(`${newEvent.uploadEndDate}T${newEvent.uploadEndTime}:00`, spainTz);
-      const revealDateTime = fromZonedTime(`${newEvent.revealDate}T${newEvent.revealTime}:00`, spainTz);
+      // Times are entered in the selected event timezone
+      // We use fromZonedTime to convert from local timezone to UTC for storage
+      const eventTz = newEvent.timezone;
+      const uploadStartDateTime = fromZonedTime(`${newEvent.uploadStartDate}T${newEvent.uploadStartTime}:00`, eventTz);
+      const uploadEndDateTime = fromZonedTime(`${newEvent.uploadEndDate}T${newEvent.uploadEndTime}:00`, eventTz);
+      const revealDateTime = fromZonedTime(`${newEvent.revealDate}T${newEvent.revealTime}:00`, eventTz);
 
       let customImageUrl = newEvent.customImageUrl;
       if (newEvent.customImage) {
@@ -204,6 +208,7 @@ const EventManagement = () => {
             filter_type: newEvent.filterType,
             country_code: newEvent.countryCode,
             timezone: newEvent.timezone,
+            language: newEvent.language,
           })
           .eq("id", editingEvent.id);
 
@@ -228,6 +233,7 @@ const EventManagement = () => {
           is_demo: isDemoMode,
           country_code: newEvent.countryCode,
           timezone: newEvent.timezone,
+          language: newEvent.language,
         });
 
         if (error) throw error;
@@ -254,6 +260,7 @@ const EventManagement = () => {
         filterType: "vintage",
         countryCode: "ES",
         timezone: "Europe/Madrid",
+        language: "es",
       });
       setEditingEvent(null);
       setIsDialogOpen(false);
@@ -271,11 +278,11 @@ const EventManagement = () => {
   };
 
   const handleEditEvent = (event: Event) => {
-    // Times are stored in UTC, we display them in Spanish timezone for editing
-    const spainTz = "Europe/Madrid";
-    const uploadStartDate = event.upload_start_time ? toZonedTime(new Date(event.upload_start_time), spainTz) : new Date();
-    const uploadEndDate = event.upload_end_time ? toZonedTime(new Date(event.upload_end_time), spainTz) : new Date();
-    const revealDate = toZonedTime(new Date(event.reveal_time), spainTz);
+    // Times are stored in UTC, we display them in event's timezone for editing
+    const eventTz = event.timezone || "Europe/Madrid";
+    const uploadStartDate = event.upload_start_time ? toZonedTime(new Date(event.upload_start_time), eventTz) : new Date();
+    const uploadEndDate = event.upload_end_time ? toZonedTime(new Date(event.upload_end_time), eventTz) : new Date();
+    const revealDate = toZonedTime(new Date(event.reveal_time), eventTz);
     setEditingEvent(event);
     setNewEvent({
       name: event.name,
@@ -293,6 +300,7 @@ const EventManagement = () => {
       filterType: event.filter_type || "vintage",
       countryCode: event.country_code || "ES",
       timezone: event.timezone || "Europe/Madrid",
+      language: event.language || "es",
     });
     setIsDialogOpen(true);
   };
@@ -538,6 +546,7 @@ const EventManagement = () => {
                 filterType: "vintage",
                 countryCode: "ES",
                 timezone: "Europe/Madrid",
+                language: "es",
               });
             }
           }}>
@@ -568,6 +577,19 @@ const EventManagement = () => {
                     />
                     <p className="text-xs text-muted-foreground">
                       Las horas se ajustarán a la zona horaria del país seleccionado
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Idioma del evento</Label>
+                    <LanguageSelect
+                      value={newEvent.language as Language}
+                      onChange={(language) =>
+                        setNewEvent({ ...newEvent, language })
+                      }
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Las pantallas del evento se mostrarán en este idioma
                     </p>
                   </div>
 
@@ -750,26 +772,20 @@ const EventManagement = () => {
                     </div>
                     {newEvent.countryCode !== "ES" && newEvent.uploadStartDate && newEvent.uploadEndDate && (
                       <p className="text-xs text-muted-foreground">
-                        {(() => {
-                          const country = getCountryByCode(newEvent.countryCode);
-                          return country ? country.flag : "";
-                        })()} En {(() => {
-                          const country = getCountryByCode(newEvent.countryCode);
-                          return country ? country.name : "";
-                        })()}: {(() => {
+                        🇪🇸 En España: {(() => {
                           try {
-                            // Input is Spanish time, convert to target timezone for display
+                            // Input is in local event timezone, convert to Spanish time for display
+                            const eventTz = newEvent.timezone;
                             const spainTz = "Europe/Madrid";
-                            const targetTz = newEvent.timezone;
                             
-                            // Parse as Spanish time, convert to UTC, then to target timezone
-                            const startUtc = fromZonedTime(`${newEvent.uploadStartDate}T${newEvent.uploadStartTime}:00`, spainTz);
-                            const endUtc = fromZonedTime(`${newEvent.uploadEndDate}T${newEvent.uploadEndTime}:00`, spainTz);
+                            // Parse as local event time, convert to UTC, then to Spanish timezone
+                            const startUtc = fromZonedTime(`${newEvent.uploadStartDate}T${newEvent.uploadStartTime}:00`, eventTz);
+                            const endUtc = fromZonedTime(`${newEvent.uploadEndDate}T${newEvent.uploadEndTime}:00`, eventTz);
                             
-                            const startInLocal = formatInTimeZone(startUtc, targetTz, "dd/MM/yyyy HH:mm");
-                            const endInLocal = formatInTimeZone(endUtc, targetTz, "dd/MM/yyyy HH:mm");
+                            const startInSpain = formatInTimeZone(startUtc, spainTz, "dd/MM/yyyy HH:mm");
+                            const endInSpain = formatInTimeZone(endUtc, spainTz, "dd/MM/yyyy HH:mm");
                             
-                            return `${startInLocal} - ${endInLocal}`;
+                            return `${startInSpain} - ${endInSpain}`;
                           } catch {
                             return "";
                           }
@@ -809,21 +825,15 @@ const EventManagement = () => {
                     </div>
                     {newEvent.countryCode !== "ES" && newEvent.revealDate && (
                       <p className="text-xs text-muted-foreground">
-                        {(() => {
-                          const country = getCountryByCode(newEvent.countryCode);
-                          return country ? country.flag : "";
-                        })()} En {(() => {
-                          const country = getCountryByCode(newEvent.countryCode);
-                          return country ? country.name : "";
-                        })()}: {(() => {
+                        🇪🇸 En España: {(() => {
                           try {
-                            // Input is Spanish time, convert to target timezone for display
+                            // Input is in local event timezone, convert to Spanish time for display
+                            const eventTz = newEvent.timezone;
                             const spainTz = "Europe/Madrid";
-                            const targetTz = newEvent.timezone;
                             
-                            const revealUtc = fromZonedTime(`${newEvent.revealDate}T${newEvent.revealTime}:00`, spainTz);
+                            const revealUtc = fromZonedTime(`${newEvent.revealDate}T${newEvent.revealTime}:00`, eventTz);
                             
-                            return formatInTimeZone(revealUtc, targetTz, "dd/MM/yyyy HH:mm");
+                            return formatInTimeZone(revealUtc, spainTz, "dd/MM/yyyy HH:mm");
                           } catch {
                             return "";
                           }
@@ -941,36 +951,39 @@ const EventManagement = () => {
                           <>
                             <p>
                               <span className="font-medium">Período de subida:</span>{" "}
-                              {formatInTimeZone(new Date(event.upload_start_time), "Europe/Madrid", "dd/MM/yyyy HH:mm", { locale: es })} - {formatInTimeZone(new Date(event.upload_end_time), "Europe/Madrid", "dd/MM/yyyy HH:mm", { locale: es })}
-                              <span className="text-xs ml-1">(🇪🇸 España)</span>
+                              {formatInTimeZone(new Date(event.upload_start_time), event.timezone || "Europe/Madrid", "dd/MM/yyyy HH:mm", { locale: es })} - {formatInTimeZone(new Date(event.upload_end_time), event.timezone || "Europe/Madrid", "dd/MM/yyyy HH:mm", { locale: es })}
+                              <span className="text-xs ml-1">({(() => {
+                                const country = getCountryByCode(event.country_code || "ES");
+                                return country ? `${country.flag} ${country.name}` : "España";
+                              })()})</span>
                             </p>
                             {(event.country_code || "ES") !== "ES" && (
                               <p className="text-xs text-muted-foreground pl-4">
-                                {(() => {
-                                  const country = getCountryByCode(event.country_code || "ES");
-                                  return country ? country.flag : "";
-                                })()} En {(() => {
-                                  const country = getCountryByCode(event.country_code || "ES");
-                                  return country ? country.name : "";
-                                })()}: {formatInTimeZone(new Date(event.upload_start_time), event.timezone || "Europe/Madrid", "dd/MM/yyyy HH:mm", { locale: es })} - {formatInTimeZone(new Date(event.upload_end_time), event.timezone || "Europe/Madrid", "dd/MM/yyyy HH:mm", { locale: es })}
+                                🇪🇸 En España: {formatInTimeZone(new Date(event.upload_start_time), "Europe/Madrid", "dd/MM/yyyy HH:mm", { locale: es })} - {formatInTimeZone(new Date(event.upload_end_time), "Europe/Madrid", "dd/MM/yyyy HH:mm", { locale: es })}
                               </p>
                             )}
                           </>
                         )}
                         <p>
                           <span className="font-medium">Fecha de revelado:</span>{" "}
-                          {formatInTimeZone(revealTime, "Europe/Madrid", "PPP 'a las' HH:mm", { locale: es })}
-                          <span className="text-xs ml-1">(🇪🇸 España)</span>
+                          {formatInTimeZone(revealTime, event.timezone || "Europe/Madrid", "PPP 'a las' HH:mm", { locale: es })}
+                          <span className="text-xs ml-1">({(() => {
+                            const country = getCountryByCode(event.country_code || "ES");
+                            return country ? `${country.flag} ${country.name}` : "España";
+                          })()})</span>
                         </p>
                         {(event.country_code || "ES") !== "ES" && (
                           <p className="text-xs text-muted-foreground pl-4">
+                            🇪🇸 En España: {formatInTimeZone(revealTime, "Europe/Madrid", "PPP 'a las' HH:mm", { locale: es })}
+                          </p>
+                        )}
+                        {event.language && event.language !== "es" && (
+                          <p>
+                            <span className="font-medium">Idioma:</span>{" "}
                             {(() => {
-                              const country = getCountryByCode(event.country_code || "ES");
-                              return country ? country.flag : "";
-                            })()} En {(() => {
-                              const country = getCountryByCode(event.country_code || "ES");
-                              return country ? country.name : "";
-                            })()}: {formatInTimeZone(revealTime, event.timezone || "Europe/Madrid", "PPP 'a las' HH:mm", { locale: es })}
+                              const lang = getLanguageByCode(event.language);
+                              return lang ? `${lang.flag} ${lang.name}` : event.language;
+                            })()}
                           </p>
                         )}
                         <p>

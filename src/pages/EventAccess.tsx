@@ -30,6 +30,7 @@ const EventAccess = () => {
         if (!adminError && adminEvents && adminEvents.length > 0) {
           localStorage.setItem("eventId", adminEvents[0].id);
           localStorage.setItem("eventName", adminEvents[0].name);
+          localStorage.setItem("eventLanguage", adminEvents[0].language || "es");
           localStorage.setItem("isAdmin", "true");
           if (isBulkMode) {
             localStorage.setItem("bulkUploadMode", "true");
@@ -52,6 +53,7 @@ const EventAccess = () => {
         if (events && events.length > 0) {
           localStorage.setItem("eventId", events[0].id);
           localStorage.setItem("eventName", events[0].name);
+          localStorage.setItem("eventLanguage", events[0].language || "es");
           localStorage.removeItem("isAdmin");
           
           if (isBulkMode) {

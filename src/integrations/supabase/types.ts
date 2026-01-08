@@ -23,6 +23,7 @@ export type Database = {
           filter_type: string
           id: string
           is_demo: boolean
+          language: string
           max_photos: number | null
           name: string
           password_hash: string
@@ -39,6 +40,7 @@ export type Database = {
           filter_type?: string
           id?: string
           is_demo?: boolean
+          language?: string
           max_photos?: number | null
           name: string
           password_hash: string
@@ -55,6 +57,7 @@ export type Database = {
           filter_type?: string
           id?: string
           is_demo?: boolean
+          language?: string
           max_photos?: number | null
           name?: string
           password_hash?: string
