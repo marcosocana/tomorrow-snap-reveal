@@ -17,6 +17,7 @@ export type Database = {
       events: {
         Row: {
           admin_password: string | null
+          country_code: string
           created_at: string
           custom_image_url: string | null
           filter_type: string
@@ -26,11 +27,13 @@ export type Database = {
           name: string
           password_hash: string
           reveal_time: string
+          timezone: string
           upload_end_time: string | null
           upload_start_time: string | null
         }
         Insert: {
           admin_password?: string | null
+          country_code?: string
           created_at?: string
           custom_image_url?: string | null
           filter_type?: string
@@ -40,11 +43,13 @@ export type Database = {
           name: string
           password_hash: string
           reveal_time: string
+          timezone?: string
           upload_end_time?: string | null
           upload_start_time?: string | null
         }
         Update: {
           admin_password?: string | null
+          country_code?: string
           created_at?: string
           custom_image_url?: string | null
           filter_type?: string
@@ -54,6 +59,7 @@ export type Database = {
           name?: string
           password_hash?: string
           reveal_time?: string
+          timezone?: string
           upload_end_time?: string | null
           upload_start_time?: string | null
         }
