@@ -5,17 +5,26 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { LogOut, Image, Share2 } from "lucide-react";
 import { format } from "date-fns";
-import { es } from "date-fns/locale";
+import { es, enUS, it } from "date-fns/locale";
 import cameraIcon from "@/assets/camera.png";
 import prohibidoIcon from "@/assets/prohibido.png";
 import { compressImage } from "@/lib/imageCompression";
 import ShareDialog from "@/components/ShareDialog";
+import { getTranslations, getEventLanguage, getEventTimezone, getLocalDateInTimezone, Language } from "@/lib/translations";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+
+const getDateLocale = (language: Language) => {
+  switch (language) {
+    case "en": return enUS;
+    case "it": return it;
+    default: return es;
+  }
+};
 
 const Camera = () => {
   const [photoCount, setPhotoCount] = useState(0);
@@ -34,6 +43,12 @@ const Camera = () => {
   const eventId = localStorage.getItem("eventId");
   const eventName = localStorage.getItem("eventName");
   const [eventPassword, setEventPassword] = useState<string>("");
+  
+  // Get translations and timezone
+  const language = getEventLanguage();
+  const t = getTranslations(language);
+  const timezone = getEventTimezone();
+  const dateLocale = getDateLocale(language);
 
   useEffect(() => {
     if (!eventId) {
@@ -53,17 +68,22 @@ const Camera = () => {
       const reveal = new Date(revealTime);
       const distance = reveal.getTime() - now.getTime();
       if (distance < 0) {
-        setRevealCountdown("¡Las fotos ya están reveladas!");
+        setRevealCountdown(t.camera.photosRevealed);
         clearInterval(interval);
         return;
       }
       const hours = Math.floor(distance / (1000 * 60 * 60));
       const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
       const seconds = Math.floor((distance % (1000 * 60)) / 1000);
-      setRevealCountdown(`Quedan ${hours} horas, ${minutes} minutos y ${seconds} segundos para que se revelen las fotos. ¡Qué nervios!`);
+      setRevealCountdown(
+        t.camera.countdownReveal
+          .replace("{hours}", String(hours))
+          .replace("{minutes}", String(minutes))
+          .replace("{seconds}", String(seconds))
+      );
     }, 1000);
     return () => clearInterval(interval);
-  }, [revealTime]);
+  }, [revealTime, t]);
 
   // Countdown to start time when event hasn't started
   useEffect(() => {
@@ -80,10 +100,15 @@ const Camera = () => {
       const hours = Math.floor(distance / (1000 * 60 * 60));
       const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
       const seconds = Math.floor((distance % (1000 * 60)) / 1000);
-      setStartCountdown(`Quedan ${hours} horas, ${minutes} minutos y ${seconds} segundos para que comience el evento`);
+      setStartCountdown(
+        t.camera.countdownStart
+          .replace("{hours}", String(hours))
+          .replace("{minutes}", String(minutes))
+          .replace("{seconds}", String(seconds))
+      );
     }, 1000);
     return () => clearInterval(interval);
-  }, [uploadStartTime]);
+  }, [uploadStartTime, t]);
 
   const loadEventData = async () => {
     if (!eventId) return;
@@ -114,6 +139,35 @@ const Camera = () => {
     }
   };
 
+  // Helper to format date in local timezone
+  const formatLocalDate = (dateStr: string, formatStr: string) => {
+    const localDate = getLocalDateInTimezone(dateStr, timezone);
+    return format(localDate, formatStr, { locale: dateLocale });
+  };
+
+  // Helper to get date label (today/tomorrow/date)
+  const getDateLabel = (dateStr: string) => {
+    const localDate = getLocalDateInTimezone(dateStr, timezone);
+    const now = new Date();
+    const nowLocal = getLocalDateInTimezone(now, timezone);
+    
+    const today = new Date(nowLocal);
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    const targetDate = new Date(localDate);
+    targetDate.setHours(0, 0, 0, 0);
+    
+    if (targetDate.getTime() === today.getTime()) {
+      return t.camera.today;
+    } else if (targetDate.getTime() === tomorrow.getTime()) {
+      return t.camera.tomorrow;
+    } else {
+      return `${t.camera.theDay} ${format(localDate, "dd/MM/yyyy", { locale: dateLocale })}`;
+    }
+  };
+
   // Update countdown every second
   useEffect(() => {
     if (!uploadEndTime) return;
@@ -122,7 +176,7 @@ const Camera = () => {
       const endTime = new Date(uploadEndTime);
       const distance = endTime.getTime() - now.getTime();
       if (distance < 0) {
-        setCountdown("Evento finalizado");
+        setCountdown(t.camera.eventEnded);
         clearInterval(interval);
         return;
       }
@@ -130,26 +184,20 @@ const Camera = () => {
       const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
       const seconds = Math.floor((distance % (1000 * 60)) / 1000);
 
-      // Determine if it's today or tomorrow
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      const endDate = new Date(endTime);
-      endDate.setHours(0, 0, 0, 0);
-      let dateLabel = "";
-      if (endDate.getTime() === today.getTime()) {
-        dateLabel = "hoy";
-      } else if (endDate.getTime() === tomorrow.getTime()) {
-        dateLabel = "mañana";
-      } else {
-        dateLabel = `el día ${format(endTime, "dd/MM/yyyy", { locale: es })}`;
-      }
-      const formattedTime = format(endTime, "HH:mm", { locale: es });
-      setCountdown(`Puedes subir todas las fotos que quieras hasta ${dateLabel} a las ${formattedTime} horas. ¡Solo quedan ${hours} horas, ${minutes} minutos y ${seconds} segundos!`);
+      const dateLabel = getDateLabel(uploadEndTime);
+      const formattedTime = formatLocalDate(uploadEndTime, "HH:mm");
+      
+      setCountdown(
+        t.camera.countdownUpload
+          .replace("{date}", dateLabel)
+          .replace("{time}", formattedTime)
+          .replace("{hours}", String(hours))
+          .replace("{minutes}", String(minutes))
+          .replace("{seconds}", String(seconds))
+      );
     }, 1000);
     return () => clearInterval(interval);
-  }, [uploadEndTime]);
+  }, [uploadEndTime, t, timezone]);
 
   const loadPhotoCount = async () => {
     if (!eventId) return;
@@ -167,8 +215,8 @@ const Camera = () => {
     const endTime = uploadEndTime ? new Date(uploadEndTime) : null;
     if (startTime && now < startTime) {
       toast({
-        title: "Evento no iniciado",
-        description: `El evento comienza el ${format(startTime, "dd/MM/yyyy 'a las' HH:mm", { locale: es })}`,
+        title: t.camera.eventNotStarted,
+        description: `${t.camera.eventStartsOn} ${formatLocalDate(uploadStartTime, "dd/MM/yyyy")} ${t.camera.atTime} ${formatLocalDate(uploadStartTime, "HH:mm")}`,
         variant: "destructive",
       });
       return;
@@ -200,8 +248,8 @@ const Camera = () => {
 
         if (count && count >= eventData.max_photos) {
           toast({
-            title: "Límite alcanzado",
-            description: `El evento ha alcanzado el límite de ${eventData.max_photos} fotos`,
+            title: t.camera.limitReached,
+            description: t.camera.limitReachedDesc,
             variant: "destructive",
           });
           return;
@@ -219,8 +267,8 @@ const Camera = () => {
         .upload(fileName, compressedFile);
       if (uploadError) {
         toast({
-          title: "Error",
-          description: "No se pudo guardar la foto",
+          title: t.common.error,
+          description: t.camera.uploadError,
           variant: "destructive",
         });
         return;
@@ -236,8 +284,8 @@ const Camera = () => {
       }
       setPhotoCount((prev) => prev + 1);
       toast({
-        title: "Foto subida con éxito",
-        description: "La podrás ver cuando se revelen",
+        title: t.camera.uploadSuccess,
+        description: t.camera.uploadSuccessDesc,
       });
 
       // Reload event data to check if max photos reached
@@ -245,8 +293,8 @@ const Camera = () => {
     } catch (error) {
       console.error("Error uploading photo:", error);
       toast({
-        title: "Error",
-        description: "No se pudo guardar la foto",
+        title: t.common.error,
+        description: t.camera.uploadError,
         variant: "destructive",
       });
     } finally {
@@ -261,6 +309,8 @@ const Camera = () => {
   const handleLogout = () => {
     localStorage.removeItem("eventId");
     localStorage.removeItem("eventName");
+    localStorage.removeItem("eventLanguage");
+    localStorage.removeItem("eventTimezone");
     navigate("/");
   };
 
@@ -273,6 +323,9 @@ const Camera = () => {
   const hasEnded = endTime && now > endTime;
   const hasRevealed = reveal && now >= reveal;
 
+  // Capture the magic text based on language
+  const captureMagicText = language === "en" ? "Capture the magic!" : language === "it" ? "Cattura la magia!" : "¡Captura la magia!";
+
   // Photos already revealed - show modal
   if (hasRevealed) {
     return (
@@ -281,7 +334,7 @@ const Camera = () => {
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle className="text-2xl text-center">
-                ¡Ya se han revelado las fotos!
+                {t.camera.photosRevealed}
               </DialogTitle>
             </DialogHeader>
             {customImageUrl && (
@@ -298,7 +351,7 @@ const Camera = () => {
                 onClick={() => navigate("/gallery")}
                 className="px-8"
               >
-                Ver
+                {t.camera.seePhotos}
               </Button>
             </div>
           </DialogContent>
@@ -336,16 +389,16 @@ const Camera = () => {
           </div>
           
           <div className="text-center space-y-4 max-w-md mx-auto animate-fade-in">
-            <h1 className="text-2xl font-bold text-foreground">El evento aún no ha comenzado</h1>
+            <h1 className="text-2xl font-bold text-foreground">{t.camera.eventNotStarted}</h1>
             <p className="text-muted-foreground text-lg">
-              El período para subir fotos comenzará pronto.
+              {t.camera.periodNotStarted}
             </p>
             {uploadStartTime && (
               <>
                 <div className="bg-card border border-border rounded-lg p-6 space-y-2">
-                  <p className="text-sm text-muted-foreground">El evento comenzará:</p>
+                  <p className="text-sm text-muted-foreground">{t.camera.willStartOn}</p>
                   <p className="text-xl font-bold text-foreground">
-                    {format(new Date(uploadStartTime), "dd 'de' MMMM 'a las' HH:mm", { locale: es })}
+                    {formatLocalDate(uploadStartTime, "dd MMMM")} {t.camera.atTime} {formatLocalDate(uploadStartTime, "HH:mm")}
                   </p>
                 </div>
                 {startCountdown && (
@@ -364,6 +417,14 @@ const Camera = () => {
   }
 
   if (hasEnded) {
+    const revealDateLabel = revealTime ? getDateLabel(revealTime) : "";
+    const revealTimeFormatted = revealTime ? formatLocalDate(revealTime, "HH:mm") : "";
+    const revealInfoText = language === "en" 
+      ? `${revealDateLabel.charAt(0).toUpperCase() + revealDateLabel.slice(1)} at ${revealTimeFormatted} all images will be revealed in this same space 📸✨`
+      : language === "it"
+      ? `${revealDateLabel.charAt(0).toUpperCase() + revealDateLabel.slice(1)} alle ${revealTimeFormatted} tutte le immagini saranno rivelate in questo stesso spazio 📸✨`
+      : `${revealDateLabel.charAt(0).toUpperCase() + revealDateLabel.slice(1)} a las ${revealTimeFormatted} todas las imágenes serán reveladas en este mismo espacio 📸✨`;
+
     return (
       <div className="min-h-screen bg-background flex flex-col">
         <header className="fixed top-0 left-0 right-0 z-50 p-4 flex justify-between items-center bg-card border-b border-border">
@@ -391,16 +452,16 @@ const Camera = () => {
           </div>
           
           <div className="text-center space-y-4 max-w-md mx-auto animate-fade-in">
-            <h1 className="text-2xl font-bold text-foreground">Evento finalizado</h1>
+            <h1 className="text-2xl font-bold text-foreground">{t.camera.eventEnded}</h1>
             <p className="text-muted-foreground text-lg">
-              El período para subir fotos ha terminado.
+              {t.camera.eventEndedDesc}
             </p>
             {revealTime && (
               <>
                 <div className="bg-card border border-border rounded-lg p-6 space-y-2">
-                  <p className="text-sm text-muted-foreground">Las fotos se revelarán:</p>
+                  <p className="text-sm text-muted-foreground">{t.camera.revealingSoon}</p>
                   <p className="text-xl font-bold text-foreground">
-                    {format(new Date(revealTime), "dd 'de' MMMM 'a las' HH:mm", { locale: es })}
+                    {formatLocalDate(revealTime, "dd MMMM")} {t.camera.atTime} {formatLocalDate(revealTime, "HH:mm")}
                   </p>
                 </div>
                 {revealCountdown && (
@@ -418,6 +479,23 @@ const Camera = () => {
     );
   }
 
+  // Get reveal info text for active event
+  const revealDateLabel = revealTime ? getDateLabel(revealTime) : "";
+  const revealTimeFormatted = revealTime ? formatLocalDate(revealTime, "HH:mm") : "";
+  const revealInfoText = language === "en" 
+    ? `${revealDateLabel.charAt(0).toUpperCase() + revealDateLabel.slice(1)} at ${revealTimeFormatted} all images will be revealed in this same space 📸✨`
+    : language === "it"
+    ? `${revealDateLabel.charAt(0).toUpperCase() + revealDateLabel.slice(1)} alle ${revealTimeFormatted} tutte le immagini saranno rivelate in questo stesso spazio 📸✨`
+    : `${revealDateLabel.charAt(0).toUpperCase() + revealDateLabel.slice(1)} a las ${revealTimeFormatted} todas las imágenes serán reveladas en este mismo espacio 📸✨`;
+
+  const uploadButtonText = language === "en" ? "Take photo" : language === "it" ? "Scatta foto" : "Hacer foto";
+  const uploadingText = language === "en" ? "Uploading..." : language === "it" ? "Caricamento..." : "Subiendo...";
+  const photosUploadedText = language === "en" 
+    ? `${photoCount} photos uploaded`
+    : language === "it"
+    ? `${photoCount} foto caricate`
+    : `Ya hay ${photoCount} fotos subidas`;
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <header className="fixed top-0 left-0 right-0 z-50 p-4 flex justify-between items-center bg-card border-b border-border">
@@ -425,7 +503,7 @@ const Camera = () => {
           <h1 className="text-xl font-bold text-foreground">{eventName}</h1>
           <p className="text-sm text-muted-foreground flex items-center gap-1">
             <Image className="w-4 h-4" />
-            Ya hay {photoCount} fotos subidas
+            {photosUploadedText}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -444,6 +522,7 @@ const Camera = () => {
                 eventName={eventName || ""}
                 open={showShareDialog}
                 onOpenChange={setShowShareDialog}
+                language={language}
               />
             </>
           )}
@@ -478,7 +557,7 @@ const Camera = () => {
         <div className="text-center space-y-4 max-w-lg mx-auto animate-fade-in">
           <div className="space-y-2">
             <h2 className="text-2xl font-bold text-foreground">
-              ¡Captura la magia!
+              {captureMagicText}
             </h2>
             {countdown && (
               <div className="bg-card border border-border rounded-lg p-4">
@@ -488,28 +567,7 @@ const Camera = () => {
               </div>
             )}
             <p className="text-muted-foreground leading-relaxed">
-              {revealTime && (
-                <>
-                  {(() => {
-                    const reveal = new Date(revealTime);
-                    const today = new Date();
-                    today.setHours(0, 0, 0, 0);
-                    const tomorrow = new Date(today);
-                    tomorrow.setDate(tomorrow.getDate() + 1);
-                    const revealDate = new Date(reveal);
-                    revealDate.setHours(0, 0, 0, 0);
-                    let dateLabel = "";
-                    if (revealDate.getTime() === today.getTime()) {
-                      dateLabel = "Hoy";
-                    } else if (revealDate.getTime() === tomorrow.getTime()) {
-                      dateLabel = "Mañana";
-                    } else {
-                      dateLabel = `El ${format(reveal, "dd/MM/yyyy", { locale: es })}`;
-                    }
-                    return `${dateLabel} a las ${format(reveal, "HH:mm", { locale: es })} todas las imágenes serán reveladas en este mismo espacio 📸✨`;
-                  })()}
-                </>
-              )}
+              {revealTime && revealInfoText}
             </p>
           </div>
           <Button
@@ -517,7 +575,7 @@ const Camera = () => {
             disabled={isUploading}
             className="h-16 px-8 text-lg bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl transition-all hover:scale-105 disabled:opacity-50"
           >
-            {isUploading ? "Subiendo..." : "Hacer foto"}
+            {isUploading ? uploadingText : uploadButtonText}
           </Button>
         </div>
       </div>

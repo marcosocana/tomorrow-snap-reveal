@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { Share2, Copy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Language } from "@/lib/translations";
 
 interface ShareDialogProps {
   eventPassword: string;
@@ -16,18 +17,61 @@ interface ShareDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   isRevealed?: boolean;
+  language?: Language;
 }
 
-const ShareDialog = ({ eventPassword, eventName, open, onOpenChange, isRevealed = false }: ShareDialogProps) => {
+const ShareDialog = ({ eventPassword, eventName, open, onOpenChange, isRevealed = false, language = "es" }: ShareDialogProps) => {
   const { toast } = useToast();
   const eventUrl = `https://acceso.revelao.cam/events/${eventPassword}`;
+
+  // Translations
+  const texts = {
+    es: {
+      title: "Compartir evento",
+      description: "Comparte este QR o URL para que otros puedan unirse al evento",
+      urlLabel: "URL del evento:",
+      copied: "URL copiada",
+      copiedDesc: "La URL del evento se ha copiado al portapapeles",
+      shareButton: "Compartir evento",
+      shareTextRevealed: `Ya se han revelado las fotos del evento "${eventName}". Accede a través de:`,
+      shareTextActive: `¡Únete al evento "${eventName}" en Revelao! 📸`,
+      textCopied: "Texto copiado",
+      textCopiedDesc: "El mensaje se ha copiado al portapapeles",
+    },
+    en: {
+      title: "Share event",
+      description: "Share this QR or URL so others can join the event",
+      urlLabel: "Event URL:",
+      copied: "URL copied",
+      copiedDesc: "The event URL has been copied to clipboard",
+      shareButton: "Share event",
+      shareTextRevealed: `Photos from the event "${eventName}" have been revealed. Access here:`,
+      shareTextActive: `Join the event "${eventName}" on Revelao! 📸`,
+      textCopied: "Text copied",
+      textCopiedDesc: "The message has been copied to clipboard",
+    },
+    it: {
+      title: "Condividi evento",
+      description: "Condividi questo QR o URL per permettere ad altri di unirsi all'evento",
+      urlLabel: "URL dell'evento:",
+      copied: "URL copiato",
+      copiedDesc: "L'URL dell'evento è stato copiato negli appunti",
+      shareButton: "Condividi evento",
+      shareTextRevealed: `Le foto dell'evento "${eventName}" sono state rivelate. Accedi qui:`,
+      shareTextActive: `Unisciti all'evento "${eventName}" su Revelao! 📸`,
+      textCopied: "Testo copiato",
+      textCopiedDesc: "Il messaggio è stato copiato negli appunti",
+    },
+  };
+
+  const t = texts[language] || texts.es;
 
   const handleCopyUrl = async () => {
     try {
       await navigator.clipboard.writeText(eventUrl);
       toast({
-        title: "URL copiada",
-        description: "La URL del evento se ha copiado al portapapeles",
+        title: t.copied,
+        description: t.copiedDesc,
       });
     } catch (error) {
       console.error("Error copying URL:", error);
@@ -35,9 +79,7 @@ const ShareDialog = ({ eventPassword, eventName, open, onOpenChange, isRevealed 
   };
 
   const handleShare = async () => {
-    const shareText = isRevealed 
-      ? `Ya se han revelado las fotos del evento "${eventName}". Accede a través de:`
-      : `¡Únete al evento "${eventName}" en Revelao! 📸`;
+    const shareText = isRevealed ? t.shareTextRevealed : t.shareTextActive;
     
     if (navigator.share) {
       try {
@@ -53,8 +95,8 @@ const ShareDialog = ({ eventPassword, eventName, open, onOpenChange, isRevealed 
       // Fallback: copy to clipboard
       await navigator.clipboard.writeText(`${shareText}\n\n${eventUrl}`);
       toast({
-        title: "Texto copiado",
-        description: "El mensaje se ha copiado al portapapeles",
+        title: t.textCopied,
+        description: t.textCopiedDesc,
       });
     }
   };
@@ -63,9 +105,9 @@ const ShareDialog = ({ eventPassword, eventName, open, onOpenChange, isRevealed 
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Compartir evento</DialogTitle>
+          <DialogTitle>{t.title}</DialogTitle>
           <DialogDescription>
-            Comparte este QR o URL para que otros puedan unirse al evento
+            {t.description}
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col items-center space-y-4 py-4">
@@ -76,7 +118,7 @@ const ShareDialog = ({ eventPassword, eventName, open, onOpenChange, isRevealed 
 
           {/* URL */}
           <div className="w-full space-y-2">
-            <p className="text-sm text-muted-foreground text-center">URL del evento:</p>
+            <p className="text-sm text-muted-foreground text-center">{t.urlLabel}</p>
             <div className="flex items-center gap-2">
               <input
                 type="text"
@@ -97,7 +139,7 @@ const ShareDialog = ({ eventPassword, eventName, open, onOpenChange, isRevealed 
           {/* Share Button */}
           <Button onClick={handleShare} className="w-full gap-2">
             <Share2 className="w-4 h-4" />
-            Compartir evento
+            {t.shareButton}
           </Button>
         </div>
       </DialogContent>
