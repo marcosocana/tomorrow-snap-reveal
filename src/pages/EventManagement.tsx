@@ -748,9 +748,31 @@ const EventManagement = () => {
                       <p className="text-xs text-muted-foreground">
                         🇪🇸 En España: {(() => {
                           try {
-                            const startLocal = new Date(`${newEvent.uploadStartDate}T${newEvent.uploadStartTime}`);
-                            const endLocal = new Date(`${newEvent.uploadEndDate}T${newEvent.uploadEndTime}`);
-                            return `${formatInTimeZone(startLocal, "Europe/Madrid", "dd/MM/yyyy HH:mm")} - ${formatInTimeZone(endLocal, "Europe/Madrid", "dd/MM/yyyy HH:mm")}`;
+                            // Parse as local time in the selected timezone, then format in Spain timezone
+                            const startDateStr = `${newEvent.uploadStartDate}T${newEvent.uploadStartTime}:00`;
+                            const endDateStr = `${newEvent.uploadEndDate}T${newEvent.uploadEndTime}:00`;
+                            
+                            // Create dates and adjust for timezone difference
+                            const startDate = new Date(startDateStr);
+                            const endDate = new Date(endDateStr);
+                            
+                            // Get timezone offsets
+                            const selectedTz = newEvent.timezone;
+                            const spainTz = "Europe/Madrid";
+                            
+                            // Format in Spain timezone (the date was entered as if it were in selectedTz)
+                            const startInSpain = formatInTimeZone(
+                              toZonedTime(startDate, selectedTz), 
+                              spainTz, 
+                              "dd/MM/yyyy HH:mm"
+                            );
+                            const endInSpain = formatInTimeZone(
+                              toZonedTime(endDate, selectedTz), 
+                              spainTz, 
+                              "dd/MM/yyyy HH:mm"
+                            );
+                            
+                            return `${startInSpain} - ${endInSpain}`;
                           } catch {
                             return "";
                           }
@@ -792,8 +814,17 @@ const EventManagement = () => {
                       <p className="text-xs text-muted-foreground">
                         🇪🇸 En España: {(() => {
                           try {
-                            const revealLocal = new Date(`${newEvent.revealDate}T${newEvent.revealTime}`);
-                            return formatInTimeZone(revealLocal, "Europe/Madrid", "dd/MM/yyyy HH:mm");
+                            const revealDateStr = `${newEvent.revealDate}T${newEvent.revealTime}:00`;
+                            const revealDate = new Date(revealDateStr);
+                            
+                            const selectedTz = newEvent.timezone;
+                            const spainTz = "Europe/Madrid";
+                            
+                            return formatInTimeZone(
+                              toZonedTime(revealDate, selectedTz), 
+                              spainTz, 
+                              "dd/MM/yyyy HH:mm"
+                            );
                           } catch {
                             return "";
                           }
