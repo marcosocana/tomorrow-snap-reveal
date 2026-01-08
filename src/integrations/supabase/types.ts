@@ -21,6 +21,7 @@ export type Database = {
           custom_image_url: string | null
           filter_type: string
           id: string
+          is_demo: boolean
           max_photos: number | null
           name: string
           password_hash: string
@@ -34,6 +35,7 @@ export type Database = {
           custom_image_url?: string | null
           filter_type?: string
           id?: string
+          is_demo?: boolean
           max_photos?: number | null
           name: string
           password_hash: string
@@ -47,6 +49,7 @@ export type Database = {
           custom_image_url?: string | null
           filter_type?: string
           id?: string
+          is_demo?: boolean
           max_photos?: number | null
           name?: string
           password_hash?: string

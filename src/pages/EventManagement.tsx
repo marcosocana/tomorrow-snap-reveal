@@ -33,6 +33,7 @@ interface Event {
   custom_image_url: string | null;
   filter_type: FilterType;
   created_at: string;
+  is_demo: boolean;
 }
 
 const EventManagement = () => {
@@ -43,6 +44,7 @@ const EventManagement = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [isDemoMode] = useState(() => localStorage.getItem("isDemoMode") === "true");
   const [newEvent, setNewEvent] = useState({
     name: "",
     password: "",
@@ -53,7 +55,7 @@ const EventManagement = () => {
     uploadEndTime: "23:59",
     revealDate: "",
     revealTime: "12:00",
-    maxPhotos: "",
+    maxPhotos: isDemoMode ? "5" : "",
     customImage: null as File | null,
     customImageUrl: "",
     filterType: "vintage" as FilterType,
@@ -62,8 +64,12 @@ const EventManagement = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Check authentication
+    // Check authentication - demo mode bypasses auth
     const checkAuth = async () => {
+      if (isDemoMode) {
+        loadEvents();
+        return;
+      }
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         navigate("/admin-login");
@@ -74,21 +80,24 @@ const EventManagement = () => {
 
     checkAuth();
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (!session) {
-        navigate("/admin-login");
-      }
-    });
+    // Listen for auth changes (skip for demo mode)
+    if (!isDemoMode) {
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+        if (!session) {
+          navigate("/admin-login");
+        }
+      });
 
-    return () => subscription.unsubscribe();
-  }, [navigate]);
+      return () => subscription.unsubscribe();
+    }
+  }, [navigate, isDemoMode]);
 
   const loadEvents = async () => {
     try {
       const { data, error } = await supabase
         .from("events")
         .select("*")
+        .eq("is_demo", isDemoMode)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -201,9 +210,10 @@ const EventManagement = () => {
           upload_start_time: uploadStartDateTime.toISOString(),
           upload_end_time: uploadEndDateTime.toISOString(),
           reveal_time: revealDateTime.toISOString(),
-          max_photos: newEvent.maxPhotos ? parseInt(newEvent.maxPhotos) : null,
+          max_photos: isDemoMode ? 5 : (newEvent.maxPhotos ? parseInt(newEvent.maxPhotos) : null),
           custom_image_url: customImageUrl,
           filter_type: newEvent.filterType,
+          is_demo: isDemoMode,
         });
 
         if (error) throw error;
@@ -224,7 +234,7 @@ const EventManagement = () => {
         uploadEndTime: "23:59",
         revealDate: "",
         revealTime: "12:00",
-        maxPhotos: "",
+        maxPhotos: isDemoMode ? "5" : "",
         customImage: null,
         customImageUrl: "",
         filterType: "vintage",
@@ -484,7 +494,7 @@ const EventManagement = () => {
               <Home className="w-5 h-5" />
             </Button>
             <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
-              Gestión de Eventos
+              {isDemoMode ? "Gestión de Eventos (Demo)" : "Gestión de Eventos"}
             </h1>
           </div>
 
@@ -502,7 +512,7 @@ const EventManagement = () => {
                 uploadEndTime: "23:59",
                 revealDate: "",
                 revealTime: "12:00",
-                maxPhotos: "",
+                maxPhotos: isDemoMode ? "5" : "",
                 customImage: null,
                 customImageUrl: "",
                 filterType: "vintage",
@@ -567,16 +577,22 @@ const EventManagement = () => {
                     <Label htmlFor="maxPhotos">
                       Máximo de fotos permitido
                     </Label>
-                    <Input
-                      id="maxPhotos"
-                      type="number"
-                      min="1"
-                      value={newEvent.maxPhotos}
-                      onChange={(e) =>
-                        setNewEvent({ ...newEvent, maxPhotos: e.target.value })
-                      }
-                      placeholder="Ilimitado si se deja vacío"
-                    />
+                    {isDemoMode ? (
+                      <div className="px-3 py-2 text-sm bg-muted rounded-md border border-border text-muted-foreground">
+                        5 fotos (límite fijo en modo demo)
+                      </div>
+                    ) : (
+                      <Input
+                        id="maxPhotos"
+                        type="number"
+                        min="1"
+                        value={newEvent.maxPhotos}
+                        onChange={(e) =>
+                          setNewEvent({ ...newEvent, maxPhotos: e.target.value })
+                        }
+                        placeholder="Ilimitado si se deja vacío"
+                      />
+                    )}
                   </div>
 
                   <div className="space-y-2">

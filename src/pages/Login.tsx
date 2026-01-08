@@ -19,6 +19,14 @@ const Login = () => {
     try {
       // Check for event management password
       if (password === "CreateEvent01") {
+        localStorage.removeItem("isDemoMode");
+        navigate("/event-management");
+        return;
+      }
+
+      // Check for demo mode password
+      if (password === "Demo0000_") {
+        localStorage.setItem("isDemoMode", "true");
         navigate("/event-management");
         return;
       }
