@@ -7,9 +7,12 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, ArrowLeft, Plus, Trash2, Edit, Eye, Copy, Upload, Home, Download } from "lucide-react";
+import { Calendar, ArrowLeft, Plus, Trash2, Edit, Eye, Copy, Upload, Home, Download, Globe } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { toZonedTime, formatInTimeZone } from "date-fns-tz";
+import CountrySelect from "@/components/CountrySelect";
+import { COUNTRIES, getCountryByCode } from "@/lib/countries";
 import { QRCodeSVG } from "qrcode.react";
 import {
   Dialog,
@@ -34,6 +37,8 @@ interface Event {
   filter_type: FilterType;
   created_at: string;
   is_demo: boolean;
+  country_code: string;
+  timezone: string;
 }
 
 const EventManagement = () => {
@@ -59,6 +64,8 @@ const EventManagement = () => {
     customImage: null as File | null,
     customImageUrl: "",
     filterType: "vintage" as FilterType,
+    countryCode: "ES",
+    timezone: "Europe/Madrid",
   });
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -166,6 +173,7 @@ const EventManagement = () => {
     setIsCreating(true);
 
     try {
+      // Create dates in the selected timezone, then convert to UTC for storage
       const uploadStartDateTime = new Date(`${newEvent.uploadStartDate}T${newEvent.uploadStartTime}`);
       const uploadEndDateTime = new Date(`${newEvent.uploadEndDate}T${newEvent.uploadEndTime}`);
       const revealDateTime = new Date(`${newEvent.revealDate}T${newEvent.revealTime}`);
@@ -192,6 +200,8 @@ const EventManagement = () => {
             max_photos: newEvent.maxPhotos ? parseInt(newEvent.maxPhotos) : null,
             custom_image_url: customImageUrl,
             filter_type: newEvent.filterType,
+            country_code: newEvent.countryCode,
+            timezone: newEvent.timezone,
           })
           .eq("id", editingEvent.id);
 
@@ -214,6 +224,8 @@ const EventManagement = () => {
           custom_image_url: customImageUrl,
           filter_type: newEvent.filterType,
           is_demo: isDemoMode,
+          country_code: newEvent.countryCode,
+          timezone: newEvent.timezone,
         });
 
         if (error) throw error;
@@ -238,6 +250,8 @@ const EventManagement = () => {
         customImage: null,
         customImageUrl: "",
         filterType: "vintage",
+        countryCode: "ES",
+        timezone: "Europe/Madrid",
       });
       setEditingEvent(null);
       setIsDialogOpen(false);
@@ -273,6 +287,8 @@ const EventManagement = () => {
       customImage: null,
       customImageUrl: event.custom_image_url || "",
       filterType: event.filter_type || "vintage",
+      countryCode: event.country_code || "ES",
+      timezone: event.timezone || "Europe/Madrid",
     });
     setIsDialogOpen(true);
   };
@@ -516,6 +532,8 @@ const EventManagement = () => {
                 customImage: null,
                 customImageUrl: "",
                 filterType: "vintage",
+                countryCode: "ES",
+                timezone: "Europe/Madrid",
               });
             }
           }}>
@@ -533,6 +551,22 @@ const EventManagement = () => {
               </DialogHeader>
               <div className="overflow-y-auto max-h-[calc(90vh-120px)]">
                 <form onSubmit={handleCreateEvent} className="space-y-4 pr-2">
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2">
+                      <Globe className="w-4 h-4" />
+                      ¿Dónde es el evento?
+                    </Label>
+                    <CountrySelect
+                      value={newEvent.countryCode}
+                      onChange={(countryCode, timezone) =>
+                        setNewEvent({ ...newEvent, countryCode, timezone })
+                      }
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Las horas se ajustarán a la zona horaria del país seleccionado
+                    </p>
+                  </div>
+
                   <div className="space-y-2">
                     <Label htmlFor="name">Nombre del evento</Label>
                     <Input
@@ -799,6 +833,14 @@ const EventManagement = () => {
                         <h3 className="text-xl font-semibold text-foreground">
                           {event.name}
                         </h3>
+                        {(() => {
+                          const country = getCountryByCode(event.country_code || "ES");
+                          return country ? (
+                            <span className="text-lg" title={country.name}>
+                              {country.flag}
+                            </span>
+                          ) : null;
+                        })()}
                         <div className="flex items-center gap-2">
                           <Switch
                             checked={isRevealed}
@@ -811,6 +853,15 @@ const EventManagement = () => {
                       </div>
                       
                       <div className="space-y-1 text-sm text-muted-foreground">
+                        {(() => {
+                          const country = getCountryByCode(event.country_code || "ES");
+                          return country ? (
+                            <p>
+                              <span className="font-medium">País:</span>{" "}
+                              {country.flag} {country.name}
+                            </p>
+                          ) : null;
+                        })()}
                         <p>
                           <span className="font-medium">Contraseña:</span>{" "}
                           {event.password_hash}
@@ -834,14 +885,20 @@ const EventManagement = () => {
                         {event.upload_start_time && event.upload_end_time && (
                           <p>
                             <span className="font-medium">Período de subida:</span>{" "}
-                            {format(new Date(event.upload_start_time), "dd/MM/yyyy HH:mm", { locale: es })} - {format(new Date(event.upload_end_time), "dd/MM/yyyy HH:mm", { locale: es })}
+                            {formatInTimeZone(new Date(event.upload_start_time), event.timezone || "Europe/Madrid", "dd/MM/yyyy HH:mm", { locale: es })} - {formatInTimeZone(new Date(event.upload_end_time), event.timezone || "Europe/Madrid", "dd/MM/yyyy HH:mm", { locale: es })}
+                            <span className="text-xs ml-1">({(() => {
+                              const country = getCountryByCode(event.country_code || "ES");
+                              return country ? country.name : "España";
+                            })()})</span>
                           </p>
                         )}
                         <p>
                           <span className="font-medium">Fecha de revelado:</span>{" "}
-                          {format(revealTime, "PPP 'a las' HH:mm", {
-                            locale: es,
-                          })}
+                          {formatInTimeZone(revealTime, event.timezone || "Europe/Madrid", "PPP 'a las' HH:mm", { locale: es })}
+                          <span className="text-xs ml-1">({(() => {
+                            const country = getCountryByCode(event.country_code || "ES");
+                            return country ? country.name : "España";
+                          })()})</span>
                         </p>
                         <p>
                           <span className="font-medium">Creado:</span>{" "}
