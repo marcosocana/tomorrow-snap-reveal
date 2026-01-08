@@ -336,14 +336,35 @@ export const getEventLanguage = (): Language => {
   return "es";
 };
 
-// Get date-fns locale based on language
-export const getDateLocale = (language: Language) => {
-  switch (language) {
-    case "en":
-      return undefined; // date-fns default is English
-    case "it":
-      return undefined; // Will need to import if needed
-    default:
-      return undefined; // Will use es locale where imported
-  }
+// Get local date object in timezone
+export const getLocalDateInTimezone = (date: Date | string, timezone: string): Date => {
+  const dateObj = typeof date === "string" ? new Date(date) : date;
+  
+  const options: Intl.DateTimeFormatOptions = {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  };
+  
+  const parts = new Intl.DateTimeFormat('en-GB', options).formatToParts(dateObj);
+  const getPart = (type: string) => parts.find(p => p.type === type)?.value || '';
+  
+  return new Date(
+    parseInt(getPart('year')),
+    parseInt(getPart('month')) - 1,
+    parseInt(getPart('day')),
+    parseInt(getPart('hour')),
+    parseInt(getPart('minute')),
+    parseInt(getPart('second'))
+  );
+};
+
+// Get timezone from localStorage
+export const getEventTimezone = (): string => {
+  return localStorage.getItem("eventTimezone") || "Europe/Madrid";
 };

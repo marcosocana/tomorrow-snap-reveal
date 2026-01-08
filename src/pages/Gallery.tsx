@@ -15,13 +15,14 @@ import {
   DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
-import { es } from "date-fns/locale";
+import { es, enUS, it } from "date-fns/locale";
 import confetti from "canvas-confetti";
 import JSZip from "jszip";
 import heartOutline from "@/assets/heart-outline.svg";
 import heartFilled from "@/assets/heart-filled.svg";
 import ShareDialog from "@/components/ShareDialog";
 import { FilterType, getFilterClass, getGrainClass, applyFilterToCanvas } from "@/lib/photoFilters";
+import { getTranslations, getEventLanguage, getEventTimezone, getLocalDateInTimezone, Language } from "@/lib/translations";
 
 interface Photo {
   id: string;
@@ -34,6 +35,14 @@ interface Photo {
 }
 
 const PHOTOS_PER_PAGE = 12;
+
+const getDateLocale = (language: Language) => {
+  switch (language) {
+    case "en": return enUS;
+    case "it": return it;
+    default: return es;
+  }
+};
 
 const Gallery = () => {
   const [photos, setPhotos] = useState<Photo[]>([]);
@@ -51,6 +60,18 @@ const Gallery = () => {
   const [eventPassword, setEventPassword] = useState<string>("");
   const [filterType, setFilterType] = useState<FilterType>("vintage");
   const [showShareDialog, setShowShareDialog] = useState(false);
+
+  // Get translations and timezone
+  const language = getEventLanguage();
+  const t = getTranslations(language);
+  const timezone = getEventTimezone();
+  const dateLocale = getDateLocale(language);
+
+  // Helper to format date in local timezone
+  const formatLocalDate = (dateStr: string, formatStr: string) => {
+    const localDate = getLocalDateInTimezone(dateStr, timezone);
+    return format(localDate, formatStr, { locale: dateLocale });
+  };
 
   const loadPhotos = useCallback(async (pageNum: number) => {
     if (!eventId) return;
@@ -213,6 +234,8 @@ const Gallery = () => {
   const handleLogout = () => {
     localStorage.removeItem("eventId");
     localStorage.removeItem("eventName");
+    localStorage.removeItem("eventLanguage");
+    localStorage.removeItem("eventTimezone");
     navigate("/");
   };
 
@@ -237,14 +260,14 @@ const Gallery = () => {
       setSelectedPhoto(null);
       
       toast({
-        title: "Foto eliminada",
-        description: "La foto se eliminó correctamente",
+        title: t.gallery.deleteSuccess,
+        description: language === "en" ? "Photo deleted successfully" : language === "it" ? "Foto eliminata con successo" : "La foto se eliminó correctamente",
       });
     } catch (error) {
       console.error("Error deleting photo:", error);
       toast({
-        title: "Error",
-        description: "No se pudo eliminar la foto",
+        title: t.common.error,
+        description: t.gallery.deleteError,
         variant: "destructive",
       });
     }
@@ -291,9 +314,13 @@ const Gallery = () => {
 
   const handleDownloadPhoto = async (signedUrl: string, capturedAt: string, withFilter: boolean = true) => {
     try {
+      const preparingText = language === "en" ? "Preparing download" : language === "it" ? "Preparando download" : "Preparando descarga";
+      const applyingFilterText = language === "en" ? "Applying filter..." : language === "it" ? "Applicando filtro..." : "Aplicando filtro...";
+      const downloadingOriginalText = language === "en" ? "Downloading original..." : language === "it" ? "Scaricando originale..." : "Descargando original...";
+      
       toast({
-        title: "Preparando descarga",
-        description: withFilter ? "Aplicando filtro..." : "Descargando original...",
+        title: preparingText,
+        description: withFilter ? applyingFilterText : downloadingOriginalText,
       });
 
       let blob: Blob;
@@ -317,15 +344,18 @@ const Gallery = () => {
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
       
+      const downloadedText = language === "en" ? "Photo downloaded" : language === "it" ? "Foto scaricata" : "Foto descargada";
+      const downloadedDescText = language === "en" ? "Photo downloaded successfully" : language === "it" ? "Foto scaricata con successo" : "La foto se ha descargado correctamente";
+      
       toast({
-        title: "Foto descargada",
-        description: "La foto se ha descargado correctamente",
+        title: downloadedText,
+        description: downloadedDescText,
       });
     } catch (error) {
       console.error("Error downloading photo:", error);
       toast({
-        title: "Error",
-        description: "No se pudo descargar la foto",
+        title: t.common.error,
+        description: t.gallery.downloadError,
         variant: "destructive",
       });
     }
@@ -333,9 +363,16 @@ const Gallery = () => {
 
   const handleDownloadAll = async (withFilter: boolean = true) => {
     try {
+      const preparingText = language === "en" ? "Preparing download" : language === "it" ? "Preparando download" : "Preparando descarga";
+      const downloadingAllText = language === "en" 
+        ? `Downloading all photos${withFilter && filterType !== 'none' ? ' with filter' : ' (originals)'}...`
+        : language === "it"
+        ? `Scaricando tutte le foto${withFilter && filterType !== 'none' ? ' con filtro' : ' originali'}...`
+        : `Descargando todas las fotos${withFilter && filterType !== 'none' ? ' con filtro' : ' originales'}...`;
+      
       toast({
-        title: "Preparando descarga",
-        description: `Descargando todas las fotos${withFilter && filterType !== 'none' ? ' con filtro' : ' originales'}...`,
+        title: preparingText,
+        description: downloadingAllText,
       });
 
       // Fetch ALL photos from the event
@@ -388,19 +425,44 @@ const Gallery = () => {
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
 
+      const completedText = language === "en" ? "Download complete" : language === "it" ? "Download completato" : "Descarga completada";
+      const completedDescText = language === "en" 
+        ? `${allPhotos?.length || 0} photos downloaded successfully`
+        : language === "it"
+        ? `${allPhotos?.length || 0} foto scaricate con successo`
+        : `${allPhotos?.length || 0} fotos descargadas correctamente`;
+
       toast({
-        title: "Descarga completada",
-        description: `${allPhotos?.length || 0} fotos descargadas correctamente`,
+        title: completedText,
+        description: completedDescText,
       });
     } catch (error) {
       console.error("Error downloading all photos:", error);
       toast({
-        title: "Error",
-        description: "No se pudieron descargar todas las fotos",
+        title: t.common.error,
+        description: t.gallery.downloadError,
         variant: "destructive",
       });
     }
   };
+
+  // Translated texts
+  const totalText = language === "en" ? "Total" : language === "it" ? "Totale" : "Total";
+  const loadingPhotosText = language === "en" ? "Loading photos..." : language === "it" ? "Caricamento foto..." : "Cargando fotos...";
+  const noPhotosYetText = language === "en" ? "No photos yet" : language === "it" ? "Nessuna foto ancora" : "Aún no hay fotos";
+  const photosAppearText = language === "en" ? "Photos will appear here when the reveal time is reached" : language === "it" ? "Le foto appariranno qui quando sarà raggiunta l'ora di rivelazione" : "Las fotos aparecerán aquí cuando se alcance la hora de revelado";
+  const loadingMoreText = language === "en" ? "Loading more photos..." : language === "it" ? "Caricamento altre foto..." : "Cargando más fotos...";
+  const shareText = language === "en" ? "Share" : language === "it" ? "Condividi" : "Compartir";
+  const downloadAllText = language === "en" ? "Download all" : language === "it" ? "Scarica tutto" : "Descargar todo";
+  const exitText = language === "en" ? "Exit" : language === "it" ? "Esci" : "Salir";
+  const withFilterText = language === "en" ? "With filter" : language === "it" ? "Con filtro" : "Con filtro";
+  const withoutFilterText = language === "en" ? "Without filter (original)" : language === "it" ? "Senza filtro (originale)" : "Sin filtro (original)";
+  const downloadText = language === "en" ? "Download" : language === "it" ? "Scarica" : "Descargar";
+  const deleteText = language === "en" ? "Delete" : language === "it" ? "Elimina" : "Eliminar";
+  const viewPhotosText = language === "en" ? "View photos" : language === "it" ? "Vedi foto" : "Ver fotos";
+  const photosRevealedText = language === "en" ? "Event photos have been revealed!" : language === "it" ? "Le foto dell'evento sono state rivelate!" : "¡Ya están las fotos del evento reveladas!";
+  const enjoyText = language === "en" ? "Enjoy them" : language === "it" ? "Goditele" : "Disfrútalas";
+  const enlargedPhotoText = language === "en" ? "Enlarged photo" : language === "it" ? "Foto ingrandita" : "Foto ampliada";
 
   return (
     <div className="min-h-screen bg-background">
@@ -409,7 +471,7 @@ const Gallery = () => {
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-foreground">{eventName}</h1>
             <p className="text-sm text-muted-foreground mt-2 tracking-wide uppercase">
-              Total ({totalPhotos})
+              {totalText} ({totalPhotos})
             </p>
           </div>
           <DropdownMenu>
@@ -421,27 +483,27 @@ const Gallery = () => {
             <DropdownMenuContent align="end" className="w-56 bg-card">
               <DropdownMenuItem onClick={() => setShowShareDialog(true)} className="cursor-pointer">
                 <Share2 className="w-4 h-4 mr-2" />
-                Compartir
+                {shareText}
               </DropdownMenuItem>
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger className="cursor-pointer">
                   <Download className="w-4 h-4 mr-2" />
-                  Descargar todo
+                  {downloadAllText}
                 </DropdownMenuSubTrigger>
                 <DropdownMenuSubContent className="bg-card">
                   {filterType !== 'none' && (
                     <DropdownMenuItem onClick={() => handleDownloadAll(true)} className="cursor-pointer">
-                      Con filtro
+                      {withFilterText}
                     </DropdownMenuItem>
                   )}
                   <DropdownMenuItem onClick={() => handleDownloadAll(false)} className="cursor-pointer">
-                    {filterType !== 'none' ? 'Sin filtro (original)' : 'Descargar todo'}
+                    {filterType !== 'none' ? withoutFilterText : downloadAllText}
                   </DropdownMenuItem>
                 </DropdownMenuSubContent>
               </DropdownMenuSub>
               <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
                 <LogOut className="w-4 h-4 mr-2" />
-                Salir
+                {exitText}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -452,17 +514,17 @@ const Gallery = () => {
         <div className="max-w-7xl mx-auto px-6">
           {isLoading ? (
             <div className="flex items-center justify-center min-h-[50vh]">
-              <p className="text-muted-foreground uppercase tracking-wide">Cargando fotos...</p>
+              <p className="text-muted-foreground uppercase tracking-wide">{loadingPhotosText}</p>
             </div>
           ) : photos.length === 0 ? (
             <div className="flex flex-col items-center justify-center min-h-[50vh] text-center space-y-4">
               <Film className="w-16 h-16 text-muted-foreground" />
               <div className="space-y-2">
                 <h2 className="text-2xl font-bold text-foreground uppercase tracking-tight">
-                  Aún no hay fotos
+                  {noPhotosYetText}
                 </h2>
                 <p className="text-muted-foreground text-sm tracking-wide">
-                  Las fotos aparecerán aquí cuando se alcance la hora de revelado
+                  {photosAppearText}
                 </p>
               </div>
             </div>
@@ -480,7 +542,7 @@ const Gallery = () => {
                 >
                   <img
                     src={(photo as any).thumbnailUrl}
-                    alt="Foto del evento"
+                    alt={language === "en" ? "Event photo" : language === "it" ? "Foto evento" : "Foto del evento"}
                     className={`w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 ${getFilterClass(filterType)}`}
                     loading="lazy"
                     onError={(e) => {
@@ -501,7 +563,7 @@ const Gallery = () => {
                   
                   {/* Date - bottom left */}
                   <div className="absolute bottom-2 left-2 bg-black/50 text-white px-2 py-1 rounded text-xs pointer-events-none">
-                    {format(new Date(photo.captured_at), "dd/MM/yyyy HH:mm", { locale: es })}
+                    {formatLocalDate(photo.captured_at, "dd/MM/yyyy HH:mm")}
                   </div>
                   
                   {/* Like button - bottom right */}
@@ -526,7 +588,7 @@ const Gallery = () => {
               {hasMore && (
                 <div ref={observerTarget} className="flex justify-center py-8">
                   <p className="text-muted-foreground uppercase tracking-wide text-sm">
-                    Cargando más fotos...
+                    {loadingMoreText}
                   </p>
                 </div>
               )}
@@ -541,16 +603,16 @@ const Gallery = () => {
           <div className="space-y-4 animate-scale-in">
             <div className="text-6xl">🎉</div>
             <h2 className="text-3xl font-bold text-foreground">
-              ¡Ya están las fotos del evento reveladas!
+              {photosRevealedText}
             </h2>
             <p className="text-muted-foreground text-lg">
-              Disfrútalas
+              {enjoyText}
             </p>
             <Button
               onClick={() => setShowWelcome(false)}
               className="w-full mt-6 uppercase tracking-wide"
             >
-              Ver fotos
+              {viewPhotosText}
             </Button>
           </div>
         </DialogContent>
@@ -564,6 +626,7 @@ const Gallery = () => {
                  open={showShareDialog}
                  onOpenChange={setShowShareDialog}
                  isRevealed={true}
+                 language={language}
                />
       )}
 
@@ -575,7 +638,7 @@ const Gallery = () => {
               <div className={`relative ${getGrainClass(filterType)}`}>
                 <img
                   src={(selectedPhoto as any).fullQualityUrl}
-                  alt="Foto ampliada"
+                  alt={enlargedPhotoText}
                   className={`w-full h-auto max-h-[70vh] object-contain ${getFilterClass(filterType)} rounded-lg`}
                   onError={(e) => {
                     e.currentTarget.src = (selectedPhoto as any).thumbnailUrl;
@@ -610,7 +673,7 @@ const Gallery = () => {
               </div>
               <div className="bg-muted/50 rounded-lg p-4 space-y-3">
                 <p className="text-foreground text-sm uppercase tracking-wider">
-                  {format(new Date(selectedPhoto.captured_at), "dd MMM yyyy - HH:mm", { locale: es })}
+                  {formatLocalDate(selectedPhoto.captured_at, "dd MMM yyyy - HH:mm")}
                 </p>
                 <div className="flex gap-2">
                   {filterType !== 'none' ? (
@@ -618,15 +681,15 @@ const Gallery = () => {
                       <DropdownMenuTrigger asChild>
                         <Button variant="secondary" size="sm" className="uppercase tracking-wide flex-1">
                           <Download className="w-4 h-4 mr-2" />
-                          Descargar
+                          {downloadText}
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent className="bg-card">
                         <DropdownMenuItem onClick={() => handleDownloadPhoto((selectedPhoto as any).fullQualityUrl, selectedPhoto.captured_at, true)} className="cursor-pointer">
-                          Con filtro
+                          {withFilterText}
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleDownloadPhoto((selectedPhoto as any).fullQualityUrl, selectedPhoto.captured_at, false)} className="cursor-pointer">
-                          Sin filtro (original)
+                          {withoutFilterText}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -638,7 +701,7 @@ const Gallery = () => {
                       className="uppercase tracking-wide flex-1"
                     >
                       <Download className="w-4 h-4 mr-2" />
-                      Descargar
+                      {downloadText}
                     </Button>
                   )}
                   <Button
@@ -648,7 +711,7 @@ const Gallery = () => {
                     className="uppercase tracking-wide flex-1"
                   >
                     <Trash2 className="w-4 h-4 mr-2" />
-                    Eliminar
+                    {deleteText}
                   </Button>
                 </div>
               </div>
