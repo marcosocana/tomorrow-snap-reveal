@@ -711,21 +711,39 @@ const EventManagement = () => {
                       Máximo 240px ancho × 100px alto. Se muestra como icono en las pantallas.
                     </div>
                     {newEvent.customImageUrl && !newEvent.customImage && (
-                      <div className="mb-2">
+                      <div className="mb-2 relative inline-block">
                         <img 
                           src={newEvent.customImageUrl} 
                           alt="Preview" 
                           className="max-w-[240px] max-h-[100px] object-contain border border-border rounded"
                         />
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="icon"
+                          className="absolute -top-2 -right-2 h-6 w-6"
+                          onClick={() => setNewEvent({ ...newEvent, customImageUrl: "", customImage: null })}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
                       </div>
                     )}
                     {newEvent.customImage && (
-                      <div className="mb-2">
+                      <div className="mb-2 relative inline-block">
                         <img 
                           src={URL.createObjectURL(newEvent.customImage)} 
                           alt="Preview" 
                           className="max-w-[240px] max-h-[100px] object-contain border border-border rounded"
                         />
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="icon"
+                          className="absolute -top-2 -right-2 h-6 w-6"
+                          onClick={() => setNewEvent({ ...newEvent, customImage: null })}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
                       </div>
                     )}
                     <Input
@@ -749,21 +767,39 @@ const EventManagement = () => {
                       Imagen que aparecerá como fondo en la cabecera de la galería y las pantallas del evento.
                     </div>
                     {newEvent.backgroundImageUrl && !newEvent.backgroundImage && (
-                      <div className="mb-2">
+                      <div className="mb-2 relative inline-block">
                         <img 
                           src={newEvent.backgroundImageUrl} 
                           alt="Preview fondo" 
                           className="max-w-full max-h-[120px] object-cover border border-border rounded"
                         />
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="icon"
+                          className="absolute -top-2 -right-2 h-6 w-6"
+                          onClick={() => setNewEvent({ ...newEvent, backgroundImageUrl: "", backgroundImage: null })}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
                       </div>
                     )}
                     {newEvent.backgroundImage && (
-                      <div className="mb-2">
+                      <div className="mb-2 relative inline-block">
                         <img 
                           src={URL.createObjectURL(newEvent.backgroundImage)} 
                           alt="Preview fondo" 
                           className="max-w-full max-h-[120px] object-cover border border-border rounded"
                         />
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="icon"
+                          className="absolute -top-2 -right-2 h-6 w-6"
+                          onClick={() => setNewEvent({ ...newEvent, backgroundImage: null })}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
                       </div>
                     )}
                     <Input
