@@ -532,7 +532,7 @@ const Gallery = () => {
             {eventDescription && (
               <p className="text-muted-foreground text-base md:text-lg max-w-xl mx-auto mb-2 whitespace-pre-line">{eventDescription}</p>
             )}
-            <p className="text-sm text-muted-foreground tracking-wide mb-3">
+            <p className="text-sm text-muted-foreground tracking-wide mb-1">
               {language === "en" ? `✨ ${totalPhotos} photos have been revealed` : language === "it" ? `✨ Sono state rivelate ${totalPhotos} foto` : `✨ Se han revelado ${totalPhotos} fotos`}
             </p>
             <Button
@@ -603,7 +603,7 @@ const Gallery = () => {
         </header>
       )}
 
-      <main className={eventCustomImage ? "pt-3 pb-6" : "py-12 pt-36"}>
+      <main className={eventCustomImage ? "pt-2 pb-6" : "py-12 pt-36"}>
         <div className="max-w-7xl mx-auto px-6">
           {isLoading ? (
             <div className="flex items-center justify-center min-h-[50vh]">
