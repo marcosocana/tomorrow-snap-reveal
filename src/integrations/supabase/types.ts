@@ -20,6 +20,7 @@ export type Database = {
           country_code: string
           created_at: string
           custom_image_url: string | null
+          description: string | null
           filter_type: string
           id: string
           is_demo: boolean
@@ -37,6 +38,7 @@ export type Database = {
           country_code?: string
           created_at?: string
           custom_image_url?: string | null
+          description?: string | null
           filter_type?: string
           id?: string
           is_demo?: boolean
@@ -54,6 +56,7 @@ export type Database = {
           country_code?: string
           created_at?: string
           custom_image_url?: string | null
+          description?: string | null
           filter_type?: string
           id?: string
           is_demo?: boolean

@@ -42,6 +42,7 @@ interface Event {
   country_code: string;
   timezone: string;
   language: string;
+  description: string | null;
 }
 
 const EventManagement = () => {
@@ -70,6 +71,7 @@ const EventManagement = () => {
     countryCode: "ES",
     timezone: "Europe/Madrid",
     language: "es",
+    description: "",
   });
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -209,6 +211,7 @@ const EventManagement = () => {
             country_code: newEvent.countryCode,
             timezone: newEvent.timezone,
             language: newEvent.language,
+            description: newEvent.description || null,
           })
           .eq("id", editingEvent.id);
 
@@ -234,6 +237,7 @@ const EventManagement = () => {
           country_code: newEvent.countryCode,
           timezone: newEvent.timezone,
           language: newEvent.language,
+          description: newEvent.description || null,
         });
 
         if (error) throw error;
@@ -261,6 +265,7 @@ const EventManagement = () => {
         countryCode: "ES",
         timezone: "Europe/Madrid",
         language: "es",
+        description: "",
       });
       setEditingEvent(null);
       setIsDialogOpen(false);
@@ -301,6 +306,7 @@ const EventManagement = () => {
       countryCode: event.country_code || "ES",
       timezone: event.timezone || "Europe/Madrid",
       language: event.language || "es",
+      description: event.description || "",
     });
     setIsDialogOpen(true);
   };
@@ -547,6 +553,7 @@ const EventManagement = () => {
                 countryCode: "ES",
                 timezone: "Europe/Madrid",
                 language: "es",
+                description: "",
               });
             }
           }}>
@@ -713,6 +720,29 @@ const EventManagement = () => {
                         }
                       }}
                     />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="description">
+                      Descripción del evento (opcional)
+                    </Label>
+                    <div className="text-xs text-muted-foreground mb-2">
+                      Máximo 200 caracteres. Se mostrará en la galería cuando las fotos estén reveladas.
+                    </div>
+                    <textarea
+                      id="description"
+                      value={newEvent.description}
+                      onChange={(e) => {
+                        const value = e.target.value.slice(0, 200);
+                        setNewEvent({ ...newEvent, description: value });
+                      }}
+                      placeholder="Ej: Boda de Ana y Carlos - 15 de Enero 2026"
+                      className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none"
+                      maxLength={200}
+                    />
+                    <div className="text-xs text-muted-foreground text-right">
+                      {newEvent.description.length}/200
+                    </div>
                   </div>
 
                   <div className="space-y-2">
