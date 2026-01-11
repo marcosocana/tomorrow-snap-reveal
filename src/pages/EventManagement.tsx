@@ -44,6 +44,8 @@ interface Event {
   timezone: string;
   language: string;
   description: string | null;
+  expiry_date: string | null;
+  expiry_redirect_url: string | null;
 }
 
 const EventManagement = () => {
@@ -75,6 +77,8 @@ const EventManagement = () => {
     timezone: "Europe/Madrid",
     language: "es",
     description: "",
+    expiryDate: "",
+    expiryRedirectUrl: "",
   });
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -205,6 +209,11 @@ const EventManagement = () => {
         }
       }
 
+      // Handle expiry date if provided
+      const expiryDateTime = newEvent.expiryDate 
+        ? fromZonedTime(`${newEvent.expiryDate}T23:59:00`, eventTz).toISOString()
+        : null;
+
       if (editingEvent) {
         // Update existing event
         const { error } = await supabase
@@ -224,6 +233,8 @@ const EventManagement = () => {
             timezone: newEvent.timezone,
             language: newEvent.language,
             description: newEvent.description || null,
+            expiry_date: expiryDateTime,
+            expiry_redirect_url: newEvent.expiryRedirectUrl || null,
           })
           .eq("id", editingEvent.id);
 
@@ -251,6 +262,8 @@ const EventManagement = () => {
           timezone: newEvent.timezone,
           language: newEvent.language,
           description: newEvent.description || null,
+          expiry_date: expiryDateTime,
+          expiry_redirect_url: newEvent.expiryRedirectUrl || null,
         });
 
         if (error) throw error;
@@ -281,6 +294,8 @@ const EventManagement = () => {
         timezone: "Europe/Madrid",
         language: "es",
         description: "",
+        expiryDate: "",
+        expiryRedirectUrl: "",
       });
       setEditingEvent(null);
       setIsDialogOpen(false);
@@ -303,6 +318,7 @@ const EventManagement = () => {
     const uploadStartDate = event.upload_start_time ? toZonedTime(new Date(event.upload_start_time), eventTz) : new Date();
     const uploadEndDate = event.upload_end_time ? toZonedTime(new Date(event.upload_end_time), eventTz) : new Date();
     const revealDate = toZonedTime(new Date(event.reveal_time), eventTz);
+    const expiryDate = event.expiry_date ? toZonedTime(new Date(event.expiry_date), eventTz) : null;
     setEditingEvent(event);
     setNewEvent({
       name: event.name,
@@ -324,6 +340,8 @@ const EventManagement = () => {
       timezone: event.timezone || "Europe/Madrid",
       language: event.language || "es",
       description: event.description || "",
+      expiryDate: expiryDate ? format(expiryDate, "yyyy-MM-dd") : "",
+      expiryRedirectUrl: event.expiry_redirect_url || "",
     });
     setIsDialogOpen(true);
   };
@@ -573,6 +591,8 @@ const EventManagement = () => {
                 timezone: "Europe/Madrid",
                 language: "es",
                 description: "",
+                expiryDate: "",
+                expiryRedirectUrl: "",
               });
             }
           }}>
@@ -965,6 +985,39 @@ const EventManagement = () => {
                     )}
                   </div>
 
+                  <div className="space-y-2">
+                    <Label className="text-base font-semibold">Fecha de caducidad (opcional)</Label>
+                    <div className="text-xs text-muted-foreground mb-2">
+                      Después de esta fecha, la galería no será accesible y mostrará un mensaje con el enlace indicado.
+                    </div>
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="expiryDate">Fecha</Label>
+                        <Input
+                          id="expiryDate"
+                          type="date"
+                          value={newEvent.expiryDate}
+                          onChange={(e) =>
+                            setNewEvent({ ...newEvent, expiryDate: e.target.value })
+                          }
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="expiryRedirectUrl">URL de redirección</Label>
+                        <Input
+                          id="expiryRedirectUrl"
+                          type="url"
+                          value={newEvent.expiryRedirectUrl}
+                          onChange={(e) =>
+                            setNewEvent({ ...newEvent, expiryRedirectUrl: e.target.value })
+                          }
+                          placeholder="https://..."
+                        />
+                      </div>
+                    </div>
+                  </div>
+
                   <Button type="submit" className="w-full" disabled={isCreating || uploadingImage}>
                     {uploadingImage
                       ? "Subiendo imagen..."
@@ -1108,6 +1161,19 @@ const EventManagement = () => {
                               return lang ? `${lang.flag} ${lang.name}` : event.language;
                             })()}
                           </p>
+                        )}
+                        {event.expiry_date && (
+                          <>
+                            <p>
+                              <span className="font-medium">Fecha de caducidad:</span>{" "}
+                              {formatInTimeZone(new Date(event.expiry_date), event.timezone || "Europe/Madrid", "PPP", { locale: es })}
+                            </p>
+                            {event.expiry_redirect_url && (
+                              <p className="text-xs text-muted-foreground pl-4">
+                                Redirige a: {event.expiry_redirect_url}
+                              </p>
+                            )}
+                          </>
                         )}
                         <p>
                           <span className="font-medium">Creado:</span>{" "}
