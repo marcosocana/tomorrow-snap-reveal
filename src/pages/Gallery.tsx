@@ -527,7 +527,7 @@ const Gallery = () => {
           </div>
           
           {/* Event Info - Overlapping the gradient */}
-          <div className="relative -mt-20 px-6 pb-2 text-center">
+          <div className="relative -mt-20 px-6 pb-0 text-center">
             <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground mb-2">{eventName}</h1>
             {eventDescription && (
               <p className="text-muted-foreground text-base md:text-lg max-w-xl mx-auto mb-2 whitespace-pre-line">{eventDescription}</p>
@@ -603,7 +603,7 @@ const Gallery = () => {
         </header>
       )}
 
-      <main className={eventCustomImage ? "py-6" : "py-12 pt-36"}>
+      <main className={eventCustomImage ? "pt-3 pb-6" : "py-12 pt-36"}>
         <div className="max-w-7xl mx-auto px-6">
           {isLoading ? (
             <div className="flex items-center justify-center min-h-[50vh]">
