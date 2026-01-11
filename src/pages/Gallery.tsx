@@ -60,6 +60,8 @@ const Gallery = () => {
   const [eventPassword, setEventPassword] = useState<string>("");
   const [filterType, setFilterType] = useState<FilterType>("vintage");
   const [showShareDialog, setShowShareDialog] = useState(false);
+  const [eventCustomImage, setEventCustomImage] = useState<string | null>(null);
+  const [eventDescription, setEventDescription] = useState<string | null>(null);
 
   // Get translations and timezone
   const language = getEventLanguage();
@@ -158,16 +160,18 @@ const Gallery = () => {
       return;
     }
 
-    // Load event password and filter type for sharing
+    // Load event password, filter type, custom image and description for sharing
     const loadEventData = async () => {
       const { data } = await supabase
         .from("events")
-        .select("password_hash, filter_type")
+        .select("password_hash, filter_type, custom_image_url, description")
         .eq("id", eventId)
         .maybeSingle();
       if (data) {
         setEventPassword(data.password_hash);
         setFilterType((data.filter_type as FilterType) || "vintage");
+        setEventCustomImage(data.custom_image_url);
+        setEventDescription(data.description);
       }
     };
     loadEventData();
@@ -466,51 +470,118 @@ const Gallery = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-card">
-        <div className="max-w-7xl mx-auto px-6 py-8 flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight text-foreground">{eventName}</h1>
-            <p className="text-sm text-muted-foreground mt-2 tracking-wide uppercase">
+      {/* Hero Header with Background Image */}
+      {eventCustomImage ? (
+        <header className="relative w-full">
+          {/* Background Image */}
+          <div className="relative h-[50vh] min-h-[320px] max-h-[450px] w-full">
+            <img
+              src={eventCustomImage}
+              alt={eventName || "Event"}
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+            {/* Gradient Overlay */}
+            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-background" />
+            
+            {/* Menu Button - Top Right */}
+            <div className="absolute top-4 right-4 z-10">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="secondary" size="icon" className="bg-background/80 backdrop-blur-sm hover:bg-background">
+                    <MoreVertical className="w-5 h-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56 bg-card">
+                  <DropdownMenuItem onClick={() => setShowShareDialog(true)} className="cursor-pointer">
+                    <Share2 className="w-4 h-4 mr-2" />
+                    {shareText}
+                  </DropdownMenuItem>
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger className="cursor-pointer">
+                      <Download className="w-4 h-4 mr-2" />
+                      {downloadAllText}
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent className="bg-card">
+                      {filterType !== 'none' && (
+                        <DropdownMenuItem onClick={() => handleDownloadAll(true)} className="cursor-pointer">
+                          {withFilterText}
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem onClick={() => handleDownloadAll(false)} className="cursor-pointer">
+                        {filterType !== 'none' ? withoutFilterText : downloadAllText}
+                      </DropdownMenuItem>
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                  <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
+                    <LogOut className="w-4 h-4 mr-2" />
+                    {exitText}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+          
+          {/* Event Info - Overlapping the gradient */}
+          <div className="relative -mt-20 px-6 pb-6 text-center">
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground mb-2">{eventName}</h1>
+            {eventDescription && (
+              <p className="text-muted-foreground text-base md:text-lg max-w-xl mx-auto mb-2">{eventDescription}</p>
+            )}
+            <p className="text-sm text-muted-foreground uppercase tracking-wide">
               {totalText} ({totalPhotos})
             </p>
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="icon">
-                <MoreVertical className="w-5 h-5" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56 bg-card">
-              <DropdownMenuItem onClick={() => setShowShareDialog(true)} className="cursor-pointer">
-                <Share2 className="w-4 h-4 mr-2" />
-                {shareText}
-              </DropdownMenuItem>
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger className="cursor-pointer">
-                  <Download className="w-4 h-4 mr-2" />
-                  {downloadAllText}
-                </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent className="bg-card">
-                  {filterType !== 'none' && (
-                    <DropdownMenuItem onClick={() => handleDownloadAll(true)} className="cursor-pointer">
-                      {withFilterText}
+        </header>
+      ) : (
+        <header className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-card">
+          <div className="max-w-7xl mx-auto px-6 py-8 flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight text-foreground">{eventName}</h1>
+              {eventDescription && (
+                <p className="text-muted-foreground text-sm mt-1 max-w-md">{eventDescription}</p>
+              )}
+              <p className="text-sm text-muted-foreground mt-2 tracking-wide uppercase">
+                {totalText} ({totalPhotos})
+              </p>
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon">
+                  <MoreVertical className="w-5 h-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56 bg-card">
+                <DropdownMenuItem onClick={() => setShowShareDialog(true)} className="cursor-pointer">
+                  <Share2 className="w-4 h-4 mr-2" />
+                  {shareText}
+                </DropdownMenuItem>
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger className="cursor-pointer">
+                    <Download className="w-4 h-4 mr-2" />
+                    {downloadAllText}
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent className="bg-card">
+                    {filterType !== 'none' && (
+                      <DropdownMenuItem onClick={() => handleDownloadAll(true)} className="cursor-pointer">
+                        {withFilterText}
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuItem onClick={() => handleDownloadAll(false)} className="cursor-pointer">
+                      {filterType !== 'none' ? withoutFilterText : downloadAllText}
                     </DropdownMenuItem>
-                  )}
-                  <DropdownMenuItem onClick={() => handleDownloadAll(false)} className="cursor-pointer">
-                    {filterType !== 'none' ? withoutFilterText : downloadAllText}
-                  </DropdownMenuItem>
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
-              <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
-                <LogOut className="w-4 h-4 mr-2" />
-                {exitText}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </header>
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+                <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
+                  <LogOut className="w-4 h-4 mr-2" />
+                  {exitText}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </header>
+      )}
 
-      <main className="py-12 pt-36">
+      <main className={eventCustomImage ? "py-6" : "py-12 pt-36"}>
         <div className="max-w-7xl mx-auto px-6">
           {isLoading ? (
             <div className="flex items-center justify-center min-h-[50vh]">
