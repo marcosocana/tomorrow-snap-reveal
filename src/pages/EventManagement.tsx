@@ -36,6 +36,7 @@ interface Event {
   upload_end_time: string | null;
   max_photos: number | null;
   custom_image_url: string | null;
+  background_image_url: string | null;
   filter_type: FilterType;
   created_at: string;
   is_demo: boolean;
@@ -67,6 +68,8 @@ const EventManagement = () => {
     maxPhotos: isDemoMode ? "5" : "",
     customImage: null as File | null,
     customImageUrl: "",
+    backgroundImage: null as File | null,
+    backgroundImageUrl: "",
     filterType: "vintage" as FilterType,
     countryCode: "ES",
     timezone: "Europe/Madrid",
@@ -194,6 +197,14 @@ const EventManagement = () => {
         }
       }
 
+      let backgroundImageUrl = newEvent.backgroundImageUrl;
+      if (newEvent.backgroundImage) {
+        const uploadedUrl = await handleImageUpload(newEvent.backgroundImage);
+        if (uploadedUrl) {
+          backgroundImageUrl = uploadedUrl;
+        }
+      }
+
       if (editingEvent) {
         // Update existing event
         const { error } = await supabase
@@ -207,6 +218,7 @@ const EventManagement = () => {
             reveal_time: revealDateTime.toISOString(),
             max_photos: newEvent.maxPhotos ? parseInt(newEvent.maxPhotos) : null,
             custom_image_url: customImageUrl,
+            background_image_url: backgroundImageUrl,
             filter_type: newEvent.filterType,
             country_code: newEvent.countryCode,
             timezone: newEvent.timezone,
@@ -232,6 +244,7 @@ const EventManagement = () => {
           reveal_time: revealDateTime.toISOString(),
           max_photos: isDemoMode ? 5 : (newEvent.maxPhotos ? parseInt(newEvent.maxPhotos) : null),
           custom_image_url: customImageUrl,
+          background_image_url: backgroundImageUrl,
           filter_type: newEvent.filterType,
           is_demo: isDemoMode,
           country_code: newEvent.countryCode,
@@ -261,6 +274,8 @@ const EventManagement = () => {
         maxPhotos: isDemoMode ? "5" : "",
         customImage: null,
         customImageUrl: "",
+        backgroundImage: null,
+        backgroundImageUrl: "",
         filterType: "vintage",
         countryCode: "ES",
         timezone: "Europe/Madrid",
@@ -302,6 +317,8 @@ const EventManagement = () => {
       maxPhotos: event.max_photos ? event.max_photos.toString() : "",
       customImage: null,
       customImageUrl: event.custom_image_url || "",
+      backgroundImage: null,
+      backgroundImageUrl: event.background_image_url || "",
       filterType: event.filter_type || "vintage",
       countryCode: event.country_code || "ES",
       timezone: event.timezone || "Europe/Madrid",
@@ -549,6 +566,8 @@ const EventManagement = () => {
                 maxPhotos: isDemoMode ? "5" : "",
                 customImage: null,
                 customImageUrl: "",
+                backgroundImage: null,
+                backgroundImageUrl: "",
                 filterType: "vintage",
                 countryCode: "ES",
                 timezone: "Europe/Madrid",
@@ -689,7 +708,7 @@ const EventManagement = () => {
                       Imagen personalizada (opcional)
                     </Label>
                     <div className="text-xs text-muted-foreground mb-2">
-                      Máximo 240px ancho × 100px alto
+                      Máximo 240px ancho × 100px alto. Se muestra como icono en las pantallas.
                     </div>
                     {newEvent.customImageUrl && !newEvent.customImage && (
                       <div className="mb-2">
@@ -717,6 +736,44 @@ const EventManagement = () => {
                         const file = e.target.files?.[0];
                         if (file) {
                           setNewEvent({ ...newEvent, customImage: file });
+                        }
+                      }}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="backgroundImage">
+                      Fotografía de fondo (opcional)
+                    </Label>
+                    <div className="text-xs text-muted-foreground mb-2">
+                      Imagen que aparecerá como fondo en la cabecera de la galería y las pantallas del evento.
+                    </div>
+                    {newEvent.backgroundImageUrl && !newEvent.backgroundImage && (
+                      <div className="mb-2">
+                        <img 
+                          src={newEvent.backgroundImageUrl} 
+                          alt="Preview fondo" 
+                          className="max-w-full max-h-[120px] object-cover border border-border rounded"
+                        />
+                      </div>
+                    )}
+                    {newEvent.backgroundImage && (
+                      <div className="mb-2">
+                        <img 
+                          src={URL.createObjectURL(newEvent.backgroundImage)} 
+                          alt="Preview fondo" 
+                          className="max-w-full max-h-[120px] object-cover border border-border rounded"
+                        />
+                      </div>
+                    )}
+                    <Input
+                      id="backgroundImage"
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setNewEvent({ ...newEvent, backgroundImage: file });
                         }
                       }}
                     />
