@@ -525,10 +525,10 @@ const Gallery = () => {
           <div className="relative -mt-20 px-6 pb-6 text-center">
             <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground mb-2">{eventName}</h1>
             {eventDescription && (
-              <p className="text-muted-foreground text-base md:text-lg max-w-xl mx-auto mb-2">{eventDescription}</p>
+              <p className="text-muted-foreground text-base md:text-lg max-w-xl mx-auto mb-2 whitespace-pre-line">{eventDescription}</p>
             )}
             <p className="text-sm text-muted-foreground uppercase tracking-wide">
-              {totalText} ({totalPhotos})
+              {language === "en" ? `${totalPhotos} photos have been revealed` : language === "it" ? `Sono state rivelate ${totalPhotos} foto` : `Se han revelado ${totalPhotos} fotos`}
             </p>
           </div>
         </header>
@@ -538,10 +538,10 @@ const Gallery = () => {
             <div>
               <h1 className="text-3xl font-bold tracking-tight text-foreground">{eventName}</h1>
               {eventDescription && (
-                <p className="text-muted-foreground text-sm mt-1 max-w-md">{eventDescription}</p>
+                <p className="text-muted-foreground text-sm mt-1 max-w-md whitespace-pre-line">{eventDescription}</p>
               )}
               <p className="text-sm text-muted-foreground mt-2 tracking-wide uppercase">
-                {totalText} ({totalPhotos})
+                {language === "en" ? `${totalPhotos} photos have been revealed` : language === "it" ? `Sono state rivelate ${totalPhotos} foto` : `Se han revelado ${totalPhotos} fotos`}
               </p>
             </div>
             <DropdownMenu>
