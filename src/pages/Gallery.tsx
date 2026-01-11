@@ -65,6 +65,8 @@ const Gallery = () => {
   const [eventDescription, setEventDescription] = useState<string | null>(null);
   const [eventBackgroundImage, setEventBackgroundImage] = useState<string | null>(null);
   const [showStories, setShowStories] = useState(false);
+  const [allPhotosForStories, setAllPhotosForStories] = useState<Photo[]>([]);
+  const [loadingStories, setLoadingStories] = useState(false);
 
   // Get translations and timezone
   const language = getEventLanguage();
@@ -320,6 +322,65 @@ const Gallery = () => {
     }
   };
 
+  const handleOpenStories = async () => {
+    if (!eventId) return;
+    
+    setLoadingStories(true);
+    try {
+      // Fetch ALL photos for stories
+      const { data: allPhotos, error } = await supabase
+        .from("photos")
+        .select("*")
+        .eq("event_id", eventId)
+        .order("captured_at", { ascending: true });
+
+      if (error) throw error;
+
+      // Get like counts for all photos
+      const photoIds = (allPhotos || []).map(p => p.id);
+      const { data: likesData } = await supabase
+        .from("photo_likes")
+        .select("photo_id")
+        .in("photo_id", photoIds);
+
+      const likeCounts = (likesData || []).reduce((acc: any, like: any) => {
+        acc[like.photo_id] = (acc[like.photo_id] || 0) + 1;
+        return acc;
+      }, {});
+
+      // Check which photos current user has liked
+      const likedPhotos = JSON.parse(localStorage.getItem("likedPhotos") || "[]");
+
+      // Get signed URLs for all photos
+      const photosWithUrls = await Promise.all(
+        (allPhotos || []).map(async (photo) => {
+          const { data: fullQualityData } = await supabase.storage
+            .from("event-photos")
+            .createSignedUrl(photo.image_url, 3600);
+
+          return {
+            ...photo,
+            fullQualityUrl: fullQualityData?.signedUrl || "",
+            likeCount: likeCounts[photo.id] || 0,
+            hasLiked: likedPhotos.includes(photo.id),
+          };
+        })
+      );
+
+      setAllPhotosForStories(photosWithUrls as Photo[]);
+      setShowStories(true);
+    } catch (error) {
+      console.error("Error loading all photos for stories:", error);
+      toast({
+        title: t.common.error,
+        description: language === "en" ? "Error loading photos" : language === "it" ? "Errore nel caricamento delle foto" : "Error al cargar las fotos",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingStories(false);
+    }
+  };
+
   const handleDownloadPhoto = async (signedUrl: string, capturedAt: string, withFilter: boolean = true) => {
     try {
       const preparingText = language === "en" ? "Preparing download" : language === "it" ? "Preparando download" : "Preparando descarga";
@@ -532,16 +593,17 @@ const Gallery = () => {
             {eventDescription && (
               <p className="text-muted-foreground text-base md:text-lg max-w-xl mx-auto mb-2 whitespace-pre-line">{eventDescription}</p>
             )}
-            <p className="text-sm text-muted-foreground tracking-wide mb-1">
+            <p className="text-sm text-muted-foreground tracking-wide">
               {language === "en" ? `✨ ${totalPhotos} photos have been revealed` : language === "it" ? `✨ Sono state rivelate ${totalPhotos} foto` : `✨ Se han revelado ${totalPhotos} fotos`}
             </p>
             <Button
-              onClick={() => setShowStories(true)}
+              onClick={handleOpenStories}
               variant="outline"
-              className="gap-2"
+              className="gap-2 mt-1"
+              disabled={loadingStories}
             >
               <Play className="w-4 h-4" />
-              {playStoriesText}
+              {loadingStories ? (language === "en" ? "Loading..." : language === "it" ? "Caricamento..." : "Cargando...") : playStoriesText}
             </Button>
           </div>
         </header>
@@ -553,17 +615,18 @@ const Gallery = () => {
               {eventDescription && (
                 <p className="text-muted-foreground text-sm mt-1 max-w-md whitespace-pre-line">{eventDescription}</p>
               )}
-              <p className="text-sm text-muted-foreground mt-2 tracking-wide mb-3">
+              <p className="text-sm text-muted-foreground mt-2 tracking-wide">
                 {language === "en" ? `✨ ${totalPhotos} photos have been revealed` : language === "it" ? `✨ Sono state rivelate ${totalPhotos} foto` : `✨ Se han revelado ${totalPhotos} fotos`}
               </p>
               <Button
-                onClick={() => setShowStories(true)}
+                onClick={handleOpenStories}
                 variant="outline"
                 size="sm"
-                className="gap-2"
+                className="gap-2 mt-1"
+                disabled={loadingStories}
               >
                 <Play className="w-4 h-4" />
-                {playStoriesText}
+                {loadingStories ? (language === "en" ? "Loading..." : language === "it" ? "Caricamento..." : "Cargando...") : playStoriesText}
               </Button>
             </div>
             <DropdownMenu>
@@ -603,7 +666,7 @@ const Gallery = () => {
         </header>
       )}
 
-      <main className={eventCustomImage ? "pt-2 pb-6" : "py-12 pt-36"}>
+      <main className={eventCustomImage ? "pt-1 pb-6" : "py-12 pt-36"}>
         <div className="max-w-7xl mx-auto px-6">
           {isLoading ? (
             <div className="flex items-center justify-center min-h-[50vh]">
@@ -816,7 +879,7 @@ const Gallery = () => {
       {/* Stories Viewer */}
       {showStories && (
         <StoriesViewer
-          photos={photos}
+          photos={allPhotosForStories}
           eventName={eventName || ""}
           eventDescription={eventDescription}
           backgroundImage={eventBackgroundImage}
