@@ -704,22 +704,6 @@ const Camera = () => {
           </header>
           
           <div className="px-6 pb-6">
-            <div className="flex justify-center pb-6">
-              <button
-                onClick={handleTakePhoto}
-                disabled={isUploading}
-                className="w-60 h-25 flex items-center justify-center cursor-pointer transition-all hover:scale-105 disabled:opacity-50"
-                style={{ imageRendering: 'pixelated' }}
-              >
-                <img
-                  src={customImageUrl || cameraIcon}
-                  alt="Cámara"
-                  style={{ imageRendering: 'pixelated' }}
-                  className="max-w-[240px] max-h-[100px] object-contain"
-                />
-              </button>
-            </div>
-            
             <div className="text-center space-y-4 max-w-lg mx-auto animate-fade-in">
               <div className="space-y-2">
                 <h2 className="text-2xl font-bold text-foreground">
@@ -743,6 +727,22 @@ const Camera = () => {
               >
                 {isUploading ? uploadingText : uploadButtonText}
               </Button>
+            </div>
+            
+            <div className="flex justify-center pt-6">
+              <button
+                onClick={handleTakePhoto}
+                disabled={isUploading}
+                className="w-60 h-25 flex items-center justify-center cursor-pointer transition-all hover:scale-105 disabled:opacity-50"
+                style={{ imageRendering: 'pixelated' }}
+              >
+                <img
+                  src={customImageUrl || cameraIcon}
+                  alt="Cámara"
+                  style={{ imageRendering: 'pixelated' }}
+                  className="max-w-[240px] max-h-[100px] object-contain"
+                />
+              </button>
             </div>
           </div>
         </>
@@ -788,22 +788,6 @@ const Camera = () => {
           </header>
 
           <div className="pt-16 pb-6 px-6">
-            <div className="flex justify-center pt-4 pb-6">
-              <button
-                onClick={handleTakePhoto}
-                disabled={isUploading}
-                className="w-60 h-25 flex items-center justify-center cursor-pointer transition-all hover:scale-105 disabled:opacity-50"
-                style={{ imageRendering: 'pixelated' }}
-              >
-                <img
-                  src={customImageUrl || cameraIcon}
-                  alt="Cámara"
-                  style={{ imageRendering: 'pixelated' }}
-                  className="max-w-[240px] max-h-[100px] object-contain"
-                />
-              </button>
-            </div>
-            
             <div className="text-center space-y-4 max-w-lg mx-auto animate-fade-in">
               <div className="space-y-2">
                 <h2 className="text-2xl font-bold text-foreground">
@@ -827,6 +811,22 @@ const Camera = () => {
               >
                 {isUploading ? uploadingText : uploadButtonText}
               </Button>
+            </div>
+            
+            <div className="flex justify-center pt-6">
+              <button
+                onClick={handleTakePhoto}
+                disabled={isUploading}
+                className="w-60 h-25 flex items-center justify-center cursor-pointer transition-all hover:scale-105 disabled:opacity-50"
+                style={{ imageRendering: 'pixelated' }}
+              >
+                <img
+                  src={customImageUrl || cameraIcon}
+                  alt="Cámara"
+                  style={{ imageRendering: 'pixelated' }}
+                  className="max-w-[240px] max-h-[100px] object-contain"
+                />
+              </button>
             </div>
           </div>
         </>
