@@ -67,6 +67,8 @@ const Gallery = () => {
   const [showStories, setShowStories] = useState(false);
   const [allPhotosForStories, setAllPhotosForStories] = useState<Photo[]>([]);
   const [loadingStories, setLoadingStories] = useState(false);
+  const [isExpired, setIsExpired] = useState(false);
+  const [expiryRedirectUrl, setExpiryRedirectUrl] = useState<string | null>(null);
 
   // Get translations and timezone
   const language = getEventLanguage();
@@ -165,11 +167,11 @@ const Gallery = () => {
       return;
     }
 
-    // Load event password, filter type, custom image, description and background for sharing
+    // Load event password, filter type, custom image, description, background and expiry for sharing
     const loadEventData = async () => {
       const { data } = await supabase
         .from("events")
-        .select("password_hash, filter_type, custom_image_url, description, background_image_url")
+        .select("password_hash, filter_type, custom_image_url, description, background_image_url, expiry_date, expiry_redirect_url")
         .eq("id", eventId)
         .maybeSingle();
       if (data) {
@@ -178,6 +180,16 @@ const Gallery = () => {
         setEventCustomImage(data.custom_image_url);
         setEventDescription(data.description);
         setEventBackgroundImage(data.background_image_url);
+        
+        // Check if event is expired
+        if (data.expiry_date) {
+          const expiryDate = new Date(data.expiry_date);
+          const now = new Date();
+          if (now > expiryDate) {
+            setIsExpired(true);
+            setExpiryRedirectUrl(data.expiry_redirect_url);
+          }
+        }
       }
     };
     loadEventData();
@@ -533,6 +545,41 @@ const Gallery = () => {
   const enjoyText = language === "en" ? "Enjoy them" : language === "it" ? "Goditele" : "Disfrútalas";
   const playStoriesText = language === "en" ? "Play stories" : language === "it" ? "Riproduci stories" : "Reproducir stories";
   const enlargedPhotoText = language === "en" ? "Enlarged photo" : language === "it" ? "Foto ingrandita" : "Foto ampliada";
+
+  // Expired event screen
+  if (isExpired) {
+    const expiredTitleText = language === "en" 
+      ? "Photos available at another location" 
+      : language === "it" 
+      ? "Foto disponibili in un'altra posizione" 
+      : "Las fotografías están disponibles en el siguiente enlace";
+    const viewPhotosButtonText = language === "en" ? "View photos" : language === "it" ? "Vedi foto" : "Ver fotografías";
+
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="max-w-md w-full text-center space-y-6">
+          {eventCustomImage && (
+            <img 
+              src={eventCustomImage} 
+              alt={eventName || "Event"} 
+              className="max-w-[200px] max-h-[80px] object-contain mx-auto"
+            />
+          )}
+          <h1 className="text-2xl font-bold text-foreground">{eventName}</h1>
+          <p className="text-lg text-muted-foreground">{expiredTitleText}</p>
+          {expiryRedirectUrl && (
+            <Button 
+              size="lg" 
+              onClick={() => window.open(expiryRedirectUrl, '_blank')}
+              className="gap-2"
+            >
+              {viewPhotosButtonText}
+            </Button>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">

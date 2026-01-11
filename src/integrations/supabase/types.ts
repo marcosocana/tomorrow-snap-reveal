@@ -22,6 +22,8 @@ export type Database = {
           created_at: string
           custom_image_url: string | null
           description: string | null
+          expiry_date: string | null
+          expiry_redirect_url: string | null
           filter_type: string
           id: string
           is_demo: boolean
@@ -41,6 +43,8 @@ export type Database = {
           created_at?: string
           custom_image_url?: string | null
           description?: string | null
+          expiry_date?: string | null
+          expiry_redirect_url?: string | null
           filter_type?: string
           id?: string
           is_demo?: boolean
@@ -60,6 +64,8 @@ export type Database = {
           created_at?: string
           custom_image_url?: string | null
           description?: string | null
+          expiry_date?: string | null
+          expiry_redirect_url?: string | null
           filter_type?: string
           id?: string
           is_demo?: boolean
