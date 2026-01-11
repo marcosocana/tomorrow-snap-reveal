@@ -705,6 +705,13 @@ const Camera = () => {
           
           <div className="px-6 pb-6">
             <div className="text-center space-y-4 max-w-lg mx-auto animate-fade-in">
+              <Button
+                onClick={handleTakePhoto}
+                disabled={isUploading}
+                className="h-16 px-8 text-lg bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl transition-all hover:scale-105 disabled:opacity-50"
+              >
+                {isUploading ? uploadingText : uploadButtonText}
+              </Button>
               <div className="space-y-2">
                 <h2 className="text-2xl font-bold text-foreground">
                   {captureMagicText}
@@ -720,13 +727,6 @@ const Camera = () => {
                   {revealTime && revealInfoText}
                 </p>
               </div>
-              <Button
-                onClick={handleTakePhoto}
-                disabled={isUploading}
-                className="h-16 px-8 text-lg bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl transition-all hover:scale-105 disabled:opacity-50"
-              >
-                {isUploading ? uploadingText : uploadButtonText}
-              </Button>
             </div>
             
             <div className="flex justify-center pt-6">
@@ -789,6 +789,13 @@ const Camera = () => {
 
           <div className="pt-16 pb-6 px-6">
             <div className="text-center space-y-4 max-w-lg mx-auto animate-fade-in">
+              <Button
+                onClick={handleTakePhoto}
+                disabled={isUploading}
+                className="h-16 px-8 text-lg bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl transition-all hover:scale-105 disabled:opacity-50"
+              >
+                {isUploading ? uploadingText : uploadButtonText}
+              </Button>
               <div className="space-y-2">
                 <h2 className="text-2xl font-bold text-foreground">
                   {captureMagicText}
@@ -804,13 +811,6 @@ const Camera = () => {
                   {revealTime && revealInfoText}
                 </p>
               </div>
-              <Button
-                onClick={handleTakePhoto}
-                disabled={isUploading}
-                className="h-16 px-8 text-lg bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl transition-all hover:scale-105 disabled:opacity-50"
-              >
-                {isUploading ? uploadingText : uploadButtonText}
-              </Button>
             </div>
             
             <div className="flex justify-center pt-6">
