@@ -3,7 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { LogOut, Film, Trash2, Download, MoreVertical, Share2 } from "lucide-react";
+import { LogOut, Film, Trash2, Download, MoreVertical, Share2, Play } from "lucide-react";
+import StoriesViewer from "@/components/StoriesViewer";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -63,6 +64,7 @@ const Gallery = () => {
   const [eventCustomImage, setEventCustomImage] = useState<string | null>(null);
   const [eventDescription, setEventDescription] = useState<string | null>(null);
   const [eventBackgroundImage, setEventBackgroundImage] = useState<string | null>(null);
+  const [showStories, setShowStories] = useState(false);
 
   // Get translations and timezone
   const language = getEventLanguage();
@@ -468,6 +470,7 @@ const Gallery = () => {
   const viewPhotosText = language === "en" ? "View photos" : language === "it" ? "Vedi foto" : "Ver fotos";
   const photosRevealedText = language === "en" ? "Event photos have been revealed!" : language === "it" ? "Le foto dell'evento sono state rivelate!" : "¡Ya están las fotos del evento reveladas!";
   const enjoyText = language === "en" ? "Enjoy them" : language === "it" ? "Goditele" : "Disfrútalas";
+  const playStoriesText = language === "en" ? "Play stories" : language === "it" ? "Riproduci stories" : "Reproducir stories";
   const enlargedPhotoText = language === "en" ? "Enlarged photo" : language === "it" ? "Foto ingrandita" : "Foto ampliada";
 
   return (
@@ -524,14 +527,22 @@ const Gallery = () => {
           </div>
           
           {/* Event Info - Overlapping the gradient */}
-          <div className="relative -mt-20 px-6 pb-6 text-center">
+          <div className="relative -mt-20 px-6 pb-2 text-center">
             <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground mb-2">{eventName}</h1>
             {eventDescription && (
               <p className="text-muted-foreground text-base md:text-lg max-w-xl mx-auto mb-2 whitespace-pre-line">{eventDescription}</p>
             )}
-            <p className="text-sm text-muted-foreground tracking-wide">
+            <p className="text-sm text-muted-foreground tracking-wide mb-3">
               {language === "en" ? `✨ ${totalPhotos} photos have been revealed` : language === "it" ? `✨ Sono state rivelate ${totalPhotos} foto` : `✨ Se han revelado ${totalPhotos} fotos`}
             </p>
+            <Button
+              onClick={() => setShowStories(true)}
+              variant="outline"
+              className="gap-2"
+            >
+              <Play className="w-4 h-4" />
+              {playStoriesText}
+            </Button>
           </div>
         </header>
       ) : (
@@ -542,9 +553,18 @@ const Gallery = () => {
               {eventDescription && (
                 <p className="text-muted-foreground text-sm mt-1 max-w-md whitespace-pre-line">{eventDescription}</p>
               )}
-              <p className="text-sm text-muted-foreground mt-2 tracking-wide">
+              <p className="text-sm text-muted-foreground mt-2 tracking-wide mb-3">
                 {language === "en" ? `✨ ${totalPhotos} photos have been revealed` : language === "it" ? `✨ Sono state rivelate ${totalPhotos} foto` : `✨ Se han revelado ${totalPhotos} fotos`}
               </p>
+              <Button
+                onClick={() => setShowStories(true)}
+                variant="outline"
+                size="sm"
+                className="gap-2"
+              >
+                <Play className="w-4 h-4" />
+                {playStoriesText}
+              </Button>
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -792,6 +812,21 @@ const Gallery = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Stories Viewer */}
+      {showStories && (
+        <StoriesViewer
+          photos={photos}
+          eventName={eventName || ""}
+          eventDescription={eventDescription}
+          backgroundImage={eventBackgroundImage}
+          totalPhotos={totalPhotos}
+          filterType={filterType}
+          language={language}
+          onClose={() => setShowStories(false)}
+          onLikePhoto={handleLikePhoto}
+        />
+      )}
     </div>
   );
 };
