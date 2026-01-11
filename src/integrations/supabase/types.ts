@@ -17,6 +17,7 @@ export type Database = {
       events: {
         Row: {
           admin_password: string | null
+          background_image_url: string | null
           country_code: string
           created_at: string
           custom_image_url: string | null
@@ -35,6 +36,7 @@ export type Database = {
         }
         Insert: {
           admin_password?: string | null
+          background_image_url?: string | null
           country_code?: string
           created_at?: string
           custom_image_url?: string | null
@@ -53,6 +55,7 @@ export type Database = {
         }
         Update: {
           admin_password?: string | null
+          background_image_url?: string | null
           country_code?: string
           created_at?: string
           custom_image_url?: string | null

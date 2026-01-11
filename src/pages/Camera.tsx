@@ -33,6 +33,8 @@ const Camera = () => {
   const [uploadStartTime, setUploadStartTime] = useState<string>("");
   const [uploadEndTime, setUploadEndTime] = useState<string>("");
   const [customImageUrl, setCustomImageUrl] = useState<string>("");
+  const [backgroundImageUrl, setBackgroundImageUrl] = useState<string>("");
+  const [eventDescription, setEventDescription] = useState<string>("");
   const [countdown, setCountdown] = useState<string>("");
   const [revealCountdown, setRevealCountdown] = useState<string>("");
   const [startCountdown, setStartCountdown] = useState<string>("");
@@ -114,7 +116,7 @@ const Camera = () => {
     if (!eventId) return;
     const { data, error } = await supabase
       .from("events")
-      .select("reveal_time, upload_start_time, upload_end_time, password_hash, max_photos, custom_image_url")
+      .select("reveal_time, upload_start_time, upload_end_time, password_hash, max_photos, custom_image_url, background_image_url, description")
       .eq("id", eventId)
       .single();
     if (data && !error) {
@@ -123,6 +125,8 @@ const Camera = () => {
       setUploadEndTime(data.upload_end_time || "");
       setEventPassword(data.password_hash || "");
       setCustomImageUrl(data.custom_image_url || "");
+      setBackgroundImageUrl(data.background_image_url || "");
+      setEventDescription(data.description || "");
       
       // Check if max photos limit reached
       if (data.max_photos) {
@@ -364,54 +368,127 @@ const Camera = () => {
   if (hasNotStarted) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
-        <header className="fixed top-0 left-0 right-0 z-50 p-4 flex justify-between items-center bg-card border-b border-border">
-          <h1 className="text-xl font-bold text-foreground">{eventName}</h1>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleLogout}
-            className="text-muted-foreground hover:text-foreground"
-          >
-            <LogOut className="w-5 h-5" />
-          </Button>
-        </header>
-        
-        <div className="pt-16 pb-6 px-6">
-          <div className="flex justify-center pt-4 pb-6">
-            <div className="w-60 h-25 flex items-center justify-center" style={{ imageRendering: 'pixelated' }}>
-              <img
-                src={customImageUrl || prohibidoIcon}
-                alt="Cámara prohibida"
-                style={{ imageRendering: 'pixelated' }}
-                className="max-w-[240px] max-h-[100px] object-contain"
-              />
-            </div>
-          </div>
-          
-          <div className="text-center space-y-4 max-w-md mx-auto animate-fade-in">
-            <h1 className="text-2xl font-bold text-foreground">{t.camera.eventNotStarted}</h1>
-            <p className="text-muted-foreground text-lg">
-              {t.camera.periodNotStarted}
-            </p>
-            {uploadStartTime && (
-              <>
-                <div className="bg-card border border-border rounded-lg p-6 space-y-2">
-                  <p className="text-sm text-muted-foreground">{t.camera.willStartOn}</p>
-                  <p className="text-xl font-bold text-foreground">
-                    {formatLocalDate(uploadStartTime, "dd MMMM")} {t.camera.atTime} {formatLocalDate(uploadStartTime, "HH:mm")}
-                  </p>
+        {backgroundImageUrl ? (
+          <>
+            {/* Hero Header with Background Image */}
+            <header className="relative w-full">
+              <div className="relative h-[50vh] min-h-[320px] max-h-[450px] w-full">
+                <img
+                  src={backgroundImageUrl}
+                  alt={eventName || "Event"}
+                  className="absolute inset-0 w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-background" />
+                
+                <div className="absolute top-4 right-4 z-10">
+                  <Button
+                    variant="secondary"
+                    size="icon"
+                    onClick={handleLogout}
+                    className="bg-background/80 backdrop-blur-sm hover:bg-background"
+                  >
+                    <LogOut className="w-5 h-5" />
+                  </Button>
                 </div>
-                {startCountdown && (
-                  <div className="bg-card border border-border rounded-lg p-4">
-                    <p className="text-primary font-semibold">
-                      {startCountdown}
-                    </p>
-                  </div>
+              </div>
+              
+              <div className="relative -mt-20 px-6 pb-6 text-center">
+                <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground mb-2">{eventName}</h1>
+                {eventDescription && (
+                  <p className="text-muted-foreground text-base md:text-lg max-w-xl mx-auto mb-2 whitespace-pre-line">{eventDescription}</p>
                 )}
-              </>
-            )}
-          </div>
-        </div>
+              </div>
+            </header>
+            
+            <div className="px-6 pb-6">
+              <div className="flex justify-center pb-6">
+                <div className="w-60 h-25 flex items-center justify-center" style={{ imageRendering: 'pixelated' }}>
+                  <img
+                    src={customImageUrl || prohibidoIcon}
+                    alt="Cámara prohibida"
+                    style={{ imageRendering: 'pixelated' }}
+                    className="max-w-[240px] max-h-[100px] object-contain"
+                  />
+                </div>
+              </div>
+              
+              <div className="text-center space-y-4 max-w-md mx-auto animate-fade-in">
+                <h2 className="text-2xl font-bold text-foreground">{t.camera.eventNotStarted}</h2>
+                <p className="text-muted-foreground text-lg">
+                  {t.camera.periodNotStarted}
+                </p>
+                {uploadStartTime && (
+                  <>
+                    <div className="bg-card border border-border rounded-lg p-6 space-y-2">
+                      <p className="text-sm text-muted-foreground">{t.camera.willStartOn}</p>
+                      <p className="text-xl font-bold text-foreground">
+                        {formatLocalDate(uploadStartTime, "dd MMMM")} {t.camera.atTime} {formatLocalDate(uploadStartTime, "HH:mm")}
+                      </p>
+                    </div>
+                    {startCountdown && (
+                      <div className="bg-card border border-border rounded-lg p-4">
+                        <p className="text-primary font-semibold">
+                          {startCountdown}
+                        </p>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <header className="fixed top-0 left-0 right-0 z-50 p-4 flex justify-between items-center bg-card border-b border-border">
+              <h1 className="text-xl font-bold text-foreground">{eventName}</h1>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleLogout}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <LogOut className="w-5 h-5" />
+              </Button>
+            </header>
+            
+            <div className="pt-16 pb-6 px-6">
+              <div className="flex justify-center pt-4 pb-6">
+                <div className="w-60 h-25 flex items-center justify-center" style={{ imageRendering: 'pixelated' }}>
+                  <img
+                    src={customImageUrl || prohibidoIcon}
+                    alt="Cámara prohibida"
+                    style={{ imageRendering: 'pixelated' }}
+                    className="max-w-[240px] max-h-[100px] object-contain"
+                  />
+                </div>
+              </div>
+              
+              <div className="text-center space-y-4 max-w-md mx-auto animate-fade-in">
+                <h1 className="text-2xl font-bold text-foreground">{t.camera.eventNotStarted}</h1>
+                <p className="text-muted-foreground text-lg">
+                  {t.camera.periodNotStarted}
+                </p>
+                {uploadStartTime && (
+                  <>
+                    <div className="bg-card border border-border rounded-lg p-6 space-y-2">
+                      <p className="text-sm text-muted-foreground">{t.camera.willStartOn}</p>
+                      <p className="text-xl font-bold text-foreground">
+                        {formatLocalDate(uploadStartTime, "dd MMMM")} {t.camera.atTime} {formatLocalDate(uploadStartTime, "HH:mm")}
+                      </p>
+                    </div>
+                    {startCountdown && (
+                      <div className="bg-card border border-border rounded-lg p-4">
+                        <p className="text-primary font-semibold">
+                          {startCountdown}
+                        </p>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          </>
+        )}
       </div>
     );
   }
@@ -427,54 +504,127 @@ const Camera = () => {
 
     return (
       <div className="min-h-screen bg-background flex flex-col">
-        <header className="fixed top-0 left-0 right-0 z-50 p-4 flex justify-between items-center bg-card border-b border-border">
-          <h1 className="text-xl font-bold text-foreground">{eventName}</h1>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleLogout}
-            className="text-muted-foreground hover:text-foreground"
-          >
-            <LogOut className="w-5 h-5" />
-          </Button>
-        </header>
-        
-        <div className="pt-16 pb-6 px-6">
-          <div className="flex justify-center pt-4 pb-6">
-            <div className="w-60 h-25 flex items-center justify-center" style={{ imageRendering: 'pixelated' }}>
-              <img
-                src={customImageUrl || prohibidoIcon}
-                alt="Cámara prohibida"
-                style={{ imageRendering: 'pixelated' }}
-                className="max-w-[240px] max-h-[100px] object-contain"
-              />
-            </div>
-          </div>
-          
-          <div className="text-center space-y-4 max-w-md mx-auto animate-fade-in">
-            <h1 className="text-2xl font-bold text-foreground">{t.camera.eventEnded}</h1>
-            <p className="text-muted-foreground text-lg">
-              {t.camera.eventEndedDesc}
-            </p>
-            {revealTime && (
-              <>
-                <div className="bg-card border border-border rounded-lg p-6 space-y-2">
-                  <p className="text-sm text-muted-foreground">{t.camera.revealingSoon}</p>
-                  <p className="text-xl font-bold text-foreground">
-                    {formatLocalDate(revealTime, "dd MMMM")} {t.camera.atTime} {formatLocalDate(revealTime, "HH:mm")}
-                  </p>
+        {backgroundImageUrl ? (
+          <>
+            {/* Hero Header with Background Image */}
+            <header className="relative w-full">
+              <div className="relative h-[50vh] min-h-[320px] max-h-[450px] w-full">
+                <img
+                  src={backgroundImageUrl}
+                  alt={eventName || "Event"}
+                  className="absolute inset-0 w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-background" />
+                
+                <div className="absolute top-4 right-4 z-10">
+                  <Button
+                    variant="secondary"
+                    size="icon"
+                    onClick={handleLogout}
+                    className="bg-background/80 backdrop-blur-sm hover:bg-background"
+                  >
+                    <LogOut className="w-5 h-5" />
+                  </Button>
                 </div>
-                {revealCountdown && (
-                  <div className="bg-card border border-border rounded-lg p-4">
-                    <p className="text-primary font-semibold">
-                      {revealCountdown}
-                    </p>
-                  </div>
+              </div>
+              
+              <div className="relative -mt-20 px-6 pb-6 text-center">
+                <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground mb-2">{eventName}</h1>
+                {eventDescription && (
+                  <p className="text-muted-foreground text-base md:text-lg max-w-xl mx-auto mb-2 whitespace-pre-line">{eventDescription}</p>
                 )}
-              </>
-            )}
-          </div>
-        </div>
+              </div>
+            </header>
+            
+            <div className="px-6 pb-6">
+              <div className="flex justify-center pb-6">
+                <div className="w-60 h-25 flex items-center justify-center" style={{ imageRendering: 'pixelated' }}>
+                  <img
+                    src={customImageUrl || prohibidoIcon}
+                    alt="Cámara prohibida"
+                    style={{ imageRendering: 'pixelated' }}
+                    className="max-w-[240px] max-h-[100px] object-contain"
+                  />
+                </div>
+              </div>
+              
+              <div className="text-center space-y-4 max-w-md mx-auto animate-fade-in">
+                <h2 className="text-2xl font-bold text-foreground">{t.camera.eventEnded}</h2>
+                <p className="text-muted-foreground text-lg">
+                  {t.camera.eventEndedDesc}
+                </p>
+                {revealTime && (
+                  <>
+                    <div className="bg-card border border-border rounded-lg p-6 space-y-2">
+                      <p className="text-sm text-muted-foreground">{t.camera.revealingSoon}</p>
+                      <p className="text-xl font-bold text-foreground">
+                        {formatLocalDate(revealTime, "dd MMMM")} {t.camera.atTime} {formatLocalDate(revealTime, "HH:mm")}
+                      </p>
+                    </div>
+                    {revealCountdown && (
+                      <div className="bg-card border border-border rounded-lg p-4">
+                        <p className="text-primary font-semibold">
+                          {revealCountdown}
+                        </p>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <header className="fixed top-0 left-0 right-0 z-50 p-4 flex justify-between items-center bg-card border-b border-border">
+              <h1 className="text-xl font-bold text-foreground">{eventName}</h1>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleLogout}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <LogOut className="w-5 h-5" />
+              </Button>
+            </header>
+            
+            <div className="pt-16 pb-6 px-6">
+              <div className="flex justify-center pt-4 pb-6">
+                <div className="w-60 h-25 flex items-center justify-center" style={{ imageRendering: 'pixelated' }}>
+                  <img
+                    src={customImageUrl || prohibidoIcon}
+                    alt="Cámara prohibida"
+                    style={{ imageRendering: 'pixelated' }}
+                    className="max-w-[240px] max-h-[100px] object-contain"
+                  />
+                </div>
+              </div>
+              
+              <div className="text-center space-y-4 max-w-md mx-auto animate-fade-in">
+                <h1 className="text-2xl font-bold text-foreground">{t.camera.eventEnded}</h1>
+                <p className="text-muted-foreground text-lg">
+                  {t.camera.eventEndedDesc}
+                </p>
+                {revealTime && (
+                  <>
+                    <div className="bg-card border border-border rounded-lg p-6 space-y-2">
+                      <p className="text-sm text-muted-foreground">{t.camera.revealingSoon}</p>
+                      <p className="text-xl font-bold text-foreground">
+                        {formatLocalDate(revealTime, "dd MMMM")} {t.camera.atTime} {formatLocalDate(revealTime, "HH:mm")}
+                      </p>
+                    </div>
+                    {revealCountdown && (
+                      <div className="bg-card border border-border rounded-lg p-4">
+                        <p className="text-primary font-semibold">
+                          {revealCountdown}
+                        </p>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          </>
+        )}
       </div>
     );
   }
@@ -498,87 +648,189 @@ const Camera = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <header className="fixed top-0 left-0 right-0 z-50 p-4 flex justify-between items-center bg-card border-b border-border">
-        <div>
-          <h1 className="text-xl font-bold text-foreground">{eventName}</h1>
-          <p className="text-sm text-muted-foreground flex items-center gap-1">
-            <Image className="w-4 h-4" />
-            {photosUploadedText}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {eventPassword && (
-            <>
+      {backgroundImageUrl ? (
+        <>
+          {/* Hero Header with Background Image */}
+          <header className="relative w-full">
+            <div className="relative h-[50vh] min-h-[320px] max-h-[450px] w-full">
+              <img
+                src={backgroundImageUrl}
+                alt={eventName || "Event"}
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-background" />
+              
+              <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
+                {eventPassword && (
+                  <>
+                    <Button
+                      variant="secondary"
+                      size="icon"
+                      onClick={() => setShowShareDialog(true)}
+                      className="bg-background/80 backdrop-blur-sm hover:bg-background"
+                    >
+                      <Share2 className="w-5 h-5" />
+                    </Button>
+                    <ShareDialog
+                      eventPassword={eventPassword}
+                      eventName={eventName || ""}
+                      open={showShareDialog}
+                      onOpenChange={setShowShareDialog}
+                      language={language}
+                    />
+                  </>
+                )}
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  onClick={handleLogout}
+                  className="bg-background/80 backdrop-blur-sm hover:bg-background"
+                >
+                  <LogOut className="w-5 h-5" />
+                </Button>
+              </div>
+            </div>
+            
+            <div className="relative -mt-20 px-6 pb-6 text-center">
+              <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground mb-2">{eventName}</h1>
+              {eventDescription && (
+                <p className="text-muted-foreground text-base md:text-lg max-w-xl mx-auto mb-2 whitespace-pre-line">{eventDescription}</p>
+              )}
+              <p className="text-sm text-muted-foreground flex items-center justify-center gap-1">
+                <Image className="w-4 h-4" />
+                {photosUploadedText}
+              </p>
+            </div>
+          </header>
+          
+          <div className="px-6 pb-6">
+            <div className="flex justify-center pb-6">
+              <button
+                onClick={handleTakePhoto}
+                disabled={isUploading}
+                className="w-60 h-25 flex items-center justify-center cursor-pointer transition-all hover:scale-105 disabled:opacity-50"
+                style={{ imageRendering: 'pixelated' }}
+              >
+                <img
+                  src={customImageUrl || cameraIcon}
+                  alt="Cámara"
+                  style={{ imageRendering: 'pixelated' }}
+                  className="max-w-[240px] max-h-[100px] object-contain"
+                />
+              </button>
+            </div>
+            
+            <div className="text-center space-y-4 max-w-lg mx-auto animate-fade-in">
+              <div className="space-y-2">
+                <h2 className="text-2xl font-bold text-foreground">
+                  {captureMagicText}
+                </h2>
+                {countdown && (
+                  <div className="bg-card border border-border rounded-lg p-4">
+                    <p className="text-primary font-semibold text-sm">
+                      {countdown}
+                    </p>
+                  </div>
+                )}
+                <p className="text-muted-foreground leading-relaxed">
+                  {revealTime && revealInfoText}
+                </p>
+              </div>
+              <Button
+                onClick={handleTakePhoto}
+                disabled={isUploading}
+                className="h-16 px-8 text-lg bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl transition-all hover:scale-105 disabled:opacity-50"
+              >
+                {isUploading ? uploadingText : uploadButtonText}
+              </Button>
+            </div>
+          </div>
+        </>
+      ) : (
+        <>
+          <header className="fixed top-0 left-0 right-0 z-50 p-4 flex justify-between items-center bg-card border-b border-border">
+            <div>
+              <h1 className="text-xl font-bold text-foreground">{eventName}</h1>
+              <p className="text-sm text-muted-foreground flex items-center gap-1">
+                <Image className="w-4 h-4" />
+                {photosUploadedText}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              {eventPassword && (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setShowShareDialog(true)}
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    <Share2 className="w-5 h-5" />
+                  </Button>
+                  <ShareDialog
+                    eventPassword={eventPassword}
+                    eventName={eventName || ""}
+                    open={showShareDialog}
+                    onOpenChange={setShowShareDialog}
+                    language={language}
+                  />
+                </>
+              )}
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => setShowShareDialog(true)}
+                onClick={handleLogout}
                 className="text-muted-foreground hover:text-foreground"
               >
-                <Share2 className="w-5 h-5" />
+                <LogOut className="w-5 h-5" />
               </Button>
-              <ShareDialog
-                eventPassword={eventPassword}
-                eventName={eventName || ""}
-                open={showShareDialog}
-                onOpenChange={setShowShareDialog}
-                language={language}
-              />
-            </>
-          )}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleLogout}
-            className="text-muted-foreground hover:text-foreground"
-          >
-            <LogOut className="w-5 h-5" />
-          </Button>
-        </div>
-      </header>
+            </div>
+          </header>
 
-      <div className="pt-16 pb-6 px-6">
-        <div className="flex justify-center pt-4 pb-6">
-          <button
-            onClick={handleTakePhoto}
-            disabled={isUploading}
-            className="w-60 h-25 flex items-center justify-center cursor-pointer transition-all hover:scale-105 disabled:opacity-50"
-            style={{ imageRendering: 'pixelated' }}
-          >
-            <img
-              src={customImageUrl || cameraIcon}
-              alt="Cámara"
-              style={{ imageRendering: 'pixelated' }}
-              className="max-w-[240px] max-h-[100px] object-contain"
-            />
-          </button>
-        </div>
-        
-        <div className="text-center space-y-4 max-w-lg mx-auto animate-fade-in">
-          <div className="space-y-2">
-            <h2 className="text-2xl font-bold text-foreground">
-              {captureMagicText}
-            </h2>
-            {countdown && (
-              <div className="bg-card border border-border rounded-lg p-4">
-                <p className="text-primary font-semibold text-sm">
-                  {countdown}
+          <div className="pt-16 pb-6 px-6">
+            <div className="flex justify-center pt-4 pb-6">
+              <button
+                onClick={handleTakePhoto}
+                disabled={isUploading}
+                className="w-60 h-25 flex items-center justify-center cursor-pointer transition-all hover:scale-105 disabled:opacity-50"
+                style={{ imageRendering: 'pixelated' }}
+              >
+                <img
+                  src={customImageUrl || cameraIcon}
+                  alt="Cámara"
+                  style={{ imageRendering: 'pixelated' }}
+                  className="max-w-[240px] max-h-[100px] object-contain"
+                />
+              </button>
+            </div>
+            
+            <div className="text-center space-y-4 max-w-lg mx-auto animate-fade-in">
+              <div className="space-y-2">
+                <h2 className="text-2xl font-bold text-foreground">
+                  {captureMagicText}
+                </h2>
+                {countdown && (
+                  <div className="bg-card border border-border rounded-lg p-4">
+                    <p className="text-primary font-semibold text-sm">
+                      {countdown}
+                    </p>
+                  </div>
+                )}
+                <p className="text-muted-foreground leading-relaxed">
+                  {revealTime && revealInfoText}
                 </p>
               </div>
-            )}
-            <p className="text-muted-foreground leading-relaxed">
-              {revealTime && revealInfoText}
-            </p>
+              <Button
+                onClick={handleTakePhoto}
+                disabled={isUploading}
+                className="h-16 px-8 text-lg bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl transition-all hover:scale-105 disabled:opacity-50"
+              >
+                {isUploading ? uploadingText : uploadButtonText}
+              </Button>
+            </div>
           </div>
-          <Button
-            onClick={handleTakePhoto}
-            disabled={isUploading}
-            className="h-16 px-8 text-lg bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl transition-all hover:scale-105 disabled:opacity-50"
-          >
-            {isUploading ? uploadingText : uploadButtonText}
-          </Button>
-        </div>
-      </div>
+        </>
+      )}
 
       <input
         ref={fileInputRef}

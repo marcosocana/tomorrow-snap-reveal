@@ -62,6 +62,7 @@ const Gallery = () => {
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [eventCustomImage, setEventCustomImage] = useState<string | null>(null);
   const [eventDescription, setEventDescription] = useState<string | null>(null);
+  const [eventBackgroundImage, setEventBackgroundImage] = useState<string | null>(null);
 
   // Get translations and timezone
   const language = getEventLanguage();
@@ -160,11 +161,11 @@ const Gallery = () => {
       return;
     }
 
-    // Load event password, filter type, custom image and description for sharing
+    // Load event password, filter type, custom image, description and background for sharing
     const loadEventData = async () => {
       const { data } = await supabase
         .from("events")
-        .select("password_hash, filter_type, custom_image_url, description")
+        .select("password_hash, filter_type, custom_image_url, description, background_image_url")
         .eq("id", eventId)
         .maybeSingle();
       if (data) {
@@ -172,6 +173,7 @@ const Gallery = () => {
         setFilterType((data.filter_type as FilterType) || "vintage");
         setEventCustomImage(data.custom_image_url);
         setEventDescription(data.description);
+        setEventBackgroundImage(data.background_image_url);
       }
     };
     loadEventData();
@@ -471,12 +473,12 @@ const Gallery = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Hero Header with Background Image */}
-      {eventCustomImage ? (
+      {eventBackgroundImage ? (
         <header className="relative w-full">
           {/* Background Image */}
           <div className="relative h-[50vh] min-h-[320px] max-h-[450px] w-full">
             <img
-              src={eventCustomImage}
+              src={eventBackgroundImage}
               alt={eventName || "Event"}
               className="absolute inset-0 w-full h-full object-cover"
             />
@@ -527,8 +529,8 @@ const Gallery = () => {
             {eventDescription && (
               <p className="text-muted-foreground text-base md:text-lg max-w-xl mx-auto mb-2 whitespace-pre-line">{eventDescription}</p>
             )}
-            <p className="text-sm text-muted-foreground uppercase tracking-wide">
-              {language === "en" ? `${totalPhotos} photos have been revealed` : language === "it" ? `Sono state rivelate ${totalPhotos} foto` : `Se han revelado ${totalPhotos} fotos`}
+            <p className="text-sm text-muted-foreground tracking-wide">
+              {language === "en" ? `✨ ${totalPhotos} photos have been revealed` : language === "it" ? `✨ Sono state rivelate ${totalPhotos} foto` : `✨ Se han revelado ${totalPhotos} fotos`}
             </p>
           </div>
         </header>
@@ -540,8 +542,8 @@ const Gallery = () => {
               {eventDescription && (
                 <p className="text-muted-foreground text-sm mt-1 max-w-md whitespace-pre-line">{eventDescription}</p>
               )}
-              <p className="text-sm text-muted-foreground mt-2 tracking-wide uppercase">
-                {language === "en" ? `${totalPhotos} photos have been revealed` : language === "it" ? `Sono state rivelate ${totalPhotos} foto` : `Se han revelado ${totalPhotos} fotos`}
+              <p className="text-sm text-muted-foreground mt-2 tracking-wide">
+                {language === "en" ? `✨ ${totalPhotos} photos have been revealed` : language === "it" ? `✨ Sono state rivelate ${totalPhotos} foto` : `✨ Se han revelado ${totalPhotos} fotos`}
               </p>
             </div>
             <DropdownMenu>
