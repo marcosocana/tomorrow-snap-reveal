@@ -694,7 +694,7 @@ const Gallery = () => {
         </header>
       )}
 
-      <main className={eventBackgroundImage ? "pt-0 pb-20" : "py-12 pt-36 pb-20"}>
+      <main className={eventBackgroundImage ? "pt-4 pb-20" : "py-12 pt-36 pb-20"}>
         <div className="max-w-7xl mx-auto px-6">
           {isLoading ? (
             <div className="flex items-center justify-center min-h-[50vh]">
@@ -786,7 +786,7 @@ const Gallery = () => {
         <button
           onClick={handleOpenStories}
           disabled={loadingStories}
-          className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-black text-white shadow-lg hover:bg-black/80 transition-all flex items-center justify-center disabled:opacity-50"
+          className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-like text-white shadow-sm hover:bg-like/90 transition-all flex items-center justify-center disabled:opacity-50"
           aria-label={playStoriesText}
         >
           {loadingStories ? (
