@@ -643,15 +643,6 @@ const Gallery = () => {
             <p className="text-sm text-muted-foreground tracking-wide">
               {language === "en" ? `✨ ${totalPhotos} photos have been revealed` : language === "it" ? `✨ Sono state rivelate ${totalPhotos} foto` : `✨ Se han revelado ${totalPhotos} fotos`}
             </p>
-            <Button
-              onClick={handleOpenStories}
-              variant="outline"
-              className="gap-2 mt-1"
-              disabled={loadingStories}
-            >
-              <Play className="w-4 h-4" />
-              {loadingStories ? (language === "en" ? "Loading..." : language === "it" ? "Caricamento..." : "Cargando...") : playStoriesText}
-            </Button>
           </div>
         </header>
       ) : (
@@ -665,16 +656,6 @@ const Gallery = () => {
               <p className="text-sm text-muted-foreground mt-2 tracking-wide">
                 {language === "en" ? `✨ ${totalPhotos} photos have been revealed` : language === "it" ? `✨ Sono state rivelate ${totalPhotos} foto` : `✨ Se han revelado ${totalPhotos} fotos`}
               </p>
-              <Button
-                onClick={handleOpenStories}
-                variant="outline"
-                size="sm"
-                className="gap-2 mt-1"
-                disabled={loadingStories}
-              >
-                <Play className="w-4 h-4" />
-                {loadingStories ? (language === "en" ? "Loading..." : language === "it" ? "Caricamento..." : "Cargando...") : playStoriesText}
-              </Button>
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -713,7 +694,7 @@ const Gallery = () => {
         </header>
       )}
 
-      <main className={eventCustomImage ? "pt-1 pb-6" : "py-12 pt-36"}>
+      <main className={eventBackgroundImage ? "pt-0 pb-20" : "py-12 pt-36 pb-20"}>
         <div className="max-w-7xl mx-auto px-6">
           {isLoading ? (
             <div className="flex items-center justify-center min-h-[50vh]">
@@ -799,6 +780,22 @@ const Gallery = () => {
           )}
         </div>
       </main>
+
+      {/* Floating Play Stories Button */}
+      {totalPhotos > 0 && (
+        <button
+          onClick={handleOpenStories}
+          disabled={loadingStories}
+          className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-black text-white shadow-lg hover:bg-black/80 transition-all flex items-center justify-center disabled:opacity-50"
+          aria-label={playStoriesText}
+        >
+          {loadingStories ? (
+            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          ) : (
+            <Play className="w-6 h-6 fill-white" />
+          )}
+        </button>
+      )}
 
       {/* Welcome Modal */}
       <Dialog open={showWelcome} onOpenChange={setShowWelcome}>
