@@ -67,7 +67,7 @@ const EventManagement = () => {
     uploadEndTime: "23:59",
     revealDate: "",
     revealTime: "12:00",
-    maxPhotos: isDemoMode ? "5" : "",
+    maxPhotos: isDemoMode ? "30" : "",
     customImage: null as File | null,
     customImageUrl: "",
     backgroundImage: null as File | null,
@@ -253,7 +253,7 @@ const EventManagement = () => {
           upload_start_time: uploadStartDateTime.toISOString(),
           upload_end_time: uploadEndDateTime.toISOString(),
           reveal_time: revealDateTime.toISOString(),
-          max_photos: isDemoMode ? 5 : (newEvent.maxPhotos ? parseInt(newEvent.maxPhotos) : null),
+          max_photos: isDemoMode ? 30 : (newEvent.maxPhotos ? parseInt(newEvent.maxPhotos) : null),
           custom_image_url: customImageUrl,
           background_image_url: backgroundImageUrl,
           filter_type: newEvent.filterType,
@@ -284,7 +284,7 @@ const EventManagement = () => {
         uploadEndTime: "23:59",
         revealDate: "",
         revealTime: "12:00",
-        maxPhotos: isDemoMode ? "5" : "",
+        maxPhotos: isDemoMode ? "30" : "",
         customImage: null,
         customImageUrl: "",
         backgroundImage: null,
@@ -581,7 +581,7 @@ const EventManagement = () => {
                 uploadEndTime: "23:59",
                 revealDate: "",
                 revealTime: "12:00",
-                maxPhotos: isDemoMode ? "5" : "",
+                maxPhotos: isDemoMode ? "30" : "",
                 customImage: null,
                 customImageUrl: "",
                 backgroundImage: null,
@@ -685,7 +685,7 @@ const EventManagement = () => {
                     </Label>
                     {isDemoMode ? (
                       <div className="px-3 py-2 text-sm bg-muted rounded-md border border-border text-muted-foreground">
-                        5 fotos (límite fijo en modo demo)
+                        30 fotos (límite fijo en modo demo)
                       </div>
                     ) : (
                       <Input
