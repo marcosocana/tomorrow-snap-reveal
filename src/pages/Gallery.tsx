@@ -591,7 +591,7 @@ const Gallery = () => {
             <img
               src={eventBackgroundImage}
               alt={eventName || "Event"}
-              className="absolute inset-0 w-full h-full object-cover"
+              className="absolute inset-0 w-full h-full object-cover object-top"
             />
             {/* Gradient Overlay */}
             <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-background" />

@@ -376,7 +376,7 @@ const Camera = () => {
                 <img
                   src={backgroundImageUrl}
                   alt={eventName || "Event"}
-                  className="absolute inset-0 w-full h-full object-cover"
+                  className="absolute inset-0 w-full h-full object-cover object-top"
                 />
                 <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-background" />
                 
@@ -512,7 +512,7 @@ const Camera = () => {
                 <img
                   src={backgroundImageUrl}
                   alt={eventName || "Event"}
-                  className="absolute inset-0 w-full h-full object-cover"
+                  className="absolute inset-0 w-full h-full object-cover object-top"
                 />
                 <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-background" />
                 
@@ -656,7 +656,7 @@ const Camera = () => {
               <img
                 src={backgroundImageUrl}
                 alt={eventName || "Event"}
-                className="absolute inset-0 w-full h-full object-cover"
+                className="absolute inset-0 w-full h-full object-cover object-top"
               />
               <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-background" />
               
