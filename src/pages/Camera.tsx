@@ -423,19 +423,27 @@ const Camera = () => {
                     )}
                   </>
                 )}
-              </div>
-              
-              {/* Custom image at bottom */}
-              <div className="flex-1 flex items-end justify-center pt-6">
-                <div className="w-60 h-25 flex items-center justify-center" style={{ imageRendering: 'pixelated' }}>
+                
+                {/* Crossed camera icon - always visible */}
+                <div className="pt-4">
                   <img
-                    src={customImageUrl || prohibidoIcon}
+                    src={prohibidoIcon}
                     alt="Cámara prohibida"
-                    style={{ imageRendering: 'pixelated' }}
-                    className="max-w-[240px] max-h-[100px] object-contain"
+                    className="max-w-[180px] max-h-[80px] object-contain mx-auto"
                   />
                 </div>
               </div>
+              
+              {/* Custom image at bottom - only if set */}
+              {customImageUrl && (
+                <div className="flex-1 flex items-end justify-center pt-6">
+                  <img
+                    src={customImageUrl}
+                    alt="Imagen personalizada"
+                    className="max-w-[240px] max-h-[100px] object-contain"
+                  />
+                </div>
+              )}
             </div>
           </>
         ) : (
@@ -475,19 +483,27 @@ const Camera = () => {
                     )}
                   </>
                 )}
-              </div>
-              
-              {/* Custom image at bottom */}
-              <div className="flex-1 flex items-end justify-center pt-6">
-                <div className="w-60 h-25 flex items-center justify-center" style={{ imageRendering: 'pixelated' }}>
+                
+                {/* Crossed camera icon - always visible */}
+                <div className="pt-4">
                   <img
-                    src={customImageUrl || prohibidoIcon}
+                    src={prohibidoIcon}
                     alt="Cámara prohibida"
-                    style={{ imageRendering: 'pixelated' }}
-                    className="max-w-[240px] max-h-[100px] object-contain"
+                    className="max-w-[180px] max-h-[80px] object-contain mx-auto"
                   />
                 </div>
               </div>
+              
+              {/* Custom image at bottom - only if set */}
+              {customImageUrl && (
+                <div className="flex-1 flex items-end justify-center pt-6">
+                  <img
+                    src={customImageUrl}
+                    alt="Imagen personalizada"
+                    className="max-w-[240px] max-h-[100px] object-contain"
+                  />
+                </div>
+              )}
             </div>
           </>
         )}
@@ -561,19 +577,27 @@ const Camera = () => {
                     )}
                   </>
                 )}
-              </div>
-              
-              {/* Custom image at bottom */}
-              <div className="flex-1 flex items-end justify-center pt-6">
-                <div className="w-60 h-25 flex items-center justify-center" style={{ imageRendering: 'pixelated' }}>
+                
+                {/* Crossed camera icon - always visible */}
+                <div className="pt-4">
                   <img
-                    src={customImageUrl || prohibidoIcon}
+                    src={prohibidoIcon}
                     alt="Cámara prohibida"
-                    style={{ imageRendering: 'pixelated' }}
-                    className="max-w-[240px] max-h-[100px] object-contain"
+                    className="max-w-[180px] max-h-[80px] object-contain mx-auto"
                   />
                 </div>
               </div>
+              
+              {/* Custom image at bottom - only if set */}
+              {customImageUrl && (
+                <div className="flex-1 flex items-end justify-center pt-6">
+                  <img
+                    src={customImageUrl}
+                    alt="Imagen personalizada"
+                    className="max-w-[240px] max-h-[100px] object-contain"
+                  />
+                </div>
+              )}
             </div>
           </>
         ) : (
@@ -613,19 +637,27 @@ const Camera = () => {
                     )}
                   </>
                 )}
-              </div>
-              
-              {/* Custom image at bottom */}
-              <div className="flex-1 flex items-end justify-center pt-6">
-                <div className="w-60 h-25 flex items-center justify-center" style={{ imageRendering: 'pixelated' }}>
+                
+                {/* Crossed camera icon - always visible */}
+                <div className="pt-4">
                   <img
-                    src={customImageUrl || prohibidoIcon}
+                    src={prohibidoIcon}
                     alt="Cámara prohibida"
-                    style={{ imageRendering: 'pixelated' }}
-                    className="max-w-[240px] max-h-[100px] object-contain"
+                    className="max-w-[180px] max-h-[80px] object-contain mx-auto"
                   />
                 </div>
               </div>
+              
+              {/* Custom image at bottom - only if set */}
+              {customImageUrl && (
+                <div className="flex-1 flex items-end justify-center pt-6">
+                  <img
+                    src={customImageUrl}
+                    alt="Imagen personalizada"
+                    className="max-w-[240px] max-h-[100px] object-contain"
+                  />
+                </div>
+              )}
             </div>
           </>
         )}
@@ -707,7 +739,7 @@ const Camera = () => {
             </div>
           </header>
           
-          <div className="px-6 pb-6">
+          <div className="flex-1 px-6 pb-6 flex flex-col">
             <div className="text-center space-y-4 max-w-lg mx-auto animate-fade-in">
               <Button
                 onClick={handleTakePhoto}
@@ -729,6 +761,17 @@ const Camera = () => {
                 </p>
               </div>
             </div>
+            
+            {/* Custom image at bottom - only if set */}
+            {customImageUrl && (
+              <div className="flex-1 flex items-end justify-center pt-6">
+                <img
+                  src={customImageUrl}
+                  alt="Imagen personalizada"
+                  className="max-w-[240px] max-h-[100px] object-contain"
+                />
+              </div>
+            )}
           </div>
         </>
       ) : (
@@ -772,7 +815,7 @@ const Camera = () => {
             </div>
           </header>
 
-          <div className="pt-16 pb-6 px-6">
+          <div className="flex-1 pt-16 pb-6 px-6 flex flex-col">
             <div className="text-center space-y-4 max-w-lg mx-auto animate-fade-in">
               <Button
                 onClick={handleTakePhoto}
@@ -794,6 +837,17 @@ const Camera = () => {
                 </p>
               </div>
             </div>
+            
+            {/* Custom image at bottom - only if set */}
+            {customImageUrl && (
+              <div className="flex-1 flex items-end justify-center pt-6">
+                <img
+                  src={customImageUrl}
+                  alt="Imagen personalizada"
+                  className="max-w-[240px] max-h-[100px] object-contain"
+                />
+              </div>
+            )}
           </div>
         </>
       )}
