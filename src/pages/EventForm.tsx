@@ -12,7 +12,18 @@ import { toZonedTime, fromZonedTime, formatInTimeZone } from "date-fns-tz";
 import CountrySelect from "@/components/CountrySelect";
 import LanguageSelect from "@/components/LanguageSelect";
 import { Language } from "@/lib/translations";
-import { FilterType, FILTER_LABELS } from "@/lib/photoFilters";
+import { FilterType, FILTER_LABELS, FILTER_ORDER } from "@/lib/photoFilters";
+
+// Background image dimensions - responsive sizes
+const BACKGROUND_IMAGE_SIZES = {
+  mobile: { width: 640, height: 360 },
+  tablet: { width: 1024, height: 576 },
+  desktop: { width: 1920, height: 1080 },
+} as const;
+
+// We'll accept images that are at least this size (16:9 aspect ratio)
+const MIN_BACKGROUND_WIDTH = 1280;
+const MIN_BACKGROUND_HEIGHT = 720;
 
 interface Event {
   id: string;
@@ -58,7 +69,7 @@ const EventForm = () => {
     customImageUrl: "",
     backgroundImage: null as File | null,
     backgroundImageUrl: "",
-    filterType: "vintage" as FilterType,
+    filterType: "none" as FilterType,
     countryCode: "ES",
     timezone: "Europe/Madrid",
     language: "es",
@@ -248,7 +259,7 @@ const EventForm = () => {
           upload_start_time: uploadStartDateTime.toISOString(),
           upload_end_time: uploadEndDateTime.toISOString(),
           reveal_time: revealDateTime.toISOString(),
-          max_photos: isDemoMode ? 30 : (formData.maxPhotos ? parseInt(formData.maxPhotos) : null),
+          max_photos: formData.maxPhotos ? parseInt(formData.maxPhotos) : (isDemoMode ? 30 : null),
           custom_image_url: customImageUrl,
           background_image_url: backgroundImageUrl,
           filter_type: formData.filterType,
@@ -383,21 +394,20 @@ const EventForm = () => {
               <Label htmlFor="maxPhotos">
                 Máximo de fotos permitido
               </Label>
-              {isDemoMode ? (
-                <div className="px-3 py-2 text-sm bg-muted rounded-md border border-border text-muted-foreground">
-                  30 fotos (límite fijo en modo demo)
-                </div>
-              ) : (
-                <Input
-                  id="maxPhotos"
-                  type="number"
-                  min="1"
-                  value={formData.maxPhotos}
-                  onChange={(e) =>
-                    setFormData({ ...formData, maxPhotos: e.target.value })
-                  }
-                  placeholder="Ilimitado si se deja vacío"
-                />
+              <Input
+                id="maxPhotos"
+                type="number"
+                min="1"
+                value={formData.maxPhotos}
+                onChange={(e) =>
+                  setFormData({ ...formData, maxPhotos: e.target.value })
+                }
+                placeholder={isDemoMode ? "30 por defecto en demo" : "Ilimitado si se deja vacío"}
+              />
+              {isDemoMode && (
+                <p className="text-xs text-muted-foreground">
+                  En modo demo el valor por defecto es 30 fotos, pero puedes modificarlo
+                </p>
               )}
             </div>
 
@@ -405,13 +415,13 @@ const EventForm = () => {
               <Label htmlFor="filterType">
                 Filtro de fotos
               </Label>
-              <div className="flex flex-wrap gap-2">
-                {(["vintage", "35mm", "none"] as const).map((filter) => (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {FILTER_ORDER.map((filter) => (
                   <button
                     key={filter}
                     type="button"
                     onClick={() => setFormData({ ...formData, filterType: filter })}
-                    className={`flex-1 min-w-[80px] px-3 py-2 text-sm rounded-md border transition-colors ${
+                    className={`px-3 py-2 text-sm rounded-md border transition-colors ${
                       formData.filterType === filter
                         ? "bg-primary text-primary-foreground border-primary"
                         : "bg-muted border-border hover:bg-muted/80"
@@ -483,15 +493,22 @@ const EventForm = () => {
               <Label htmlFor="backgroundImage">
                 Fotografía de fondo (opcional)
               </Label>
-              <div className="text-xs text-muted-foreground mb-2">
-                Imagen que aparecerá como fondo en la cabecera de la galería y las pantallas del evento.
+              <div className="text-xs text-muted-foreground mb-2 space-y-1">
+                <p>Imagen que aparecerá como fondo en la cabecera de la galería y las pantallas del evento.</p>
+                <p className="font-medium">Tamaño mínimo requerido: {MIN_BACKGROUND_WIDTH}×{MIN_BACKGROUND_HEIGHT}px (ratio 16:9)</p>
+                <p>Se escalará automáticamente según el dispositivo:</p>
+                <ul className="list-disc list-inside text-muted-foreground/80">
+                  <li>Móvil: {BACKGROUND_IMAGE_SIZES.mobile.width}×{BACKGROUND_IMAGE_SIZES.mobile.height}px</li>
+                  <li>Tablet: {BACKGROUND_IMAGE_SIZES.tablet.width}×{BACKGROUND_IMAGE_SIZES.tablet.height}px</li>
+                  <li>Escritorio: {BACKGROUND_IMAGE_SIZES.desktop.width}×{BACKGROUND_IMAGE_SIZES.desktop.height}px</li>
+                </ul>
               </div>
               {formData.backgroundImageUrl && !formData.backgroundImage && (
                 <div className="mb-2 relative inline-block">
                   <img 
                     src={formData.backgroundImageUrl} 
                     alt="Preview fondo" 
-                    className="max-w-full max-h-[120px] object-cover border border-border rounded"
+                    className="w-full max-w-[320px] aspect-video object-cover border border-border rounded"
                   />
                   <Button
                     type="button"
@@ -509,7 +526,7 @@ const EventForm = () => {
                   <img 
                     src={URL.createObjectURL(formData.backgroundImage)} 
                     alt="Preview fondo" 
-                    className="max-w-full max-h-[120px] object-cover border border-border rounded"
+                    className="w-full max-w-[320px] aspect-video object-cover border border-border rounded"
                   />
                   <Button
                     type="button"
@@ -529,7 +546,42 @@ const EventForm = () => {
                 onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (file) {
-                    setFormData({ ...formData, backgroundImage: file });
+                    // Validate image dimensions
+                    const img = new Image();
+                    img.onload = () => {
+                      URL.revokeObjectURL(img.src);
+                      if (img.width < MIN_BACKGROUND_WIDTH || img.height < MIN_BACKGROUND_HEIGHT) {
+                        toast({
+                          title: "Imagen demasiado pequeña",
+                          description: `La imagen debe ser al menos ${MIN_BACKGROUND_WIDTH}×${MIN_BACKGROUND_HEIGHT}px. Tu imagen es ${img.width}×${img.height}px.`,
+                          variant: "destructive",
+                        });
+                        e.target.value = '';
+                        return;
+                      }
+                      // Check aspect ratio (should be close to 16:9)
+                      const aspectRatio = img.width / img.height;
+                      const targetRatio = 16 / 9;
+                      if (Math.abs(aspectRatio - targetRatio) > 0.3) {
+                        toast({
+                          title: "Ratio de imagen incorrecto",
+                          description: "La imagen debe tener un ratio aproximado de 16:9 (panorámica horizontal).",
+                          variant: "destructive",
+                        });
+                        e.target.value = '';
+                        return;
+                      }
+                      setFormData({ ...formData, backgroundImage: file });
+                    };
+                    img.onerror = () => {
+                      URL.revokeObjectURL(img.src);
+                      toast({
+                        title: "Error",
+                        description: "No se pudo leer la imagen",
+                        variant: "destructive",
+                      });
+                    };
+                    img.src = URL.createObjectURL(file);
                   }
                 }}
               />
