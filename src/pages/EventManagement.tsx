@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, Plus, Trash2, Edit, Copy, Home, Download, MessageCircle, ChevronDown } from "lucide-react";
+import { Calendar, Plus, Trash2, Edit, Copy, Home, Download, MessageCircle, ChevronDown, RefreshCw } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -399,10 +399,23 @@ Para cualquier duda o ayuda adicional, estamos a vuestra disposición.
             </h1>
           </div>
 
-          <Button className="gap-2 w-full sm:w-auto" onClick={() => navigate("/event-form")}>
-            <Plus className="w-4 h-4" />
-            Nuevo Evento
-          </Button>
+          <div className="flex gap-2 w-full sm:w-auto">
+            <Button 
+              variant="outline" 
+              size="icon"
+              onClick={() => {
+                setIsLoading(true);
+                loadEvents();
+              }}
+              title="Actualizar lista"
+            >
+              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+            </Button>
+            <Button className="gap-2 flex-1 sm:flex-initial" onClick={() => navigate("/event-form")}>
+              <Plus className="w-4 h-4" />
+              Nuevo Evento
+            </Button>
+          </div>
         </div>
 
         {events.length === 0 ? (

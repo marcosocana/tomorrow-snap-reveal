@@ -569,18 +569,17 @@ const Gallery = () => {
               {viewPhotosButtonText}
             </Button>
           )}
+          {/* Custom image below button */}
+          {eventCustomImage && (
+            <div className="pt-4">
+              <img 
+                src={eventCustomImage} 
+                alt={eventName || "Event"} 
+                className="max-w-[200px] max-h-[80px] object-contain mx-auto"
+              />
+            </div>
+          )}
         </div>
-        
-        {/* Custom image at bottom */}
-        {eventCustomImage && (
-          <div className="pb-8">
-            <img 
-              src={eventCustomImage} 
-              alt={eventName || "Event"} 
-              className="max-w-[200px] max-h-[80px] object-contain mx-auto"
-            />
-          </div>
-        )}
       </div>
     );
   }
