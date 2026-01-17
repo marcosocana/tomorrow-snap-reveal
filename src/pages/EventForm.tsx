@@ -75,6 +75,7 @@ const EventForm = () => {
     language: "es",
     description: "",
     expiryDate: "",
+    expiryTime: "23:59",
     expiryRedirectUrl: "",
   });
   const navigate = useNavigate();
@@ -146,6 +147,7 @@ const EventForm = () => {
         language: event.language || "es",
         description: event.description || "",
         expiryDate: expiryDate ? format(expiryDate, "yyyy-MM-dd") : "",
+        expiryTime: expiryDate ? format(expiryDate, "HH:mm") : "23:59",
         expiryRedirectUrl: event.expiry_redirect_url || "",
       });
     } catch (error) {
@@ -219,7 +221,7 @@ const EventForm = () => {
       }
 
       const expiryDateTime = formData.expiryDate 
-        ? fromZonedTime(`${formData.expiryDate}T23:59:00`, eventTz).toISOString()
+        ? fromZonedTime(`${formData.expiryDate}T${formData.expiryTime}:00`, eventTz).toISOString()
         : null;
 
       if (isEditing && eventId) {
@@ -730,20 +732,50 @@ const EventForm = () => {
             <div className="space-y-2">
               <Label className="text-base font-semibold">Fecha de caducidad (opcional)</Label>
               <div className="text-xs text-muted-foreground mb-2">
-                Después de esta fecha, la galería no será accesible y mostrará un mensaje con el enlace indicado.
+                Después de esta fecha y hora, la galería no será accesible y mostrará un mensaje con el enlace indicado.
               </div>
               <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="expiryDate">Fecha</Label>
-                  <Input
-                    id="expiryDate"
-                    type="date"
-                    value={formData.expiryDate}
-                    onChange={(e) =>
-                      setFormData({ ...formData, expiryDate: e.target.value })
-                    }
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="expiryDate">Fecha</Label>
+                    <Input
+                      id="expiryDate"
+                      type="date"
+                      value={formData.expiryDate}
+                      onChange={(e) =>
+                        setFormData({ ...formData, expiryDate: e.target.value })
+                      }
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="expiryTime">Hora</Label>
+                    <Input
+                      id="expiryTime"
+                      type="time"
+                      value={formData.expiryTime}
+                      onChange={(e) =>
+                        setFormData({ ...formData, expiryTime: e.target.value })
+                      }
+                    />
+                  </div>
                 </div>
+                {formData.countryCode !== "ES" && formData.expiryDate && (
+                  <p className="text-xs text-muted-foreground">
+                    🇪🇸 En España: {(() => {
+                      try {
+                        const eventTz = formData.timezone;
+                        const spainTz = "Europe/Madrid";
+                        
+                        const expiryUtc = fromZonedTime(`${formData.expiryDate}T${formData.expiryTime}:00`, eventTz);
+                        
+                        return formatInTimeZone(expiryUtc, spainTz, "dd/MM/yyyy HH:mm");
+                      } catch {
+                        return "";
+                      }
+                    })()}
+                  </p>
+                )}
 
                 <div className="space-y-2">
                   <Label htmlFor="expiryRedirectUrl">URL de redirección</Label>
