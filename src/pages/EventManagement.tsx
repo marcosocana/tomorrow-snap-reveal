@@ -7,7 +7,13 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, ArrowLeft, Plus, Trash2, Edit, Eye, Copy, Upload, Home, Download, Globe } from "lucide-react";
+import { Calendar, ArrowLeft, Plus, Trash2, Edit, Eye, Copy, Upload, Home, Download, Globe, MessageCircle, ChevronDown } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { toZonedTime, fromZonedTime, formatInTimeZone } from "date-fns-tz";
@@ -535,6 +541,108 @@ const EventManagement = () => {
       toast({
         title: "Error",
         description: "No se pudo descargar el código QR",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleCommunicateDemo = async (event: Event) => {
+    const eventUrl = `https://acceso.revelao.cam/events/${event.password_hash}`;
+    const eventTz = event.timezone || "Europe/Madrid";
+    
+    const uploadStartFormatted = event.upload_start_time 
+      ? formatInTimeZone(new Date(event.upload_start_time), eventTz, "dd/MM/yyyy 'a las' HH:mm", { locale: es })
+      : "";
+    const uploadEndFormatted = event.upload_end_time 
+      ? formatInTimeZone(new Date(event.upload_end_time), eventTz, "dd/MM/yyyy 'a las' HH:mm", { locale: es })
+      : "";
+    const revealFormatted = formatInTimeZone(new Date(event.reveal_time), eventTz, "dd/MM/yyyy 'a las' HH:mm", { locale: es });
+
+    const message = `¡Hola! Te damos la bienvenida a la demo de Revelao.cam.
+
+Te compartimos el código QR del evento y toda la información necesaria para acceder. Podrás entrar tanto escaneando el QR como a través del siguiente enlace: ${eventUrl}
+
+Durante el evento, podrás hacer todas las fotos que quieras desde el ${uploadStartFormatted} hasta el ${uploadEndFormatted}.
+
+Al día siguiente, el ${revealFormatted}, las fotos se revelarán automáticamente y podrás verlas desde el mismo espacio.
+
+Para disfrutar al máximo de la experiencia, te recomendamos hacer cuantas más fotos mejor durante el periodo habilitado.
+
+Si tienes cualquier problema o duda durante la demo, no dudes en contactarme.
+
+¡Que lo disfrutes!`;
+
+    try {
+      await navigator.clipboard.writeText(message);
+      toast({
+        title: "Mensaje copiado",
+        description: "El mensaje de demo se ha copiado al portapapeles",
+      });
+    } catch (error) {
+      console.error("Error copying message:", error);
+      toast({
+        title: "Error",
+        description: "No se pudo copiar el mensaje",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleCommunicateEvent = async (event: Event) => {
+    const eventUrl = `https://acceso.revelao.cam/events/${event.password_hash}`;
+    const eventTz = event.timezone || "Europe/Madrid";
+    
+    const uploadStartFormatted = event.upload_start_time 
+      ? formatInTimeZone(new Date(event.upload_start_time), eventTz, "dd/MM/yyyy 'a las' HH:mm", { locale: es })
+      : "";
+    const uploadEndFormatted = event.upload_end_time 
+      ? formatInTimeZone(new Date(event.upload_end_time), eventTz, "dd/MM/yyyy 'a las' HH:mm", { locale: es })
+      : "";
+    const revealFormatted = formatInTimeZone(new Date(event.reveal_time), eventTz, "dd/MM/yyyy 'a las' HH:mm", { locale: es });
+    const expiryFormatted = event.expiry_date 
+      ? formatInTimeZone(new Date(event.expiry_date), eventTz, "dd/MM/yyyy 'a las' HH:mm", { locale: es })
+      : "";
+
+    const message = `¡Hola! Te damos la bienvenida a la familia Revelao 💛
+
+Nos encanta tenerte con nosotros. A continuación, te compartimos un resumen del evento que has dado de alta, con toda la información clave:
+
+
+🔗 Acceso al evento
+Puedes acceder escaneando el código QR del evento o directamente desde este enlace: ${eventUrl}
+
+
+📅 Fechas del evento
+
+El evento estará activo desde el ${uploadStartFormatted} hasta el ${uploadEndFormatted}.
+
+Las fotos se revelarán el ${revealFormatted}.${expiryFormatted ? `
+
+Las fotos caducarán el ${expiryFormatted}.` : ""}
+
+
+📁 Almacenamiento de las fotos
+Una vez caduque el evento, las fotos se subirán a un Drive.
+
+Te recomendamos que sea vuestro propio Drive, para que podáis tenerlas ya almacenadas y gestionarlas libremente. En ese caso, necesitaremos que nos facilitéis la URL del Drive donde subirlas.
+
+Si preferís que las subamos a nuestro Drive, indícanoslo y te explicamos cómo podréis acceder a ellas.
+
+Para cualquier duda o ayuda adicional, estamos a vuestra disposición.
+
+¡Esperamos que disfrutéis mucho de la experiencia Revelao!`;
+
+    try {
+      await navigator.clipboard.writeText(message);
+      toast({
+        title: "Mensaje copiado",
+        description: "El mensaje del evento se ha copiado al portapapeles",
+      });
+    } catch (error) {
+      console.error("Error copying message:", error);
+      toast({
+        title: "Error",
+        description: "No se pudo copiar el mensaje",
         variant: "destructive",
       });
     }
@@ -1201,6 +1309,27 @@ const EventManagement = () => {
 
                     {/* Action Buttons */}
                     <div className="flex lg:flex-col gap-2">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-1"
+                          >
+                            <MessageCircle className="w-4 h-4" />
+                            Comunicar
+                            <ChevronDown className="w-3 h-3" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="bg-popover">
+                          <DropdownMenuItem onClick={() => handleCommunicateDemo(event)}>
+                            Comunicar demo
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleCommunicateEvent(event)}>
+                            Comunicar evento
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                       <Button
                         variant="ghost"
                         size="icon"
