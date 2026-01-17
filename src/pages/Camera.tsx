@@ -402,6 +402,14 @@ const Camera = () => {
             
             <div className="flex-1 px-6 pb-6 flex flex-col">
               <div className="text-center space-y-4 max-w-md mx-auto animate-fade-in">
+                {/* Crossed camera icon - always visible, above title */}
+                <div>
+                  <img
+                    src={prohibidoIcon}
+                    alt="Cámara prohibida"
+                    className="max-w-[180px] max-h-[80px] object-contain mx-auto"
+                  />
+                </div>
                 <h2 className="text-2xl font-bold text-foreground">{t.camera.eventNotStarted}</h2>
                 <p className="text-muted-foreground text-lg">
                   {t.camera.periodNotStarted}
@@ -423,15 +431,6 @@ const Camera = () => {
                     )}
                   </>
                 )}
-                
-                {/* Crossed camera icon - always visible */}
-                <div className="pt-4">
-                  <img
-                    src={prohibidoIcon}
-                    alt="Cámara prohibida"
-                    className="max-w-[180px] max-h-[80px] object-contain mx-auto"
-                  />
-                </div>
               </div>
               
               {/* Custom image at bottom - only if set */}
@@ -462,6 +461,14 @@ const Camera = () => {
             
             <div className="flex-1 pt-16 pb-6 px-6 flex flex-col">
               <div className="text-center space-y-4 max-w-md mx-auto animate-fade-in">
+                {/* Crossed camera icon - always visible, above title */}
+                <div>
+                  <img
+                    src={prohibidoIcon}
+                    alt="Cámara prohibida"
+                    className="max-w-[180px] max-h-[80px] object-contain mx-auto"
+                  />
+                </div>
                 <h1 className="text-2xl font-bold text-foreground">{t.camera.eventNotStarted}</h1>
                 <p className="text-muted-foreground text-lg">
                   {t.camera.periodNotStarted}
@@ -483,15 +490,6 @@ const Camera = () => {
                     )}
                   </>
                 )}
-                
-                {/* Crossed camera icon - always visible */}
-                <div className="pt-4">
-                  <img
-                    src={prohibidoIcon}
-                    alt="Cámara prohibida"
-                    className="max-w-[180px] max-h-[80px] object-contain mx-auto"
-                  />
-                </div>
               </div>
               
               {/* Custom image at bottom - only if set */}
@@ -556,6 +554,14 @@ const Camera = () => {
             
             <div className="flex-1 px-6 pb-6 flex flex-col">
               <div className="text-center space-y-4 max-w-md mx-auto animate-fade-in">
+                {/* Crossed camera icon - always visible, above title */}
+                <div>
+                  <img
+                    src={prohibidoIcon}
+                    alt="Cámara prohibida"
+                    className="max-w-[180px] max-h-[80px] object-contain mx-auto"
+                  />
+                </div>
                 <h2 className="text-2xl font-bold text-foreground">{t.camera.eventEnded}</h2>
                 <p className="text-muted-foreground text-lg">
                   {t.camera.eventEndedDesc}
@@ -577,15 +583,6 @@ const Camera = () => {
                     )}
                   </>
                 )}
-                
-                {/* Crossed camera icon - always visible */}
-                <div className="pt-4">
-                  <img
-                    src={prohibidoIcon}
-                    alt="Cámara prohibida"
-                    className="max-w-[180px] max-h-[80px] object-contain mx-auto"
-                  />
-                </div>
               </div>
               
               {/* Custom image at bottom - only if set */}
@@ -616,6 +613,14 @@ const Camera = () => {
             
             <div className="flex-1 pt-16 pb-6 px-6 flex flex-col">
               <div className="text-center space-y-4 max-w-md mx-auto animate-fade-in">
+                {/* Crossed camera icon - always visible, above title */}
+                <div>
+                  <img
+                    src={prohibidoIcon}
+                    alt="Cámara prohibida"
+                    className="max-w-[180px] max-h-[80px] object-contain mx-auto"
+                  />
+                </div>
                 <h1 className="text-2xl font-bold text-foreground">{t.camera.eventEnded}</h1>
                 <p className="text-muted-foreground text-lg">
                   {t.camera.eventEndedDesc}
@@ -637,15 +642,6 @@ const Camera = () => {
                     )}
                   </>
                 )}
-                
-                {/* Crossed camera icon - always visible */}
-                <div className="pt-4">
-                  <img
-                    src={prohibidoIcon}
-                    alt="Cámara prohibida"
-                    className="max-w-[180px] max-h-[80px] object-contain mx-auto"
-                  />
-                </div>
               </div>
               
               {/* Custom image at bottom - only if set */}
