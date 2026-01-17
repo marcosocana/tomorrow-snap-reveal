@@ -1,13 +1,22 @@
 /**
  * Photo filter types available for events
  */
-export type FilterType = 'vintage' | '35mm' | 'none';
+export type FilterType = 'vintage' | '35mm' | 'sepia' | 'bw' | 'warm' | 'cool' | 'none';
 
 export const FILTER_LABELS: Record<FilterType, string> = {
+  none: 'Sin filtros',
   vintage: 'Vintage',
   '35mm': '35mm Film',
-  none: 'Sin filtros',
+  sepia: 'Sepia',
+  bw: 'Blanco y Negro',
+  warm: 'Cálido',
+  cool: 'Frío',
 };
+
+/**
+ * Ordered list of filter types for UI display
+ */
+export const FILTER_ORDER: FilterType[] = ['none', 'vintage', '35mm', 'sepia', 'bw', 'warm', 'cool'];
 
 /**
  * Get CSS class for filter type
@@ -18,6 +27,14 @@ export const getFilterClass = (filterType: FilterType): string => {
       return 'retro-filter';
     case '35mm':
       return 'film-35mm-filter';
+    case 'sepia':
+      return 'sepia-filter';
+    case 'bw':
+      return 'bw-filter';
+    case 'warm':
+      return 'warm-filter';
+    case 'cool':
+      return 'cool-filter';
     case 'none':
     default:
       return '';
@@ -175,6 +192,62 @@ export const applyFilterToCanvas = async (
 
         // Add strong film grain
         addGrain(ctx, canvas.width, canvas.height, 0.15);
+      } else if (filterType === 'sepia') {
+        // Full sepia filter
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imageData.data;
+
+        for (let i = 0; i < data.length; i += 4) {
+          const r = data[i];
+          const g = data[i + 1];
+          const b = data[i + 2];
+
+          data[i] = Math.min(255, r * 0.393 + g * 0.769 + b * 0.189);
+          data[i + 1] = Math.min(255, r * 0.349 + g * 0.686 + b * 0.168);
+          data[i + 2] = Math.min(255, r * 0.272 + g * 0.534 + b * 0.131);
+        }
+
+        ctx.putImageData(imageData, 0, 0);
+      } else if (filterType === 'bw') {
+        // Black and white filter
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imageData.data;
+
+        for (let i = 0; i < data.length; i += 4) {
+          const gray = 0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2];
+          // Add slight contrast
+          const adjusted = ((gray - 128) * 1.1) + 128;
+          const final = Math.min(255, Math.max(0, adjusted));
+          data[i] = final;
+          data[i + 1] = final;
+          data[i + 2] = final;
+        }
+
+        ctx.putImageData(imageData, 0, 0);
+      } else if (filterType === 'warm') {
+        // Warm filter - add orange/yellow tones
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imageData.data;
+
+        for (let i = 0; i < data.length; i += 4) {
+          data[i] = Math.min(255, data[i] * 1.1);      // Red boost
+          data[i + 1] = Math.min(255, data[i + 1] * 1.05); // Slight green boost
+          data[i + 2] = Math.max(0, data[i + 2] * 0.9);    // Blue reduce
+        }
+
+        ctx.putImageData(imageData, 0, 0);
+      } else if (filterType === 'cool') {
+        // Cool filter - add blue tones
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imageData.data;
+
+        for (let i = 0; i < data.length; i += 4) {
+          data[i] = Math.max(0, data[i] * 0.9);        // Red reduce
+          data[i + 1] = Math.min(255, data[i + 1] * 1.02); // Slight green
+          data[i + 2] = Math.min(255, data[i + 2] * 1.15); // Blue boost
+        }
+
+        ctx.putImageData(imageData, 0, 0);
       }
       // For 'none', we just return the original image
 
