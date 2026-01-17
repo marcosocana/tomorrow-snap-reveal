@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Globe, Trash2 } from "lucide-react";
 import { format } from "date-fns";
@@ -593,14 +594,18 @@ const EventForm = () => {
               <Label htmlFor="description">
                 Descripción (opcional)
               </Label>
-              <Input
+              <Textarea
                 id="description"
                 value={formData.description}
                 onChange={(e) =>
                   setFormData({ ...formData, description: e.target.value })
                 }
-                placeholder="Descripción breve del evento"
+                placeholder="Descripción breve del evento. Puedes usar saltos de línea."
+                rows={3}
               />
+              <p className="text-xs text-muted-foreground">
+                Los saltos de línea se mostrarán en las pantallas del evento
+              </p>
             </div>
 
             <div className="space-y-2">

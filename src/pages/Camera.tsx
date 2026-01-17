@@ -400,18 +400,7 @@ const Camera = () => {
               </div>
             </header>
             
-            <div className="px-6 pb-6">
-              <div className="flex justify-center pb-6">
-                <div className="w-60 h-25 flex items-center justify-center" style={{ imageRendering: 'pixelated' }}>
-                  <img
-                    src={customImageUrl || prohibidoIcon}
-                    alt="Cámara prohibida"
-                    style={{ imageRendering: 'pixelated' }}
-                    className="max-w-[240px] max-h-[100px] object-contain"
-                  />
-                </div>
-              </div>
-              
+            <div className="flex-1 px-6 pb-6 flex flex-col">
               <div className="text-center space-y-4 max-w-md mx-auto animate-fade-in">
                 <h2 className="text-2xl font-bold text-foreground">{t.camera.eventNotStarted}</h2>
                 <p className="text-muted-foreground text-lg">
@@ -435,6 +424,18 @@ const Camera = () => {
                   </>
                 )}
               </div>
+              
+              {/* Custom image at bottom */}
+              <div className="flex-1 flex items-end justify-center pt-6">
+                <div className="w-60 h-25 flex items-center justify-center" style={{ imageRendering: 'pixelated' }}>
+                  <img
+                    src={customImageUrl || prohibidoIcon}
+                    alt="Cámara prohibida"
+                    style={{ imageRendering: 'pixelated' }}
+                    className="max-w-[240px] max-h-[100px] object-contain"
+                  />
+                </div>
+              </div>
             </div>
           </>
         ) : (
@@ -451,18 +452,7 @@ const Camera = () => {
               </Button>
             </header>
             
-            <div className="pt-16 pb-6 px-6">
-              <div className="flex justify-center pt-4 pb-6">
-                <div className="w-60 h-25 flex items-center justify-center" style={{ imageRendering: 'pixelated' }}>
-                  <img
-                    src={customImageUrl || prohibidoIcon}
-                    alt="Cámara prohibida"
-                    style={{ imageRendering: 'pixelated' }}
-                    className="max-w-[240px] max-h-[100px] object-contain"
-                  />
-                </div>
-              </div>
-              
+            <div className="flex-1 pt-16 pb-6 px-6 flex flex-col">
               <div className="text-center space-y-4 max-w-md mx-auto animate-fade-in">
                 <h1 className="text-2xl font-bold text-foreground">{t.camera.eventNotStarted}</h1>
                 <p className="text-muted-foreground text-lg">
@@ -485,6 +475,18 @@ const Camera = () => {
                     )}
                   </>
                 )}
+              </div>
+              
+              {/* Custom image at bottom */}
+              <div className="flex-1 flex items-end justify-center pt-6">
+                <div className="w-60 h-25 flex items-center justify-center" style={{ imageRendering: 'pixelated' }}>
+                  <img
+                    src={customImageUrl || prohibidoIcon}
+                    alt="Cámara prohibida"
+                    style={{ imageRendering: 'pixelated' }}
+                    className="max-w-[240px] max-h-[100px] object-contain"
+                  />
+                </div>
               </div>
             </div>
           </>
@@ -536,18 +538,7 @@ const Camera = () => {
               </div>
             </header>
             
-            <div className="px-6 pb-6">
-              <div className="flex justify-center pb-6">
-                <div className="w-60 h-25 flex items-center justify-center" style={{ imageRendering: 'pixelated' }}>
-                  <img
-                    src={customImageUrl || prohibidoIcon}
-                    alt="Cámara prohibida"
-                    style={{ imageRendering: 'pixelated' }}
-                    className="max-w-[240px] max-h-[100px] object-contain"
-                  />
-                </div>
-              </div>
-              
+            <div className="flex-1 px-6 pb-6 flex flex-col">
               <div className="text-center space-y-4 max-w-md mx-auto animate-fade-in">
                 <h2 className="text-2xl font-bold text-foreground">{t.camera.eventEnded}</h2>
                 <p className="text-muted-foreground text-lg">
@@ -571,6 +562,18 @@ const Camera = () => {
                   </>
                 )}
               </div>
+              
+              {/* Custom image at bottom */}
+              <div className="flex-1 flex items-end justify-center pt-6">
+                <div className="w-60 h-25 flex items-center justify-center" style={{ imageRendering: 'pixelated' }}>
+                  <img
+                    src={customImageUrl || prohibidoIcon}
+                    alt="Cámara prohibida"
+                    style={{ imageRendering: 'pixelated' }}
+                    className="max-w-[240px] max-h-[100px] object-contain"
+                  />
+                </div>
+              </div>
             </div>
           </>
         ) : (
@@ -587,18 +590,7 @@ const Camera = () => {
               </Button>
             </header>
             
-            <div className="pt-16 pb-6 px-6">
-              <div className="flex justify-center pt-4 pb-6">
-                <div className="w-60 h-25 flex items-center justify-center" style={{ imageRendering: 'pixelated' }}>
-                  <img
-                    src={customImageUrl || prohibidoIcon}
-                    alt="Cámara prohibida"
-                    style={{ imageRendering: 'pixelated' }}
-                    className="max-w-[240px] max-h-[100px] object-contain"
-                  />
-                </div>
-              </div>
-              
+            <div className="flex-1 pt-16 pb-6 px-6 flex flex-col">
               <div className="text-center space-y-4 max-w-md mx-auto animate-fade-in">
                 <h1 className="text-2xl font-bold text-foreground">{t.camera.eventEnded}</h1>
                 <p className="text-muted-foreground text-lg">
@@ -621,6 +613,18 @@ const Camera = () => {
                     )}
                   </>
                 )}
+              </div>
+              
+              {/* Custom image at bottom */}
+              <div className="flex-1 flex items-end justify-center pt-6">
+                <div className="w-60 h-25 flex items-center justify-center" style={{ imageRendering: 'pixelated' }}>
+                  <img
+                    src={customImageUrl || prohibidoIcon}
+                    alt="Cámara prohibida"
+                    style={{ imageRendering: 'pixelated' }}
+                    className="max-w-[240px] max-h-[100px] object-contain"
+                  />
+                </div>
               </div>
             </div>
           </>
