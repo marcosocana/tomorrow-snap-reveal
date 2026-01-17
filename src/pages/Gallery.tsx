@@ -820,26 +820,7 @@ const Gallery = () => {
         </button>
       )}
 
-      {/* Welcome Modal */}
-      <Dialog open={showWelcome} onOpenChange={setShowWelcome}>
-        <DialogContent className="max-w-md p-8 bg-card text-center">
-          <div className="space-y-4 animate-scale-in">
-            <div className="text-6xl">🎉</div>
-            <h2 className="text-3xl font-bold text-foreground">
-              {photosRevealedText}
-            </h2>
-            <p className="text-muted-foreground text-lg">
-              {enjoyText}
-            </p>
-            <Button
-              onClick={() => setShowWelcome(false)}
-              className="w-full mt-6 uppercase tracking-wide"
-            >
-              {viewPhotosText}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Welcome confetti effect is triggered but no modal is shown */}
 
       {/* Share Dialog */}
       {eventPassword && (

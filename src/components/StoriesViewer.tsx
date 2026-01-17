@@ -135,8 +135,8 @@ const StoriesViewer = ({
             ) : (
               <div className="absolute inset-0 bg-muted" />
             )}
-            {/* White gradient overlay */}
-            <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-white/90" />
+            {/* White solid overlay at 85% opacity */}
+            <div className="absolute inset-0 bg-white/85" />
             
             {/* Event info */}
             <div className="absolute inset-0 flex flex-col items-center justify-end pb-24 px-6 text-center">
