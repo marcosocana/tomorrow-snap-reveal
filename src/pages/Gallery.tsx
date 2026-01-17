@@ -556,15 +556,8 @@ const Gallery = () => {
     const viewPhotosButtonText = language === "en" ? "View photos" : language === "it" ? "Vedi foto" : "Ver fotografías";
 
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <div className="max-w-md w-full text-center space-y-6">
-          {eventCustomImage && (
-            <img 
-              src={eventCustomImage} 
-              alt={eventName || "Event"} 
-              className="max-w-[200px] max-h-[80px] object-contain mx-auto"
-            />
-          )}
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
+        <div className="flex-1 flex flex-col items-center justify-center max-w-md w-full text-center space-y-6">
           <h1 className="text-2xl font-bold text-foreground">{eventName}</h1>
           <p className="text-lg text-muted-foreground">{expiredTitleText}</p>
           {expiryRedirectUrl && (
@@ -577,6 +570,17 @@ const Gallery = () => {
             </Button>
           )}
         </div>
+        
+        {/* Custom image at bottom */}
+        {eventCustomImage && (
+          <div className="pb-8">
+            <img 
+              src={eventCustomImage} 
+              alt={eventName || "Event"} 
+              className="max-w-[200px] max-h-[80px] object-contain mx-auto"
+            />
+          </div>
+        )}
       </div>
     );
   }
@@ -640,6 +644,16 @@ const Gallery = () => {
             {eventDescription && (
               <p className="text-muted-foreground text-base md:text-lg max-w-xl mx-auto mb-2 whitespace-pre-line">{eventDescription}</p>
             )}
+            {/* Custom image below description */}
+            {eventCustomImage && (
+              <div className="flex justify-center py-3">
+                <img 
+                  src={eventCustomImage} 
+                  alt={eventName || "Event"} 
+                  className="max-w-[200px] max-h-[80px] object-contain"
+                />
+              </div>
+            )}
             <p className="text-sm text-muted-foreground tracking-wide">
               {language === "en" ? `✨ ${totalPhotos} photos have been revealed` : language === "it" ? `✨ Sono state rivelate ${totalPhotos} foto` : `✨ Se han revelado ${totalPhotos} fotos`}
             </p>
@@ -648,10 +662,20 @@ const Gallery = () => {
       ) : (
         <header className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-card">
           <div className="max-w-7xl mx-auto px-6 py-8 flex justify-between items-center">
-            <div>
+            <div className="flex-1">
               <h1 className="text-3xl font-bold tracking-tight text-foreground">{eventName}</h1>
               {eventDescription && (
                 <p className="text-muted-foreground text-sm mt-1 max-w-md whitespace-pre-line">{eventDescription}</p>
+              )}
+              {/* Custom image below description */}
+              {eventCustomImage && (
+                <div className="flex py-2">
+                  <img 
+                    src={eventCustomImage} 
+                    alt={eventName || "Event"} 
+                    className="max-w-[150px] max-h-[60px] object-contain"
+                  />
+                </div>
               )}
               <p className="text-sm text-muted-foreground mt-2 tracking-wide">
                 {language === "en" ? `✨ ${totalPhotos} photos have been revealed` : language === "it" ? `✨ Sono state rivelate ${totalPhotos} foto` : `✨ Se han revelado ${totalPhotos} fotos`}
