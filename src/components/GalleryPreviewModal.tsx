@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
-import { X, Download, Trash2 } from "lucide-react";
+import { Download, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { getFontById, loadGoogleFont, getEventFontFamily, EventFontFamily } from "@/lib/eventFonts";
@@ -11,6 +11,8 @@ interface Photo {
   id: string;
   image_url: string;
   captured_at: string;
+  thumbnailUrl?: string;
+  fullQualityUrl?: string;
 }
 
 interface GalleryPreviewModalProps {
@@ -68,7 +70,33 @@ export const GalleryPreviewModal = ({
         .limit(50);
 
       if (error) throw error;
-      setPhotos(data || []);
+
+      // Generate signed URLs for each photo
+      const photosWithUrls = await Promise.all(
+        (data || []).map(async (photo) => {
+          const { data: thumbnailData } = await supabase.storage
+            .from("event-photos")
+            .createSignedUrl(photo.image_url, 3600, {
+              transform: {
+                width: 400,
+                height: 400,
+                quality: 60
+              }
+            });
+
+          const { data: fullQualityData } = await supabase.storage
+            .from("event-photos")
+            .createSignedUrl(photo.image_url, 3600);
+
+          return {
+            ...photo,
+            thumbnailUrl: thumbnailData?.signedUrl || "",
+            fullQualityUrl: fullQualityData?.signedUrl || "",
+          };
+        })
+      );
+
+      setPhotos(photosWithUrls);
     } catch (error) {
       console.error("Error loading photos:", error);
       toast({
@@ -81,18 +109,26 @@ export const GalleryPreviewModal = ({
     }
   };
 
-  const handleDeletePhoto = async (photoId: string) => {
+  const handleDeletePhoto = async (photo: Photo) => {
     if (!confirm("¿Eliminar esta foto?")) return;
     
     try {
+      // Delete from storage
+      const { error: storageError } = await supabase.storage
+        .from("event-photos")
+        .remove([photo.image_url]);
+
+      if (storageError) throw storageError;
+
+      // Delete from database
       const { error } = await supabase
         .from("photos")
         .delete()
-        .eq("id", photoId);
+        .eq("id", photo.id);
 
       if (error) throw error;
 
-      setPhotos((prev) => prev.filter((p) => p.id !== photoId));
+      setPhotos((prev) => prev.filter((p) => p.id !== photo.id));
       setSelectedPhoto(null);
       toast({
         title: "Foto eliminada",
@@ -103,6 +139,35 @@ export const GalleryPreviewModal = ({
       toast({
         title: "Error",
         description: "No se pudo eliminar la foto",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDownload = async (photo: Photo) => {
+    if (!photo.fullQualityUrl) return;
+    
+    try {
+      const response = await fetch(photo.fullQualityUrl);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `foto-${new Date(photo.captured_at).toISOString().slice(0, 10)}.jpg`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      toast({
+        title: "Foto descargada",
+        description: "La foto se descargó correctamente",
+      });
+    } catch (error) {
+      console.error("Error downloading photo:", error);
+      toast({
+        title: "Error",
+        description: "No se pudo descargar la foto",
         variant: "destructive",
       });
     }
@@ -178,7 +243,7 @@ export const GalleryPreviewModal = ({
                     onClick={() => setSelectedPhoto(photo)}
                   >
                     <img
-                      src={photo.image_url}
+                      src={photo.thumbnailUrl || photo.fullQualityUrl}
                       alt=""
                       className={`w-full h-full object-cover ${getFilterClass(filterType)}`}
                       loading="lazy"
@@ -198,7 +263,7 @@ export const GalleryPreviewModal = ({
           <DialogContent className="max-w-3xl p-0 overflow-hidden">
             <div className="relative">
               <img
-                src={selectedPhoto.image_url}
+                src={selectedPhoto.fullQualityUrl}
                 alt=""
                 className={`w-full max-h-[70vh] object-contain ${getFilterClass(filterType)}`}
               />
@@ -211,7 +276,7 @@ export const GalleryPreviewModal = ({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => window.open(selectedPhoto.image_url, "_blank")}
+                  onClick={() => handleDownload(selectedPhoto)}
                 >
                   <Download className="w-4 h-4 mr-2" />
                   Descargar
@@ -219,7 +284,7 @@ export const GalleryPreviewModal = ({
                 <Button
                   variant="destructive"
                   size="sm"
-                  onClick={() => handleDeletePhoto(selectedPhoto.id)}
+                  onClick={() => handleDeletePhoto(selectedPhoto)}
                 >
                   <Trash2 className="w-4 h-4 mr-2" />
                   Eliminar
