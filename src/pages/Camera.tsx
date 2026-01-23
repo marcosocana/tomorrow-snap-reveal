@@ -37,6 +37,7 @@ const Camera = () => {
   const [backgroundImageUrl, setBackgroundImageUrl] = useState<string>("");
   const [eventDescription, setEventDescription] = useState<string>("");
   const [eventFontFamily, setEventFontFamily] = useState<EventFontFamily>("system");
+  const [eventFontSize, setEventFontSize] = useState<string>("text-3xl");
   const [countdown, setCountdown] = useState<string>("");
   const [revealCountdown, setRevealCountdown] = useState<string>("");
   const [startCountdown, setStartCountdown] = useState<string>("");
@@ -118,7 +119,7 @@ const Camera = () => {
     if (!eventId) return;
     const { data, error } = await supabase
       .from("events")
-      .select("reveal_time, upload_start_time, upload_end_time, password_hash, max_photos, custom_image_url, background_image_url, description, font_family")
+      .select("reveal_time, upload_start_time, upload_end_time, password_hash, max_photos, custom_image_url, background_image_url, description, font_family, font_size")
       .eq("id", eventId)
       .single();
     if (data && !error) {
@@ -130,6 +131,7 @@ const Camera = () => {
       setBackgroundImageUrl(data.background_image_url || "");
       setEventDescription(data.description || "");
       setEventFontFamily(((data as any).font_family as EventFontFamily) || "system");
+      setEventFontSize((data as any).font_size || "text-3xl");
       
       // Check if max photos limit reached
       if (data.max_photos) {
@@ -397,7 +399,7 @@ const Camera = () => {
               
               <div className="relative -mt-20 px-6 pb-6 text-center">
                 <h1 
-                  className="text-3xl md:text-4xl font-bold tracking-tight text-foreground mb-2"
+                  className={`${eventFontSize} md:text-4xl font-bold tracking-tight text-foreground mb-2`}
                   style={{ fontFamily: getEventFontFamily(eventFontFamily) }}
                 >
                   {eventName}
@@ -554,7 +556,7 @@ const Camera = () => {
               
               <div className="relative -mt-20 px-6 pb-6 text-center">
                 <h1 
-                  className="text-3xl md:text-4xl font-bold tracking-tight text-foreground mb-2"
+                  className={`${eventFontSize} md:text-4xl font-bold tracking-tight text-foreground mb-2`}
                   style={{ fontFamily: getEventFontFamily(eventFontFamily) }}
                 >
                   {eventName}
@@ -743,7 +745,7 @@ const Camera = () => {
             
             <div className="relative -mt-20 px-6 pb-6 text-center">
               <h1 
-                className="text-3xl md:text-4xl font-bold tracking-tight text-foreground mb-2"
+                className={`${eventFontSize} md:text-4xl font-bold tracking-tight text-foreground mb-2`}
                 style={{ fontFamily: getEventFontFamily(eventFontFamily) }}
               >
                 {eventName}
