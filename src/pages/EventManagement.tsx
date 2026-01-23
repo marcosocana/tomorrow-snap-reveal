@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, Plus, Trash2, Edit, Copy, Home, Download, MessageCircle, ChevronDown, RefreshCw } from "lucide-react";
+import { Calendar, Plus, Trash2, Edit, Copy, Home, Download, MessageCircle, ChevronDown, RefreshCw, Eye } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,6 +20,7 @@ import { getLanguageByCode } from "@/lib/translations";
 import { QRCodeSVG } from "qrcode.react";
 import { FilterType } from "@/lib/photoFilters";
 import { getEventStatus } from "@/lib/eventStatus";
+import GalleryPreviewModal from "@/components/GalleryPreviewModal";
 
 interface Event {
   id: string;
@@ -33,6 +34,8 @@ interface Event {
   custom_image_url: string | null;
   background_image_url: string | null;
   filter_type: FilterType;
+  font_family: string;
+  font_size: string;
   created_at: string;
   is_demo: boolean;
   country_code: string;
@@ -48,6 +51,7 @@ const EventManagement = () => {
   const [eventPhotoCounts, setEventPhotoCounts] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isDemoMode] = useState(() => localStorage.getItem("isDemoMode") === "true");
+  const [previewEvent, setPreviewEvent] = useState<Event | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -508,10 +512,21 @@ Para cualquier duda o ayuda adicional, estamos a vuestra disposición.
                             {event.admin_password}
                           </p>
                         )}
-                        <p>
-                          <span className="font-medium">Fotos añadidas:</span>{" "}
-                          {photoCount}{event.max_photos ? ` / ${event.max_photos}` : ""}
-                        </p>
+                        <div className="flex items-center gap-2">
+                          <p>
+                            <span className="font-medium">Fotos añadidas:</span>{" "}
+                            {photoCount}{event.max_photos ? ` / ${event.max_photos}` : ""}
+                          </p>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setPreviewEvent(event)}
+                            className="h-6 px-2 text-xs gap-1"
+                          >
+                            <Eye className="w-3 h-3" />
+                            Ver
+                          </Button>
+                        </div>
                         {event.max_photos && (
                           <p>
                             <span className="font-medium">Máximo de fotos:</span>{" "}
@@ -645,6 +660,20 @@ Para cualquier duda o ayuda adicional, estamos a vuestra disposición.
           </div>
         )}
       </div>
+
+      {/* Gallery Preview Modal */}
+      <GalleryPreviewModal
+        open={!!previewEvent}
+        onOpenChange={(open) => !open && setPreviewEvent(null)}
+        eventId={previewEvent?.id || ""}
+        eventName={previewEvent?.name || ""}
+        eventDescription={previewEvent?.description}
+        backgroundImageUrl={previewEvent?.background_image_url}
+        customImageUrl={previewEvent?.custom_image_url}
+        fontFamily={previewEvent?.font_family}
+        fontSize={previewEvent?.font_size}
+        filterType={previewEvent?.filter_type}
+      />
     </div>
   );
 };

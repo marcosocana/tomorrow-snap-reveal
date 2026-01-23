@@ -71,6 +71,7 @@ const Gallery = () => {
   const [isExpired, setIsExpired] = useState(false);
   const [expiryRedirectUrl, setExpiryRedirectUrl] = useState<string | null>(null);
   const [eventFontFamily, setEventFontFamily] = useState<EventFontFamily>("system");
+  const [eventFontSize, setEventFontSize] = useState<string>("text-3xl");
 
   // Get translations and timezone
   const language = getEventLanguage();
@@ -173,7 +174,7 @@ const Gallery = () => {
     const loadEventData = async () => {
       const { data } = await supabase
         .from("events")
-        .select("password_hash, filter_type, custom_image_url, description, background_image_url, expiry_date, expiry_redirect_url, font_family")
+        .select("password_hash, filter_type, custom_image_url, description, background_image_url, expiry_date, expiry_redirect_url, font_family, font_size")
         .eq("id", eventId)
         .maybeSingle();
       if (data) {
@@ -183,6 +184,7 @@ const Gallery = () => {
         setEventDescription(data.description);
         setEventBackgroundImage(data.background_image_url);
         setEventFontFamily(((data as any).font_family as EventFontFamily) || "system");
+        setEventFontSize((data as any).font_size || "text-3xl");
         
         // Check if event is expired
         if (data.expiry_date) {

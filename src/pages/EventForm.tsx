@@ -13,8 +13,10 @@ import { toZonedTime, fromZonedTime, formatInTimeZone } from "date-fns-tz";
 import CountrySelect from "@/components/CountrySelect";
 import LanguageSelect from "@/components/LanguageSelect";
 import FontSelect from "@/components/FontSelect";
+import FontSizeSelect, { FontSizeOption } from "@/components/FontSizeSelect";
+import EventPreview from "@/components/EventPreview";
 import { Language } from "@/lib/translations";
-import { EventFontFamily } from "@/lib/eventFonts";
+import { EventFontFamily, getEventFontFamily } from "@/lib/eventFonts";
 import { FilterType, FILTER_LABELS, FILTER_ORDER } from "@/lib/photoFilters";
 
 // Background image dimensions - responsive sizes
@@ -74,6 +76,7 @@ const EventForm = () => {
     backgroundImageUrl: "",
     filterType: "none" as FilterType,
     fontFamily: "system" as EventFontFamily,
+    fontSize: "text-3xl" as FontSizeOption,
     countryCode: "ES",
     timezone: "Europe/Madrid",
     language: "es",
@@ -147,6 +150,7 @@ const EventForm = () => {
         backgroundImageUrl: event.background_image_url || "",
         filterType: event.filter_type || "vintage",
         fontFamily: (event as any).font_family || "system",
+        fontSize: ((event as any).font_size || "text-3xl") as FontSizeOption,
         countryCode: event.country_code || "ES",
         timezone: event.timezone || "Europe/Madrid",
         language: event.language || "es",
@@ -244,6 +248,7 @@ const EventForm = () => {
             background_image_url: backgroundImageUrl,
             filter_type: formData.filterType,
             font_family: formData.fontFamily,
+            font_size: formData.fontSize,
             country_code: formData.countryCode,
             timezone: formData.timezone,
             language: formData.language,
@@ -272,6 +277,7 @@ const EventForm = () => {
           background_image_url: backgroundImageUrl,
           filter_type: formData.filterType,
           font_family: formData.fontFamily,
+          font_size: formData.fontSize,
           is_demo: isDemoMode,
           country_code: formData.countryCode,
           timezone: formData.timezone,
@@ -312,7 +318,7 @@ const EventForm = () => {
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-6">
-      <div className="max-w-2xl mx-auto space-y-4 md:space-y-6">
+      <div className="max-w-6xl mx-auto space-y-4 md:space-y-6">
         <div className="flex items-center gap-4">
           <Button
             variant="ghost"
@@ -328,8 +334,10 @@ const EventForm = () => {
           </h1>
         </div>
 
-        <Card className="p-6">
-          <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="grid lg:grid-cols-[1fr,280px] gap-6">
+          {/* Form Column */}
+          <Card className="p-6">
+            <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
               <Label className="flex items-center gap-2">
                 <Globe className="w-4 h-4" />
@@ -380,8 +388,20 @@ const EventForm = () => {
                 }
                 previewText={formData.name || "Nombre del evento"}
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Tamaño del nombre</Label>
+              <FontSizeSelect
+                value={formData.fontSize}
+                onChange={(fontSize) =>
+                  setFormData({ ...formData, fontSize })
+                }
+                previewText={formData.name || "Nombre del evento"}
+                fontFamily={getEventFontFamily(formData.fontFamily)}
+              />
               <p className="text-xs text-muted-foreground">
-                La tipografía elegida se mostrará en todas las pantallas del evento
+                Tipografía y tamaño se mostrarán en todas las pantallas del evento
               </p>
             </div>
 
@@ -836,7 +856,34 @@ const EventForm = () => {
               </Button>
             </div>
           </form>
-        </Card>
+          </Card>
+
+          {/* Preview Column */}
+          <div className="hidden lg:block">
+            <div className="sticky top-6">
+              <Card className="p-4">
+                <EventPreview
+                  eventName={formData.name}
+                  description={formData.description}
+                  fontFamily={formData.fontFamily}
+                  fontSize={formData.fontSize}
+                  backgroundImageUrl={
+                    formData.backgroundImage 
+                      ? URL.createObjectURL(formData.backgroundImage) 
+                      : formData.backgroundImageUrl || undefined
+                  }
+                  customImageUrl={
+                    formData.customImage 
+                      ? URL.createObjectURL(formData.customImage) 
+                      : formData.customImageUrl || undefined
+                  }
+                  filterType={formData.filterType}
+                  language={formData.language}
+                />
+              </Card>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
