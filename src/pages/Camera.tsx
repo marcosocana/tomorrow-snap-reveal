@@ -11,6 +11,7 @@ import prohibidoIcon from "@/assets/prohibido.png";
 import { compressImage } from "@/lib/imageCompression";
 import ShareDialog from "@/components/ShareDialog";
 import { getTranslations, getEventLanguage, getEventTimezone, getLocalDateInTimezone, Language } from "@/lib/translations";
+import { EventFontFamily, getEventFontFamily } from "@/lib/eventFonts";
 import {
   Dialog,
   DialogContent,
@@ -35,6 +36,7 @@ const Camera = () => {
   const [customImageUrl, setCustomImageUrl] = useState<string>("");
   const [backgroundImageUrl, setBackgroundImageUrl] = useState<string>("");
   const [eventDescription, setEventDescription] = useState<string>("");
+  const [eventFontFamily, setEventFontFamily] = useState<EventFontFamily>("system");
   const [countdown, setCountdown] = useState<string>("");
   const [revealCountdown, setRevealCountdown] = useState<string>("");
   const [startCountdown, setStartCountdown] = useState<string>("");
@@ -116,7 +118,7 @@ const Camera = () => {
     if (!eventId) return;
     const { data, error } = await supabase
       .from("events")
-      .select("reveal_time, upload_start_time, upload_end_time, password_hash, max_photos, custom_image_url, background_image_url, description")
+      .select("reveal_time, upload_start_time, upload_end_time, password_hash, max_photos, custom_image_url, background_image_url, description, font_family")
       .eq("id", eventId)
       .single();
     if (data && !error) {
@@ -127,6 +129,7 @@ const Camera = () => {
       setCustomImageUrl(data.custom_image_url || "");
       setBackgroundImageUrl(data.background_image_url || "");
       setEventDescription(data.description || "");
+      setEventFontFamily(((data as any).font_family as EventFontFamily) || "system");
       
       // Check if max photos limit reached
       if (data.max_photos) {
@@ -393,7 +396,12 @@ const Camera = () => {
               </div>
               
               <div className="relative -mt-20 px-6 pb-6 text-center">
-                <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground mb-2">{eventName}</h1>
+                <h1 
+                  className="text-3xl md:text-4xl font-bold tracking-tight text-foreground mb-2"
+                  style={{ fontFamily: getEventFontFamily(eventFontFamily) }}
+                >
+                  {eventName}
+                </h1>
                 {eventDescription && (
                   <p className="text-muted-foreground text-base md:text-lg max-w-xl mx-auto mb-2 whitespace-pre-line">{eventDescription}</p>
                 )}
@@ -545,7 +553,12 @@ const Camera = () => {
               </div>
               
               <div className="relative -mt-20 px-6 pb-6 text-center">
-                <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground mb-2">{eventName}</h1>
+                <h1 
+                  className="text-3xl md:text-4xl font-bold tracking-tight text-foreground mb-2"
+                  style={{ fontFamily: getEventFontFamily(eventFontFamily) }}
+                >
+                  {eventName}
+                </h1>
                 {eventDescription && (
                   <p className="text-muted-foreground text-base md:text-lg max-w-xl mx-auto mb-2 whitespace-pre-line">{eventDescription}</p>
                 )}
@@ -600,7 +613,12 @@ const Camera = () => {
         ) : (
           <>
             <header className="fixed top-0 left-0 right-0 z-50 p-4 flex justify-between items-center bg-card border-b border-border">
-              <h1 className="text-xl font-bold text-foreground">{eventName}</h1>
+              <h1 
+                className="text-xl font-bold text-foreground"
+                style={{ fontFamily: getEventFontFamily(eventFontFamily) }}
+              >
+                {eventName}
+              </h1>
               <Button
                 variant="ghost"
                 size="icon"
@@ -724,7 +742,12 @@ const Camera = () => {
             </div>
             
             <div className="relative -mt-20 px-6 pb-6 text-center">
-              <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground mb-2">{eventName}</h1>
+              <h1 
+                className="text-3xl md:text-4xl font-bold tracking-tight text-foreground mb-2"
+                style={{ fontFamily: getEventFontFamily(eventFontFamily) }}
+              >
+                {eventName}
+              </h1>
               {eventDescription && (
                 <p className="text-muted-foreground text-base md:text-lg max-w-xl mx-auto mb-2 whitespace-pre-line">{eventDescription}</p>
               )}
@@ -774,7 +797,12 @@ const Camera = () => {
         <>
           <header className="fixed top-0 left-0 right-0 z-50 p-4 flex justify-between items-center bg-card border-b border-border">
             <div>
-              <h1 className="text-xl font-bold text-foreground">{eventName}</h1>
+              <h1 
+                className="text-xl font-bold text-foreground"
+                style={{ fontFamily: getEventFontFamily(eventFontFamily) }}
+              >
+                {eventName}
+              </h1>
               <p className="text-sm text-muted-foreground flex items-center gap-1">
                 <Image className="w-4 h-4" />
                 {photosUploadedText}

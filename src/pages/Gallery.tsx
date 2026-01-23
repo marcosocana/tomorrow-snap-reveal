@@ -24,6 +24,7 @@ import heartFilled from "@/assets/heart-filled.svg";
 import ShareDialog from "@/components/ShareDialog";
 import { FilterType, getFilterClass, getGrainClass, applyFilterToCanvas } from "@/lib/photoFilters";
 import { getTranslations, getEventLanguage, getEventTimezone, getLocalDateInTimezone, Language } from "@/lib/translations";
+import { EventFontFamily, getEventFontFamily } from "@/lib/eventFonts";
 
 interface Photo {
   id: string;
@@ -69,6 +70,7 @@ const Gallery = () => {
   const [loadingStories, setLoadingStories] = useState(false);
   const [isExpired, setIsExpired] = useState(false);
   const [expiryRedirectUrl, setExpiryRedirectUrl] = useState<string | null>(null);
+  const [eventFontFamily, setEventFontFamily] = useState<EventFontFamily>("system");
 
   // Get translations and timezone
   const language = getEventLanguage();
@@ -171,7 +173,7 @@ const Gallery = () => {
     const loadEventData = async () => {
       const { data } = await supabase
         .from("events")
-        .select("password_hash, filter_type, custom_image_url, description, background_image_url, expiry_date, expiry_redirect_url")
+        .select("password_hash, filter_type, custom_image_url, description, background_image_url, expiry_date, expiry_redirect_url, font_family")
         .eq("id", eventId)
         .maybeSingle();
       if (data) {
@@ -180,6 +182,7 @@ const Gallery = () => {
         setEventCustomImage(data.custom_image_url);
         setEventDescription(data.description);
         setEventBackgroundImage(data.background_image_url);
+        setEventFontFamily(((data as any).font_family as EventFontFamily) || "system");
         
         // Check if event is expired
         if (data.expiry_date) {
@@ -558,7 +561,12 @@ const Gallery = () => {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
         <div className="flex-1 flex flex-col items-center justify-center max-w-md w-full text-center space-y-6">
-          <h1 className="text-2xl font-bold text-foreground">{eventName}</h1>
+          <h1 
+            className="text-2xl font-bold text-foreground"
+            style={{ fontFamily: getEventFontFamily(eventFontFamily) }}
+          >
+            {eventName}
+          </h1>
           <p className="text-lg text-muted-foreground">{expiredTitleText}</p>
           {expiryRedirectUrl && (
             <Button 
@@ -639,7 +647,12 @@ const Gallery = () => {
           
           {/* Event Info - Overlapping the gradient */}
           <div className="relative -mt-20 px-6 pb-0 text-center">
-            <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground mb-2">{eventName}</h1>
+            <h1 
+              className="text-3xl md:text-4xl font-bold tracking-tight text-foreground mb-2"
+              style={{ fontFamily: getEventFontFamily(eventFontFamily) }}
+            >
+              {eventName}
+            </h1>
             {eventDescription && (
               <p className="text-muted-foreground text-base md:text-lg max-w-xl mx-auto mb-2 whitespace-pre-line">{eventDescription}</p>
             )}
@@ -662,7 +675,12 @@ const Gallery = () => {
         <header className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-card">
           <div className="max-w-7xl mx-auto px-6 py-8 flex justify-between items-center">
             <div className="flex-1">
-              <h1 className="text-3xl font-bold tracking-tight text-foreground">{eventName}</h1>
+              <h1 
+                className="text-3xl font-bold tracking-tight text-foreground"
+                style={{ fontFamily: getEventFontFamily(eventFontFamily) }}
+              >
+                {eventName}
+              </h1>
               {eventDescription && (
                 <p className="text-muted-foreground text-sm mt-1 max-w-md whitespace-pre-line">{eventDescription}</p>
               )}
@@ -933,6 +951,7 @@ const Gallery = () => {
           backgroundImage={eventBackgroundImage}
           totalPhotos={totalPhotos}
           filterType={filterType}
+          fontFamily={eventFontFamily}
           language={language}
           onClose={() => setShowStories(false)}
           onLikePhoto={handleLikePhoto}
