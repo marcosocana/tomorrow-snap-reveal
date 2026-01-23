@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Globe, Trash2 } from "lucide-react";
 import { format } from "date-fns";
@@ -84,6 +85,8 @@ const EventForm = () => {
     expiryDate: "",
     expiryTime: "23:59",
     expiryRedirectUrl: "",
+    allowPhotoDeletion: true,
+    showLegalText: false,
   });
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -158,6 +161,8 @@ const EventForm = () => {
         expiryDate: expiryDate ? format(expiryDate, "yyyy-MM-dd") : "",
         expiryTime: expiryDate ? format(expiryDate, "HH:mm") : "23:59",
         expiryRedirectUrl: event.expiry_redirect_url || "",
+        allowPhotoDeletion: (event as any).allow_photo_deletion !== false,
+        showLegalText: (event as any).show_legal_text === true,
       });
     } catch (error) {
       console.error("Error loading event:", error);
@@ -255,6 +260,8 @@ const EventForm = () => {
             description: formData.description || null,
             expiry_date: expiryDateTime,
             expiry_redirect_url: formData.expiryRedirectUrl || null,
+            allow_photo_deletion: formData.allowPhotoDeletion,
+            show_legal_text: formData.showLegalText,
           } as any)
           .eq("id", eventId);
 
@@ -285,6 +292,8 @@ const EventForm = () => {
           description: formData.description || null,
           expiry_date: expiryDateTime,
           expiry_redirect_url: formData.expiryRedirectUrl || null,
+          allow_photo_deletion: formData.allowPhotoDeletion,
+          show_legal_text: formData.showLegalText,
         } as any);
 
         if (error) throw error;
@@ -834,6 +843,42 @@ const EventForm = () => {
                     placeholder="https://..."
                   />
                 </div>
+              </div>
+            </div>
+
+            <div className="space-y-4 border-t border-border pt-4">
+              <Label className="text-base font-semibold">Opciones adicionales</Label>
+              
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="allowPhotoDeletion">Posibilidad de eliminar fotos</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Si está activado, los usuarios podrán eliminar fotos desde la galería
+                  </p>
+                </div>
+                <Switch
+                  id="allowPhotoDeletion"
+                  checked={formData.allowPhotoDeletion}
+                  onCheckedChange={(checked) =>
+                    setFormData({ ...formData, allowPhotoDeletion: checked })
+                  }
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="showLegalText">Añadir texto legal</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Mostrará texto de aceptación de Términos y Política de Privacidad en la pantalla de hacer foto
+                  </p>
+                </div>
+                <Switch
+                  id="showLegalText"
+                  checked={formData.showLegalText}
+                  onCheckedChange={(checked) =>
+                    setFormData({ ...formData, showLegalText: checked })
+                  }
+                />
               </div>
             </div>
 

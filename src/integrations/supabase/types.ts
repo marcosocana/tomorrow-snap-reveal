@@ -17,6 +17,7 @@ export type Database = {
       events: {
         Row: {
           admin_password: string | null
+          allow_photo_deletion: boolean
           background_image_url: string | null
           country_code: string
           created_at: string
@@ -34,12 +35,14 @@ export type Database = {
           name: string
           password_hash: string
           reveal_time: string
+          show_legal_text: boolean
           timezone: string
           upload_end_time: string | null
           upload_start_time: string | null
         }
         Insert: {
           admin_password?: string | null
+          allow_photo_deletion?: boolean
           background_image_url?: string | null
           country_code?: string
           created_at?: string
@@ -57,12 +60,14 @@ export type Database = {
           name: string
           password_hash: string
           reveal_time: string
+          show_legal_text?: boolean
           timezone?: string
           upload_end_time?: string | null
           upload_start_time?: string | null
         }
         Update: {
           admin_password?: string | null
+          allow_photo_deletion?: boolean
           background_image_url?: string | null
           country_code?: string
           created_at?: string
@@ -80,6 +85,7 @@ export type Database = {
           name?: string
           password_hash?: string
           reveal_time?: string
+          show_legal_text?: boolean
           timezone?: string
           upload_end_time?: string | null
           upload_start_time?: string | null
