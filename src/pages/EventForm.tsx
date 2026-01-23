@@ -12,7 +12,9 @@ import { format } from "date-fns";
 import { toZonedTime, fromZonedTime, formatInTimeZone } from "date-fns-tz";
 import CountrySelect from "@/components/CountrySelect";
 import LanguageSelect from "@/components/LanguageSelect";
+import FontSelect from "@/components/FontSelect";
 import { Language } from "@/lib/translations";
+import { EventFontFamily } from "@/lib/eventFonts";
 import { FilterType, FILTER_LABELS, FILTER_ORDER } from "@/lib/photoFilters";
 
 // Background image dimensions - responsive sizes
@@ -71,6 +73,7 @@ const EventForm = () => {
     backgroundImage: null as File | null,
     backgroundImageUrl: "",
     filterType: "none" as FilterType,
+    fontFamily: "system" as EventFontFamily,
     countryCode: "ES",
     timezone: "Europe/Madrid",
     language: "es",
@@ -143,6 +146,7 @@ const EventForm = () => {
         backgroundImage: null,
         backgroundImageUrl: event.background_image_url || "",
         filterType: event.filter_type || "vintage",
+        fontFamily: (event as any).font_family || "system",
         countryCode: event.country_code || "ES",
         timezone: event.timezone || "Europe/Madrid",
         language: event.language || "es",
@@ -239,13 +243,14 @@ const EventForm = () => {
             custom_image_url: customImageUrl,
             background_image_url: backgroundImageUrl,
             filter_type: formData.filterType,
+            font_family: formData.fontFamily,
             country_code: formData.countryCode,
             timezone: formData.timezone,
             language: formData.language,
             description: formData.description || null,
             expiry_date: expiryDateTime,
             expiry_redirect_url: formData.expiryRedirectUrl || null,
-          })
+          } as any)
           .eq("id", eventId);
 
         if (error) throw error;
@@ -266,6 +271,7 @@ const EventForm = () => {
           custom_image_url: customImageUrl,
           background_image_url: backgroundImageUrl,
           filter_type: formData.filterType,
+          font_family: formData.fontFamily,
           is_demo: isDemoMode,
           country_code: formData.countryCode,
           timezone: formData.timezone,
@@ -273,7 +279,7 @@ const EventForm = () => {
           description: formData.description || null,
           expiry_date: expiryDateTime,
           expiry_redirect_url: formData.expiryRedirectUrl || null,
-        });
+        } as any);
 
         if (error) throw error;
 
@@ -363,6 +369,20 @@ const EventForm = () => {
                 }
                 required
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Tipografía del nombre</Label>
+              <FontSelect
+                value={formData.fontFamily}
+                onChange={(fontFamily) =>
+                  setFormData({ ...formData, fontFamily })
+                }
+                previewText={formData.name || "Nombre del evento"}
+              />
+              <p className="text-xs text-muted-foreground">
+                La tipografía elegida se mostrará en todas las pantallas del evento
+              </p>
             </div>
 
             <div className="space-y-2">

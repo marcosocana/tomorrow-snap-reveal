@@ -25,6 +25,7 @@ export type Database = {
           expiry_date: string | null
           expiry_redirect_url: string | null
           filter_type: string
+          font_family: string
           id: string
           is_demo: boolean
           language: string
@@ -46,6 +47,7 @@ export type Database = {
           expiry_date?: string | null
           expiry_redirect_url?: string | null
           filter_type?: string
+          font_family?: string
           id?: string
           is_demo?: boolean
           language?: string
@@ -67,6 +69,7 @@ export type Database = {
           expiry_date?: string | null
           expiry_redirect_url?: string | null
           filter_type?: string
+          font_family?: string
           id?: string
           is_demo?: boolean
           language?: string

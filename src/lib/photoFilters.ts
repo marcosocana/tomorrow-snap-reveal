@@ -251,17 +251,35 @@ export const applyFilterToCanvas = async (
       }
       // For 'none', we just return the original image
 
-      canvas.toBlob(
-        (blob) => {
-          if (blob) {
+      // Use intelligent compression: high quality but optimized file size
+      // Start with quality 0.92 and reduce if file is too large
+      const compressAndResolve = (quality: number, attempt: number = 0) => {
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              reject(new Error('Failed to create blob'));
+              return;
+            }
+            
+            // Target max size: 1.5MB for balance between quality and size
+            const maxSizeBytes = 1.5 * 1024 * 1024;
+            
+            // If file is too large and we haven't tried too many times, reduce quality
+            if (blob.size > maxSizeBytes && quality > 0.6 && attempt < 5) {
+              const newQuality = quality - 0.08;
+              compressAndResolve(newQuality, attempt + 1);
+              return;
+            }
+            
             resolve(blob);
-          } else {
-            reject(new Error('Failed to create blob'));
-          }
-        },
-        'image/jpeg',
-        0.95
-      );
+          },
+          'image/jpeg',
+          quality
+        );
+      };
+      
+      // Start compression with high quality
+      compressAndResolve(0.92);
     };
 
     img.onerror = () => {

@@ -3,6 +3,7 @@ import { X } from "lucide-react";
 import heartOutline from "@/assets/heart-outline.svg";
 import heartFilled from "@/assets/heart-filled.svg";
 import { FilterType, getFilterClass, getGrainClass } from "@/lib/photoFilters";
+import { EventFontFamily, getEventFontFamily } from "@/lib/eventFonts";
 
 interface Photo {
   id: string;
@@ -19,6 +20,7 @@ interface StoriesViewerProps {
   backgroundImage: string | null;
   totalPhotos: number;
   filterType: FilterType;
+  fontFamily?: EventFontFamily;
   language: "es" | "en" | "it";
   onClose: () => void;
   onLikePhoto: (photoId: string) => void;
@@ -31,6 +33,7 @@ const StoriesViewer = ({
   backgroundImage,
   totalPhotos,
   filterType,
+  fontFamily = "system",
   language,
   onClose,
   onLikePhoto,
@@ -140,7 +143,10 @@ const StoriesViewer = ({
             
             {/* Event info */}
             <div className="absolute inset-0 flex flex-col items-center justify-end pb-24 px-6 text-center">
-              <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-3">
+              <h1 
+                className="text-4xl md:text-5xl font-bold text-foreground mb-3"
+                style={{ fontFamily: getEventFontFamily(fontFamily) }}
+              >
                 {eventName}
               </h1>
               {eventDescription && (
