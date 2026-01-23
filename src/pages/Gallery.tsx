@@ -53,7 +53,7 @@ const Gallery = () => {
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(0);
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
-  const [showWelcome, setShowWelcome] = useState(false);
+  
   const observerTarget = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -202,38 +202,31 @@ const Gallery = () => {
     // Always scroll to top when gallery loads
     window.scrollTo(0, 0);
 
-    // Check if this is the first visit to gallery for this event
-    const hasSeenWelcome = localStorage.getItem(`gallery-welcome-${eventId}`);
-    if (!hasSeenWelcome) {
-      setShowWelcome(true);
-      localStorage.setItem(`gallery-welcome-${eventId}`, "true");
-      
-      // Trigger confetti
-      const duration = 3000;
-      const end = Date.now() + duration;
+    // Trigger confetti every time gallery loads
+    const duration = 3000;
+    const end = Date.now() + duration;
 
-      const frame = () => {
-        confetti({
-          particleCount: 3,
-          angle: 60,
-          spread: 55,
-          origin: { x: 0 },
-          colors: ['#f5e6d3', '#d4a574', '#8b4513']
-        });
-        confetti({
-          particleCount: 3,
-          angle: 120,
-          spread: 55,
-          origin: { x: 1 },
-          colors: ['#f5e6d3', '#d4a574', '#8b4513']
-        });
+    const frame = () => {
+      confetti({
+        particleCount: 3,
+        angle: 60,
+        spread: 55,
+        origin: { x: 0 },
+        colors: ['#f5e6d3', '#d4a574', '#8b4513']
+      });
+      confetti({
+        particleCount: 3,
+        angle: 120,
+        spread: 55,
+        origin: { x: 1 },
+        colors: ['#f5e6d3', '#d4a574', '#8b4513']
+      });
 
-        if (Date.now() < end) {
-          requestAnimationFrame(frame);
-        }
-      };
-      frame();
-    }
+      if (Date.now() < end) {
+        requestAnimationFrame(frame);
+      }
+    };
+    frame();
 
     loadPhotos(0);
   }, [eventId, navigate, loadPhotos]);
