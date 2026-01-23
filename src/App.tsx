@@ -13,6 +13,8 @@ import BulkUpload from "./pages/BulkUpload";
 import EventAccess from "./pages/EventAccess";
 import AdminLogin from "./pages/AdminLogin";
 import NotFound from "./pages/NotFound";
+import TermsAndConditions from "./pages/TermsAndConditions";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
 
 const queryClient = new QueryClient();
 
@@ -34,6 +36,8 @@ const App = () => (
           <Route path="/bulk-upload" element={<BulkUpload />} />
           <Route path="/event/:password" element={<EventAccess />} />
           <Route path="/events/:password" element={<EventAccess />} />
+          <Route path="/terms" element={<TermsAndConditions />} />
+          <Route path="/privacy" element={<PrivacyPolicy />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

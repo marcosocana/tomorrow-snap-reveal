@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { LogOut, Image, Share2 } from "lucide-react";
+import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { es, enUS, it } from "date-fns/locale";
 import cameraIcon from "@/assets/camera.png";
@@ -38,6 +39,7 @@ const Camera = () => {
   const [eventDescription, setEventDescription] = useState<string>("");
   const [eventFontFamily, setEventFontFamily] = useState<EventFontFamily>("system");
   const [eventFontSize, setEventFontSize] = useState<string>("text-3xl");
+  const [showLegalText, setShowLegalText] = useState<boolean>(false);
   const [countdown, setCountdown] = useState<string>("");
   const [revealCountdown, setRevealCountdown] = useState<string>("");
   const [startCountdown, setStartCountdown] = useState<string>("");
@@ -119,7 +121,7 @@ const Camera = () => {
     if (!eventId) return;
     const { data, error } = await supabase
       .from("events")
-      .select("reveal_time, upload_start_time, upload_end_time, password_hash, max_photos, custom_image_url, background_image_url, description, font_family, font_size")
+      .select("reveal_time, upload_start_time, upload_end_time, password_hash, max_photos, custom_image_url, background_image_url, description, font_family, font_size, show_legal_text")
       .eq("id", eventId)
       .single();
     if (data && !error) {
@@ -132,6 +134,7 @@ const Camera = () => {
       setEventDescription(data.description || "");
       setEventFontFamily(((data as any).font_family as EventFontFamily) || "system");
       setEventFontSize((data as any).font_size || "text-3xl");
+      setShowLegalText((data as any).show_legal_text === true);
       
       // Check if max photos limit reached
       if (data.max_photos) {
@@ -785,12 +788,29 @@ const Camera = () => {
             
             {/* Custom image at bottom - only if set */}
             {customImageUrl && (
-              <div className="flex-1 flex items-end justify-center pt-6">
+              <div className="flex items-end justify-center pt-6">
                 <img
                   src={customImageUrl}
                   alt="Imagen personalizada"
                   className="max-w-[240px] max-h-[100px] object-contain"
                 />
+              </div>
+            )}
+            
+            {/* Legal text - only if enabled */}
+            {showLegalText && (
+              <div className="flex-1 flex items-end justify-center pt-4 pb-2">
+                <p className="text-xs text-muted-foreground text-center max-w-sm">
+                  Al hacer la foto aceptas los{" "}
+                  <Link to="/terms" className="underline hover:text-foreground">
+                    Términos y Condiciones
+                  </Link>{" "}
+                  y la{" "}
+                  <Link to="/privacy" className="underline hover:text-foreground">
+                    Política de Privacidad
+                  </Link>
+                  .
+                </p>
               </div>
             )}
           </div>
@@ -866,12 +886,29 @@ const Camera = () => {
             
             {/* Custom image at bottom - only if set */}
             {customImageUrl && (
-              <div className="flex-1 flex items-end justify-center pt-6">
+              <div className="flex items-end justify-center pt-6">
                 <img
                   src={customImageUrl}
                   alt="Imagen personalizada"
                   className="max-w-[240px] max-h-[100px] object-contain"
                 />
+              </div>
+            )}
+            
+            {/* Legal text - only if enabled */}
+            {showLegalText && (
+              <div className="flex-1 flex items-end justify-center pt-4 pb-2">
+                <p className="text-xs text-muted-foreground text-center max-w-sm">
+                  Al hacer la foto aceptas los{" "}
+                  <Link to="/terms" className="underline hover:text-foreground">
+                    Términos y Condiciones
+                  </Link>{" "}
+                  y la{" "}
+                  <Link to="/privacy" className="underline hover:text-foreground">
+                    Política de Privacidad
+                  </Link>
+                  .
+                </p>
               </div>
             )}
           </div>

@@ -72,6 +72,7 @@ const Gallery = () => {
   const [expiryRedirectUrl, setExpiryRedirectUrl] = useState<string | null>(null);
   const [eventFontFamily, setEventFontFamily] = useState<EventFontFamily>("system");
   const [eventFontSize, setEventFontSize] = useState<string>("text-3xl");
+  const [allowPhotoDeletion, setAllowPhotoDeletion] = useState<boolean>(true);
 
   // Get translations and timezone
   const language = getEventLanguage();
@@ -174,7 +175,7 @@ const Gallery = () => {
     const loadEventData = async () => {
       const { data } = await supabase
         .from("events")
-        .select("password_hash, filter_type, custom_image_url, description, background_image_url, expiry_date, expiry_redirect_url, font_family, font_size")
+        .select("password_hash, filter_type, custom_image_url, description, background_image_url, expiry_date, expiry_redirect_url, font_family, font_size, allow_photo_deletion")
         .eq("id", eventId)
         .maybeSingle();
       if (data) {
@@ -185,6 +186,7 @@ const Gallery = () => {
         setEventBackgroundImage(data.background_image_url);
         setEventFontFamily(((data as any).font_family as EventFontFamily) || "system");
         setEventFontSize((data as any).font_size || "text-3xl");
+        setAllowPhotoDeletion((data as any).allow_photo_deletion !== false);
         
         // Check if event is expired
         if (data.expiry_date) {
@@ -921,15 +923,17 @@ const Gallery = () => {
                       {downloadText}
                     </Button>
                   )}
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => handleDeletePhoto(selectedPhoto.id, selectedPhoto.image_url)}
-                    className="uppercase tracking-wide flex-1"
-                  >
-                    <Trash2 className="w-4 h-4 mr-2" />
-                    {deleteText}
-                  </Button>
+                  {allowPhotoDeletion && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => handleDeletePhoto(selectedPhoto.id, selectedPhoto.image_url)}
+                      className="uppercase tracking-wide flex-1"
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      {deleteText}
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>
