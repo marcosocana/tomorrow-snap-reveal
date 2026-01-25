@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      event_folders: {
+        Row: {
+          background_image_url: string | null
+          created_at: string
+          custom_image_url: string | null
+          font_family: string | null
+          font_size: string | null
+          id: string
+          is_demo: boolean
+          name: string
+        }
+        Insert: {
+          background_image_url?: string | null
+          created_at?: string
+          custom_image_url?: string | null
+          font_family?: string | null
+          font_size?: string | null
+          id?: string
+          is_demo?: boolean
+          name: string
+        }
+        Update: {
+          background_image_url?: string | null
+          created_at?: string
+          custom_image_url?: string | null
+          font_family?: string | null
+          font_size?: string | null
+          id?: string
+          is_demo?: boolean
+          name?: string
+        }
+        Relationships: []
+      }
       events: {
         Row: {
           admin_password: string | null
@@ -26,6 +59,7 @@ export type Database = {
           expiry_date: string | null
           expiry_redirect_url: string | null
           filter_type: string
+          folder_id: string | null
           font_family: string
           font_size: string
           id: string
@@ -51,6 +85,7 @@ export type Database = {
           expiry_date?: string | null
           expiry_redirect_url?: string | null
           filter_type?: string
+          folder_id?: string | null
           font_family?: string
           font_size?: string
           id?: string
@@ -76,6 +111,7 @@ export type Database = {
           expiry_date?: string | null
           expiry_redirect_url?: string | null
           filter_type?: string
+          folder_id?: string | null
           font_family?: string
           font_size?: string
           id?: string
@@ -90,7 +126,15 @@ export type Database = {
           upload_end_time?: string | null
           upload_start_time?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "events_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "event_folders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       photo_likes: {
         Row: {
