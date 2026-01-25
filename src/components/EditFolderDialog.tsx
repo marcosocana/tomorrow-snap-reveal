@@ -98,7 +98,8 @@ const EditFolderDialog = ({
 
     setIsLoading(true);
     try {
-      const { error } = await supabase
+      // Update folder configuration
+      const { error: folderError } = await supabase
         .from("event_folders")
         .update({
           name: name.trim(),
@@ -109,11 +110,37 @@ const EditFolderDialog = ({
         })
         .eq("id", folder.id);
 
-      if (error) throw error;
+      if (folderError) throw folderError;
+
+      // Build update object for events - only include fields that have values
+      const eventUpdate: Record<string, string | null> = {};
+      
+      if (customImageUrl) {
+        eventUpdate.custom_image_url = customImageUrl;
+      }
+      if (backgroundImageUrl) {
+        eventUpdate.background_image_url = backgroundImageUrl;
+      }
+      if (fontFamily) {
+        eventUpdate.font_family = fontFamily;
+      }
+      if (fontSize) {
+        eventUpdate.font_size = fontSize;
+      }
+
+      // Update all events in this folder with the folder's configuration
+      if (Object.keys(eventUpdate).length > 0) {
+        const { error: eventsError } = await supabase
+          .from("events")
+          .update(eventUpdate)
+          .eq("folder_id", folder.id);
+
+        if (eventsError) throw eventsError;
+      }
 
       toast({
         title: "Carpeta actualizada",
-        description: "La configuración se ha guardado correctamente",
+        description: "La configuración se ha aplicado a todos los eventos de la carpeta",
       });
 
       onOpenChange(false);
