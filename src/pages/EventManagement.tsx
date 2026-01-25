@@ -25,6 +25,7 @@ import GalleryPreviewModal from "@/components/GalleryPreviewModal";
 import FolderCard, { EventFolder } from "@/components/FolderCard";
 import MoveEventDialog from "@/components/MoveEventDialog";
 import DuplicateEventDialog from "@/components/DuplicateEventDialog";
+import DuplicateFolderDialog from "@/components/DuplicateFolderDialog";
 import CreateFolderDialog from "@/components/CreateFolderDialog";
 
 interface Event {
@@ -65,7 +66,9 @@ const EventManagement = () => {
   const [createFolderOpen, setCreateFolderOpen] = useState(false);
   const [moveEventDialogOpen, setMoveEventDialogOpen] = useState(false);
   const [duplicateEventDialogOpen, setDuplicateEventDialogOpen] = useState(false);
+  const [duplicateFolderDialogOpen, setDuplicateFolderDialogOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [selectedFolder, setSelectedFolder] = useState<EventFolder | null>(null);
 
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -227,7 +230,7 @@ const EventManagement = () => {
     return `${baseWithoutNumber}_${maxNumber + 1}`;
   };
 
-  const handleDuplicateEvent = async (folderId: string | null) => {
+  const handleDuplicateEvent = async (folderId: string | null, includePhotos: boolean) => {
     if (!selectedEvent) return;
 
     try {
@@ -244,17 +247,34 @@ const EventManagement = () => {
       // Remove id and created_at, update password and folder
       const { id, created_at, ...eventCopy } = eventData as any;
       
-      const { error: insertError } = await supabase.from("events").insert({
+      const { data: newEvent, error: insertError } = await supabase.from("events").insert({
         ...eventCopy,
         password_hash: newPassword,
         folder_id: folderId,
-      });
+      }).select().single();
 
       if (insertError) throw insertError;
 
+      // Duplicate photos if requested
+      if (includePhotos && newEvent) {
+        const { data: photos, error: photosError } = await supabase
+          .from("photos")
+          .select("*")
+          .eq("event_id", selectedEvent.id);
+
+        if (!photosError && photos && photos.length > 0) {
+          const newPhotos = photos.map(({ id, event_id, ...photo }) => ({
+            ...photo,
+            event_id: newEvent.id,
+          }));
+
+          await supabase.from("photos").insert(newPhotos);
+        }
+      }
+
       toast({
         title: "Evento duplicado",
-        description: `Se ha creado una copia con contraseña: ${newPassword}`,
+        description: `Se ha creado una copia con contraseña: ${newPassword}${includePhotos ? " (con fotos)" : ""}`,
       });
       loadData();
     } catch (error) {
@@ -265,6 +285,87 @@ const EventManagement = () => {
         variant: "destructive",
       });
     }
+  };
+
+  const handleDuplicateFolder = async (newName: string, includePhotos: boolean) => {
+    if (!selectedFolder) return;
+
+    try {
+      // Get events in folder
+      const folderEvents = events.filter((e) => e.folder_id === selectedFolder.id);
+
+      // Create new folder
+      const { data: newFolder, error: folderError } = await supabase
+        .from("event_folders")
+        .insert({
+          name: newName,
+          is_demo: isDemoMode,
+          custom_image_url: selectedFolder.custom_image_url,
+          background_image_url: selectedFolder.background_image_url,
+          font_family: selectedFolder.font_family,
+          font_size: selectedFolder.font_size,
+        })
+        .select()
+        .single();
+
+      if (folderError) throw folderError;
+
+      // Duplicate each event in the folder
+      for (const event of folderEvents) {
+        const newPassword = await generateSequentialPassword(event.password_hash);
+        const { id, created_at, folder_id, ...eventCopy } = event as any;
+
+        const { data: newEvent, error: eventError } = await supabase
+          .from("events")
+          .insert({
+            ...eventCopy,
+            password_hash: newPassword,
+            folder_id: newFolder.id,
+          })
+          .select()
+          .single();
+
+        if (eventError) {
+          console.error("Error duplicating event:", eventError);
+          continue;
+        }
+
+        // Duplicate photos if requested
+        if (includePhotos && newEvent) {
+          const { data: photos, error: photosError } = await supabase
+            .from("photos")
+            .select("*")
+            .eq("event_id", event.id);
+
+          if (!photosError && photos && photos.length > 0) {
+            const newPhotos = photos.map(({ id, event_id, ...photo }) => ({
+              ...photo,
+              event_id: newEvent.id,
+            }));
+
+            await supabase.from("photos").insert(newPhotos);
+          }
+        }
+      }
+
+      toast({
+        title: "Carpeta duplicada",
+        description: `Se ha creado "${newName}" con ${folderEvents.length} evento(s)${includePhotos ? " y sus fotos" : ""}`,
+      });
+      loadData();
+    } catch (error) {
+      console.error("Error duplicating folder:", error);
+      toast({
+        title: "Error",
+        description: "No se pudo duplicar la carpeta",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const getFolderPhotoCount = (folderId: string): number => {
+    const folderEvents = events.filter((e) => e.folder_id === folderId);
+    return folderEvents.reduce((sum, e) => sum + (eventPhotoCounts[e.id] || 0), 0);
   };
 
   const handleToggleReveal = async (event: Event, isRevealed: boolean) => {
@@ -863,6 +964,10 @@ Para cualquier duda o ayuda adicional, estamos a vuestra disposición.
                 onToggle={() => toggleFolder(folder.id)}
                 onDelete={loadData}
                 onUpdate={loadData}
+                onDuplicate={() => {
+                  setSelectedFolder(folder);
+                  setDuplicateFolderDialogOpen(true);
+                }}
                 eventCount={eventsByFolder[folder.id]?.length || 0}
               >
                 {eventsByFolder[folder.id]?.length > 0 ? (
@@ -932,8 +1037,21 @@ Para cualquier duda o ayuda adicional, estamos a vuestra disposición.
         folders={folders}
         eventName={selectedEvent?.name || ""}
         eventPassword={selectedEvent?.password_hash || ""}
+        photoCount={selectedEvent ? (eventPhotoCounts[selectedEvent.id] || 0) : 0}
         onDuplicate={handleDuplicateEvent}
       />
+
+      {/* Duplicate Folder Dialog */}
+      {selectedFolder && (
+        <DuplicateFolderDialog
+          open={duplicateFolderDialogOpen}
+          onOpenChange={setDuplicateFolderDialogOpen}
+          folder={selectedFolder}
+          eventCount={eventsByFolder[selectedFolder.id]?.length || 0}
+          totalPhotoCount={getFolderPhotoCount(selectedFolder.id)}
+          onDuplicate={handleDuplicateFolder}
+        />
+      )}
     </div>
   );
 };
