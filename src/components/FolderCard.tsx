@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Folder, ChevronDown, ChevronRight, Edit, Trash2, Check, X, Image, Settings } from "lucide-react";
+import { Folder, ChevronDown, ChevronRight, Edit, Trash2, Check, X, Image, Settings, CopyPlus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import EditFolderDialog from "./EditFolderDialog";
@@ -24,6 +24,7 @@ interface FolderCardProps {
   onToggle: () => void;
   onDelete: () => void;
   onUpdate: () => void;
+  onDuplicate: () => void;
   eventCount: number;
   children: React.ReactNode;
 }
@@ -34,6 +35,7 @@ const FolderCard = ({
   onToggle,
   onDelete,
   onUpdate,
+  onDuplicate,
   eventCount,
   children,
 }: FolderCardProps) => {
@@ -170,6 +172,15 @@ const FolderCard = ({
               title="Editar configuración"
             >
               <Settings className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={onDuplicate}
+              title="Duplicar carpeta"
+            >
+              <CopyPlus className="h-4 w-4" />
             </Button>
             <Button
               variant="ghost"

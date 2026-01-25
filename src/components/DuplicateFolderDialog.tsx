@@ -9,36 +9,37 @@ import {
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Folder, Home, Loader2, ImageIcon } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Loader2, ImageIcon, FolderOpen } from "lucide-react";
 import { EventFolder } from "./FolderCard";
 
-interface DuplicateEventDialogProps {
+interface DuplicateFolderDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  folders: EventFolder[];
-  eventName: string;
-  eventPassword: string;
-  photoCount?: number;
-  onDuplicate: (folderId: string | null, includePhotos: boolean) => Promise<void>;
+  folder: EventFolder;
+  eventCount: number;
+  totalPhotoCount: number;
+  onDuplicate: (newName: string, includePhotos: boolean) => Promise<void>;
 }
 
-const DuplicateEventDialog = ({
+const DuplicateFolderDialog = ({
   open,
   onOpenChange,
-  folders,
-  eventName,
-  eventPassword,
-  photoCount = 0,
+  folder,
+  eventCount,
+  totalPhotoCount,
   onDuplicate,
-}: DuplicateEventDialogProps) => {
-  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+}: DuplicateFolderDialogProps) => {
+  const [newName, setNewName] = useState(`${folder.name} (copia)`);
   const [includePhotos, setIncludePhotos] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleDuplicate = async () => {
+    if (!newName.trim()) return;
+    
     setIsLoading(true);
     try {
-      await onDuplicate(selectedFolderId, includePhotos);
+      await onDuplicate(newName.trim(), includePhotos);
       onOpenChange(false);
       setIncludePhotos(false);
     } finally {
@@ -50,16 +51,30 @@ const DuplicateEventDialog = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Duplicar evento</DialogTitle>
+          <DialogTitle>Duplicar carpeta</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Se creará una copia del evento <strong>{eventName}</strong> con una contraseña diferente.
+            Se creará una copia de la carpeta <strong>{folder.name}</strong> con todos sus eventos ({eventCount}).
           </p>
 
+          {/* Folder name input */}
+          <div className="space-y-2">
+            <Label htmlFor="folder-name" className="flex items-center gap-2">
+              <FolderOpen className="h-4 w-4" />
+              Nombre de la nueva carpeta
+            </Label>
+            <Input
+              id="folder-name"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="Nombre de la carpeta"
+            />
+          </div>
+
           {/* Photos option */}
-          {photoCount > 0 && (
+          {totalPhotoCount > 0 && (
             <div className="flex items-center justify-between rounded-lg border p-4">
               <div className="space-y-0.5">
                 <Label htmlFor="include-photos" className="flex items-center gap-2">
@@ -67,7 +82,7 @@ const DuplicateEventDialog = ({
                   Duplicar fotos
                 </Label>
                 <p className="text-sm text-muted-foreground">
-                  Incluir las {photoCount} fotos del evento original
+                  Incluir las {totalPhotoCount} fotos de los eventos
                 </p>
               </div>
               <Switch
@@ -78,31 +93,15 @@ const DuplicateEventDialog = ({
             </div>
           )}
 
-          <div className="space-y-2">
-            <p className="text-sm font-medium">¿Dónde quieres colocar el duplicado?</p>
-            
-            <div className="space-y-2 max-h-[200px] overflow-y-auto">
-              <Button
-                variant={selectedFolderId === null ? "secondary" : "ghost"}
-                className="w-full justify-start gap-2"
-                onClick={() => setSelectedFolderId(null)}
-              >
-                <Home className="h-4 w-4" />
-                Listado general
-              </Button>
-
-              {folders.map((folder) => (
-                <Button
-                  key={folder.id}
-                  variant={selectedFolderId === folder.id ? "secondary" : "ghost"}
-                  className="w-full justify-start gap-2"
-                  onClick={() => setSelectedFolderId(folder.id)}
-                >
-                  <Folder className="h-4 w-4" />
-                  {folder.name}
-                </Button>
-              ))}
-            </div>
+          <div className="rounded-lg bg-muted p-3 text-sm text-muted-foreground">
+            <p>Se duplicarán:</p>
+            <ul className="list-disc list-inside mt-1 space-y-1">
+              <li>Configuración visual de la carpeta</li>
+              <li>{eventCount} evento{eventCount !== 1 ? "s" : ""} con nuevas contraseñas</li>
+              {includePhotos && totalPhotoCount > 0 && (
+                <li>{totalPhotoCount} foto{totalPhotoCount !== 1 ? "s" : ""}</li>
+              )}
+            </ul>
           </div>
         </div>
 
@@ -114,14 +113,14 @@ const DuplicateEventDialog = ({
           >
             Cancelar
           </Button>
-          <Button onClick={handleDuplicate} disabled={isLoading}>
+          <Button onClick={handleDuplicate} disabled={isLoading || !newName.trim()}>
             {isLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Duplicando...
               </>
             ) : (
-              "Duplicar"
+              "Duplicar carpeta"
             )}
           </Button>
         </DialogFooter>
@@ -130,4 +129,4 @@ const DuplicateEventDialog = ({
   );
 };
 
-export default DuplicateEventDialog;
+export default DuplicateFolderDialog;
