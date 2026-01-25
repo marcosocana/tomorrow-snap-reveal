@@ -133,10 +133,28 @@ export async function exportFolderToPdf(
         const maxImageWidth = 60;
         const maxImageHeight = 30;
 
+        // Create an image to get natural dimensions
+        const img = new Image();
+        await new Promise<void>((resolve, reject) => {
+          img.onload = () => resolve();
+          img.onerror = reject;
+          img.src = imageBase64;
+        });
+
+        // Calculate scaled dimensions maintaining aspect ratio
+        const aspectRatio = img.naturalWidth / img.naturalHeight;
+        let imgWidth = maxImageWidth;
+        let imgHeight = imgWidth / aspectRatio;
+
+        if (imgHeight > maxImageHeight) {
+          imgHeight = maxImageHeight;
+          imgWidth = imgHeight * aspectRatio;
+        }
+
         // Add image centered
-        const imgX = (pageWidth - maxImageWidth) / 2;
-        pdf.addImage(imageBase64, "AUTO", imgX, yPosition, maxImageWidth, maxImageHeight);
-        yPosition += maxImageHeight + 10;
+        const imgX = (pageWidth - imgWidth) / 2;
+        pdf.addImage(imageBase64, "AUTO", imgX, yPosition, imgWidth, imgHeight);
+        yPosition += imgHeight + 10;
       } catch (error) {
         console.error("Error adding folder image:", error);
       }
