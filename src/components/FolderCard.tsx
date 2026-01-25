@@ -2,9 +2,10 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Folder, ChevronDown, ChevronRight, Edit, Trash2, Check, X, Image } from "lucide-react";
+import { Folder, ChevronDown, ChevronRight, Edit, Trash2, Check, X, Image, Settings } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import EditFolderDialog from "./EditFolderDialog";
 
 export interface EventFolder {
   id: string;
@@ -38,6 +39,7 @@ const FolderCard = ({
 }: FolderCardProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(folder.name);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const { toast } = useToast();
 
   const handleSave = async () => {
@@ -164,6 +166,15 @@ const FolderCard = ({
               variant="ghost"
               size="icon"
               className="h-8 w-8"
+              onClick={() => setIsEditDialogOpen(true)}
+              title="Editar configuración"
+            >
+              <Settings className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
               onClick={() => setIsEditing(true)}
               title="Editar nombre"
             >
@@ -179,6 +190,13 @@ const FolderCard = ({
               <Trash2 className="h-4 w-4" />
             </Button>
           </div>
+
+          <EditFolderDialog
+            open={isEditDialogOpen}
+            onOpenChange={setIsEditDialogOpen}
+            folder={folder}
+            onUpdate={onUpdate}
+          />
         </div>
       </Card>
 
