@@ -70,6 +70,7 @@ export type Database = {
           password_hash: string
           reveal_time: string
           show_legal_text: boolean
+          sort_order: number | null
           timezone: string
           upload_end_time: string | null
           upload_start_time: string | null
@@ -96,6 +97,7 @@ export type Database = {
           password_hash: string
           reveal_time: string
           show_legal_text?: boolean
+          sort_order?: number | null
           timezone?: string
           upload_end_time?: string | null
           upload_start_time?: string | null
@@ -122,6 +124,7 @@ export type Database = {
           password_hash?: string
           reveal_time?: string
           show_legal_text?: boolean
+          sort_order?: number | null
           timezone?: string
           upload_end_time?: string | null
           upload_start_time?: string | null

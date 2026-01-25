@@ -27,6 +27,7 @@ import MoveEventDialog from "@/components/MoveEventDialog";
 import DuplicateEventDialog from "@/components/DuplicateEventDialog";
 import DuplicateFolderDialog from "@/components/DuplicateFolderDialog";
 import CreateFolderDialog from "@/components/CreateFolderDialog";
+import SortableEventList from "@/components/SortableEventList";
 
 interface Event {
   id: string;
@@ -51,6 +52,7 @@ interface Event {
   expiry_date: string | null;
   expiry_redirect_url: string | null;
   folder_id: string | null;
+  sort_order: number;
 }
 
 const EventManagement = () => {
@@ -149,7 +151,7 @@ const EventManagement = () => {
     }
   };
 
-  // Get events organized by folder
+  // Get events organized by folder, sorted by sort_order
   const eventsByFolder = useMemo(() => {
     const result: Record<string, Event[]> = { unfiled: [] };
     folders.forEach((f) => (result[f.id] = []));
@@ -160,6 +162,11 @@ const EventManagement = () => {
       } else {
         result.unfiled.push(event);
       }
+    });
+
+    // Sort each folder's events by sort_order
+    Object.keys(result).forEach((key) => {
+      result[key].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
     });
     
     return result;
@@ -980,9 +987,12 @@ Para cualquier duda o ayuda adicional, estamos a vuestra disposición.
                 })) || []}
               >
                 {eventsByFolder[folder.id]?.length > 0 ? (
-                  <div className="space-y-4">
-                    {eventsByFolder[folder.id].map(renderEventCard)}
-                  </div>
+                  <SortableEventList
+                    events={eventsByFolder[folder.id]}
+                    folderId={folder.id}
+                    onReorder={loadData}
+                    renderEventCard={renderEventCard}
+                  />
                 ) : (
                   <Card className="p-6 text-center bg-muted/20">
                     <p className="text-sm text-muted-foreground">

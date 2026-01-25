@@ -164,15 +164,6 @@ export async function exportFolderToPdf(
   // Separator line
   pdf.setDrawColor(200, 200, 200);
   pdf.line(margin, yPosition, pageWidth - margin, yPosition);
-  yPosition += 10;
-
-  // Events info
-  pdf.setFontSize(12);
-  pdf.setFont("helvetica", "normal");
-  pdf.setTextColor(100, 100, 100);
-  pdf.text(`${events.length} evento${events.length !== 1 ? "s" : ""} en esta carpeta`, pageWidth / 2, yPosition, {
-    align: "center",
-  });
   yPosition += 15;
 
   // Generate each event
