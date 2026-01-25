@@ -2,10 +2,11 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Folder, ChevronDown, ChevronRight, Edit, Trash2, Check, X, Image, Settings, CopyPlus } from "lucide-react";
+import { Folder, ChevronDown, ChevronRight, Edit, Trash2, Check, X, Image, Settings, CopyPlus, FileDown, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import EditFolderDialog from "./EditFolderDialog";
+import { exportFolderToPdf } from "@/lib/exportFolderPdf";
 
 export interface EventFolder {
   id: string;
@@ -18,6 +19,16 @@ export interface EventFolder {
   font_size: string | null;
 }
 
+interface FolderEvent {
+  id: string;
+  name: string;
+  password_hash: string;
+  reveal_time: string;
+  upload_start_time: string | null;
+  upload_end_time: string | null;
+  expiry_date: string | null;
+}
+
 interface FolderCardProps {
   folder: EventFolder;
   isExpanded: boolean;
@@ -26,6 +37,7 @@ interface FolderCardProps {
   onUpdate: () => void;
   onDuplicate: () => void;
   eventCount: number;
+  folderEvents: FolderEvent[];
   children: React.ReactNode;
 }
 
@@ -37,11 +49,13 @@ const FolderCard = ({
   onUpdate,
   onDuplicate,
   eventCount,
+  folderEvents,
   children,
 }: FolderCardProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(folder.name);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const { toast } = useToast();
 
   const handleSave = async () => {
@@ -106,6 +120,42 @@ const FolderCard = ({
     }
   };
 
+  const handleExportPdf = async () => {
+    if (folderEvents.length === 0) {
+      toast({
+        title: "Carpeta vacía",
+        description: "No hay eventos para exportar",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsExporting(true);
+    try {
+      await exportFolderToPdf(
+        {
+          id: folder.id,
+          name: folder.name,
+          custom_image_url: folder.custom_image_url,
+        },
+        folderEvents
+      );
+      toast({
+        title: "PDF exportado",
+        description: `Se ha descargado el PDF con ${folderEvents.length} evento(s)`,
+      });
+    } catch (error) {
+      console.error("Error exporting PDF:", error);
+      toast({
+        title: "Error",
+        description: "No se pudo generar el PDF",
+        variant: "destructive",
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const hasOverrides = folder.custom_image_url || folder.background_image_url || folder.font_family || folder.font_size;
 
   return (
@@ -164,6 +214,20 @@ const FolderCard = ({
           </div>
 
           <div className="flex items-center gap-1 shrink-0">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={handleExportPdf}
+              disabled={isExporting}
+              title="Exportar PDF"
+            >
+              {isExporting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <FileDown className="h-4 w-4" />
+              )}
+            </Button>
             <Button
               variant="ghost"
               size="icon"

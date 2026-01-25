@@ -969,6 +969,15 @@ Para cualquier duda o ayuda adicional, estamos a vuestra disposición.
                   setDuplicateFolderDialogOpen(true);
                 }}
                 eventCount={eventsByFolder[folder.id]?.length || 0}
+                folderEvents={eventsByFolder[folder.id]?.map(e => ({
+                  id: e.id,
+                  name: e.name,
+                  password_hash: e.password_hash,
+                  reveal_time: e.reveal_time,
+                  upload_start_time: e.upload_start_time,
+                  upload_end_time: e.upload_end_time,
+                  expiry_date: e.expiry_date,
+                })) || []}
               >
                 {eventsByFolder[folder.id]?.length > 0 ? (
                   <div className="space-y-4">
