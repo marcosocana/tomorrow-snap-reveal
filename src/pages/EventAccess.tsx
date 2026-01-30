@@ -33,11 +33,12 @@ const EventAccess = () => {
           localStorage.setItem("eventLanguage", adminEvents[0].language || "es");
           localStorage.setItem("eventTimezone", adminEvents[0].timezone || "Europe/Madrid");
           localStorage.setItem("isAdmin", "true");
+          localStorage.setItem("adminEventId", adminEvents[0].id);
           if (isBulkMode) {
             localStorage.setItem("bulkUploadMode", "true");
             navigate("/bulk-upload");
           } else {
-            navigate("/gallery");
+            navigate("/event-management");
           }
           return;
         }

@@ -64,12 +64,15 @@ const Login = () => {
       if (!adminError && adminEvents && adminEvents.length > 0) {
         localStorage.setItem("eventId", adminEvents[0].id);
         localStorage.setItem("eventName", adminEvents[0].name);
+        localStorage.setItem("eventLanguage", adminEvents[0].language || "es");
+        localStorage.setItem("eventTimezone", adminEvents[0].timezone || "Europe/Madrid");
         localStorage.setItem("isAdmin", "true");
+        localStorage.setItem("adminEventId", adminEvents[0].id);
         if (isBulkMode) {
           localStorage.setItem("bulkUploadMode", "true");
           navigate("/bulk-upload");
         } else {
-          navigate("/gallery");
+          navigate("/event-management");
         }
         return;
       }
