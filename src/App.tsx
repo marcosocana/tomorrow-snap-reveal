@@ -3,7 +3,6 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { InstallPromptModal } from "@/components/InstallPromptModal";
 import Login from "./pages/Login";
 import Camera from "./pages/Camera";
 import Gallery from "./pages/Gallery";
@@ -26,7 +25,6 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <InstallPromptModal />
         <Routes>
           <Route path="/" element={<Login />} />
           <Route path="/camera" element={<Camera />} />
