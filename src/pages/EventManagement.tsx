@@ -860,68 +860,82 @@ Para cualquier duda o ayuda adicional, estamos a vuestra disposición.
 
           {/* Action Buttons */}
           <div className="flex flex-row lg:flex-col gap-2 w-full lg:w-auto justify-end">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-1"
-                >
-                  <MessageCircle className="w-4 h-4" />
-                  <span className="hidden sm:inline">Comunicar</span>
-                  <ChevronDown className="w-3 h-3" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="bg-popover">
-                <DropdownMenuItem onClick={() => handleCommunicateDemo(event)}>
-                  Comunicar demo
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleCommunicateEvent(event)}>
-                  Comunicar evento
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {!adminEventId && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    <span className="hidden sm:inline">Comunicar</span>
+                    <ChevronDown className="w-3 h-3" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="bg-popover">
+                  <DropdownMenuItem onClick={() => handleCommunicateDemo(event)}>
+                    Comunicar demo
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleCommunicateEvent(event)}>
+                    Comunicar evento
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
             
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-1"
-                >
-                  <ChevronDown className="w-3 h-3" />
-                  <span className="hidden sm:inline">Más</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="bg-popover">
-                <DropdownMenuItem onClick={() => {
-                  setSelectedEvent(event);
-                  setMoveEventDialogOpen(true);
-                }}>
-                  <MoveHorizontal className="w-4 h-4 mr-2" />
-                  Mover a...
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => {
-                  setSelectedEvent(event);
-                  setDuplicateEventDialogOpen(true);
-                }}>
-                  <CopyPlus className="w-4 h-4 mr-2" />
-                  Duplicar evento
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => navigate(`/event-form/${event.id}`)}>
-                  <Edit className="w-4 h-4 mr-2" />
-                  Editar
-                </DropdownMenuItem>
-                <DropdownMenuItem 
-                  onClick={() => handleDeleteEvent(event.id)}
-                  className="text-destructive focus:text-destructive"
-                >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Eliminar
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {adminEventId ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1"
+                onClick={() => navigate(`/event-form/${event.id}`)}
+              >
+                <Edit className="w-4 h-4" />
+                <span>Editar</span>
+              </Button>
+            ) : (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1"
+                  >
+                    <ChevronDown className="w-3 h-3" />
+                    <span className="hidden sm:inline">Más</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="bg-popover">
+                  <DropdownMenuItem onClick={() => {
+                    setSelectedEvent(event);
+                    setMoveEventDialogOpen(true);
+                  }}>
+                    <MoveHorizontal className="w-4 h-4 mr-2" />
+                    Mover a...
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => {
+                    setSelectedEvent(event);
+                    setDuplicateEventDialogOpen(true);
+                  }}>
+                    <CopyPlus className="w-4 h-4 mr-2" />
+                    Duplicar evento
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => navigate(`/event-form/${event.id}`)}>
+                    <Edit className="w-4 h-4 mr-2" />
+                    Editar
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => handleDeleteEvent(event.id)}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Eliminar
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
         </div>
       </Card>
@@ -970,18 +984,22 @@ Para cualquier duda o ayuda adicional, estamos a vuestra disposición.
             >
               <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
             </Button>
-            <Button 
-              variant="outline" 
-              className="gap-2"
-              onClick={() => setCreateFolderOpen(true)}
-            >
-              <FolderPlus className="w-4 h-4" />
-              <span className="hidden sm:inline">Nueva Carpeta</span>
-            </Button>
-            <Button className="gap-2 flex-1 sm:flex-initial" onClick={() => navigate("/event-form")}>
-              <Plus className="w-4 h-4" />
-              Nuevo Evento
-            </Button>
+            {!adminEventId && (
+              <>
+                <Button 
+                  variant="outline" 
+                  className="gap-2"
+                  onClick={() => setCreateFolderOpen(true)}
+                >
+                  <FolderPlus className="w-4 h-4" />
+                  <span className="hidden sm:inline">Nueva Carpeta</span>
+                </Button>
+                <Button className="gap-2 flex-1 sm:flex-initial" onClick={() => navigate("/event-form")}>
+                  <Plus className="w-4 h-4" />
+                  Nuevo Evento
+                </Button>
+              </>
+            )}
           </div>
         </div>
 
