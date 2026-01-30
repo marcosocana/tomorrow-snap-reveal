@@ -2,8 +2,8 @@ import { useLocation, useNavigate, Navigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { QRCodeSVG } from "qrcode.react";
-import { Check, Copy, ExternalLink } from "lucide-react";
-import { useState } from "react";
+import { Check, Copy, ExternalLink, Download } from "lucide-react";
+import { useState, useRef, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -33,6 +33,39 @@ const DemoEventSummary = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const qrRef = useRef<HTMLDivElement>(null);
+
+  const downloadQR = useCallback(() => {
+    if (!qrRef.current) return;
+    
+    const svg = qrRef.current.querySelector('svg');
+    if (!svg) return;
+
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    canvas.width = 1024;
+    canvas.height = 1024;
+
+    const svgData = new XMLSerializer().serializeToString(svg);
+    const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(svgBlob);
+
+    const img = new Image();
+    img.onload = () => {
+      ctx.fillStyle = 'white';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(url);
+
+      const link = document.createElement('a');
+      link.download = `qr-${event?.name || 'evento'}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    };
+    img.src = url;
+  }, []);
 
   const event = location.state?.event as EventData | undefined;
   const contactInfo = location.state?.contactInfo as ContactInfo | undefined;
@@ -100,7 +133,7 @@ const DemoEventSummary = () => {
 
           {/* QR Code */}
           <div className="flex flex-col items-center gap-4 py-4">
-            <div className="bg-white p-4 rounded-lg shadow-sm">
+            <div ref={qrRef} className="bg-white p-4 rounded-lg shadow-sm">
               <QRCodeSVG 
                 value={eventUrl} 
                 size={200}
@@ -108,6 +141,15 @@ const DemoEventSummary = () => {
                 includeMargin={true}
               />
             </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={downloadQR}
+              className="gap-2"
+            >
+              <Download className="w-4 h-4" />
+              Descargar QR
+            </Button>
             <p className="text-sm text-muted-foreground text-center">
               Los invitados pueden escanear este código QR para acceder al evento
             </p>
@@ -216,20 +258,22 @@ const DemoEventSummary = () => {
 
         {/* Contact Info Confirmation */}
         {contactInfo && (
-          <Card className="p-6 bg-muted/30">
+          <Card className="p-4 sm:p-6 bg-muted/30">
             <h3 className="font-semibold text-foreground mb-3">Tus datos de contacto</h3>
-            <div className="grid sm:grid-cols-3 gap-4 text-sm">
-              <div>
-                <label className="text-muted-foreground">Nombre</label>
-                <p className="font-medium">{contactInfo.name}</p>
+            <div className="space-y-3 text-sm">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-muted-foreground text-xs">Nombre</label>
+                  <p className="font-medium">{contactInfo.name}</p>
+                </div>
+                <div>
+                  <label className="text-muted-foreground text-xs">Teléfono</label>
+                  <p className="font-medium">{contactInfo.phone}</p>
+                </div>
               </div>
               <div>
-                <label className="text-muted-foreground">Email</label>
-                <p className="font-medium">{contactInfo.email}</p>
-              </div>
-              <div>
-                <label className="text-muted-foreground">Teléfono</label>
-                <p className="font-medium">{contactInfo.phone}</p>
+                <label className="text-muted-foreground text-xs">Email</label>
+                <p className="font-medium break-all">{contactInfo.email}</p>
               </div>
             </div>
           </Card>

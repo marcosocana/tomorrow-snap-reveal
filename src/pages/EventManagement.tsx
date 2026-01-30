@@ -61,6 +61,12 @@ const EventManagement = () => {
   const [eventPhotoCounts, setEventPhotoCounts] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isDemoMode] = useState(() => localStorage.getItem("isDemoMode") === "true");
+  const [adminEventId] = useState(() => {
+    const id = localStorage.getItem("adminEventId");
+    // Clear it after reading so subsequent navigations show all events
+    if (id) localStorage.removeItem("adminEventId");
+    return id;
+  });
   const [previewEvent, setPreviewEvent] = useState<Event | null>(null);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   
@@ -77,6 +83,11 @@ const EventManagement = () => {
 
   useEffect(() => {
     const checkAuth = async () => {
+      // If accessed via admin password, allow access without full auth
+      if (adminEventId) {
+        loadData();
+        return;
+      }
       if (isDemoMode) {
         loadData();
         return;
@@ -91,7 +102,7 @@ const EventManagement = () => {
 
     checkAuth();
 
-    if (!isDemoMode) {
+    if (!isDemoMode && !adminEventId) {
       const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
         if (!session) {
           navigate("/admin-login");
@@ -100,44 +111,67 @@ const EventManagement = () => {
 
       return () => subscription.unsubscribe();
     }
-  }, [navigate, isDemoMode]);
+  }, [navigate, isDemoMode, adminEventId]);
 
   const loadData = async () => {
     try {
-      // Load folders and events in parallel
-      const [foldersResult, eventsResult] = await Promise.all([
-        supabase
-          .from("event_folders")
-          .select("*")
-          .eq("is_demo", isDemoMode)
-          .order("created_at", { ascending: true }),
-        supabase
+      // If we have an adminEventId, only load that specific event
+      if (adminEventId) {
+        const { data: eventData, error: eventError } = await supabase
           .from("events")
           .select("*")
-          .eq("is_demo", isDemoMode)
-          .order("created_at", { ascending: false }),
-      ]);
+          .eq("id", adminEventId)
+          .single();
 
-      if (foldersResult.error) throw foldersResult.error;
-      if (eventsResult.error) throw eventsResult.error;
+        if (eventError) throw eventError;
 
-      setFolders((foldersResult.data || []) as EventFolder[]);
-      setEvents((eventsResult.data || []) as Event[]);
+        setFolders([]);
+        setEvents(eventData ? [eventData as Event] : []);
 
-      // Load photo counts
-      if (eventsResult.data) {
-        const counts: Record<string, number> = {};
-        for (const event of eventsResult.data) {
-          const { count, error: countError } = await supabase
+        if (eventData) {
+          const { count } = await supabase
             .from("photos")
             .select("*", { count: "exact", head: true })
-            .eq("event_id", event.id);
+            .eq("event_id", eventData.id);
           
-          if (!countError) {
-            counts[event.id] = count || 0;
-          }
+          setEventPhotoCounts({ [eventData.id]: count || 0 });
         }
-        setEventPhotoCounts(counts);
+      } else {
+        // Load folders and events in parallel
+        const [foldersResult, eventsResult] = await Promise.all([
+          supabase
+            .from("event_folders")
+            .select("*")
+            .eq("is_demo", isDemoMode)
+            .order("created_at", { ascending: true }),
+          supabase
+            .from("events")
+            .select("*")
+            .eq("is_demo", isDemoMode)
+            .order("created_at", { ascending: false }),
+        ]);
+
+        if (foldersResult.error) throw foldersResult.error;
+        if (eventsResult.error) throw eventsResult.error;
+
+        setFolders((foldersResult.data || []) as EventFolder[]);
+        setEvents((eventsResult.data || []) as Event[]);
+
+        // Load photo counts
+        if (eventsResult.data) {
+          const counts: Record<string, number> = {};
+          for (const event of eventsResult.data) {
+            const { count, error: countError } = await supabase
+              .from("photos")
+              .select("*", { count: "exact", head: true })
+              .eq("event_id", event.id);
+            
+            if (!countError) {
+              counts[event.id] = count || 0;
+            }
+          }
+          setEventPhotoCounts(counts);
+        }
       }
     } catch (error) {
       console.error("Error loading data:", error);
