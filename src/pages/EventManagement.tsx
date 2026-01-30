@@ -61,12 +61,7 @@ const EventManagement = () => {
   const [eventPhotoCounts, setEventPhotoCounts] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isDemoMode] = useState(() => localStorage.getItem("isDemoMode") === "true");
-  const [adminEventId] = useState(() => {
-    const id = localStorage.getItem("adminEventId");
-    // Clear it after reading so subsequent navigations show all events
-    if (id) localStorage.removeItem("adminEventId");
-    return id;
-  });
+  const [adminEventId] = useState(() => localStorage.getItem("adminEventId"));
   const [previewEvent, setPreviewEvent] = useState<Event | null>(null);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   
@@ -949,7 +944,10 @@ Para cualquier duda o ayuda adicional, estamos a vuestra disposición.
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => navigate("/")}
+              onClick={() => {
+                localStorage.removeItem("adminEventId");
+                navigate("/");
+              }}
               className="rounded-full"
               title="Volver al inicio"
             >
