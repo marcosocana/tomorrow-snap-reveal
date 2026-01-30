@@ -51,6 +51,7 @@ const EventForm = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [isDemoMode] = useState(() => localStorage.getItem("isDemoMode") === "true");
+  const [isRestrictedAdmin] = useState(() => !!localStorage.getItem("adminEventId"));
   const [formData, setFormData] = useState({
     name: "",
     password: "",
@@ -239,7 +240,7 @@ const EventForm = () => {
             upload_start_time: uploadStartDateTime.toISOString(),
             upload_end_time: uploadEndDateTime.toISOString(),
             reveal_time: revealDateTime.toISOString(),
-            max_photos: formData.maxPhotos ? parseInt(formData.maxPhotos) : null,
+            max_photos: isRestrictedAdmin ? 10 : (formData.maxPhotos ? parseInt(formData.maxPhotos) : null),
             custom_image_url: customImageUrl,
             background_image_url: backgroundImageUrl,
             filter_type: formData.filterType,
@@ -441,13 +442,20 @@ const EventForm = () => {
                 id="maxPhotos"
                 type="number"
                 min="1"
-                value={formData.maxPhotos}
+                value={isRestrictedAdmin ? "10" : formData.maxPhotos}
                 onChange={(e) =>
                   setFormData({ ...formData, maxPhotos: e.target.value })
                 }
                 placeholder={isDemoMode ? "30 por defecto en demo" : "Ilimitado si se deja vacío"}
+                disabled={isRestrictedAdmin}
+                className={isRestrictedAdmin ? "bg-muted cursor-not-allowed" : ""}
               />
-              {isDemoMode && (
+              {isRestrictedAdmin && (
+                <p className="text-xs text-muted-foreground">
+                  Límite fijo de 10 fotos para eventos demo
+                </p>
+              )}
+              {isDemoMode && !isRestrictedAdmin && (
                 <p className="text-xs text-muted-foreground">
                   En modo demo el valor por defecto es 30 fotos, pero puedes modificarlo
                 </p>
