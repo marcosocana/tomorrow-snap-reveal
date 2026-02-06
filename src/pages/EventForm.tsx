@@ -52,33 +52,50 @@ const EventForm = () => {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [isDemoMode] = useState(() => localStorage.getItem("isDemoMode") === "true");
   const [isRestrictedAdmin] = useState(() => !!localStorage.getItem("adminEventId"));
-  const [formData, setFormData] = useState({
-    name: "",
-    password: "",
-    adminPassword: "",
-    uploadStartDate: "",
-    uploadStartTime: "00:00",
-    uploadEndDate: "",
-    uploadEndTime: "23:59",
-    revealDate: "",
-    revealTime: "12:00",
-    maxPhotos: isDemoMode ? "30" : "",
-    customImage: null as File | null,
-    customImageUrl: "",
-    backgroundImage: null as File | null,
-    backgroundImageUrl: "",
-    filterType: "none" as FilterType,
-    fontFamily: "system" as EventFontFamily,
-    fontSize: "text-3xl" as FontSizeOption,
-    countryCode: "ES",
-    timezone: "Europe/Madrid",
-    language: "es",
-    description: "",
-    expiryDate: "",
-    expiryTime: "23:59",
-    expiryRedirectUrl: "",
-    allowPhotoDeletion: true,
-    showLegalText: false,
+  // Generate a random 32-character hash for passwords
+  const generateHash = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let hash = '';
+    for (let i = 0; i < 32; i++) {
+      hash += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return hash;
+  };
+
+  const [formData, setFormData] = useState(() => {
+    // Only generate hashes for new events, not when editing
+    const initialPassword = isEditing ? "" : generateHash();
+    const initialAdminPassword = isEditing ? "" : generateHash();
+    
+    return {
+      name: "",
+      password: initialPassword,
+      adminPassword: initialAdminPassword,
+      uploadStartDate: "",
+      uploadStartTime: "00:00",
+      uploadEndDate: "",
+      uploadEndTime: "23:59",
+      revealDate: "",
+      revealTime: "12:00",
+      maxPhotos: isDemoMode ? "30" : "",
+      customImage: null as File | null,
+      customImageUrl: "",
+      backgroundImage: null as File | null,
+      backgroundImageUrl: "",
+      filterType: "none" as FilterType,
+      fontFamily: "system" as EventFontFamily,
+      fontSize: "text-3xl" as FontSizeOption,
+      countryCode: "ES",
+      timezone: "Europe/Madrid",
+      language: "es",
+      description: "",
+      expiryDate: "",
+      expiryTime: "23:59",
+      expiryRedirectUrl: "",
+      allowPhotoDeletion: true,
+      allowPhotoSharing: true,
+      showLegalText: false,
+    };
   });
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -154,6 +171,7 @@ const EventForm = () => {
         expiryTime: expiryDate ? format(expiryDate, "HH:mm") : "23:59",
         expiryRedirectUrl: event.expiry_redirect_url || "",
         allowPhotoDeletion: (event as any).allow_photo_deletion !== false,
+        allowPhotoSharing: (event as any).allow_photo_sharing !== false,
         showLegalText: (event as any).show_legal_text === true,
       });
     } catch (error) {
@@ -253,6 +271,7 @@ const EventForm = () => {
             expiry_date: expiryDateTime,
             expiry_redirect_url: formData.expiryRedirectUrl || null,
             allow_photo_deletion: formData.allowPhotoDeletion,
+            allow_photo_sharing: formData.allowPhotoSharing,
             show_legal_text: formData.showLegalText,
           } as any)
           .eq("id", eventId);
@@ -285,6 +304,7 @@ const EventForm = () => {
           expiry_date: expiryDateTime,
           expiry_redirect_url: formData.expiryRedirectUrl || null,
           allow_photo_deletion: formData.allowPhotoDeletion,
+          allow_photo_sharing: formData.allowPhotoSharing,
           show_legal_text: formData.showLegalText,
         } as any);
 
@@ -818,6 +838,22 @@ const EventForm = () => {
                   checked={formData.allowPhotoDeletion}
                   onCheckedChange={(checked) =>
                     setFormData({ ...formData, allowPhotoDeletion: checked })
+                  }
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="allowPhotoSharing">Posibilidad de compartir fotos</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Si está activado, los usuarios podrán compartir fotos individuales en redes sociales
+                  </p>
+                </div>
+                <Switch
+                  id="allowPhotoSharing"
+                  checked={formData.allowPhotoSharing}
+                  onCheckedChange={(checked) =>
+                    setFormData({ ...formData, allowPhotoSharing: checked })
                   }
                 />
               </div>

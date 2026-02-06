@@ -51,6 +51,7 @@ export type Database = {
         Row: {
           admin_password: string | null
           allow_photo_deletion: boolean
+          allow_photo_sharing: boolean
           background_image_url: string | null
           country_code: string
           created_at: string
@@ -78,6 +79,7 @@ export type Database = {
         Insert: {
           admin_password?: string | null
           allow_photo_deletion?: boolean
+          allow_photo_sharing?: boolean
           background_image_url?: string | null
           country_code?: string
           created_at?: string
@@ -105,6 +107,7 @@ export type Database = {
         Update: {
           admin_password?: string | null
           allow_photo_deletion?: boolean
+          allow_photo_sharing?: boolean
           background_image_url?: string | null
           country_code?: string
           created_at?: string
