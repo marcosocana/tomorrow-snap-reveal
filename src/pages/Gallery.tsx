@@ -73,6 +73,7 @@ const Gallery = () => {
   const [eventFontFamily, setEventFontFamily] = useState<EventFontFamily>("system");
   const [eventFontSize, setEventFontSize] = useState<string>("text-3xl");
   const [allowPhotoDeletion, setAllowPhotoDeletion] = useState<boolean>(true);
+  const [allowPhotoSharing, setAllowPhotoSharing] = useState<boolean>(true);
 
   // Get translations and timezone
   const language = getEventLanguage();
@@ -171,11 +172,11 @@ const Gallery = () => {
       return;
     }
 
-    // Load event password, filter type, custom image, description, background and expiry for sharing
+    // Load event password, filter type, custom image, description, background, expiry and sharing settings
     const loadEventData = async () => {
       const { data } = await supabase
         .from("events")
-        .select("password_hash, filter_type, custom_image_url, description, background_image_url, expiry_date, expiry_redirect_url, font_family, font_size, allow_photo_deletion")
+        .select("password_hash, filter_type, custom_image_url, description, background_image_url, expiry_date, expiry_redirect_url, font_family, font_size, allow_photo_deletion, allow_photo_sharing")
         .eq("id", eventId)
         .maybeSingle();
       if (data) {
@@ -187,6 +188,7 @@ const Gallery = () => {
         setEventFontFamily(((data as any).font_family as EventFontFamily) || "system");
         setEventFontSize((data as any).font_size || "text-3xl");
         setAllowPhotoDeletion((data as any).allow_photo_deletion !== false);
+        setAllowPhotoSharing((data as any).allow_photo_sharing !== false);
         
         // Check if event is expired
         if (data.expiry_date) {
@@ -442,6 +444,69 @@ const Gallery = () => {
     }
   };
 
+  const handleSharePhoto = async (signedUrl: string) => {
+    try {
+      const shareTitle = language === "en" 
+        ? `Photo from ${eventName}` 
+        : language === "it" 
+        ? `Foto da ${eventName}` 
+        : `Foto de ${eventName}`;
+      
+      const shareText = language === "en"
+        ? `Check out this photo from ${eventName}!`
+        : language === "it"
+        ? `Guarda questa foto da ${eventName}!`
+        : `¡Mira esta foto de ${eventName}!`;
+
+      // First try to share the image file directly (works better for Instagram, etc.)
+      if (navigator.share) {
+        try {
+          // Fetch the image and create a blob
+          const response = await fetch(signedUrl);
+          const blob = await response.blob();
+          const file = new File([blob], `foto-${eventName}.jpg`, { type: 'image/jpeg' });
+          
+          // Check if file sharing is supported
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({
+              title: shareTitle,
+              text: shareText,
+              files: [file],
+            });
+            return;
+          }
+        } catch (fileShareError) {
+          console.log("File sharing not available, falling back to URL share");
+        }
+        
+        // Fallback to sharing URL only
+        await navigator.share({
+          title: shareTitle,
+          text: shareText,
+          url: signedUrl,
+        });
+      } else {
+        // Fallback: copy URL to clipboard
+        await navigator.clipboard.writeText(signedUrl);
+        const copiedText = language === "en" ? "Link copied" : language === "it" ? "Link copiato" : "Enlace copiado";
+        const copiedDescText = language === "en" 
+          ? "Photo link copied to clipboard" 
+          : language === "it" 
+          ? "Link della foto copiato negli appunti" 
+          : "Enlace de la foto copiado al portapapeles";
+        toast({
+          title: copiedText,
+          description: copiedDescText,
+        });
+      }
+    } catch (error) {
+      // User cancelled share or error occurred
+      if ((error as Error).name !== 'AbortError') {
+        console.error("Error sharing photo:", error);
+      }
+    }
+  };
+
   const handleDownloadAll = async (withFilter: boolean = true) => {
     try {
       const preparingText = language === "en" ? "Preparing download" : language === "it" ? "Preparando download" : "Preparando descarga";
@@ -540,6 +605,7 @@ const Gallery = () => {
   const withoutFilterText = language === "en" ? "Without filter (original)" : language === "it" ? "Senza filtro (originale)" : "Sin filtro (original)";
   const downloadText = language === "en" ? "Download" : language === "it" ? "Scarica" : "Descargar";
   const deleteText = language === "en" ? "Delete" : language === "it" ? "Elimina" : "Eliminar";
+  const sharePhotoText = language === "en" ? "Share" : language === "it" ? "Condividi" : "Compartir";
   const viewPhotosText = language === "en" ? "View photos" : language === "it" ? "Vedi foto" : "Ver fotos";
   const photosRevealedText = language === "en" ? "Event photos have been revealed!" : language === "it" ? "Le foto dell'evento sono state rivelate!" : "¡Ya están las fotos del evento reveladas!";
   const enjoyText = language === "en" ? "Enjoy them" : language === "it" ? "Goditele" : "Disfrútalas";
@@ -932,6 +998,17 @@ const Gallery = () => {
                     >
                       <Trash2 className="w-4 h-4 mr-2" />
                       {deleteText}
+                    </Button>
+                  )}
+                  {allowPhotoSharing && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => handleSharePhoto((selectedPhoto as any).fullQualityUrl)}
+                      className="uppercase tracking-wide flex-1"
+                    >
+                      <Share2 className="w-4 h-4 mr-2" />
+                      {sharePhotoText}
                     </Button>
                   )}
                 </div>

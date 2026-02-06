@@ -53,6 +53,7 @@ interface Event {
   expiry_redirect_url: string | null;
   folder_id: string | null;
   sort_order: number;
+  allow_photo_sharing?: boolean;
 }
 
 const EventManagement = () => {
@@ -1080,6 +1081,7 @@ Para cualquier duda o ayuda adicional, estamos a vuestra disposición.
         fontFamily={previewEvent?.font_family}
         fontSize={previewEvent?.font_size}
         filterType={previewEvent?.filter_type}
+        allowPhotoSharing={previewEvent?.allow_photo_sharing !== false}
       />
 
       {/* Create Folder Dialog */}

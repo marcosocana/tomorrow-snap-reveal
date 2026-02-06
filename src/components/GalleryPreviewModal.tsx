@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
-import { Download, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Download, Trash2, ChevronLeft, ChevronRight, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { getFontById, loadGoogleFont, getEventFontFamily, EventFontFamily } from "@/lib/eventFonts";
@@ -28,6 +28,7 @@ interface GalleryPreviewModalProps {
   fontFamily?: string;
   fontSize?: string;
   filterType?: FilterType;
+  allowPhotoSharing?: boolean;
 }
 
 export const GalleryPreviewModal = ({
@@ -41,6 +42,7 @@ export const GalleryPreviewModal = ({
   fontFamily = "system",
   fontSize = "text-3xl",
   filterType = "vintage",
+  allowPhotoSharing = true,
 }: GalleryPreviewModalProps) => {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [totalPhotos, setTotalPhotos] = useState(0);
@@ -192,6 +194,48 @@ export const GalleryPreviewModal = ({
         description: "No se pudo descargar la foto",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleSharePhoto = async (photo: Photo) => {
+    if (!photo.fullQualityUrl) return;
+    
+    try {
+      // Try to share the image file directly
+      if (navigator.share) {
+        try {
+          const response = await fetch(photo.fullQualityUrl);
+          const blob = await response.blob();
+          const file = new File([blob], `foto-${eventName}.jpg`, { type: 'image/jpeg' });
+          
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({
+              title: `Foto de ${eventName}`,
+              text: `¡Mira esta foto de ${eventName}!`,
+              files: [file],
+            });
+            return;
+          }
+        } catch (fileShareError) {
+          console.log("File sharing not available, falling back to URL share");
+        }
+        
+        await navigator.share({
+          title: `Foto de ${eventName}`,
+          text: `¡Mira esta foto de ${eventName}!`,
+          url: photo.fullQualityUrl,
+        });
+      } else {
+        await navigator.clipboard.writeText(photo.fullQualityUrl);
+        toast({
+          title: "Enlace copiado",
+          description: "Enlace de la foto copiado al portapapeles",
+        });
+      }
+    } catch (error) {
+      if ((error as Error).name !== 'AbortError') {
+        console.error("Error sharing photo:", error);
+      }
     }
   };
 
@@ -364,6 +408,16 @@ export const GalleryPreviewModal = ({
                   <Download className="w-4 h-4 mr-2" />
                   Descargar
                 </Button>
+                {allowPhotoSharing && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleSharePhoto(selectedPhoto)}
+                  >
+                    <Share2 className="w-4 h-4 mr-2" />
+                    Compartir
+                  </Button>
+                )}
                 <Button
                   variant="destructive"
                   size="sm"
