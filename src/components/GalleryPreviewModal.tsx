@@ -1,11 +1,17 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
-import { Download, Trash2, ChevronLeft, ChevronRight, Share2 } from "lucide-react";
+import { Download, Trash2, ChevronLeft, ChevronRight, Share2, ArrowUpDown, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { getFontById, loadGoogleFont, getEventFontFamily, EventFontFamily } from "@/lib/eventFonts";
 import { getFilterClass, FilterType } from "@/lib/photoFilters";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const PHOTOS_PER_PAGE = 50;
 
@@ -15,7 +21,10 @@ interface Photo {
   captured_at: string;
   thumbnailUrl?: string;
   fullQualityUrl?: string;
+  likeCount?: number;
 }
+
+type SortBy = "chronological" | "most_liked";
 
 interface GalleryPreviewModalProps {
   open: boolean;
@@ -49,6 +58,7 @@ export const GalleryPreviewModal = ({
   const [currentPage, setCurrentPage] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
+  const [sortBy, setSortBy] = useState<SortBy>("chronological");
   const { toast } = useToast();
 
   const totalPages = Math.ceil(totalPhotos / PHOTOS_PER_PAGE);
@@ -64,55 +74,126 @@ export const GalleryPreviewModal = ({
   useEffect(() => {
     if (open && eventId) {
       setCurrentPage(0);
-      loadPhotos(0);
+      loadPhotos(0, sortBy);
     }
-  }, [open, eventId]);
+  }, [open, eventId, sortBy]);
 
-  const loadPhotos = async (page: number) => {
+  const loadPhotos = async (page: number, sort: SortBy = "chronological") => {
     setIsLoading(true);
     try {
-      const from = page * PHOTOS_PER_PAGE;
-      const to = from + PHOTOS_PER_PAGE - 1;
+      // For "most_liked" sorting, we need to load all photos and sort by likes
+      // For "chronological", we use pagination as before
+      
+      if (sort === "most_liked") {
+        // Load all photos and their like counts
+        const { data: allPhotos, error: photosError, count } = await supabase
+          .from("photos")
+          .select("id, image_url, captured_at", { count: "exact" })
+          .eq("event_id", eventId);
 
-      const { data, error, count } = await supabase
-        .from("photos")
-        .select("id, image_url, captured_at", { count: "exact" })
-        .eq("event_id", eventId)
-        .order("captured_at", { ascending: true })
-        .range(from, to);
+        if (photosError) throw photosError;
 
-      if (error) throw error;
+        if (count !== null) {
+          setTotalPhotos(count);
+        }
 
-      if (count !== null) {
-        setTotalPhotos(count);
+        // Get like counts for all photos
+        const photoIds = (allPhotos || []).map(p => p.id);
+        const { data: likesData } = await supabase
+          .from("photo_likes")
+          .select("photo_id")
+          .in("photo_id", photoIds);
+
+        const likeCounts: Record<string, number> = (likesData || []).reduce((acc: Record<string, number>, like: any) => {
+          acc[like.photo_id] = (acc[like.photo_id] || 0) + 1;
+          return acc;
+        }, {});
+
+        // Sort by like count (descending)
+        const sortedPhotos = (allPhotos || [])
+          .map(p => ({ ...p, likeCount: likeCounts[p.id] || 0 }))
+          .sort((a, b) => (b.likeCount || 0) - (a.likeCount || 0));
+
+        // Apply pagination
+        const from = page * PHOTOS_PER_PAGE;
+        const paginatedPhotos = sortedPhotos.slice(from, from + PHOTOS_PER_PAGE);
+
+        // Generate signed URLs
+        const photosWithUrls = await Promise.all(
+          paginatedPhotos.map(async (photo) => {
+            const { data: thumbnailData } = await supabase.storage
+              .from("event-photos")
+              .createSignedUrl(photo.image_url, 3600, {
+                transform: { width: 400, height: 400, quality: 60 }
+              });
+
+            const { data: fullQualityData } = await supabase.storage
+              .from("event-photos")
+              .createSignedUrl(photo.image_url, 3600);
+
+            return {
+              ...photo,
+              thumbnailUrl: thumbnailData?.signedUrl || "",
+              fullQualityUrl: fullQualityData?.signedUrl || "",
+            };
+          })
+        );
+
+        setPhotos(photosWithUrls);
+      } else {
+        // Chronological sorting with pagination
+        const from = page * PHOTOS_PER_PAGE;
+        const to = from + PHOTOS_PER_PAGE - 1;
+
+        const { data, error, count } = await supabase
+          .from("photos")
+          .select("id, image_url, captured_at", { count: "exact" })
+          .eq("event_id", eventId)
+          .order("captured_at", { ascending: true })
+          .range(from, to);
+
+        if (error) throw error;
+
+        if (count !== null) {
+          setTotalPhotos(count);
+        }
+
+        // Get like counts for current page photos
+        const photoIds = (data || []).map(p => p.id);
+        const { data: likesData } = await supabase
+          .from("photo_likes")
+          .select("photo_id")
+          .in("photo_id", photoIds);
+
+        const likeCounts: Record<string, number> = (likesData || []).reduce((acc: Record<string, number>, like: any) => {
+          acc[like.photo_id] = (acc[like.photo_id] || 0) + 1;
+          return acc;
+        }, {});
+
+        // Generate signed URLs for each photo
+        const photosWithUrls = await Promise.all(
+          (data || []).map(async (photo) => {
+            const { data: thumbnailData } = await supabase.storage
+              .from("event-photos")
+              .createSignedUrl(photo.image_url, 3600, {
+                transform: { width: 400, height: 400, quality: 60 }
+              });
+
+            const { data: fullQualityData } = await supabase.storage
+              .from("event-photos")
+              .createSignedUrl(photo.image_url, 3600);
+
+            return {
+              ...photo,
+              thumbnailUrl: thumbnailData?.signedUrl || "",
+              fullQualityUrl: fullQualityData?.signedUrl || "",
+              likeCount: likeCounts[photo.id] || 0,
+            };
+          })
+        );
+
+        setPhotos(photosWithUrls);
       }
-
-      // Generate signed URLs for each photo
-      const photosWithUrls = await Promise.all(
-        (data || []).map(async (photo) => {
-          const { data: thumbnailData } = await supabase.storage
-            .from("event-photos")
-            .createSignedUrl(photo.image_url, 3600, {
-              transform: {
-                width: 400,
-                height: 400,
-                quality: 60
-              }
-            });
-
-          const { data: fullQualityData } = await supabase.storage
-            .from("event-photos")
-            .createSignedUrl(photo.image_url, 3600);
-
-          return {
-            ...photo,
-            thumbnailUrl: thumbnailData?.signedUrl || "",
-            fullQualityUrl: fullQualityData?.signedUrl || "",
-          };
-        })
-      );
-
-      setPhotos(photosWithUrls);
     } catch (error) {
       console.error("Error loading photos:", error);
       toast({
@@ -128,7 +209,14 @@ export const GalleryPreviewModal = ({
   const handlePageChange = (newPage: number) => {
     if (newPage >= 0 && newPage < totalPages) {
       setCurrentPage(newPage);
-      loadPhotos(newPage);
+      loadPhotos(newPage, sortBy);
+    }
+  };
+
+  const handleSortChange = (newSort: SortBy) => {
+    if (newSort !== sortBy) {
+      setSortBy(newSort);
+      setCurrentPage(0);
     }
   };
 
@@ -246,11 +334,36 @@ export const GalleryPreviewModal = ({
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <span>Vista previa de galería</span>
-              <span className="text-sm font-normal text-muted-foreground">
-                ({totalPhotos} fotos)
-              </span>
+            <DialogTitle className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span>Vista previa de galería</span>
+                <span className="text-sm font-normal text-muted-foreground">
+                  ({totalPhotos} fotos)
+                </span>
+              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="ml-2">
+                    <ArrowUpDown className="w-4 h-4 mr-2" />
+                    {sortBy === "chronological" ? "Cronológico" : "Más likes"}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem 
+                    onClick={() => handleSortChange("chronological")}
+                    className={sortBy === "chronological" ? "bg-accent" : ""}
+                  >
+                    Orden cronológico
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => handleSortChange("most_liked")}
+                    className={sortBy === "most_liked" ? "bg-accent" : ""}
+                  >
+                    <Heart className="w-4 h-4 mr-2" />
+                    Más likes primero
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </DialogTitle>
           </DialogHeader>
 
@@ -315,6 +428,13 @@ export const GalleryPreviewModal = ({
                       loading="lazy"
                     />
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
+                    {/* Like count badge */}
+                    {(photo.likeCount || 0) > 0 && (
+                      <div className="absolute bottom-1 right-1 bg-black/60 text-white px-1.5 py-0.5 rounded-full text-xs flex items-center gap-1">
+                        <Heart className="w-3 h-3 fill-current" />
+                        <span>{photo.likeCount}</span>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
