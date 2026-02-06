@@ -96,6 +96,7 @@ const EventForm = () => {
       allowPhotoSharing: true,
       showLegalText: false,
       galleryViewMode: "normal" as "normal" | "grid",
+      likeCountingEnabled: false,
     };
   });
   const navigate = useNavigate();
@@ -175,6 +176,7 @@ const EventForm = () => {
         allowPhotoSharing: (event as any).allow_photo_sharing !== false,
         showLegalText: (event as any).show_legal_text === true,
         galleryViewMode: ((event as any).gallery_view_mode || "normal") as "normal" | "grid",
+        likeCountingEnabled: (event as any).like_counting_enabled === true,
       });
     } catch (error) {
       console.error("Error loading event:", error);
@@ -276,6 +278,7 @@ const EventForm = () => {
             allow_photo_sharing: formData.allowPhotoSharing,
             show_legal_text: formData.showLegalText,
             gallery_view_mode: formData.galleryViewMode,
+            like_counting_enabled: formData.likeCountingEnabled,
           } as any)
           .eq("id", eventId);
 
@@ -310,6 +313,7 @@ const EventForm = () => {
           allow_photo_sharing: formData.allowPhotoSharing,
           show_legal_text: formData.showLegalText,
           gallery_view_mode: formData.galleryViewMode,
+          like_counting_enabled: formData.likeCountingEnabled,
         } as any);
 
         if (error) throw error;
@@ -889,6 +893,22 @@ const EventForm = () => {
                   checked={formData.allowPhotoSharing}
                   onCheckedChange={(checked) =>
                     setFormData({ ...formData, allowPhotoSharing: checked })
+                  }
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="likeCountingEnabled">Contar likes</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Si está activado, se mostrarán los likes de cada foto. Solo 1 like por dispositivo.
+                  </p>
+                </div>
+                <Switch
+                  id="likeCountingEnabled"
+                  checked={formData.likeCountingEnabled}
+                  onCheckedChange={(checked) =>
+                    setFormData({ ...formData, likeCountingEnabled: checked })
                   }
                 />
               </div>

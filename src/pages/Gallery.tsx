@@ -25,6 +25,7 @@ import ShareDialog from "@/components/ShareDialog";
 import { FilterType, getFilterClass, getGrainClass, applyFilterToCanvas } from "@/lib/photoFilters";
 import { getTranslations, getEventLanguage, getEventTimezone, getLocalDateInTimezone, Language } from "@/lib/translations";
 import { EventFontFamily, getEventFontFamily } from "@/lib/eventFonts";
+import { getDeviceId } from "@/lib/deviceId";
 
 interface Photo {
   id: string;
@@ -75,6 +76,7 @@ const Gallery = () => {
   const [allowPhotoDeletion, setAllowPhotoDeletion] = useState<boolean>(true);
   const [allowPhotoSharing, setAllowPhotoSharing] = useState<boolean>(true);
   const [galleryViewMode, setGalleryViewMode] = useState<"normal" | "grid">("normal");
+  const [likeCountingEnabled, setLikeCountingEnabled] = useState<boolean>(false);
 
   // Get translations and timezone
   const language = getEventLanguage();
@@ -177,7 +179,7 @@ const Gallery = () => {
     const loadEventData = async () => {
       const { data } = await supabase
         .from("events")
-        .select("password_hash, filter_type, custom_image_url, description, background_image_url, expiry_date, expiry_redirect_url, font_family, font_size, allow_photo_deletion, allow_photo_sharing, gallery_view_mode")
+        .select("password_hash, filter_type, custom_image_url, description, background_image_url, expiry_date, expiry_redirect_url, font_family, font_size, allow_photo_deletion, allow_photo_sharing, gallery_view_mode, like_counting_enabled")
         .eq("id", eventId)
         .maybeSingle();
       if (data) {
@@ -191,6 +193,7 @@ const Gallery = () => {
         setAllowPhotoDeletion((data as any).allow_photo_deletion !== false);
         setAllowPhotoSharing((data as any).allow_photo_sharing !== false);
         setGalleryViewMode(((data as any).gallery_view_mode || "normal") as "normal" | "grid");
+        setLikeCountingEnabled((data as any).like_counting_enabled === true);
         
         // Check if event is expired
         if (data.expiry_date) {
@@ -301,22 +304,33 @@ const Gallery = () => {
 
   const handleLikePhoto = async (photoId: string) => {
     try {
-      // Check if already liked
-      const likedPhotos = JSON.parse(localStorage.getItem("likedPhotos") || "[]");
-      if (likedPhotos.includes(photoId)) {
-        return; // Already liked, do nothing
+      const deviceId = getDeviceId();
+      
+      // Check if already liked by this device
+      const { data: existingLike } = await supabase
+        .from("photo_likes")
+        .select("id")
+        .eq("photo_id", photoId)
+        .eq("device_id", deviceId)
+        .maybeSingle();
+      
+      if (existingLike) {
+        return; // Already liked from this device
       }
 
-      // Add like to database
+      // Add like to database with device_id
       const { error } = await supabase
         .from("photo_likes")
-        .insert({ photo_id: photoId });
+        .insert({ photo_id: photoId, device_id: deviceId });
 
       if (error) throw error;
 
-      // Update localStorage
-      likedPhotos.push(photoId);
-      localStorage.setItem("likedPhotos", JSON.stringify(likedPhotos));
+      // Update localStorage for backward compatibility
+      const likedPhotos = JSON.parse(localStorage.getItem("likedPhotos") || "[]");
+      if (!likedPhotos.includes(photoId)) {
+        likedPhotos.push(photoId);
+        localStorage.setItem("likedPhotos", JSON.stringify(likedPhotos));
+      }
 
       // Update UI
       setPhotos(photos.map(p => 
@@ -825,7 +839,7 @@ const Gallery = () => {
                 {photos.map((photo) => (
                   <div
                     key={photo.id}
-                    className="aspect-square cursor-pointer overflow-hidden bg-muted"
+                    className="aspect-square cursor-pointer overflow-hidden bg-muted relative"
                     onClick={() => setSelectedPhoto(photo)}
                   >
                     <img
@@ -837,6 +851,13 @@ const Gallery = () => {
                         e.currentTarget.style.display = 'none';
                       }}
                     />
+                    {/* Like count badge - only show when likeCountingEnabled */}
+                    {likeCountingEnabled && (photo.likeCount || 0) > 0 && (
+                      <div className="absolute bottom-1 right-1 bg-black/60 text-white px-1.5 py-0.5 rounded-full text-xs flex items-center gap-1">
+                        <img src={heartFilled} alt="" className="w-3 h-3" />
+                        <span>{photo.likeCount}</span>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -872,20 +893,30 @@ const Gallery = () => {
                   />
                   <div className="absolute inset-0 bg-muted animate-pulse" style={{ zIndex: -1 }} />
                   
-                  {/* Popularity bar - top overlay */}
-                  <div className="absolute top-0 left-0 right-0 h-1.5 bg-black/30 overflow-hidden pointer-events-none">
-                    <div 
-                      className="h-full bg-like transition-all duration-500 ease-out"
-                      style={{ 
-                        width: `${Math.min(100, ((photo.likeCount || 0) / 10) * 100)}%` 
-                      }}
-                    />
-                  </div>
+                  {/* Popularity bar - top overlay (only when like counting disabled) */}
+                  {!likeCountingEnabled && (
+                    <div className="absolute top-0 left-0 right-0 h-1.5 bg-black/30 overflow-hidden pointer-events-none">
+                      <div 
+                        className="h-full bg-like transition-all duration-500 ease-out"
+                        style={{ 
+                          width: `${Math.min(100, ((photo.likeCount || 0) / 10) * 100)}%` 
+                        }}
+                      />
+                    </div>
+                  )}
                   
                   {/* Date - bottom left */}
                   <div className="absolute bottom-2 left-2 bg-black/50 text-white px-2 py-1 rounded text-xs pointer-events-none">
                     {formatLocalDate(photo.captured_at, "dd/MM/yyyy HH:mm")}
                   </div>
+                  
+                  {/* Like count badge - only show when likeCountingEnabled */}
+                  {likeCountingEnabled && (photo.likeCount || 0) > 0 && (
+                    <div className="absolute top-2 right-2 bg-black/60 text-white px-2 py-1 rounded-full text-xs flex items-center gap-1 pointer-events-none">
+                      <img src={heartFilled} alt="" className="w-3 h-3" />
+                      <span>{photo.likeCount}</span>
+                    </div>
+                  )}
                   
                   {/* Like button - bottom right */}
                   <button

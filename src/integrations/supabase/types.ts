@@ -67,6 +67,7 @@ export type Database = {
           id: string
           is_demo: boolean
           language: string
+          like_counting_enabled: boolean
           max_photos: number | null
           name: string
           password_hash: string
@@ -96,6 +97,7 @@ export type Database = {
           id?: string
           is_demo?: boolean
           language?: string
+          like_counting_enabled?: boolean
           max_photos?: number | null
           name: string
           password_hash: string
@@ -125,6 +127,7 @@ export type Database = {
           id?: string
           is_demo?: boolean
           language?: string
+          like_counting_enabled?: boolean
           max_photos?: number | null
           name?: string
           password_hash?: string
@@ -148,16 +151,19 @@ export type Database = {
       photo_likes: {
         Row: {
           created_at: string
+          device_id: string | null
           id: string
           photo_id: string
         }
         Insert: {
           created_at?: string
+          device_id?: string | null
           id?: string
           photo_id: string
         }
         Update: {
           created_at?: string
+          device_id?: string | null
           id?: string
           photo_id?: string
         }
