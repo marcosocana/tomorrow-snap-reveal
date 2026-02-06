@@ -405,8 +405,8 @@ export const GalleryPreviewModal = ({
                   size="sm"
                   onClick={() => handleDownload(selectedPhoto)}
                 >
-                  <Download className="w-4 h-4 mr-2" />
-                  Descargar
+                  <Download className="w-4 h-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Descargar</span>
                 </Button>
                 {allowPhotoSharing && (
                   <Button
@@ -414,17 +414,17 @@ export const GalleryPreviewModal = ({
                     size="sm"
                     onClick={() => handleSharePhoto(selectedPhoto)}
                   >
-                    <Share2 className="w-4 h-4 mr-2" />
-                    Compartir
+                    <Share2 className="w-4 h-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Compartir</span>
                   </Button>
                 )}
                 <Button
-                  variant="destructive"
+                  variant="secondary"
                   size="sm"
                   onClick={() => handleDeletePhoto(selectedPhoto)}
                 >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Eliminar
+                  <Trash2 className="w-4 h-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Eliminar</span>
                 </Button>
               </div>
             </div>

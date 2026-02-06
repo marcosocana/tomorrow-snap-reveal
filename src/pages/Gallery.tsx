@@ -965,8 +965,8 @@ const Gallery = () => {
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="secondary" size="sm" className="uppercase tracking-wide flex-1">
-                          <Download className="w-4 h-4 mr-2" />
-                          {downloadText}
+                          <Download className="w-4 h-4 sm:mr-2" />
+                          <span className="hidden sm:inline">{downloadText}</span>
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent className="bg-card">
@@ -985,8 +985,8 @@ const Gallery = () => {
                       onClick={() => handleDownloadPhoto((selectedPhoto as any).fullQualityUrl, selectedPhoto.captured_at, false)}
                       className="uppercase tracking-wide flex-1"
                     >
-                      <Download className="w-4 h-4 mr-2" />
-                      {downloadText}
+                      <Download className="w-4 h-4 sm:mr-2" />
+                      <span className="hidden sm:inline">{downloadText}</span>
                     </Button>
                   )}
                   {allowPhotoDeletion && (
@@ -996,8 +996,8 @@ const Gallery = () => {
                       onClick={() => handleDeletePhoto(selectedPhoto.id, selectedPhoto.image_url)}
                       className="uppercase tracking-wide flex-1"
                     >
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      {deleteText}
+                      <Trash2 className="w-4 h-4 sm:mr-2" />
+                      <span className="hidden sm:inline">{deleteText}</span>
                     </Button>
                   )}
                   {allowPhotoSharing && (
@@ -1007,8 +1007,8 @@ const Gallery = () => {
                       onClick={() => handleSharePhoto((selectedPhoto as any).fullQualityUrl)}
                       className="uppercase tracking-wide flex-1"
                     >
-                      <Share2 className="w-4 h-4 mr-2" />
-                      {sharePhotoText}
+                      <Share2 className="w-4 h-4 sm:mr-2" />
+                      <span className="hidden sm:inline">{sharePhotoText}</span>
                     </Button>
                   )}
                 </div>
