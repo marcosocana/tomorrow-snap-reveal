@@ -54,6 +54,7 @@ interface Event {
   folder_id: string | null;
   sort_order: number;
   allow_photo_sharing?: boolean;
+  gallery_view_mode?: string;
 }
 
 const EventManagement = () => {

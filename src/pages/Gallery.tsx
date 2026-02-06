@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { LogOut, Film, Trash2, Download, MoreVertical, Share2, Play } from "lucide-react";
+import { LogOut, Film, Trash2, Download, MoreVertical, Share2, Play, ChevronLeft, ChevronRight } from "lucide-react";
 import StoriesViewer from "@/components/StoriesViewer";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import {
@@ -37,6 +37,7 @@ interface Photo {
 }
 
 const PHOTOS_PER_PAGE = 12;
+const GRID_PHOTOS_PER_PAGE = 27; // 3 rows x 9 columns for grid mode
 
 const getDateLocale = (language: Language) => {
   switch (language) {
@@ -74,6 +75,8 @@ const Gallery = () => {
   const [eventFontSize, setEventFontSize] = useState<string>("text-3xl");
   const [allowPhotoDeletion, setAllowPhotoDeletion] = useState<boolean>(true);
   const [allowPhotoSharing, setAllowPhotoSharing] = useState<boolean>(true);
+  const [galleryViewMode, setGalleryViewMode] = useState<"normal" | "grid">("normal");
+  const [gridPage, setGridPage] = useState(0);
 
   // Get translations and timezone
   const language = getEventLanguage();
@@ -87,12 +90,13 @@ const Gallery = () => {
     return format(localDate, formatStr, { locale: dateLocale });
   };
 
-  const loadPhotos = useCallback(async (pageNum: number) => {
+  const loadPhotos = useCallback(async (pageNum: number, isGrid: boolean = false) => {
     if (!eventId) return;
 
     try {
-      const from = pageNum * PHOTOS_PER_PAGE;
-      const to = from + PHOTOS_PER_PAGE - 1;
+      const perPage = isGrid ? GRID_PHOTOS_PER_PAGE : PHOTOS_PER_PAGE;
+      const from = pageNum * perPage;
+      const to = from + perPage - 1;
 
       const { data, error, count } = await supabase
         .from("photos")
@@ -150,8 +154,14 @@ const Gallery = () => {
         new Date(a.captured_at).getTime() - new Date(b.captured_at).getTime()
       );
 
-      setPhotos(prev => pageNum === 0 ? sortedPhotos as any : [...prev, ...sortedPhotos as any]);
-      setHasMore(count ? (from + photosWithUrls.length) < count : false);
+      if (isGrid) {
+        // For grid mode, replace photos for the current page
+        setPhotos(sortedPhotos as any);
+      } else {
+        // For normal mode, append photos for infinite scroll
+        setPhotos(prev => pageNum === 0 ? sortedPhotos as any : [...prev, ...sortedPhotos as any]);
+        setHasMore(count ? (from + photosWithUrls.length) < count : false);
+      }
       
       // Set total photos count on first load
       if (pageNum === 0 && count !== null) {
@@ -166,6 +176,17 @@ const Gallery = () => {
     }
   }, [eventId, toast]);
 
+  // Grid navigation
+  const totalGridPages = Math.ceil(totalPhotos / GRID_PHOTOS_PER_PAGE);
+  
+  const handleGridPageChange = (newPage: number) => {
+    if (newPage >= 0 && newPage < totalGridPages) {
+      setGridPage(newPage);
+      setIsLoading(true);
+      loadPhotos(newPage, true);
+    }
+  };
+
   useEffect(() => {
     if (!eventId) {
       navigate("/");
@@ -176,7 +197,7 @@ const Gallery = () => {
     const loadEventData = async () => {
       const { data } = await supabase
         .from("events")
-        .select("password_hash, filter_type, custom_image_url, description, background_image_url, expiry_date, expiry_redirect_url, font_family, font_size, allow_photo_deletion, allow_photo_sharing")
+        .select("password_hash, filter_type, custom_image_url, description, background_image_url, expiry_date, expiry_redirect_url, font_family, font_size, allow_photo_deletion, allow_photo_sharing, gallery_view_mode")
         .eq("id", eventId)
         .maybeSingle();
       if (data) {
@@ -189,6 +210,7 @@ const Gallery = () => {
         setEventFontSize((data as any).font_size || "text-3xl");
         setAllowPhotoDeletion((data as any).allow_photo_deletion !== false);
         setAllowPhotoSharing((data as any).allow_photo_sharing !== false);
+        setGalleryViewMode(((data as any).gallery_view_mode || "normal") as "normal" | "grid");
         
         // Check if event is expired
         if (data.expiry_date) {
@@ -799,7 +821,7 @@ const Gallery = () => {
       )}
 
       <main className={eventBackgroundImage ? "pt-4 pb-20" : "py-12 pt-36 pb-20"}>
-        <div className="max-w-7xl mx-auto px-6">
+        <div className={galleryViewMode === "grid" ? "w-full" : "max-w-7xl mx-auto px-6"}>
           {isLoading ? (
             <div className="flex items-center justify-center min-h-[50vh]">
               <p className="text-muted-foreground uppercase tracking-wide">{loadingPhotosText}</p>
@@ -816,7 +838,62 @@ const Gallery = () => {
                 </p>
               </div>
             </div>
+          ) : galleryViewMode === "grid" ? (
+            /* Grid Mode - iPhone style */
+            <div className="flex flex-col h-[calc(100vh-200px)] bg-black">
+              {/* Grid container with horizontal scroll */}
+              <div className="flex-1 overflow-x-auto overflow-y-hidden">
+                <div className="h-full flex">
+                  {/* 3x9 grid = 27 photos, displayed as 3 rows */}
+                  <div className="grid grid-rows-3 grid-flow-col gap-0.5 h-full" style={{ minWidth: 'max-content' }}>
+                    {photos.map((photo) => (
+                      <div
+                        key={photo.id}
+                        className="aspect-square w-[calc((100vh-200px)/3)] h-[calc((100vh-200px)/3)] cursor-pointer overflow-hidden"
+                        onClick={() => setSelectedPhoto(photo)}
+                      >
+                        <img
+                          src={(photo as any).thumbnailUrl}
+                          alt={language === "en" ? "Event photo" : language === "it" ? "Foto evento" : "Foto del evento"}
+                          className={`w-full h-full object-cover ${getFilterClass(filterType)}`}
+                          loading="lazy"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                          }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              
+              {/* Grid pagination */}
+              {totalGridPages > 1 && (
+                <div className="flex items-center justify-center gap-4 py-4 bg-background">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => handleGridPageChange(gridPage - 1)}
+                    disabled={gridPage === 0}
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </Button>
+                  <span className="text-sm text-muted-foreground">
+                    {gridPage + 1} / {totalGridPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => handleGridPageChange(gridPage + 1)}
+                    disabled={gridPage === totalGridPages - 1}
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </Button>
+                </div>
+              )}
+            </div>
           ) : (
+            /* Normal Mode - Original view */
             <>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 {photos.map((photo) => (
