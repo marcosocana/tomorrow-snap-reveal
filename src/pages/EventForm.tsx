@@ -857,7 +857,7 @@ const EventForm = () => {
                   </button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Normal: scroll vertical con tarjetas. Cuadrícula: estilo iPhone con scroll horizontal.
+                  Normal: scroll vertical con tarjetas grandes. Cuadrícula: 3 columnas compactas estilo iPhone.
                 </p>
               </div>
               

@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { LogOut, Film, Trash2, Download, MoreVertical, Share2, Play, ChevronLeft, ChevronRight } from "lucide-react";
+import { LogOut, Film, Trash2, Download, MoreVertical, Share2, Play } from "lucide-react";
 import StoriesViewer from "@/components/StoriesViewer";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import {
@@ -37,7 +37,6 @@ interface Photo {
 }
 
 const PHOTOS_PER_PAGE = 12;
-const GRID_PHOTOS_PER_PAGE = 27; // 3 rows x 9 columns for grid mode
 
 const getDateLocale = (language: Language) => {
   switch (language) {
@@ -76,7 +75,6 @@ const Gallery = () => {
   const [allowPhotoDeletion, setAllowPhotoDeletion] = useState<boolean>(true);
   const [allowPhotoSharing, setAllowPhotoSharing] = useState<boolean>(true);
   const [galleryViewMode, setGalleryViewMode] = useState<"normal" | "grid">("normal");
-  const [gridPage, setGridPage] = useState(0);
 
   // Get translations and timezone
   const language = getEventLanguage();
@@ -90,13 +88,12 @@ const Gallery = () => {
     return format(localDate, formatStr, { locale: dateLocale });
   };
 
-  const loadPhotos = useCallback(async (pageNum: number, isGrid: boolean = false) => {
+  const loadPhotos = useCallback(async (pageNum: number) => {
     if (!eventId) return;
 
     try {
-      const perPage = isGrid ? GRID_PHOTOS_PER_PAGE : PHOTOS_PER_PAGE;
-      const from = pageNum * perPage;
-      const to = from + perPage - 1;
+      const from = pageNum * PHOTOS_PER_PAGE;
+      const to = from + PHOTOS_PER_PAGE - 1;
 
       const { data, error, count } = await supabase
         .from("photos")
@@ -154,14 +151,8 @@ const Gallery = () => {
         new Date(a.captured_at).getTime() - new Date(b.captured_at).getTime()
       );
 
-      if (isGrid) {
-        // For grid mode, replace photos for the current page
-        setPhotos(sortedPhotos as any);
-      } else {
-        // For normal mode, append photos for infinite scroll
-        setPhotos(prev => pageNum === 0 ? sortedPhotos as any : [...prev, ...sortedPhotos as any]);
-        setHasMore(count ? (from + photosWithUrls.length) < count : false);
-      }
+      setPhotos(prev => pageNum === 0 ? sortedPhotos as any : [...prev, ...sortedPhotos as any]);
+      setHasMore(count ? (from + photosWithUrls.length) < count : false);
       
       // Set total photos count on first load
       if (pageNum === 0 && count !== null) {
@@ -175,17 +166,6 @@ const Gallery = () => {
       setIsLoading(false);
     }
   }, [eventId, toast]);
-
-  // Grid navigation
-  const totalGridPages = Math.ceil(totalPhotos / GRID_PHOTOS_PER_PAGE);
-  
-  const handleGridPageChange = (newPage: number) => {
-    if (newPage >= 0 && newPage < totalGridPages) {
-      setGridPage(newPage);
-      setIsLoading(true);
-      loadPhotos(newPage, true);
-    }
-  };
 
   useEffect(() => {
     if (!eventId) {
@@ -839,56 +819,32 @@ const Gallery = () => {
               </div>
             </div>
           ) : galleryViewMode === "grid" ? (
-            /* Grid Mode - iPhone style */
-            <div className="flex flex-col h-[calc(100vh-200px)] bg-black">
-              {/* Grid container with horizontal scroll */}
-              <div className="flex-1 overflow-x-auto overflow-y-hidden">
-                <div className="h-full flex">
-                  {/* 3x9 grid = 27 photos, displayed as 3 rows */}
-                  <div className="grid grid-rows-3 grid-flow-col gap-0.5 h-full" style={{ minWidth: 'max-content' }}>
-                    {photos.map((photo) => (
-                      <div
-                        key={photo.id}
-                        className="aspect-square w-[calc((100vh-200px)/3)] h-[calc((100vh-200px)/3)] cursor-pointer overflow-hidden"
-                        onClick={() => setSelectedPhoto(photo)}
-                      >
-                        <img
-                          src={(photo as any).thumbnailUrl}
-                          alt={language === "en" ? "Event photo" : language === "it" ? "Foto evento" : "Foto del evento"}
-                          className={`w-full h-full object-cover ${getFilterClass(filterType)}`}
-                          loading="lazy"
-                          onError={(e) => {
-                            e.currentTarget.style.display = 'none';
-                          }}
-                        />
-                      </div>
-                    ))}
+            /* Grid Mode - 3 columns, vertical scroll */
+            <div className="px-0">
+              <div className="grid grid-cols-3 gap-px bg-white">
+                {photos.map((photo) => (
+                  <div
+                    key={photo.id}
+                    className="aspect-square cursor-pointer overflow-hidden bg-muted"
+                    onClick={() => setSelectedPhoto(photo)}
+                  >
+                    <img
+                      src={(photo as any).thumbnailUrl}
+                      alt={language === "en" ? "Event photo" : language === "it" ? "Foto evento" : "Foto del evento"}
+                      className={`w-full h-full object-cover ${getFilterClass(filterType)}`}
+                      loading="lazy"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
                   </div>
-                </div>
+                ))}
               </div>
-              
-              {/* Grid pagination */}
-              {totalGridPages > 1 && (
-                <div className="flex items-center justify-center gap-4 py-4 bg-background">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => handleGridPageChange(gridPage - 1)}
-                    disabled={gridPage === 0}
-                  >
-                    <ChevronLeft className="w-5 h-5" />
-                  </Button>
-                  <span className="text-sm text-muted-foreground">
-                    {gridPage + 1} / {totalGridPages}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => handleGridPageChange(gridPage + 1)}
-                    disabled={gridPage === totalGridPages - 1}
-                  >
-                    <ChevronRight className="w-5 h-5" />
-                  </Button>
+              {hasMore && (
+                <div ref={observerTarget} className="flex justify-center py-8">
+                  <p className="text-muted-foreground uppercase tracking-wide text-sm">
+                    {loadingMoreText}
+                  </p>
                 </div>
               )}
             </div>
