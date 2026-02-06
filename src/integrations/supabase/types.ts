@@ -63,6 +63,7 @@ export type Database = {
           folder_id: string | null
           font_family: string
           font_size: string
+          gallery_view_mode: string
           id: string
           is_demo: boolean
           language: string
@@ -91,6 +92,7 @@ export type Database = {
           folder_id?: string | null
           font_family?: string
           font_size?: string
+          gallery_view_mode?: string
           id?: string
           is_demo?: boolean
           language?: string
@@ -119,6 +121,7 @@ export type Database = {
           folder_id?: string | null
           font_family?: string
           font_size?: string
+          gallery_view_mode?: string
           id?: string
           is_demo?: boolean
           language?: string

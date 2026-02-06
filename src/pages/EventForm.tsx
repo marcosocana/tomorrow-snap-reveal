@@ -95,6 +95,7 @@ const EventForm = () => {
       allowPhotoDeletion: true,
       allowPhotoSharing: true,
       showLegalText: false,
+      galleryViewMode: "normal" as "normal" | "grid",
     };
   });
   const navigate = useNavigate();
@@ -173,6 +174,7 @@ const EventForm = () => {
         allowPhotoDeletion: (event as any).allow_photo_deletion !== false,
         allowPhotoSharing: (event as any).allow_photo_sharing !== false,
         showLegalText: (event as any).show_legal_text === true,
+        galleryViewMode: ((event as any).gallery_view_mode || "normal") as "normal" | "grid",
       });
     } catch (error) {
       console.error("Error loading event:", error);
@@ -273,6 +275,7 @@ const EventForm = () => {
             allow_photo_deletion: formData.allowPhotoDeletion,
             allow_photo_sharing: formData.allowPhotoSharing,
             show_legal_text: formData.showLegalText,
+            gallery_view_mode: formData.galleryViewMode,
           } as any)
           .eq("id", eventId);
 
@@ -306,6 +309,7 @@ const EventForm = () => {
           allow_photo_deletion: formData.allowPhotoDeletion,
           allow_photo_sharing: formData.allowPhotoSharing,
           show_legal_text: formData.showLegalText,
+          gallery_view_mode: formData.galleryViewMode,
         } as any);
 
         if (error) throw error;
@@ -825,6 +829,37 @@ const EventForm = () => {
 
             <div className="space-y-4 border-t border-border pt-4">
               <Label className="text-base font-semibold">Opciones adicionales</Label>
+              
+              <div className="space-y-2">
+                <Label>Modo de visualización de galería</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, galleryViewMode: "normal" })}
+                    className={`px-3 py-2 text-sm rounded-md border transition-colors ${
+                      formData.galleryViewMode === "normal"
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-muted border-border hover:bg-muted/80"
+                    }`}
+                  >
+                    Normal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, galleryViewMode: "grid" })}
+                    className={`px-3 py-2 text-sm rounded-md border transition-colors ${
+                      formData.galleryViewMode === "grid"
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-muted border-border hover:bg-muted/80"
+                    }`}
+                  >
+                    Cuadrícula
+                  </button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Normal: scroll vertical con tarjetas. Cuadrícula: estilo iPhone con scroll horizontal.
+                </p>
+              </div>
               
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
