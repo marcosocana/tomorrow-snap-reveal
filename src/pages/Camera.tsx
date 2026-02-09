@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { LogOut, Image, Share2 } from "lucide-react";
+import { LogOut, Image, Share2, RefreshCw } from "lucide-react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { es, enUS, it } from "date-fns/locale";
@@ -44,6 +44,10 @@ const Camera = () => {
   const [revealCountdown, setRevealCountdown] = useState<string>("");
   const [startCountdown, setStartCountdown] = useState<string>("");
   const [showShareDialog, setShowShareDialog] = useState(false);
+  const [rateLimitCooldown, setRateLimitCooldown] = useState(0);
+  const [failedUpload, setFailedUpload] = useState<{ file: File } | null>(null);
+  const uploadTimestampsRef = useRef<number[]>([]);
+  const cooldownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -220,6 +224,47 @@ const Camera = () => {
     setPhotoCount(count || 0);
   };
 
+  const generateHash = () => {
+    return Array.from(crypto.getRandomValues(new Uint8Array(4)))
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
+  };
+
+  const startCooldown = () => {
+    setRateLimitCooldown(30);
+    if (cooldownIntervalRef.current) clearInterval(cooldownIntervalRef.current);
+    cooldownIntervalRef.current = setInterval(() => {
+      setRateLimitCooldown(prev => {
+        if (prev <= 1) {
+          if (cooldownIntervalRef.current) clearInterval(cooldownIntervalRef.current);
+          cooldownIntervalRef.current = null;
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  const checkRateLimit = (): boolean => {
+    const now = Date.now();
+    // Keep only timestamps within last 60 seconds
+    uploadTimestampsRef.current = uploadTimestampsRef.current.filter(ts => now - ts < 60000);
+    if (uploadTimestampsRef.current.length >= 5) {
+      toast({
+        title: language === "en" ? "Upload limit exceeded" : language === "it" ? "Limite di upload superato" : "Has excedido el número de fotos",
+        description: language === "en" 
+          ? "You must wait 30 seconds before taking another photo." 
+          : language === "it"
+          ? "Devi aspettare 30 secondi prima di scattare un'altra foto."
+          : "Debes esperar 30 segundos para poder volver a echar una foto.",
+        variant: "destructive",
+      });
+      startCooldown();
+      return false;
+    }
+    return true;
+  };
+
   const handleTakePhoto = () => {
     // Check if upload period is valid
     const now = new Date();
@@ -234,16 +279,18 @@ const Camera = () => {
       return;
     }
     if (endTime && now > endTime) {
-      // Already handled by UI, but extra validation
       return;
     }
+    // Check rate limit
+    if (rateLimitCooldown > 0) return;
+    if (!checkRateLimit()) return;
     fileInputRef.current?.click();
   };
 
-  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file || !eventId) return;
+  const uploadPhoto = async (file: File) => {
+    if (!eventId) return;
     setIsUploading(true);
+    setFailedUpload(null);
     try {
       // Check max photos limit before uploading
       const { data: eventData } = await supabase
@@ -271,16 +318,22 @@ const Camera = () => {
       // Compress image to max 1MB
       const compressedFile = await compressImage(file, 1);
       
-      const fileName = `${eventId}/${Date.now()}.jpg`;
+      const hash = generateHash();
+      const fileName = `${eventId}/${hash}_${Date.now()}.jpg`;
 
       // Upload to storage
       const { error: uploadError } = await supabase.storage
         .from("event-photos")
         .upload(fileName, compressedFile);
       if (uploadError) {
+        setFailedUpload({ file });
         toast({
           title: t.common.error,
-          description: t.camera.uploadError,
+          description: language === "en"
+            ? "The photo could not be uploaded. Please try again."
+            : language === "it"
+            ? "Non è stato possibile caricare la foto. Riprova."
+            : "No se ha podido subir la foto. Inténtalo de nuevo.",
           variant: "destructive",
         });
         return;
@@ -292,8 +345,22 @@ const Camera = () => {
         image_url: fileName,
       });
       if (dbError) {
-        console.error("Error saving photo record:", dbError);
+        setFailedUpload({ file });
+        toast({
+          title: t.common.error,
+          description: language === "en"
+            ? "The photo could not be saved. Please try again."
+            : language === "it"
+            ? "Non è stato possibile salvare la foto. Riprova."
+            : "No se ha podido guardar la foto. Inténtalo de nuevo.",
+          variant: "destructive",
+        });
+        return;
       }
+      
+      // Track successful upload timestamp for rate limiting
+      uploadTimestampsRef.current.push(Date.now());
+      
       setPhotoCount((prev) => prev + 1);
       toast({
         title: t.camera.uploadSuccess,
@@ -304,17 +371,34 @@ const Camera = () => {
       loadEventData();
     } catch (error) {
       console.error("Error uploading photo:", error);
+      setFailedUpload({ file });
       toast({
         title: t.common.error,
-        description: t.camera.uploadError,
+        description: language === "en"
+          ? "An unexpected error occurred. Please try again."
+          : language === "it"
+          ? "Si è verificato un errore imprevisto. Riprova."
+          : "Ha ocurrido un error inesperado. Inténtalo de nuevo.",
         variant: "destructive",
       });
     } finally {
       setIsUploading(false);
-      // Reset input
-      if (event.target) {
-        event.target.value = "";
-      }
+    }
+  };
+
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !eventId) return;
+    await uploadPhoto(file);
+    // Reset input
+    if (event.target) {
+      event.target.value = "";
+    }
+  };
+
+  const handleRetryUpload = () => {
+    if (failedUpload) {
+      uploadPhoto(failedUpload.file);
     }
   };
 
@@ -700,6 +784,10 @@ const Camera = () => {
     : language === "it"
     ? `${photoCount} foto caricate`
     : `Ya hay ${photoCount} fotos subidas`;
+  const cooldownText = language === "en" ? `Wait ${rateLimitCooldown}s` : language === "it" ? `Attendi ${rateLimitCooldown}s` : `Espera ${rateLimitCooldown}s`;
+  const retryText = language === "en" ? "Retry" : language === "it" ? "Riprova" : "Reintentar";
+  const isButtonDisabled = isUploading || rateLimitCooldown > 0;
+  const buttonLabel = rateLimitCooldown > 0 ? cooldownText : isUploading ? uploadingText : uploadButtonText;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -767,11 +855,21 @@ const Camera = () => {
             <div className="text-center space-y-4 max-w-lg mx-auto animate-fade-in">
               <Button
                 onClick={handleTakePhoto}
-                disabled={isUploading}
+                disabled={isButtonDisabled}
                 className="h-16 px-8 text-lg bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl transition-all hover:scale-105 disabled:opacity-50"
               >
-                {isUploading ? uploadingText : uploadButtonText}
+                {buttonLabel}
               </Button>
+              {failedUpload && !isUploading && (
+                <Button
+                  onClick={handleRetryUpload}
+                  variant="outline"
+                  className="h-12 px-6 text-base rounded-xl"
+                >
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  {retryText}
+                </Button>
+              )}
               <div className="space-y-2">
                 {countdown && (
                   <div className="bg-card border border-border rounded-lg p-4">
@@ -865,11 +963,21 @@ const Camera = () => {
             <div className="text-center space-y-4 max-w-lg mx-auto animate-fade-in">
               <Button
                 onClick={handleTakePhoto}
-                disabled={isUploading}
+                disabled={isButtonDisabled}
                 className="h-16 px-8 text-lg bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl transition-all hover:scale-105 disabled:opacity-50"
               >
-                {isUploading ? uploadingText : uploadButtonText}
+                {buttonLabel}
               </Button>
+              {failedUpload && !isUploading && (
+                <Button
+                  onClick={handleRetryUpload}
+                  variant="outline"
+                  className="h-12 px-6 text-base rounded-xl"
+                >
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  {retryText}
+                </Button>
+              )}
               <div className="space-y-2">
                 {countdown && (
                   <div className="bg-card border border-border rounded-lg p-4">
