@@ -40,6 +40,7 @@ const Camera = () => {
   const [eventFontFamily, setEventFontFamily] = useState<EventFontFamily>("system");
   const [eventFontSize, setEventFontSize] = useState<string>("text-3xl");
   const [showLegalText, setShowLegalText] = useState<boolean>(false);
+  const [legalTextType, setLegalTextType] = useState<string>("default");
   const [countdown, setCountdown] = useState<string>("");
   const [revealCountdown, setRevealCountdown] = useState<string>("");
   const [startCountdown, setStartCountdown] = useState<string>("");
@@ -125,7 +126,7 @@ const Camera = () => {
     if (!eventId) return;
     const { data, error } = await supabase
       .from("events")
-      .select("reveal_time, upload_start_time, upload_end_time, password_hash, max_photos, custom_image_url, background_image_url, description, font_family, font_size, show_legal_text")
+      .select("reveal_time, upload_start_time, upload_end_time, password_hash, max_photos, custom_image_url, background_image_url, description, font_family, font_size, show_legal_text, legal_text_type")
       .eq("id", eventId)
       .single();
     if (data && !error) {
@@ -139,6 +140,7 @@ const Camera = () => {
       setEventFontFamily(((data as any).font_family as EventFontFamily) || "system");
       setEventFontSize((data as any).font_size || "text-3xl");
       setShowLegalText((data as any).show_legal_text === true);
+      setLegalTextType((data as any).legal_text_type || "default");
       
       // Check if max photos limit reached
       if (data.max_photos) {
@@ -900,11 +902,11 @@ const Camera = () => {
               <div className="flex-1 flex items-end justify-center pt-4 pb-2">
                 <p className="text-xs text-muted-foreground text-center max-w-sm">
                   Al hacer la foto aceptas los{" "}
-                  <Link to="/terms" className="underline hover:text-foreground">
+                  <Link to={legalTextType === "custom" ? `/terms?eventId=${eventId}` : "/terms"} className="underline hover:text-foreground">
                     Términos y Condiciones
                   </Link>{" "}
                   y la{" "}
-                  <Link to="/privacy" className="underline hover:text-foreground">
+                  <Link to={legalTextType === "custom" ? `/privacy?eventId=${eventId}` : "/privacy"} className="underline hover:text-foreground">
                     Política de Privacidad
                   </Link>
                   .
@@ -1008,11 +1010,11 @@ const Camera = () => {
               <div className="flex-1 flex items-end justify-center pt-4 pb-2">
                 <p className="text-xs text-muted-foreground text-center max-w-sm">
                   Al hacer la foto aceptas los{" "}
-                  <Link to="/terms" className="underline hover:text-foreground">
+                  <Link to={legalTextType === "custom" ? `/terms?eventId=${eventId}` : "/terms"} className="underline hover:text-foreground">
                     Términos y Condiciones
                   </Link>{" "}
                   y la{" "}
-                  <Link to="/privacy" className="underline hover:text-foreground">
+                  <Link to={legalTextType === "custom" ? `/privacy?eventId=${eventId}` : "/privacy"} className="underline hover:text-foreground">
                     Política de Privacidad
                   </Link>
                   .
