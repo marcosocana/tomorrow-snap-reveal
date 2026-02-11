@@ -56,6 +56,8 @@ export type Database = {
           country_code: string
           created_at: string
           custom_image_url: string | null
+          custom_privacy_text: string | null
+          custom_terms_text: string | null
           description: string | null
           expiry_date: string | null
           expiry_redirect_url: string | null
@@ -67,6 +69,7 @@ export type Database = {
           id: string
           is_demo: boolean
           language: string
+          legal_text_type: string
           like_counting_enabled: boolean
           max_photos: number | null
           name: string
@@ -86,6 +89,8 @@ export type Database = {
           country_code?: string
           created_at?: string
           custom_image_url?: string | null
+          custom_privacy_text?: string | null
+          custom_terms_text?: string | null
           description?: string | null
           expiry_date?: string | null
           expiry_redirect_url?: string | null
@@ -97,6 +102,7 @@ export type Database = {
           id?: string
           is_demo?: boolean
           language?: string
+          legal_text_type?: string
           like_counting_enabled?: boolean
           max_photos?: number | null
           name: string
@@ -116,6 +122,8 @@ export type Database = {
           country_code?: string
           created_at?: string
           custom_image_url?: string | null
+          custom_privacy_text?: string | null
+          custom_terms_text?: string | null
           description?: string | null
           expiry_date?: string | null
           expiry_redirect_url?: string | null
@@ -127,6 +135,7 @@ export type Database = {
           id?: string
           is_demo?: boolean
           language?: string
+          legal_text_type?: string
           like_counting_enabled?: boolean
           max_photos?: number | null
           name?: string

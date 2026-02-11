@@ -95,6 +95,9 @@ const EventForm = () => {
       allowPhotoDeletion: true,
       allowPhotoSharing: true,
       showLegalText: false,
+      legalTextType: "default" as "default" | "custom",
+      customTermsText: "",
+      customPrivacyText: "",
       galleryViewMode: "normal" as "normal" | "grid",
       likeCountingEnabled: false,
     };
@@ -175,6 +178,9 @@ const EventForm = () => {
         allowPhotoDeletion: (event as any).allow_photo_deletion !== false,
         allowPhotoSharing: (event as any).allow_photo_sharing !== false,
         showLegalText: (event as any).show_legal_text === true,
+        legalTextType: ((event as any).legal_text_type || "default") as "default" | "custom",
+        customTermsText: (event as any).custom_terms_text || "",
+        customPrivacyText: (event as any).custom_privacy_text || "",
         galleryViewMode: ((event as any).gallery_view_mode || "normal") as "normal" | "grid",
         likeCountingEnabled: (event as any).like_counting_enabled === true,
       });
@@ -277,6 +283,9 @@ const EventForm = () => {
             allow_photo_deletion: formData.allowPhotoDeletion,
             allow_photo_sharing: formData.allowPhotoSharing,
             show_legal_text: formData.showLegalText,
+            legal_text_type: formData.showLegalText ? formData.legalTextType : 'default',
+            custom_terms_text: formData.legalTextType === 'custom' ? (formData.customTermsText || null) : null,
+            custom_privacy_text: formData.legalTextType === 'custom' ? (formData.customPrivacyText || null) : null,
             gallery_view_mode: formData.galleryViewMode,
             like_counting_enabled: formData.likeCountingEnabled,
           } as any)
@@ -312,6 +321,9 @@ const EventForm = () => {
           allow_photo_deletion: formData.allowPhotoDeletion,
           allow_photo_sharing: formData.allowPhotoSharing,
           show_legal_text: formData.showLegalText,
+          legal_text_type: formData.showLegalText ? formData.legalTextType : 'default',
+          custom_terms_text: formData.legalTextType === 'custom' ? (formData.customTermsText || null) : null,
+          custom_privacy_text: formData.legalTextType === 'custom' ? (formData.customPrivacyText || null) : null,
           gallery_view_mode: formData.galleryViewMode,
           like_counting_enabled: formData.likeCountingEnabled,
         } as any);
@@ -928,6 +940,72 @@ const EventForm = () => {
                   }
                 />
               </div>
+
+              {formData.showLegalText && (
+                <div className="ml-4 space-y-4 border-l-2 border-border pl-4">
+                  <div className="space-y-2">
+                    <Label>Tipo de texto legal</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, legalTextType: "default" })}
+                        className={`px-3 py-2 text-sm rounded-md border transition-colors ${
+                          formData.legalTextType === "default"
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "bg-muted border-border hover:bg-muted/80"
+                        }`}
+                      >
+                        Texto por defecto
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, legalTextType: "custom" })}
+                        className={`px-3 py-2 text-sm rounded-md border transition-colors ${
+                          formData.legalTextType === "custom"
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "bg-muted border-border hover:bg-muted/80"
+                        }`}
+                      >
+                        Texto personalizado
+                      </button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {formData.legalTextType === "default" 
+                        ? "Se usará el texto legal genérico de Revelao" 
+                        : "Puedes escribir tu propio texto legal. Usa Markdown: **negrita**, # Encabezado, [enlace](url)"}
+                    </p>
+                  </div>
+
+                  {formData.legalTextType === "custom" && (
+                    <>
+                      <div className="space-y-2">
+                        <Label htmlFor="customTermsText">Términos y Condiciones</Label>
+                        <Textarea
+                          id="customTermsText"
+                          value={formData.customTermsText}
+                          onChange={(e) =>
+                            setFormData({ ...formData, customTermsText: e.target.value })
+                          }
+                          placeholder="Escribe aquí los Términos y Condiciones personalizados...&#10;&#10;Puedes usar Markdown:&#10;# Encabezado&#10;**texto en negrita**&#10;[texto del enlace](https://url.com)"
+                          rows={8}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="customPrivacyText">Política de Privacidad</Label>
+                        <Textarea
+                          id="customPrivacyText"
+                          value={formData.customPrivacyText}
+                          onChange={(e) =>
+                            setFormData({ ...formData, customPrivacyText: e.target.value })
+                          }
+                          placeholder="Escribe aquí la Política de Privacidad personalizada...&#10;&#10;Puedes usar Markdown:&#10;# Encabezado&#10;**texto en negrita**&#10;[texto del enlace](https://url.com)"
+                          rows={8}
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3 pt-4">
