@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Globe, Trash2 } from "lucide-react";
-import { format } from "date-fns";
+import { addDays, format } from "date-fns";
 import { toZonedTime, fromZonedTime, formatInTimeZone } from "date-fns-tz";
 import CountrySelect from "@/components/CountrySelect";
 import LanguageSelect from "@/components/LanguageSelect";
@@ -66,17 +66,24 @@ const EventForm = () => {
     // Only generate hashes for new events, not when editing
     const initialPassword = isEditing ? "" : generateHash();
     const initialAdminPassword = isEditing ? "" : generateHash();
+    const now = new Date();
+    const initialUploadStartDate = format(now, "yyyy-MM-dd");
+    const initialUploadStartTime = format(now, "HH:mm");
+    const initialUploadEndDate = format(addDays(now, 1), "yyyy-MM-dd");
+    const initialUploadEndTime = initialUploadStartTime;
+    const initialRevealDate = format(addDays(now, 2), "yyyy-MM-dd");
+    const initialRevealTime = initialUploadStartTime;
     
     return {
       name: "",
       password: initialPassword,
       adminPassword: initialAdminPassword,
-      uploadStartDate: "",
-      uploadStartTime: "00:00",
-      uploadEndDate: "",
-      uploadEndTime: "23:59",
-      revealDate: "",
-      revealTime: "12:00",
+      uploadStartDate: initialUploadStartDate,
+      uploadStartTime: initialUploadStartTime,
+      uploadEndDate: initialUploadEndDate,
+      uploadEndTime: initialUploadEndTime,
+      revealDate: initialRevealDate,
+      revealTime: initialRevealTime,
       maxPhotos: isDemoMode ? "30" : "",
       customImage: null as File | null,
       customImageUrl: "",

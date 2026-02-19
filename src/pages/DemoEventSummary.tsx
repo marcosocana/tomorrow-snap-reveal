@@ -22,12 +22,6 @@ interface EventData {
   max_photos: number;
 }
 
-interface ContactInfo {
-  name: string;
-  email: string;
-  phone: string;
-}
-
 const DemoEventSummary = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -68,7 +62,6 @@ const DemoEventSummary = () => {
   }, []);
 
   const event = location.state?.event as EventData | undefined;
-  const contactInfo = location.state?.contactInfo as ContactInfo | undefined;
 
   // Redirect if no event data
   if (!event) {
@@ -174,40 +167,6 @@ const DemoEventSummary = () => {
               </div>
             </div>
 
-            {/* Event Password */}
-            <div className="space-y-1">
-              <label className="text-sm font-medium text-muted-foreground">Contraseña del evento</label>
-              <div className="flex items-center gap-2">
-                <code className="flex-1 bg-muted px-3 py-2 rounded text-sm font-mono">
-                  {event.password_hash}
-                </code>
-                <Button 
-                  variant="outline" 
-                  size="icon"
-                  onClick={() => copyToClipboard(event.password_hash, 'password')}
-                >
-                  {copiedField === 'password' ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                </Button>
-              </div>
-            </div>
-
-            {/* Admin Password */}
-            <div className="space-y-1">
-              <label className="text-sm font-medium text-muted-foreground">Contraseña de administrador</label>
-              <div className="flex items-center gap-2">
-                <code className="flex-1 bg-amber-50 dark:bg-amber-900/20 px-3 py-2 rounded text-sm font-mono border border-amber-200 dark:border-amber-800">
-                  {event.admin_password}
-                </code>
-                <Button 
-                  variant="outline" 
-                  size="icon"
-                  onClick={() => copyToClipboard(event.admin_password, 'admin')}
-                >
-                  {copiedField === 'admin' ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                </Button>
-              </div>
-            </div>
-
             {/* Dates */}
             <div className="grid sm:grid-cols-2 gap-4">
               <div className="space-y-1">
@@ -256,28 +215,21 @@ const DemoEventSummary = () => {
           </div>
         </Card>
 
-        {/* Contact Info Confirmation */}
-        {contactInfo && (
-          <Card className="p-4 sm:p-6 bg-muted/30">
-            <h3 className="font-semibold text-foreground mb-3">Tus datos de contacto</h3>
-            <div className="space-y-3 text-sm">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-muted-foreground text-xs">Nombre</label>
-                  <p className="font-medium">{contactInfo.name}</p>
-                </div>
-                <div>
-                  <label className="text-muted-foreground text-xs">Teléfono</label>
-                  <p className="font-medium">{contactInfo.phone}</p>
-                </div>
-              </div>
-              <div>
-                <label className="text-muted-foreground text-xs">Email</label>
-                <p className="font-medium break-all">{contactInfo.email}</p>
-              </div>
-            </div>
-          </Card>
-        )}
+        <Card className="p-6 border-primary/30 bg-primary/5">
+          <h3 className="font-semibold text-foreground mb-2">Este es un evento de prueba</h3>
+          <p className="text-sm text-muted-foreground">
+            Para contratar un evento real, visita{" "}
+            <a
+              href="https://www.revelao.cam"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary hover:underline font-medium"
+            >
+              revelao.cam
+            </a>{" "}
+            y elige el plan que mejor se ajuste.
+          </p>
+        </Card>
 
         {/* Actions */}
         <div className="flex flex-col sm:flex-row gap-3">

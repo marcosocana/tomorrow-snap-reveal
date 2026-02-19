@@ -15,7 +15,7 @@ interface LanguageSelectProps {
 const LanguageSelect = ({ value, onChange }: LanguageSelectProps) => {
   return (
     <Select value={value} onValueChange={(val) => onChange(val as Language)}>
-      <SelectTrigger className="w-full">
+      <SelectTrigger className="w-full h-auto min-h-10" lineClamp={false}>
         <SelectValue placeholder="Seleccionar idioma" />
       </SelectTrigger>
       <SelectContent>

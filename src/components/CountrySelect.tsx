@@ -24,7 +24,7 @@ const CountrySelect = ({ value, onChange }: CountrySelectProps) => {
 
   return (
     <Select value={value} onValueChange={handleChange}>
-      <SelectTrigger className="w-full">
+      <SelectTrigger className="w-full h-auto min-h-10" lineClamp={false}>
         <SelectValue>
           {selectedCountry ? (
             <span className="flex items-center gap-2">

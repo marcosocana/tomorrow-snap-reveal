@@ -36,77 +36,43 @@ const FontSelect = ({ value, onChange, previewText = "Boda Ana & Luis" }: FontSe
       {/* Font options grid */}
       <ScrollArea className="h-[280px] rounded-md border border-border">
         <div className="p-2 space-y-1">
-          {/* System font */}
-          <div className="mb-2">
-            <p className="text-xs text-muted-foreground px-2 py-1">Sistema</p>
-            {FONT_OPTIONS.filter(f => f.category === 'system').map((font) => (
-              <button
-                key={font.id}
-                type="button"
-                onClick={() => onChange(font.id)}
-                className={`w-full text-left px-3 py-2 rounded-md transition-colors ${
-                  value === font.id
-                    ? "bg-primary text-primary-foreground"
-                    : "hover:bg-muted"
-                }`}
-              >
-                <span 
-                  className="text-lg"
-                  style={{ fontFamily: font.fontFamily }}
-                >
-                  {font.name}
-                </span>
-              </button>
-            ))}
-          </div>
+          {[
+            { label: "Sistema", category: "system" },
+            { label: "Caligráficas", category: "calligraphic" },
+            { label: "Manuscritas", category: "handwritten" },
+            { label: "Serif", category: "serif" },
+            { label: "Sans", category: "sans" },
+            { label: "Display", category: "display" },
+            { label: "Decorativas", category: "decorative" },
+          ].map((section) => {
+            const fonts = FONT_OPTIONS.filter(f => f.category === section.category);
+            if (!fonts.length) return null;
 
-          {/* Calligraphic fonts */}
-          <div className="mb-2">
-            <p className="text-xs text-muted-foreground px-2 py-1">Caligráficas</p>
-            {FONT_OPTIONS.filter(f => f.category === 'calligraphic').map((font) => (
-              <button
-                key={font.id}
-                type="button"
-                onClick={() => onChange(font.id)}
-                className={`w-full text-left px-3 py-2 rounded-md transition-colors ${
-                  value === font.id
-                    ? "bg-primary text-primary-foreground"
-                    : "hover:bg-muted"
-                }`}
-              >
-                <span 
-                  className="text-lg"
-                  style={{ fontFamily: font.fontFamily }}
-                >
-                  {font.name}
-                </span>
-              </button>
-            ))}
-          </div>
-
-          {/* Decorative fonts */}
-          <div>
-            <p className="text-xs text-muted-foreground px-2 py-1">Decorativas</p>
-            {FONT_OPTIONS.filter(f => f.category === 'decorative').map((font) => (
-              <button
-                key={font.id}
-                type="button"
-                onClick={() => onChange(font.id)}
-                className={`w-full text-left px-3 py-2 rounded-md transition-colors ${
-                  value === font.id
-                    ? "bg-primary text-primary-foreground"
-                    : "hover:bg-muted"
-                }`}
-              >
-                <span 
-                  className="text-lg"
-                  style={{ fontFamily: font.fontFamily }}
-                >
-                  {font.name}
-                </span>
-              </button>
-            ))}
-          </div>
+            return (
+              <div className="mb-2" key={section.category}>
+                <p className="text-xs text-muted-foreground px-2 py-1">{section.label}</p>
+                {fonts.map((font) => (
+                  <button
+                    key={font.id}
+                    type="button"
+                    onClick={() => onChange(font.id)}
+                    className={`w-full text-left px-3 py-2 rounded-md transition-colors ${
+                      value === font.id
+                        ? "bg-primary text-primary-foreground"
+                        : "hover:bg-muted"
+                    }`}
+                  >
+                    <span 
+                      className="text-lg"
+                      style={{ fontFamily: font.fontFamily }}
+                    >
+                      {font.name}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            );
+          })}
         </div>
       </ScrollArea>
     </div>
