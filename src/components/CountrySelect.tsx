@@ -28,7 +28,7 @@ const CountrySelect = ({ value, onChange }: CountrySelectProps) => {
         <SelectValue>
           {selectedCountry ? (
             <span className="flex items-center gap-2">
-              <span className="text-lg">{selectedCountry.flag}</span>
+              <span className="text-base">{selectedCountry.flag}</span>
               <span>{selectedCountry.name}</span>
             </span>
           ) : (
@@ -40,7 +40,7 @@ const CountrySelect = ({ value, onChange }: CountrySelectProps) => {
         {COUNTRIES.map((country) => (
           <SelectItem key={country.code} value={country.code}>
             <span className="flex items-center gap-2">
-              <span className="text-lg">{country.flag}</span>
+              <span className="text-base">{country.flag}</span>
               <span>{country.name}</span>
             </span>
           </SelectItem>

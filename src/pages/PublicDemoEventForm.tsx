@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Globe, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { addDays, format } from "date-fns";
 import { fromZonedTime, formatInTimeZone } from "date-fns-tz";
 import CountrySelect from "@/components/CountrySelect";
@@ -18,9 +18,6 @@ import { Language } from "@/lib/translations";
 import { EventFontFamily } from "@/lib/eventFonts";
 import { FilterType } from "@/lib/photoFilters";
 import logoRevelao from "@/assets/logo-revelao.png";
-
-const MIN_BACKGROUND_WIDTH = 1280;
-const MIN_BACKGROUND_HEIGHT = 720;
 
 const generateHash = (): string => Math.random().toString(36).substring(2, 10);
 
@@ -292,7 +289,6 @@ const PublicDemoEventForm = () => {
                     <Label htmlFor="backgroundImage">Fotografía de fondo (opcional)</Label>
                     <div className="text-xs text-muted-foreground mb-2 space-y-1">
                       <p>Imagen que aparecerá como fondo en la cabecera de la galería.</p>
-                      <p className="font-medium">Tamaño mínimo requerido: {MIN_BACKGROUND_WIDTH}×{MIN_BACKGROUND_HEIGHT}px (ratio 16:9)</p>
                     </div>
                     {formData.backgroundImageUrl && !formData.backgroundImage && (
                       <div className="mb-2 relative inline-block">
@@ -337,40 +333,7 @@ const PublicDemoEventForm = () => {
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) {
-                          const img = new Image();
-                          img.onload = () => {
-                            URL.revokeObjectURL(img.src);
-                            if (img.width < MIN_BACKGROUND_WIDTH || img.height < MIN_BACKGROUND_HEIGHT) {
-                              toast({
-                                title: "Imagen demasiado pequeña",
-                                description: `La imagen debe ser al menos ${MIN_BACKGROUND_WIDTH}×${MIN_BACKGROUND_HEIGHT}px.`,
-                                variant: "destructive",
-                              });
-                              e.target.value = '';
-                              return;
-                            }
-                            const aspectRatio = img.width / img.height;
-                            const targetRatio = 16 / 9;
-                            if (Math.abs(aspectRatio - targetRatio) > 0.3) {
-                              toast({
-                                title: "Ratio de imagen incorrecto",
-                                description: "La imagen debe tener un ratio aproximado de 16:9.",
-                                variant: "destructive",
-                              });
-                              e.target.value = '';
-                              return;
-                            }
-                            setFormData({ ...formData, backgroundImage: file });
-                          };
-                          img.onerror = () => {
-                            URL.revokeObjectURL(img.src);
-                            toast({
-                              title: "Error",
-                              description: "No se pudo leer la imagen",
-                              variant: "destructive",
-                            });
-                          };
-                          img.src = URL.createObjectURL(file);
+                          setFormData({ ...formData, backgroundImage: file });
                         }
                       }}
                     />
@@ -430,11 +393,30 @@ const PublicDemoEventForm = () => {
                     />
                   </div>
 
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>¿Dónde es el evento?</Label>
+                      <CountrySelect
+                        value={formData.countryCode}
+                        onChange={(countryCode, timezone) =>
+                          setFormData({ ...formData, countryCode, timezone })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Idioma</Label>
+                      <LanguageSelect
+                        value={formData.language as Language}
+                        onChange={(language) => setFormData({ ...formData, language })}
+                      />
+                    </div>
+                  </div>
+
                   <div className="space-y-2">
-                    <Label className="text-base font-semibold">Fecha y hora de inicio</Label>
+                    <Label className="text-base font-semibold">Duración del evento</Label>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="uploadStartDate">Fecha</Label>
+                        <Label htmlFor="uploadStartDate">Fecha de inicio</Label>
                         <Input
                           id="uploadStartDate"
                           type="date"
@@ -444,7 +426,7 @@ const PublicDemoEventForm = () => {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="uploadStartTime">Hora</Label>
+                        <Label htmlFor="uploadStartTime">Hora de inicio</Label>
                         <Input
                           id="uploadStartTime"
                           type="time"
@@ -457,10 +439,9 @@ const PublicDemoEventForm = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-base font-semibold">Fecha y hora de fin</Label>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="uploadEndDate">Fecha</Label>
+                        <Label htmlFor="uploadEndDate">Fecha fin</Label>
                         <Input
                           id="uploadEndDate"
                           type="date"
@@ -470,7 +451,7 @@ const PublicDemoEventForm = () => {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="uploadEndTime">Hora</Label>
+                        <Label htmlFor="uploadEndTime">Hora de fin</Label>
                         <Input
                           id="uploadEndTime"
                           type="time"
@@ -500,10 +481,10 @@ const PublicDemoEventForm = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-base font-semibold">Fecha y hora de revelado</Label>
+                    <Label className="text-base font-semibold">Revelado</Label>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="revealDate">Fecha</Label>
+                        <Label htmlFor="revealDate">Fecha del revelado</Label>
                         <Input
                           id="revealDate"
                           type="date"
@@ -513,7 +494,7 @@ const PublicDemoEventForm = () => {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="revealTime">Hora</Label>
+                        <Label htmlFor="revealTime">Hora del revelado</Label>
                         <Input
                           id="revealTime"
                           type="time"
@@ -537,33 +518,6 @@ const PublicDemoEventForm = () => {
                         })()}
                       </p>
                     )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="flex items-center gap-2">
-                      <Globe className="w-4 h-4" />
-                      ¿Dónde es el evento?
-                    </Label>
-                    <CountrySelect
-                      value={formData.countryCode}
-                      onChange={(countryCode, timezone) =>
-                        setFormData({ ...formData, countryCode, timezone })
-                      }
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Las horas se ajustarán a la zona horaria del país seleccionado
-                    </p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Idioma del evento</Label>
-                    <LanguageSelect
-                      value={formData.language as Language}
-                      onChange={(language) => setFormData({ ...formData, language })}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Las pantallas del evento se mostrarán en este idioma
-                    </p>
                   </div>
                 </>
               )}
