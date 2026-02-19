@@ -9,6 +9,7 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { toZonedTime } from "date-fns-tz";
 import logoRevelao from "@/assets/logo-revelao.png";
+import { PricingPreview } from "@/components/PricingPreview";
 
 interface EventData {
   id: string;
@@ -71,6 +72,7 @@ const DemoEventSummary = () => {
   const eventUrl = `https://acceso.revelao.cam/events/${event.password_hash}`;
   const adminUrl = "https://acceso.revelao.cam";
   const eventTz = event.timezone || "Europe/Madrid";
+  const shouldShowPricing = /^\d{8}$/.test(event.password_hash);
 
   const formatEventDate = (dateString: string) => {
     try {
@@ -230,6 +232,12 @@ const DemoEventSummary = () => {
             y elige el plan que mejor se ajuste.
           </p>
         </Card>
+
+        {shouldShowPricing ? (
+          <Card className="p-6">
+            <PricingPreview />
+          </Card>
+        ) : null}
 
         {/* Actions */}
         <div className="flex flex-col sm:flex-row gap-3">
