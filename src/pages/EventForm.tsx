@@ -51,6 +51,7 @@ const EventForm = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [isDemoMode] = useState(() => localStorage.getItem("isDemoMode") === "true");
+  const [adminEventId] = useState(() => localStorage.getItem("adminEventId"));
   const [isRestrictedAdmin] = useState(() => !!localStorage.getItem("adminEventId"));
   // Generate a random 32-character hash for passwords
   const generateHash = () => {
@@ -115,6 +116,14 @@ const EventForm = () => {
   useEffect(() => {
     // Check authentication - demo mode bypasses auth
     const checkAuth = async () => {
+      if (adminEventId) {
+        if (isEditing && eventId === adminEventId) {
+          loadEvent();
+          return;
+        }
+        navigate("/event-management");
+        return;
+      }
       if (isDemoMode) {
         if (isEditing) {
           loadEvent();
@@ -136,7 +145,7 @@ const EventForm = () => {
     };
 
     checkAuth();
-  }, [navigate, isDemoMode, isEditing, eventId]);
+  }, [navigate, isDemoMode, isEditing, eventId, adminEventId]);
 
   const loadEvent = async () => {
     if (!eventId) return;
