@@ -50,53 +50,62 @@ const whatsappMessage = "Hola! Acabo de crear un evento demo y quiero contratar 
 
 export const PricingPreview = () => {
   return (
-    <div className="space-y-6">
-      <div className="text-center">
-        <h3 className="text-2xl font-semibold text-foreground">Planes para tu evento real</h3>
-        <p className="text-sm text-muted-foreground mt-1">
-          Empieza gratis con la demo y pasa al plan que mejor se ajuste a tu aforo.
+    <div className="space-y-10">
+      <div className="text-center space-y-2">
+        <h3 className="text-3xl md:text-4xl font-semibold text-foreground">
+          Precio
+        </h3>
+        <p className="text-sm md:text-base text-muted-foreground">
+          Elige el plan ideal según el tamaño de tu evento
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
         {plans.map((plan) => (
           <div
             key={plan.title}
             className={[
-              "relative rounded-2xl border bg-card p-5 shadow-sm transition-transform duration-300",
+              "relative rounded-3xl border bg-card p-6 shadow-sm transition-all duration-300",
               "hover:-translate-y-1",
-              plan.featured ? "border-primary/40 bg-primary/5 shadow-[0_20px_60px_-30px_rgba(180,38,38,0.35)]" : "border-border",
+              plan.featured
+                ? "border-[#f06a5f]/40 bg-[#f06a5f]/5 shadow-[0_20px_40px_-30px_rgba(240,106,95,0.35)]"
+                : "border-border",
             ].join(" ")}
           >
             {plan.badge ? (
-              <span className="absolute right-5 top-5 rounded-full bg-primary text-primary-foreground text-xs font-semibold px-3 py-1">
+              <span className="absolute right-5 top-5 rounded-full bg-[#f06a5f] text-white text-xs font-semibold px-3 py-1 shadow-sm">
                 {plan.badge}
               </span>
             ) : null}
 
-            <div className="mb-5">
-              <h4 className="text-lg font-semibold text-foreground mb-1">{plan.title}</h4>
-              <p className="text-xs text-muted-foreground">Hasta {plan.guests} invitados</p>
-              <div className="flex items-end gap-2 mt-3">
-                <span className="text-3xl font-bold text-foreground">{plan.price}</span>
-                <span className="text-xs text-muted-foreground pb-1">/evento</span>
+            <div className="mb-6 space-y-2">
+              <h4 className="text-lg font-semibold text-foreground">{plan.title}</h4>
+              <p className="text-sm text-muted-foreground">Hasta {plan.guests} invitados</p>
+              <div className="flex items-end gap-2 pt-1">
+                <span className="text-4xl font-bold text-foreground">{plan.price}</span>
+                <span className="text-sm text-muted-foreground pb-1">/evento</span>
               </div>
-              <p className="text-xs text-muted-foreground mt-2">
+              <p className="text-sm text-muted-foreground">
                 {plan.costPerGuest} por invitado
               </p>
             </div>
 
-            <ul className="space-y-2.5 mb-5">
+            <ul className="space-y-3 mb-6">
               {baseFeatures.map((feature) => (
-                <li key={feature} className="flex items-start gap-2.5">
-                  <Check className="w-4 h-4 flex-shrink-0 mt-0.5 text-primary" />
-                  <span className="text-xs text-foreground">{feature}</span>
+                <li key={feature} className="flex items-start gap-3">
+                  <Check className="w-4 h-4 flex-shrink-0 mt-0.5 text-[#f06a5f]" />
+                  <span className="text-sm text-foreground">{feature}</span>
                 </li>
               ))}
             </ul>
 
             <Button
-              className="w-full"
+              className={[
+                "w-full",
+                plan.featured
+                  ? "bg-[#f06a5f] text-white hover:bg-[#e95f54]"
+                  : "border-[#e5e7eb] text-foreground hover:bg-[#f9fafb]",
+              ].join(" ")}
               variant={plan.featured ? "default" : "outline"}
               asChild
             >
@@ -108,7 +117,7 @@ export const PricingPreview = () => {
         ))}
       </div>
 
-      <p className="text-center text-xs text-muted-foreground">
+      <p className="text-center text-sm text-muted-foreground">
         ¿Más de 1000 invitados?{" "}
         <a
           className="text-foreground font-semibold hover:underline"

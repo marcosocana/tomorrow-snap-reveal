@@ -16,6 +16,7 @@ import TermsAndConditions from "./pages/TermsAndConditions";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import PublicDemoEventForm from "./pages/PublicDemoEventForm";
 import DemoEventSummary from "./pages/DemoEventSummary";
+import PricingPlans from "./pages/PricingPlans";
 
 const queryClient = new QueryClient();
 
@@ -40,6 +41,7 @@ const App = () => (
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/nuevoeventodemo" element={<PublicDemoEventForm />} />
           <Route path="/nuevoeventodemo/resumen" element={<DemoEventSummary />} />
+          <Route path="/planes" element={<PricingPlans />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

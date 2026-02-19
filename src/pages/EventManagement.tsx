@@ -203,6 +203,12 @@ const EventManagement = () => {
     return result;
   }, [events, folders]);
 
+  const shouldShowPricing = useMemo(() => {
+    if (!adminEventId || events.length !== 1) return false;
+    const adminPass = events[0]?.admin_password || "";
+    return /^.{8}$/.test(adminPass);
+  }, [adminEventId, events]);
+
   const toggleFolder = (folderId: string) => {
     setExpandedFolders((prev) => {
       const next = new Set(prev);
@@ -1068,6 +1074,31 @@ Para cualquier duda o ayuda adicional, estamos a vuestra disposición.
             )}
           </div>
         )}
+
+        {shouldShowPricing ? (
+          <Card className="p-6 md:p-8 border-[#f06a5f]/40 bg-[#f06a5f]/5">
+            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+              <div className="space-y-2">
+                <p className="text-sm font-semibold text-[#f06a5f] uppercase tracking-wide">
+                  Evento demo
+                </p>
+                <h2 className="text-2xl md:text-3xl font-bold text-foreground">
+                  Este evento es gratis, de prueba, y tiene un límite de 10 fotos
+                </h2>
+                <p className="text-sm md:text-base text-muted-foreground max-w-2xl">
+                  Si quieres contratar un plan de verdad, estos son los disponibles. Haz clic para verlos y elegir el que mejor se adapte a tu evento.
+                </p>
+              </div>
+              <Button
+                size="lg"
+                className="w-full lg:w-auto bg-[#f06a5f] text-white hover:bg-[#e95f54]"
+                onClick={() => navigate("/planes")}
+              >
+                Ver planes
+              </Button>
+            </div>
+          </Card>
+        ) : null}
       </div>
 
       {/* Gallery Preview Modal */}
