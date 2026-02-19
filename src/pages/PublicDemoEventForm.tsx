@@ -17,7 +17,7 @@ import EventPreview from "@/components/EventPreview";
 import { Language } from "@/lib/translations";
 import { EventFontFamily } from "@/lib/eventFonts";
 import { FilterType } from "@/lib/photoFilters";
-import logoRevelao from "@/assets/logo-revelao.png";
+import logoDemo from "@/assets/Frame 626035.png";
 
 const generateHash = (): string => Math.random().toString(36).substring(2, 10);
 
@@ -224,9 +224,9 @@ const PublicDemoEventForm = () => {
       <div className="max-w-6xl mx-auto space-y-4 md:space-y-6">
         <div className="flex flex-col items-center gap-4 mb-6">
           <img 
-            src={logoRevelao} 
+            src={logoDemo} 
             alt="Revelao.com" 
-            className="w-48 h-auto"
+            className="h-16 w-auto"
           />
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground text-center">
             Crea tu evento de prueba
@@ -269,20 +269,6 @@ const PublicDemoEventForm = () => {
                       placeholder="Escribe el texto que quieres que aparezca en la pantalla"
                       rows={3}
                     />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="maxPhotos">Máximo de fotos</Label>
-                    <Input
-                      id="maxPhotos"
-                      type="number"
-                      value="10"
-                      disabled
-                      className="bg-muted cursor-not-allowed"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Los eventos de prueba están limitados a 10 fotos
-                    </p>
                   </div>
 
                   <div className="space-y-2">

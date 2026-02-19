@@ -24,12 +24,12 @@ const CountrySelect = ({ value, onChange }: CountrySelectProps) => {
 
   return (
     <Select value={value} onValueChange={handleChange}>
-      <SelectTrigger className="w-full h-auto min-h-10" lineClamp={false}>
+      <SelectTrigger className="w-full h-10" lineClamp={false}>
         <SelectValue>
           {selectedCountry ? (
             <span className="flex items-center gap-2">
-              <span className="text-base">{selectedCountry.flag}</span>
-              <span>{selectedCountry.name}</span>
+              <span className="text-base leading-none">{selectedCountry.flag}</span>
+              <span className="leading-none">{selectedCountry.name}</span>
             </span>
           ) : (
             "Selecciona un país"
@@ -40,8 +40,8 @@ const CountrySelect = ({ value, onChange }: CountrySelectProps) => {
         {COUNTRIES.map((country) => (
           <SelectItem key={country.code} value={country.code}>
             <span className="flex items-center gap-2">
-              <span className="text-base">{country.flag}</span>
-              <span>{country.name}</span>
+              <span className="text-base leading-none">{country.flag}</span>
+              <span className="leading-none">{country.name}</span>
             </span>
           </SelectItem>
         ))}
