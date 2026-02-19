@@ -289,6 +289,22 @@ const Camera = () => {
     fileInputRef.current?.click();
   };
 
+  const savePhotoToDevice = (file: File) => {
+    try {
+      const url = URL.createObjectURL(file);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `foto-${format(new Date(), "yyyy-MM-dd-HHmmss")}.jpg`;
+      a.style.display = "none";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (error) {
+      console.warn("Unable to auto-save photo to device:", error);
+    }
+  };
+
   const uploadPhoto = async (file: File) => {
     if (!eventId) return;
     setIsUploading(true);
@@ -391,6 +407,8 @@ const Camera = () => {
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file || !eventId) return;
+    // Best-effort: save the original capture to the device gallery.
+    savePhotoToDevice(file);
     await uploadPhoto(file);
     // Reset input
     if (event.target) {
