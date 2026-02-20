@@ -47,11 +47,35 @@ serve(async (req) => {
   const eventUrl = `https://acceso.revelao.cam/events/${event.password_hash}`;
   const adminUrl = "https://acceso.revelao.cam";
   const planUrl = "https://www.revelao.cam";
+  const eventTz = event.timezone || "Europe/Madrid";
+
+  const formatDate = (value: string) => {
+    try {
+      return new Intl.DateTimeFormat("es-ES", {
+        timeZone: eventTz,
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      }).format(new Date(value));
+    } catch {
+      return value;
+    }
+  };
 
   const html = `
     <div style="font-family: Arial, sans-serif; color: #111; line-height: 1.5;">
       <h2>Tu evento de prueba está listo</h2>
       <p><strong>${event.name}</strong></p>
+      <p><strong>Resumen del evento</strong></p>
+      <ul>
+        <li>Inicio de subida: ${formatDate(event.upload_start_time)}</li>
+        <li>Fin de subida: ${formatDate(event.upload_end_time)}</li>
+        <li>Revelado: ${formatDate(event.reveal_time)}</li>
+        <li>Máximo de fotos: ${event.max_photos}</li>
+        <li>Zona horaria: ${eventTz}</li>
+      </ul>
       <p>URL del evento: <a href="${eventUrl}">${eventUrl}</a></p>
       <p>Acceso de administrador: <a href="${adminUrl}">${adminUrl}</a></p>
       <p>Contraseña de administrador: <strong>${event.admin_password}</strong></p>
