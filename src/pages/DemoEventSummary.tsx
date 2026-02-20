@@ -30,7 +30,11 @@ const DemoEventSummary = () => {
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
 
+  const event = location.state?.event as EventData | undefined;
   const qrFromState = location.state?.qrUrl as string | undefined;
+  const contactInfo = location.state?.contactInfo as
+    | { name?: string; email?: string; phone?: string }
+    | undefined;
 
   const downloadQR = useCallback(async () => {
     if (!event) return;
@@ -53,11 +57,6 @@ const DemoEventSummary = () => {
       window.open(qrImageUrl, "_blank", "noopener,noreferrer");
     }
   }, [event, qrFromState]);
-
-  const event = location.state?.event as EventData | undefined;
-  const contactInfo = location.state?.contactInfo as
-    | { name?: string; email?: string; phone?: string }
-    | undefined;
 
   // Redirect if no event data
   if (!event) {
