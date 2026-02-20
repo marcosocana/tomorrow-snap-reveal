@@ -1,10 +1,10 @@
 import { useLocation, useNavigate, Navigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { QRCodeSVG } from "qrcode.react";
 import { Check, Copy, ExternalLink, Download } from "lucide-react";
-import { useState, useRef, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { toZonedTime } from "date-fns-tz";
@@ -28,41 +28,36 @@ const DemoEventSummary = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [copiedField, setCopiedField] = useState<string | null>(null);
-  const qrRef = useRef<HTMLDivElement>(null);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
 
-  const downloadQR = useCallback(() => {
-    if (!qrRef.current) return;
-    
-    const svg = qrRef.current.querySelector('svg');
-    if (!svg) return;
+  const qrFromState = location.state?.qrUrl as string | undefined;
 
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+  const downloadQR = useCallback(async () => {
+    if (!event) return;
+    const qrImageUrl =
+      qrFromState ||
+      `https://quickchart.io/qr?size=220&margin=1&ecLevel=H&text=${encodeURIComponent(
+        `https://acceso.revelao.cam/events/${event.password_hash}`
+      )}`;
 
-    canvas.width = 1024;
-    canvas.height = 1024;
-
-    const svgData = new XMLSerializer().serializeToString(svg);
-    const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-    const url = URL.createObjectURL(svgBlob);
-
-    const img = new Image();
-    img.onload = () => {
-      ctx.fillStyle = 'white';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      URL.revokeObjectURL(url);
-
-      const link = document.createElement('a');
-      link.download = `qr-${event?.name || 'evento'}.png`;
-      link.href = canvas.toDataURL('image/png');
+    try {
+      const response = await fetch(qrImageUrl);
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.download = `qr-${event.name || "evento"}.png`;
+      link.href = url;
       link.click();
-    };
-    img.src = url;
-  }, []);
+      URL.revokeObjectURL(url);
+    } catch {
+      window.open(qrImageUrl, "_blank", "noopener,noreferrer");
+    }
+  }, [event, qrFromState]);
 
   const event = location.state?.event as EventData | undefined;
+  const contactInfo = location.state?.contactInfo as
+    | { name?: string; email?: string; phone?: string }
+    | undefined;
 
   // Redirect if no event data
   if (!event) {
@@ -73,6 +68,37 @@ const DemoEventSummary = () => {
   const adminUrl = "https://acceso.revelao.cam";
   const eventTz = event.timezone || "Europe/Madrid";
   const shouldShowPricing = /^\d{8}$/.test(event.password_hash);
+  const qrImageUrl =
+    qrFromState ||
+    `https://quickchart.io/qr?size=220&margin=1&ecLevel=H&text=${encodeURIComponent(
+      eventUrl
+    )}`;
+
+  useEffect(() => {
+    if (!event || !contactInfo?.email || !qrFromState || isSendingEmail) return;
+    const sentKey = `demo-email-sent-${event.id}`;
+    if (localStorage.getItem(sentKey)) return;
+
+    const sendEmail = async () => {
+      setIsSendingEmail(true);
+      try {
+        await supabase.functions.invoke("send-demo-event-email", {
+          body: {
+            event,
+            qrUrl: qrFromState,
+            contactInfo,
+          },
+        });
+        localStorage.setItem(sentKey, "1");
+      } catch (error) {
+        console.error("Error sending demo email:", error);
+      } finally {
+        setIsSendingEmail(false);
+      }
+    };
+
+    sendEmail();
+  }, [event, contactInfo, qrFromState, isSendingEmail]);
 
   const formatEventDate = (dateString: string) => {
     try {
@@ -128,12 +154,11 @@ const DemoEventSummary = () => {
 
           {/* QR Code */}
           <div className="flex flex-col items-center gap-4 py-4">
-            <div ref={qrRef} className="bg-white p-4 rounded-lg shadow-sm">
-              <QRCodeSVG 
-                value={eventUrl} 
-                size={200}
-                level="H"
-                includeMargin={true}
+            <div className="bg-white p-4 rounded-lg shadow-sm">
+              <img
+                src={qrImageUrl}
+                alt="QR del evento"
+                className="w-[200px] h-[200px]"
               />
             </div>
             <Button

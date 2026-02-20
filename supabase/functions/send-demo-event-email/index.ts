@@ -19,14 +19,27 @@ type ContactInfo = {
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
 const FROM_EMAIL = Deno.env.get("FROM_EMAIL") ?? "";
+const LOGO_URL =
+  Deno.env.get("LOGO_URL") ?? "https://www.revelao.cam/favicon.png";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...corsHeaders },
   });
 
 serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
   if (req.method !== "POST") {
     return json({ error: "Method not allowed" }, 405);
   }
@@ -35,9 +48,10 @@ serve(async (req) => {
     return json({ error: "Missing RESEND_API_KEY or FROM_EMAIL" }, 500);
   }
 
-  const { event, contactInfo } = (await req.json()) as {
+  const { event, contactInfo, qrUrl } = (await req.json()) as {
     event?: DemoEvent;
     contactInfo?: ContactInfo;
+    qrUrl?: string | null;
   };
 
   if (!event || !contactInfo?.email) {
@@ -48,6 +62,11 @@ serve(async (req) => {
   const adminUrl = "https://acceso.revelao.cam";
   const planUrl = "https://www.revelao.cam";
   const eventTz = event.timezone || "Europe/Madrid";
+  const resolvedQrUrl =
+    qrUrl ||
+    `https://quickchart.io/qr?size=220&margin=1&ecLevel=H&text=${encodeURIComponent(
+      eventUrl
+    )}`;
 
   const formatDate = (value: string) => {
     try {
@@ -65,17 +84,26 @@ serve(async (req) => {
   };
 
   const html = `
-    <div style="font-family: Arial, sans-serif; color: #111; line-height: 1.5;">
+    <div style="font-family: Arial, sans-serif; color: #111; line-height: 1.5; background: #ffffff;">
+      <div style="text-align: center; padding: 8px 0 16px;">
+        <img src="${LOGO_URL}" alt="Revelao" style="height: 48px; width: auto; display: inline-block;" />
+      </div>
       <h2>Tu evento de prueba está listo</h2>
       <p><strong>${event.name}</strong></p>
       <p><strong>Resumen del evento</strong></p>
-      <ul>
-        <li>Inicio de subida: ${formatDate(event.upload_start_time)}</li>
-        <li>Fin de subida: ${formatDate(event.upload_end_time)}</li>
-        <li>Revelado: ${formatDate(event.reveal_time)}</li>
-        <li>Máximo de fotos: ${event.max_photos}</li>
-        <li>Zona horaria: ${eventTz}</li>
-      </ul>
+      <div style="margin: 12px 0 20px; padding: 16px; background: #f5f5f5; border-radius: 12px;">
+        <div style="text-align: center; margin-bottom: 12px;">
+          <img src="${resolvedQrUrl}" alt="QR del evento" style="width: 180px; height: 180px; display: inline-block;" />
+          <p style="margin: 8px 0 0; font-size: 12px; color: #666;">Escanea para acceder al evento</p>
+        </div>
+        <ul style="margin: 0; padding-left: 18px;">
+          <li>Inicio de subida: ${formatDate(event.upload_start_time)}</li>
+          <li>Fin de subida: ${formatDate(event.upload_end_time)}</li>
+          <li>Revelado: ${formatDate(event.reveal_time)}</li>
+          <li>Máximo de fotos: ${event.max_photos}</li>
+          <li>Zona horaria: ${eventTz}</li>
+        </ul>
+      </div>
       <p>URL del evento: <a href="${eventUrl}">${eventUrl}</a></p>
       <p>Acceso de administrador: <a href="${adminUrl}">${adminUrl}</a></p>
       <p>Contraseña de administrador: <strong>${event.admin_password}</strong></p>

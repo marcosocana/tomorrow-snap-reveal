@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Trash2 } from "lucide-react";
 import { addDays, format } from "date-fns";
 import { fromZonedTime, formatInTimeZone } from "date-fns-tz";
+import { QRCodeSVG } from "qrcode.react";
 import CountrySelect from "@/components/CountrySelect";
 import LanguageSelect from "@/components/LanguageSelect";
 import FontSelect from "@/components/FontSelect";
@@ -59,6 +60,94 @@ const PublicDemoEventForm = () => {
   });
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  const generateQrBlob = async (eventUrl: string): Promise<Blob | null> => {
+    try {
+      const container = document.createElement("div");
+      container.style.position = "absolute";
+      container.style.left = "-9999px";
+      document.body.appendChild(container);
+
+      const qrSize = 1024;
+      const qrWrapper = document.createElement("div");
+      container.appendChild(qrWrapper);
+
+      const { createRoot } = await import("react-dom/client");
+      const root = createRoot(qrWrapper);
+
+      await new Promise<void>((resolve) => {
+        root.render(
+          <QRCodeSVG value={eventUrl} size={qrSize} level="H" includeMargin />
+        );
+        setTimeout(resolve, 100);
+      });
+
+      const svgElement = qrWrapper.querySelector("svg");
+      if (!svgElement) throw new Error("No se pudo generar el QR");
+
+      const canvas = document.createElement("canvas");
+      canvas.width = qrSize;
+      canvas.height = qrSize;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("No se pudo crear el canvas");
+
+      const svgData = new XMLSerializer().serializeToString(svgElement);
+      const svgBlob = new Blob([svgData], {
+        type: "image/svg+xml;charset=utf-8",
+      });
+      const url = URL.createObjectURL(svgBlob);
+
+      const blob = await new Promise<Blob | null>((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0);
+          URL.revokeObjectURL(url);
+          canvas.toBlob((result) => resolve(result), "image/png");
+        };
+        img.onerror = () => {
+          URL.revokeObjectURL(url);
+          resolve(null);
+        };
+        img.src = url;
+      });
+
+      root.unmount();
+      document.body.removeChild(container);
+      return blob;
+    } catch (error) {
+      console.error("Error generating QR:", error);
+      return null;
+    }
+  };
+
+  const uploadQrImage = async (eventUrl: string, eventId: string) => {
+    const qrBlob = await generateQrBlob(eventUrl);
+    if (!qrBlob) return null;
+
+    try {
+      const filePath = `event-qr/qr-${eventId}.png`;
+      const { error: uploadError } = await supabase.storage
+        .from("event-photos")
+        .upload(filePath, qrBlob, {
+          contentType: "image/png",
+          upsert: true,
+          cacheControl: "3600",
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from("event-photos")
+        .getPublicUrl(filePath);
+
+      return publicUrl;
+    } catch (error) {
+      console.error("Error uploading QR:", error);
+      return null;
+    }
+  };
 
   const handleStepAdvance = (e: React.FormEvent) => {
     e.preventDefault();
@@ -176,29 +265,14 @@ const PublicDemoEventForm = () => {
 
       if (error) throw error;
 
-      try {
-        await supabase.functions.invoke("send-demo-event-email", {
-          body: {
-            event: newEvent,
-            contactInfo: {
-              name: formData.contactName,
-              email: formData.contactEmail,
-              phone: formData.contactPhone,
-            },
-          },
-        });
-      } catch (sendError) {
-        console.error("Error sending demo email:", sendError);
-        toast({
-          title: "Aviso",
-          description: "El email de confirmación no se pudo enviar",
-        });
-      }
+      const eventUrl = `https://acceso.revelao.cam/events/${newEvent.password_hash}`;
+      const qrUrl = await uploadQrImage(eventUrl, newEvent.id);
 
       // Navigate to summary page with event data
       navigate("/nuevoeventodemo/resumen", { 
         state: { 
           event: newEvent,
+          qrUrl,
           contactInfo: {
             name: formData.contactName,
             email: formData.contactEmail,
