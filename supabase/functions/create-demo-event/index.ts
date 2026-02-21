@@ -195,7 +195,9 @@ serve(async (req) => {
       .single();
 
     if (eventError || !createdEvent) {
-      return json({ error: "CREATE_EVENT_FAILED" }, 500);
+      const detail = eventError?.message ?? "unknown_error";
+      console.error("create-demo-event createEventError:", detail);
+      return json({ error: "CREATE_EVENT_FAILED", detail }, 500);
     }
 
     return json({
