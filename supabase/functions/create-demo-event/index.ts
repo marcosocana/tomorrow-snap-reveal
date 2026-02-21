@@ -80,10 +80,10 @@ serve(async (req) => {
       return json({ error: "INVALID_EVENT" }, 400);
     }
 
-    const { data: existingUser } = await supabaseAdmin.auth.admin.getUserByEmail(
+    const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers({
       email,
-    );
-    if (existingUser?.user) {
+    });
+    if (existingUsers?.users?.length) {
       return json({ error: "USER_EXISTS" }, 409);
     }
 
