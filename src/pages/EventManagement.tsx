@@ -491,8 +491,28 @@ const EventManagement = () => {
     }
   };
 
-  const handleDownloadQR = async (eventUrl: string, eventName: string, eventId: string) => {
+  const getEventQrUrl = (eventId: string) =>
+    supabase.storage
+      .from("event-photos")
+      .getPublicUrl(`event-qr/qr-${eventId}.png`).data.publicUrl;
+
+  const handleDownloadQR = async (eventUrl: string, eventName: string, eventId: string, isDemo: boolean) => {
     try {
+      if (isDemo) {
+        const qrUrl = getEventQrUrl(eventId);
+        const response = await fetch(qrUrl);
+        const blob = await response.blob();
+        const link = document.createElement("a");
+        link.download = `qr-${eventName.replace(/\s+/g, "-").toLowerCase()}.png`;
+        link.href = URL.createObjectURL(blob);
+        link.click();
+        toast({
+          title: "QR descargado",
+          description: "El código QR se ha descargado correctamente",
+        });
+        return;
+      }
+
       const container = document.createElement('div');
       container.style.position = 'absolute';
       container.style.left = '-9999px';
@@ -698,6 +718,7 @@ Para cualquier duda o ayuda adicional, estamos a vuestra disposición.
       event.reveal_time,
       event.expiry_date
     );
+    const qrStorageUrl = event.is_demo ? getEventQrUrl(event.id) : "";
 
     return (
       <Card key={event.id} className="p-4 md:p-6">
@@ -705,12 +726,22 @@ Para cualquier duda o ayuda adicional, estamos a vuestra disposición.
           {/* QR Code Section */}
           <div className="flex-shrink-0 space-y-2 w-full lg:w-auto">
             <div className="bg-white p-3 rounded-lg border border-border mx-auto lg:mx-0 w-fit">
-              <QRCodeSVG value={eventUrl} size={120} />
+              {event.is_demo ? (
+                <img
+                  src={qrStorageUrl}
+                  alt="QR del evento"
+                  className="w-[120px] h-[120px]"
+                />
+              ) : (
+                <QRCodeSVG value={eventUrl} size={120} />
+              )}
             </div>
             <Button
               variant="outline"
               size="sm"
-              onClick={() => handleDownloadQR(eventUrl, event.name, event.id)}
+              onClick={() =>
+                handleDownloadQR(eventUrl, event.name, event.id, event.is_demo)
+              }
               className="w-full gap-2"
             >
               <Download className="w-4 h-4" />
