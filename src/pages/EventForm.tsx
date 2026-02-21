@@ -115,6 +115,7 @@ const EventForm = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { t, pathPrefix } = useAdminI18n();
+  const isDemoEvent = formData.maxPhotos === "10";
 
   useEffect(() => {
     // Check authentication - demo mode bypasses auth
@@ -464,6 +465,29 @@ const EventForm = () => {
     }
   };
 
+  const handleDeleteEvent = async () => {
+    if (!eventId) return;
+    if (!confirm(t("events.confirmDelete"))) return;
+
+    try {
+      const { error } = await supabase.from("events").delete().eq("id", eventId);
+      if (error) throw error;
+
+      toast({
+        title: t("events.deleteTitle"),
+        description: t("events.deleteDesc"),
+      });
+      navigate(`${pathPrefix}/event-management`);
+    } catch (error) {
+      console.error("Error deleting event:", error);
+      toast({
+        title: t("form.errorTitle"),
+        description: t("events.deleteError"),
+        variant: "destructive",
+      });
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -488,6 +512,11 @@ const EventForm = () => {
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
             {isEditing ? t("form.title.edit") : t("form.title.new")}
           </h1>
+          {isEditing && isDemoEvent && (
+            <span className="text-xs font-semibold uppercase tracking-wide bg-[#f06a5f]/10 text-[#f06a5f] px-2 py-1 rounded-full">
+              {t("events.demoBadge")}
+            </span>
+          )}
         </div>
 
         <div className="grid lg:grid-cols-[1fr,280px] gap-6">
@@ -1132,6 +1161,17 @@ const EventForm = () => {
               >
                 {t("form.cancel")}
               </Button>
+              {isEditing && (
+                <Button
+                  type="button"
+                  variant="destructive"
+                  onClick={handleDeleteEvent}
+                  className="w-full sm:w-auto"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  {t("events.delete")}
+                </Button>
+              )}
               <Button type="submit" className="w-full sm:flex-1" disabled={isSubmitting || uploadingImage}>
                 {uploadingImage
                   ? t("form.uploadingImage")

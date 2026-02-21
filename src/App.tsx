@@ -12,6 +12,7 @@ import EventForm from "./pages/EventForm";
 import BulkUpload from "./pages/BulkUpload";
 import EventAccess from "./pages/EventAccess";
 import AdminLogin from "./pages/AdminLogin";
+import AdminResetPassword from "./pages/AdminResetPassword";
 import NotFound from "./pages/NotFound";
 import TermsAndConditions from "./pages/TermsAndConditions";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
@@ -39,6 +40,7 @@ const App = () => (
             <Route path="/camera" element={<Camera />} />
             <Route path="/gallery" element={<Gallery />} />
             <Route path="/admin-login" element={<AdminLogin />} />
+            <Route path="/reset-password" element={<AdminResetPassword />} />
             <Route path="/event-management" element={<EventManagement />} />
             <Route path="/event-form" element={<EventForm />} />
             <Route path="/event-form/:eventId" element={<EventForm />} />
@@ -56,6 +58,7 @@ const App = () => (
             {/* Admin translations via URL prefix */}
             <Route path="/en/login" element={<AdminLogin />} />
             <Route path="/en/admin-login" element={<AdminLogin />} />
+            <Route path="/en/reset-password" element={<AdminResetPassword />} />
             <Route path="/en/event-management" element={<EventManagement />} />
             <Route path="/en/event-form" element={<EventForm />} />
             <Route path="/en/event-form/:eventId" element={<EventForm />} />
@@ -67,6 +70,7 @@ const App = () => (
 
             <Route path="/it/login" element={<AdminLogin />} />
             <Route path="/it/admin-login" element={<AdminLogin />} />
+            <Route path="/it/reset-password" element={<AdminResetPassword />} />
             <Route path="/it/event-management" element={<EventManagement />} />
             <Route path="/it/event-form" element={<EventForm />} />
             <Route path="/it/event-form/:eventId" element={<EventForm />} />

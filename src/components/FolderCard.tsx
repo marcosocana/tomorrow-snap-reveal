@@ -36,7 +36,7 @@ interface FolderCardProps {
   onToggle: () => void;
   onDelete: () => void;
   onUpdate: () => void;
-  onDuplicate: () => void;
+  onDuplicate?: () => void;
   eventCount: number;
   folderEvents: FolderEvent[];
   children: React.ReactNode;
@@ -239,15 +239,17 @@ const FolderCard = ({
             >
               <Settings className="h-4 w-4" />
             </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={onDuplicate}
-              title={t("folder.duplicateLabel")}
-            >
-              <CopyPlus className="h-4 w-4" />
-            </Button>
+            {onDuplicate && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={onDuplicate}
+                title={t("folder.duplicateLabel")}
+              >
+                <CopyPlus className="h-4 w-4" />
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="icon"

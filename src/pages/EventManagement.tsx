@@ -3,18 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, Plus, Trash2, Edit, Copy, Home, Download, MessageCircle, ChevronDown, RefreshCw, Eye, FolderPlus, MoveHorizontal, CopyPlus, LogOut } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
+import { Calendar, Plus, Edit, Copy, Download, Eye, LogOut } from "lucide-react";
 import { format } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 import { getCountryByCode } from "@/lib/countries";
@@ -24,10 +15,6 @@ import { FilterType } from "@/lib/photoFilters";
 import { getEventStatus } from "@/lib/eventStatus";
 import GalleryPreviewModal from "@/components/GalleryPreviewModal";
 import FolderCard, { EventFolder } from "@/components/FolderCard";
-import MoveEventDialog from "@/components/MoveEventDialog";
-import DuplicateEventDialog from "@/components/DuplicateEventDialog";
-import DuplicateFolderDialog from "@/components/DuplicateFolderDialog";
-import CreateFolderDialog from "@/components/CreateFolderDialog";
 import SortableEventList from "@/components/SortableEventList";
 import { useAdminI18n } from "@/lib/adminI18n";
 
@@ -70,15 +57,6 @@ const EventManagement = () => {
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   
   // Dialogs
-  const [createFolderOpen, setCreateFolderOpen] = useState(false);
-  const [moveEventDialogOpen, setMoveEventDialogOpen] = useState(false);
-  const [duplicateEventDialogOpen, setDuplicateEventDialogOpen] = useState(false);
-  const [duplicateFolderDialogOpen, setDuplicateFolderDialogOpen] = useState(false);
-  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
-  const [selectedFolder, setSelectedFolder] = useState<EventFolder | null>(null);
-  const [redeemOpen, setRedeemOpen] = useState(false);
-  const [redeemCode, setRedeemCode] = useState("");
-  const [isRedeeming, setIsRedeeming] = useState(false);
 
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -230,204 +208,6 @@ const EventManagement = () => {
     });
   };
 
-  const handleMoveEvent = async (folderId: string | null) => {
-    if (!selectedEvent) return;
-
-    try {
-      const { error } = await supabase
-        .from("events")
-        .update({ folder_id: folderId } as any)
-        .eq("id", selectedEvent.id);
-
-      if (error) throw error;
-
-      toast({
-        title: t("events.moveTitle"),
-        description: folderId ? t("events.moveDescFolder") : t("events.moveDescRoot"),
-      });
-      loadData();
-    } catch (error) {
-      console.error("Error moving event:", error);
-      toast({
-        title: t("form.errorTitle"),
-        description: t("events.moveError"),
-        variant: "destructive",
-      });
-    }
-  };
-
-  const generateSequentialPassword = async (basePassword: string): Promise<string> => {
-    // Find all events with similar password pattern
-    const { data: existingEvents } = await supabase
-      .from("events")
-      .select("password_hash")
-      .eq("is_demo", isDemoMode);
-
-    if (!existingEvents) return `${basePassword}_1`;
-
-    // Extract base password (remove trailing numbers if any)
-    const baseWithoutNumber = basePassword.replace(/_\d+$/, "");
-    
-    // Find the highest number used
-    let maxNumber = 0;
-    existingEvents.forEach((e) => {
-      if (e.password_hash.startsWith(baseWithoutNumber)) {
-        const match = e.password_hash.match(/_(\d+)$/);
-        if (match) {
-          const num = parseInt(match[1]);
-          if (num > maxNumber) maxNumber = num;
-        }
-      }
-    });
-
-    return `${baseWithoutNumber}_${maxNumber + 1}`;
-  };
-
-  const handleDuplicateEvent = async (folderId: string | null, includePhotos: boolean) => {
-    if (!selectedEvent) return;
-
-    try {
-      const newPassword = await generateSequentialPassword(selectedEvent.password_hash);
-
-      const { data: eventData, error: fetchError } = await supabase
-        .from("events")
-        .select("*")
-        .eq("id", selectedEvent.id)
-        .single();
-
-      if (fetchError) throw fetchError;
-
-      // Remove id and created_at, update password and folder
-      const { id, created_at, ...eventCopy } = eventData as any;
-      
-      const { data: newEvent, error: insertError } = await supabase.from("events").insert({
-        ...eventCopy,
-        password_hash: newPassword,
-        folder_id: folderId,
-      }).select().single();
-
-      if (insertError) throw insertError;
-
-      // Duplicate photos if requested
-      if (includePhotos && newEvent) {
-        const { data: photos, error: photosError } = await supabase
-          .from("photos")
-          .select("*")
-          .eq("event_id", selectedEvent.id);
-
-        if (!photosError && photos && photos.length > 0) {
-          const newPhotos = photos.map(({ id, event_id, ...photo }) => ({
-            ...photo,
-            event_id: newEvent.id,
-          }));
-
-          await supabase.from("photos").insert(newPhotos);
-        }
-      }
-
-      toast({
-        title: t("events.duplicateTitle"),
-        description: t("events.duplicateDesc", {
-          password: newPassword,
-          photos: includePhotos ? t("events.duplicateWithPhotos") : "",
-        }),
-      });
-      loadData();
-    } catch (error) {
-      console.error("Error duplicating event:", error);
-      toast({
-        title: t("form.errorTitle"),
-        description: t("events.duplicateError"),
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleDuplicateFolder = async (newName: string, includePhotos: boolean) => {
-    if (!selectedFolder) return;
-
-    try {
-      // Get events in folder
-      const folderEvents = events.filter((e) => e.folder_id === selectedFolder.id);
-
-      // Create new folder
-      const { data: newFolder, error: folderError } = await supabase
-        .from("event_folders")
-        .insert({
-          name: newName,
-          is_demo: isDemoMode,
-          custom_image_url: selectedFolder.custom_image_url,
-          background_image_url: selectedFolder.background_image_url,
-          font_family: selectedFolder.font_family,
-          font_size: selectedFolder.font_size,
-        })
-        .select()
-        .single();
-
-      if (folderError) throw folderError;
-
-      // Duplicate each event in the folder
-      for (const event of folderEvents) {
-        const newPassword = await generateSequentialPassword(event.password_hash);
-        const { id, created_at, folder_id, ...eventCopy } = event as any;
-
-        const { data: newEvent, error: eventError } = await supabase
-          .from("events")
-          .insert({
-            ...eventCopy,
-            password_hash: newPassword,
-            folder_id: newFolder.id,
-          })
-          .select()
-          .single();
-
-        if (eventError) {
-          console.error("Error duplicating event:", eventError);
-          continue;
-        }
-
-        // Duplicate photos if requested
-        if (includePhotos && newEvent) {
-          const { data: photos, error: photosError } = await supabase
-            .from("photos")
-            .select("*")
-            .eq("event_id", event.id);
-
-          if (!photosError && photos && photos.length > 0) {
-            const newPhotos = photos.map(({ id, event_id, ...photo }) => ({
-              ...photo,
-              event_id: newEvent.id,
-            }));
-
-            await supabase.from("photos").insert(newPhotos);
-          }
-        }
-      }
-
-      toast({
-        title: t("folder.duplicateTitle"),
-        description: t("folder.duplicateDesc", {
-          name: newName,
-          count: folderEvents.length,
-          photos: includePhotos ? t("folder.duplicateWithPhotos") : "",
-        }),
-      });
-      loadData();
-    } catch (error) {
-      console.error("Error duplicating folder:", error);
-      toast({
-        title: t("form.errorTitle"),
-        description: t("folder.duplicateError"),
-        variant: "destructive",
-      });
-    }
-  };
-
-  const getFolderPhotoCount = (folderId: string): number => {
-    const folderEvents = events.filter((e) => e.folder_id === folderId);
-    return folderEvents.reduce((sum, e) => sum + (eventPhotoCounts[e.id] || 0), 0);
-  };
-
   const handleToggleReveal = async (event: Event, isRevealed: boolean) => {
     try {
       if (isRevealed) {
@@ -465,30 +245,6 @@ const EventManagement = () => {
       toast({
         title: t("form.errorTitle"),
         description: t("events.toggleError"),
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleDeleteEvent = async (eventId: string) => {
-    if (!confirm(t("events.confirmDelete"))) return;
-
-    try {
-      const { error } = await supabase.from("events").delete().eq("id", eventId);
-
-      if (error) throw error;
-
-      toast({
-        title: t("events.deleteTitle"),
-        description: t("events.deleteDesc"),
-      });
-
-      loadData();
-    } catch (error) {
-      console.error("Error deleting event:", error);
-      toast({
-        title: t("form.errorTitle"),
-        description: t("events.deleteError"),
         variant: "destructive",
       });
     }
@@ -536,112 +292,6 @@ const EventManagement = () => {
     }
   };
 
-  const handleCommunicateDemo = async (event: Event) => {
-    const eventUrl = `https://acceso.revelao.cam/events/${event.password_hash}`;
-    const eventTz = event.timezone || "Europe/Madrid";
-    
-    const uploadStartFormatted = event.upload_start_time 
-      ? formatInTimeZone(new Date(event.upload_start_time), eventTz, "dd/MM/yyyy 'a las' HH:mm", { locale: dateLocale })
-      : "";
-    const uploadEndFormatted = event.upload_end_time 
-      ? formatInTimeZone(new Date(event.upload_end_time), eventTz, "dd/MM/yyyy 'a las' HH:mm", { locale: dateLocale })
-      : "";
-    const revealFormatted = formatInTimeZone(new Date(event.reveal_time), eventTz, "dd/MM/yyyy 'a las' HH:mm", { locale: dateLocale });
-
-    const message = t("events.demoMessage", {
-      eventUrl,
-      uploadStart: uploadStartFormatted,
-      uploadEnd: uploadEndFormatted,
-      reveal: revealFormatted,
-    });
-
-    try {
-      await navigator.clipboard.writeText(message);
-      toast({
-        title: t("events.messageCopiedTitle"),
-        description: t("events.messageCopiedDescDemo"),
-      });
-    } catch (error) {
-      console.error("Error copying message:", error);
-      toast({
-        title: t("form.errorTitle"),
-        description: t("events.messageCopyError"),
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleCommunicateEvent = async (event: Event) => {
-    const eventUrl = `https://acceso.revelao.cam/events/${event.password_hash}`;
-    const eventTz = event.timezone || "Europe/Madrid";
-    
-    const uploadStartFormatted = event.upload_start_time 
-      ? formatInTimeZone(new Date(event.upload_start_time), eventTz, "dd/MM/yyyy 'a las' HH:mm", { locale: dateLocale })
-      : "";
-    const uploadEndFormatted = event.upload_end_time 
-      ? formatInTimeZone(new Date(event.upload_end_time), eventTz, "dd/MM/yyyy 'a las' HH:mm", { locale: dateLocale })
-      : "";
-    const revealFormatted = formatInTimeZone(new Date(event.reveal_time), eventTz, "dd/MM/yyyy 'a las' HH:mm", { locale: dateLocale });
-    const expiryFormatted = event.expiry_date 
-      ? formatInTimeZone(new Date(event.expiry_date), eventTz, "dd/MM/yyyy 'a las' HH:mm", { locale: dateLocale })
-      : "";
-
-    const message = t("events.eventMessage", {
-      eventUrl,
-      uploadStart: uploadStartFormatted,
-      uploadEnd: uploadEndFormatted,
-      reveal: revealFormatted,
-      expiry: expiryFormatted || "",
-    });
-
-    try {
-      await navigator.clipboard.writeText(message);
-      toast({
-        title: t("events.messageCopiedTitle"),
-        description: t("events.messageCopiedDescEvent"),
-      });
-    } catch (error) {
-      console.error("Error copying message:", error);
-      toast({
-        title: t("form.errorTitle"),
-        description: t("events.messageCopyError"),
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleRedeem = async () => {
-    const code = redeemCode.trim().toUpperCase();
-    if (code.length !== 16 && code.length !== 36) {
-      toast({
-        title: t("form.errorTitle"),
-        description: t("events.redeemInvalidLength"),
-        variant: "destructive",
-      });
-      return;
-    }
-    setIsRedeeming(true);
-    try {
-      const { data, error } = await supabase.functions.invoke(`redeem-get?token=${code}`, {
-        method: "GET",
-      });
-      if (error || !data?.token) {
-        throw error || new Error("INVALID_TOKEN");
-      }
-      setRedeemOpen(false);
-      setRedeemCode("");
-      navigate(`${pathPrefix}/redeem/${code}`);
-    } catch (error) {
-      console.error("Redeem error:", error);
-      toast({
-        title: t("form.errorTitle"),
-        description: t("events.redeemInvalidToken"),
-        variant: "destructive",
-      });
-    } finally {
-      setIsRedeeming(false);
-    }
-  };
 
   // Apply folder overrides to event for preview
   const getEffectiveEvent = (event: Event): Event => {
@@ -714,6 +364,11 @@ const EventManagement = () => {
               <h3 className="text-lg md:text-xl font-semibold text-foreground">
                 {event.name}
               </h3>
+              {event.max_photos === 10 && (
+                <span className="text-xs font-semibold uppercase tracking-wide bg-[#f06a5f]/10 text-[#f06a5f] px-2 py-1 rounded-full">
+                  {t("events.demoBadge")}
+                </span>
+              )}
               {(() => {
                 const country = getCountryByCode(event.country_code || "ES");
                 return country ? (
@@ -854,82 +509,15 @@ const EventManagement = () => {
 
           {/* Action Buttons */}
           <div className="flex flex-row lg:flex-col gap-2 w-full lg:w-auto justify-end">
-            {!adminEventId && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-1"
-                  >
-                    <MessageCircle className="w-4 h-4" />
-                    <span className="hidden sm:inline">{t("events.communicateEvent")}</span>
-                    <ChevronDown className="w-3 h-3" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="bg-popover">
-                  <DropdownMenuItem onClick={() => handleCommunicateDemo(event)}>
-                    {t("events.communicateDemo")}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleCommunicateEvent(event)}>
-                    {t("events.communicateEvent")}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
-            
-            {adminEventId ? (
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1"
-                onClick={() => navigate(`${pathPrefix}/event-form/${event.id}`)}
-              >
-                <Edit className="w-4 h-4" />
-                <span>{t("events.edit")}</span>
-              </Button>
-            ) : (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-1"
-                  >
-                    <ChevronDown className="w-3 h-3" />
-                    <span className="hidden sm:inline">{t("events.more")}</span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="bg-popover">
-                  <DropdownMenuItem onClick={() => {
-                    setSelectedEvent(event);
-                    setMoveEventDialogOpen(true);
-                  }}>
-                    <MoveHorizontal className="w-4 h-4 mr-2" />
-                    {t("folder.move")}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => {
-                    setSelectedEvent(event);
-                    setDuplicateEventDialogOpen(true);
-                  }}>
-                    <CopyPlus className="w-4 h-4 mr-2" />
-                    {t("events.duplicate")}
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => navigate(`${pathPrefix}/event-form/${event.id}`)}>
-                    <Edit className="w-4 h-4 mr-2" />
-                    {t("events.edit")}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem 
-                    onClick={() => handleDeleteEvent(event.id)}
-                    className="text-destructive focus:text-destructive"
-                  >
-                    <Trash2 className="w-4 h-4 mr-2" />
-                    {t("events.delete")}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1"
+              onClick={() => navigate(`${pathPrefix}/event-form/${event.id}`)}
+            >
+              <Edit className="w-4 h-4" />
+              <span>{t("events.edit")}</span>
+            </Button>
           </div>
         </div>
       </Card>
@@ -949,35 +537,12 @@ const EventManagement = () => {
       <div className="max-w-6xl mx-auto space-y-4 md:space-y-6">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-center gap-2 sm:gap-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => {
-                localStorage.removeItem("adminEventId");
-                navigate(`${pathPrefix}/`);
-              }}
-              className="rounded-full"
-              title={t("events.backHome")}
-            >
-              <Home className="w-5 h-5" />
-            </Button>
             <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
               {isDemoMode ? t("events.titleDemo") : t("events.title")}
             </h1>
           </div>
 
           <div className="flex gap-2 w-full sm:w-auto flex-wrap">
-            <Button 
-              variant="outline" 
-              size="icon"
-              onClick={() => {
-                setIsLoading(true);
-                loadData();
-              }}
-              title={t("events.refresh")}
-            >
-              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-            </Button>
             <Button
               variant="outline"
               className="gap-2"
@@ -987,27 +552,10 @@ const EventManagement = () => {
               {t("events.logout")}
             </Button>
             {!adminEventId && (
-              <>
-                <Button 
-                  variant="outline" 
-                  className="gap-2"
-                  onClick={() => setRedeemOpen(true)}
-                >
-                  {t("events.redeemTitle")}
-                </Button>
-                <Button 
-                  variant="outline" 
-                  className="gap-2"
-                  onClick={() => setCreateFolderOpen(true)}
-                >
-                  <FolderPlus className="w-4 h-4" />
-                  <span className="hidden sm:inline">{t("folder.create")}</span>
-                </Button>
-                <Button className="gap-2 flex-1 sm:flex-initial" onClick={() => navigate(`${pathPrefix}/event-form`)}>
-                  <Plus className="w-4 h-4" />
-                  {t("events.new")}
-                </Button>
-              </>
+              <Button className="gap-2 flex-1 sm:flex-initial" onClick={() => navigate(`${pathPrefix}/event-form`)}>
+                <Plus className="w-4 h-4" />
+                {t("events.new")}
+              </Button>
             )}
           </div>
         </div>
@@ -1030,10 +578,6 @@ const EventManagement = () => {
                 onToggle={() => toggleFolder(folder.id)}
                 onDelete={loadData}
                 onUpdate={loadData}
-                onDuplicate={() => {
-                  setSelectedFolder(folder);
-                  setDuplicateFolderDialogOpen(true);
-                }}
                 eventCount={eventsByFolder[folder.id]?.length || 0}
                 folderEvents={eventsByFolder[folder.id]?.map(e => ({
                   id: e.id,
@@ -1117,65 +661,6 @@ const EventManagement = () => {
         allowPhotoSharing={previewEvent?.allow_photo_sharing !== false}
       />
 
-      {/* Create Folder Dialog */}
-      <CreateFolderDialog
-        open={createFolderOpen}
-        onOpenChange={setCreateFolderOpen}
-        isDemoMode={isDemoMode}
-        onCreate={loadData}
-      />
-
-      {/* Move Event Dialog */}
-      <MoveEventDialog
-        open={moveEventDialogOpen}
-        onOpenChange={setMoveEventDialogOpen}
-        folders={folders}
-        currentFolderId={selectedEvent?.folder_id || null}
-        onMove={handleMoveEvent}
-      />
-
-      {/* Duplicate Event Dialog */}
-      <DuplicateEventDialog
-        open={duplicateEventDialogOpen}
-        onOpenChange={setDuplicateEventDialogOpen}
-        folders={folders}
-        eventName={selectedEvent?.name || ""}
-        eventPassword={selectedEvent?.password_hash || ""}
-        photoCount={selectedEvent ? (eventPhotoCounts[selectedEvent.id] || 0) : 0}
-        onDuplicate={handleDuplicateEvent}
-      />
-
-      {/* Duplicate Folder Dialog */}
-      {selectedFolder && (
-        <DuplicateFolderDialog
-          open={duplicateFolderDialogOpen}
-          onOpenChange={setDuplicateFolderDialogOpen}
-          folder={selectedFolder}
-          eventCount={eventsByFolder[selectedFolder.id]?.length || 0}
-          totalPhotoCount={getFolderPhotoCount(selectedFolder.id)}
-          onDuplicate={handleDuplicateFolder}
-        />
-      )}
-
-      <Dialog open={redeemOpen} onOpenChange={setRedeemOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{t("events.redeemTitle")}</DialogTitle>
-            <DialogDescription>{t("events.redeemDescription")}</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <Input
-              value={redeemCode}
-              onChange={(e) => setRedeemCode(e.target.value)}
-              placeholder={t("events.redeemPlaceholder")}
-              maxLength={16}
-            />
-            <Button onClick={handleRedeem} disabled={isRedeeming} className="w-full">
-              {isRedeeming ? t("form.loading") : t("events.redeemAction")}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };

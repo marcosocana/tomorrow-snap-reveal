@@ -114,6 +114,15 @@ const AdminLogin = () => {
               required
               autoComplete="current-password"
             />
+            <div className="text-right">
+              <button
+                type="button"
+                onClick={() => navigate(`${pathPrefix}/reset-password`)}
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {t("login.forgot")}
+              </button>
+            </div>
           </div>
 
           <Button
