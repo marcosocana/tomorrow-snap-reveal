@@ -8,7 +8,7 @@ type AdminI18nContextValue = {
   lang: AdminLanguage;
   setLang: (lang: AdminLanguage) => void;
   t: (key: string, vars?: Record<string, string | number>) => string;
-  dateLocale: Locale;
+  dateLocale: typeof es;
   pathPrefix: string;
 };
 
@@ -950,23 +950,6 @@ const translations: Record<AdminLanguage, Record<string, string>> = {
     "gallery.shareTitle": "Foto di {name}",
     "gallery.shareText": "Guarda questa foto di {name}!",
 
-    "folder.create": "Crea cartella",
-    "folder.edit": "Salva modifiche",
-    "folder.delete": "Elimina cartella",
-    "folder.duplicate": "Duplica cartella",
-    "folder.move": "Sposta evento in...",
-    "folder.name": "Nome cartella",
-    "folder.placeholder": "Es: Eventi estivi",
-    "folder.created": "Cartella creata",
-    "folder.updated": "Cartella aggiornata",
-    "folder.deleted": "Cartella eliminata",
-    "folder.empty": "Cartella vuota",
-    "folder.cancel": "Annulla",
-    "folder.duplicatePhotos": "Duplica foto",
-    "folder.duplicateTitle": "Cartella duplicata",
-    "folder.duplicateDesc": "Creata \"{name}\" con {count} evento/i{photos}",
-    "folder.duplicateWithPhotos": " e le sue foto",
-    "folder.duplicateError": "Impossibile duplicare la cartella",
 
     "form.title.new": "Crea evento",
     "form.title.edit": "Modifica evento",

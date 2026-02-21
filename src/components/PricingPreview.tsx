@@ -86,7 +86,7 @@ export const PricingPreview = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
         {plans.map((plan) => (
           <div
-            key={plan.title}
+            key={plan.planId}
             className={[
               "relative rounded-3xl border bg-card p-6 shadow-sm transition-all duration-300",
               "hover:-translate-y-1",
