@@ -80,13 +80,6 @@ serve(async (req) => {
       return json({ error: "INVALID_EVENT" }, 400);
     }
 
-    const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers({
-      email,
-    });
-    if (existingUsers?.users?.length) {
-      return json({ error: "USER_EXISTS" }, 409);
-    }
-
     const { data: newUser, error: createUserError } =
       await supabaseAdmin.auth.admin.createUser({
         email,
@@ -95,7 +88,23 @@ serve(async (req) => {
       });
 
     if (createUserError || !newUser?.user) {
-      return json({ error: "CREATE_USER_FAILED" }, 500);
+      const message = createUserError?.message ?? "unknown_error";
+      // Verify existence directly in auth.users with service role
+      try {
+        const { data: existingAuthUser } = await supabaseAdmin
+          .schema("auth")
+          .from("users")
+          .select("id")
+          .eq("email", email)
+          .maybeSingle();
+        if (existingAuthUser?.id) {
+          return json({ error: "USER_EXISTS", detail: message }, 409);
+        }
+      } catch (err) {
+        console.error("create-demo-event auth.users check failed:", err);
+      }
+      console.error("create-demo-event createUserError:", message);
+      return json({ error: "CREATE_USER_FAILED", detail: message }, 500);
     }
 
     const userId = newUser.user.id;
