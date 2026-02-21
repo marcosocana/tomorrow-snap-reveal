@@ -301,7 +301,7 @@ const PublicDemoEventForm = () => {
             description: "Este email ya tiene una cuenta. Inicia sesión para ver tus eventos.",
             variant: "destructive",
           });
-          navigate("/admin-login");
+          navigate(`/admin-login?reason=exists&email=${encodeURIComponent(formData.contactEmail)}`);
           return;
         }
         throw error;

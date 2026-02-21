@@ -3,9 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, Plus, Trash2, Edit, Copy, Home, Download, MessageCircle, ChevronDown, RefreshCw, Eye, FolderPlus, MoveHorizontal, CopyPlus } from "lucide-react";
+import { Calendar, Plus, Trash2, Edit, Copy, Home, Download, MessageCircle, ChevronDown, RefreshCw, Eye, FolderPlus, MoveHorizontal, CopyPlus, LogOut } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -74,6 +76,9 @@ const EventManagement = () => {
   const [duplicateFolderDialogOpen, setDuplicateFolderDialogOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [selectedFolder, setSelectedFolder] = useState<EventFolder | null>(null);
+  const [redeemOpen, setRedeemOpen] = useState(false);
+  const [redeemCode, setRedeemCode] = useState("");
+  const [isRedeeming, setIsRedeeming] = useState(false);
 
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -605,6 +610,39 @@ const EventManagement = () => {
     }
   };
 
+  const handleRedeem = async () => {
+    const code = redeemCode.trim().toUpperCase();
+    if (code.length !== 16 && code.length !== 36) {
+      toast({
+        title: t("form.errorTitle"),
+        description: t("events.redeemInvalidLength"),
+        variant: "destructive",
+      });
+      return;
+    }
+    setIsRedeeming(true);
+    try {
+      const { data, error } = await supabase.functions.invoke(`redeem-get?token=${code}`, {
+        method: "GET",
+      });
+      if (error || !data?.token) {
+        throw error || new Error("INVALID_TOKEN");
+      }
+      setRedeemOpen(false);
+      setRedeemCode("");
+      navigate(`${pathPrefix}/redeem/${code}`);
+    } catch (error) {
+      console.error("Redeem error:", error);
+      toast({
+        title: t("form.errorTitle"),
+        description: t("events.redeemInvalidToken"),
+        variant: "destructive",
+      });
+    } finally {
+      setIsRedeeming(false);
+    }
+  };
+
   // Apply folder overrides to event for preview
   const getEffectiveEvent = (event: Event): Event => {
     if (!event.folder_id) return event;
@@ -940,8 +978,23 @@ const EventManagement = () => {
             >
               <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
             </Button>
+            <Button
+              variant="outline"
+              className="gap-2"
+              onClick={() => navigate(`${pathPrefix}/logout`)}
+            >
+              <LogOut className="w-4 h-4" />
+              {t("events.logout")}
+            </Button>
             {!adminEventId && (
               <>
+                <Button 
+                  variant="outline" 
+                  className="gap-2"
+                  onClick={() => setRedeemOpen(true)}
+                >
+                  {t("events.redeemTitle")}
+                </Button>
                 <Button 
                   variant="outline" 
                   className="gap-2"
@@ -1103,6 +1156,26 @@ const EventManagement = () => {
           onDuplicate={handleDuplicateFolder}
         />
       )}
+
+      <Dialog open={redeemOpen} onOpenChange={setRedeemOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t("events.redeemTitle")}</DialogTitle>
+            <DialogDescription>{t("events.redeemDescription")}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Input
+              value={redeemCode}
+              onChange={(e) => setRedeemCode(e.target.value)}
+              placeholder={t("events.redeemPlaceholder")}
+              maxLength={16}
+            />
+            <Button onClick={handleRedeem} disabled={isRedeeming} className="w-full">
+              {isRedeeming ? t("form.loading") : t("events.redeemAction")}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

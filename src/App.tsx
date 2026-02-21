@@ -20,6 +20,7 @@ import DemoEventSummary from "./pages/DemoEventSummary";
 import PricingPlans from "./pages/PricingPlans";
 import { AdminI18nProvider } from "@/lib/adminI18n";
 import RedeemEvent from "./pages/RedeemEvent";
+import PaidEventSummary from "./pages/PaidEventSummary";
 
 const queryClient = new QueryClient();
 
@@ -49,6 +50,7 @@ const App = () => (
             <Route path="/privacy" element={<PrivacyPolicy />} />
             <Route path="/nuevoeventodemo" element={<PublicDemoEventForm />} />
             <Route path="/nuevoeventodemo/resumen" element={<DemoEventSummary />} />
+            <Route path="/evento-pago/resumen" element={<PaidEventSummary />} />
             <Route path="/planes" element={<PricingPlans />} />
 
             {/* Admin translations via URL prefix */}
@@ -61,6 +63,7 @@ const App = () => (
             <Route path="/en/planes" element={<PricingPlans />} />
             <Route path="/en/logout" element={<Logout />} />
             <Route path="/en/redeem/:token" element={<RedeemEvent />} />
+            <Route path="/en/evento-pago/resumen" element={<PaidEventSummary />} />
 
             <Route path="/it/login" element={<AdminLogin />} />
             <Route path="/it/admin-login" element={<AdminLogin />} />
@@ -71,6 +74,7 @@ const App = () => (
             <Route path="/it/planes" element={<PricingPlans />} />
             <Route path="/it/logout" element={<Logout />} />
             <Route path="/it/redeem/:token" element={<RedeemEvent />} />
+            <Route path="/it/evento-pago/resumen" element={<PaidEventSummary />} />
 
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />

@@ -3,11 +3,9 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Lock } from "lucide-react";
 import { useAdminI18n } from "@/lib/adminI18n";
+import logoRevelao from "@/assets/logo-revelao.png";
 
 const AdminLogin = () => {
   const [email, setEmail] = useState("");
@@ -17,7 +15,10 @@ const AdminLogin = () => {
   const location = useLocation();
   const { toast } = useToast();
   const { t, pathPrefix } = useAdminI18n();
-  const redirectTo = new URLSearchParams(location.search).get("redirect");
+  const searchParams = new URLSearchParams(location.search);
+  const redirectTo = searchParams.get("redirect");
+  const reason = searchParams.get("reason");
+  const prefEmail = searchParams.get("email");
 
   useEffect(() => {
     // Check if user is already logged in
@@ -28,7 +29,17 @@ const AdminLogin = () => {
       }
     };
     checkUser();
-  }, [navigate, pathPrefix, redirectTo]);
+    if (reason === "exists") {
+      toast({
+        title: "Ya existe una cuenta",
+        description: "Este usuario ya existe. Inicia sesión para ver tus eventos.",
+        variant: "destructive",
+      });
+      if (prefEmail) {
+        setEmail(prefEmail);
+      }
+    }
+  }, [navigate, pathPrefix, redirectTo, reason, prefEmail, toast]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,52 +73,58 @@ const AdminLogin = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-6">
-      <Card className="w-full max-w-md p-8">
-        <div className="flex flex-col items-center mb-6">
-          <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
-            <Lock className="w-8 h-8 text-primary" />
+    <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-background">
+      <div className="w-full max-w-md space-y-8 animate-fade-in">
+        <div className="text-center space-y-6">
+          <div className="flex justify-center">
+            <img 
+              src={logoRevelao} 
+              alt="Revelao.com" 
+              className="w-64 h-auto"
+              style={{ imageRendering: 'pixelated' }}
+            />
           </div>
-          <h1 className="text-2xl font-bold text-foreground">
-            {t("login.title")}
-          </h1>
-          <p className="text-muted-foreground text-sm mt-2">
-            {t("login.subtitle")}
+          <p className="text-muted-foreground text-lg font-mono tracking-wide">
+            Captura hoy, revela mañana
           </p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="email">{t("login.email")}</Label>
             <Input
               id="email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="tu@email.com"
+              placeholder={t("login.email")}
+              className="h-12 text-base bg-card border-2 border-border focus:border-primary transition-colors"
               required
               autoComplete="email"
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="password">{t("login.password")}</Label>
             <Input
               id="password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
+              placeholder={t("login.password")}
+              className="h-12 text-base bg-card border-2 border-border focus:border-primary transition-colors"
               required
               autoComplete="current-password"
             />
           </div>
 
-          <Button type="submit" className="w-full" disabled={isLoading}>
+          <Button
+            type="submit"
+            className="w-full h-12 text-base bg-[hsl(5_85%_65%)] hover:bg-[hsl(5_85%_60%)] text-white font-semibold rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98]"
+            disabled={isLoading}
+          >
             {isLoading ? t("login.button.loading") : t("login.button")}
           </Button>
         </form>
-      </Card>
+      </div>
     </div>
   );
 };

@@ -312,7 +312,9 @@ const RedeemEvent = () => {
         title: "Evento creado",
         description: "Tu evento de pago se ha creado correctamente.",
       });
-      navigate("/event-management");
+      navigate(`${pathPrefix}/evento-pago/resumen`, {
+        state: { event: newEvent, qrUrl: qrUrl || localStorage.getItem(`event-qr-url-${newEvent.id}`) },
+      });
     } catch (error) {
       console.error("Error creating paid event:", error);
       toast({

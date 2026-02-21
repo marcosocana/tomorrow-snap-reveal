@@ -17,7 +17,7 @@ const json = (body: unknown, status = 200) =>
     headers: { "Content-Type": "application/json" },
   });
 
-const sendRedeemEmail = async (to: string, redeemUrl: string, planLabel: string) => {
+const sendRedeemEmail = async (to: string, redeemUrl: string, planLabel: string, redeemCode: string) => {
   if (!RESEND_API_KEY || !FROM_EMAIL) return;
   const html = `
     <div style="font-family: Arial, sans-serif; color: #111; line-height: 1.6;">
@@ -27,6 +27,9 @@ const sendRedeemEmail = async (to: string, redeemUrl: string, planLabel: string)
       </p>
       <p style="margin: 0 0 16px;">
         <a href="${redeemUrl}" style="color:#f06a5f; font-weight:700;">Crear mi evento</a>
+      </p>
+      <p style="margin: 0 0 12px;">
+        Código de canje (16 caracteres): <strong>${redeemCode}</strong>
       </p>
       <p style="font-size:12px;color:#666;">Si no solicitaste esto, ignora este correo.</p>
     </div>
@@ -91,7 +94,18 @@ serve(async (req) => {
 
   const userId = session.metadata?.userId || null;
   const userEmail = session.customer_email || session.customer_details?.email || null;
-  const redeemToken = crypto.randomUUID();
+  const generateRedeemToken = (length = 16) => {
+    const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    const values = new Uint8Array(length);
+    crypto.getRandomValues(values);
+    let token = "";
+    for (let i = 0; i < length; i++) {
+      token += alphabet[values[i] % alphabet.length];
+    }
+    return token;
+  };
+
+  const redeemToken = generateRedeemToken(16);
   const redeemExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
   const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -119,7 +133,7 @@ serve(async (req) => {
 
   if (userEmail) {
     const redeemUrl = `${APP_ORIGIN}/redeem/${inserted?.redeem_token || redeemToken}`;
-    await sendRedeemEmail(userEmail, redeemUrl, plan.label);
+    await sendRedeemEmail(userEmail, redeemUrl, plan.label, redeemToken);
   }
 
   return json({ received: true });
