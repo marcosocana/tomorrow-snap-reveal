@@ -135,7 +135,7 @@ serve(async (req) => {
       }
 
       if (!userId) {
-        userId = newUser.user.id;
+        userId = newUser!.user!.id;
       }
     }
 
