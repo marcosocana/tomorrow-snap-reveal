@@ -78,7 +78,7 @@ const DemoEventSummary = () => {
     const sentKey = `demo-email-sent-${event.id}`;
     if (localStorage.getItem(sentKey)) return;
 
-    const sendEmail = async () => {
+    const timer = window.setTimeout(async () => {
       setIsSendingEmail(true);
       try {
         await supabase.functions.invoke("send-demo-event-email", {
@@ -94,10 +94,11 @@ const DemoEventSummary = () => {
       } finally {
         setIsSendingEmail(false);
       }
-    };
+    }, 1500);
 
-    sendEmail();
+    return () => window.clearTimeout(timer);
   }, [event, contactInfo, qrFromState, isSendingEmail]);
+
 
   const formatEventDate = (dateString: string) => {
     try {
