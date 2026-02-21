@@ -20,11 +20,58 @@ const AdminResetPassword = () => {
 
   useEffect(() => {
     const checkSession = async () => {
+      const url = new URL(window.location.href);
+      const code = url.searchParams.get("code");
+      const errorDescription = url.searchParams.get("error_description");
+
+      if (errorDescription) {
+        toast({
+          title: t("reset.errorTitle"),
+          description: decodeURIComponent(errorDescription),
+          variant: "destructive",
+        });
+      }
+
+      if (code) {
+        try {
+          const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) throw error;
+          setHasSession(!!data.session);
+          window.history.replaceState(null, "", `${pathPrefix}/reset-password`);
+          return;
+        } catch (error) {
+          console.error("Error exchanging code for session:", error);
+          toast({
+            title: t("reset.errorTitle"),
+            description: t("reset.errorDesc"),
+            variant: "destructive",
+          });
+        }
+      } else {
+        const hash = new URLSearchParams(window.location.hash.replace("#", ""));
+        const accessToken = hash.get("access_token");
+        const refreshToken = hash.get("refresh_token");
+        if (accessToken && refreshToken) {
+          try {
+            const { data, error } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken,
+            });
+            if (error) throw error;
+            setHasSession(!!data.session);
+            window.history.replaceState(null, "", `${pathPrefix}/reset-password`);
+            return;
+          } catch (error) {
+            console.error("Error setting session from hash:", error);
+          }
+        }
+      }
+
       const { data: { session } } = await supabase.auth.getSession();
       setHasSession(!!session);
     };
     checkSession();
-  }, []);
+  }, [pathPrefix, t, toast]);
 
   const handleSendReset = async (e: React.FormEvent) => {
     e.preventDefault();

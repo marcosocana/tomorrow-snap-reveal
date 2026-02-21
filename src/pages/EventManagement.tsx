@@ -508,11 +508,11 @@ const EventManagement = () => {
           </div>
 
           {/* Action Buttons */}
-          <div className="flex flex-row lg:flex-col gap-2 w-full lg:w-auto justify-end">
+          <div className="flex flex-col sm:flex-row lg:flex-col gap-2 w-full lg:w-auto justify-end">
             <Button
               variant="outline"
               size="sm"
-              className="gap-1"
+              className="gap-1 w-full sm:w-auto"
               onClick={() => navigate(`${pathPrefix}/event-form/${event.id}`)}
             >
               <Edit className="w-4 h-4" />
