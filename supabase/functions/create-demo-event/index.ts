@@ -112,12 +112,31 @@ serve(async (req) => {
         const message = createUserError?.message ?? "unknown_error";
         console.error("create-demo-event createUserError:", message);
         if (isUserExistsError(message)) {
-          return json({ error: "USER_EXISTS", detail: message }, 409);
+          // Fallback: user may exist even if initial lookup failed (replication/permissions).
+          const { data: fallbackUser, error: fallbackError } = await supabaseAdmin
+            .schema("auth")
+            .from("users")
+            .select("id")
+            .eq("email", email)
+            .maybeSingle();
+
+          if (fallbackError) {
+            console.error("create-demo-event fallback user lookup error:", fallbackError.message);
+          }
+
+          if (fallbackUser?.id) {
+            userId = fallbackUser.id;
+          } else {
+            return json({ error: "USER_EXISTS", detail: message }, 409);
+          }
+        } else {
+          return json({ error: "CREATE_USER_FAILED", detail: message }, 500);
         }
-        return json({ error: "CREATE_USER_FAILED", detail: message }, 500);
       }
 
-      userId = newUser.user.id;
+      if (!userId) {
+        userId = newUser.user.id;
+      }
     }
 
     // Ensure only one demo event per user
