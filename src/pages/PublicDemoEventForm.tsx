@@ -295,6 +295,15 @@ const PublicDemoEventForm = () => {
           // ignore
         }
 
+        if (errorCode === "DEMO_ALREADY_EXISTS") {
+          toast({
+            title: "Ya existe un evento de prueba",
+            description: "Inicia sesión para ver tu evento demo.",
+            variant: "destructive",
+          });
+          navigate(`/admin-login?reason=exists&email=${encodeURIComponent(formData.contactEmail)}`);
+          return;
+        }
         if (errorCode === "USER_EXISTS" || `${errorCode}`.includes("USER_EXISTS")) {
           toast({
             title: "El email ya está registrado",

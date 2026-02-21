@@ -80,44 +80,54 @@ serve(async (req) => {
       return json({ error: "INVALID_EVENT" }, 400);
     }
 
-    const { data: newUser, error: createUserError } =
-      await supabaseAdmin.auth.admin.createUser({
-        email,
-        password,
-        email_confirm: true,
-      });
+    // Try to locate existing user first
+    const { data: existingAuthUser } = await supabaseAdmin
+      .schema("auth")
+      .from("users")
+      .select("id")
+      .eq("email", email)
+      .maybeSingle();
 
-    if (createUserError || !newUser?.user) {
-      const message = createUserError?.message ?? "unknown_error";
-      // Verify existence directly in auth.users with service role
-      try {
-        const { data: existingAuthUser } = await supabaseAdmin
-          .schema("auth")
-          .from("users")
-          .select("id")
-          .eq("email", email)
-          .maybeSingle();
-        if (existingAuthUser?.id) {
-          return json({ error: "USER_EXISTS", detail: message }, 409);
-        }
-      } catch (err) {
-        console.error("create-demo-event auth.users check failed:", err);
+    let userId = existingAuthUser?.id || null;
+
+    if (!userId) {
+      const { data: newUser, error: createUserError } =
+        await supabaseAdmin.auth.admin.createUser({
+          email,
+          password,
+          email_confirm: true,
+        });
+
+      if (createUserError || !newUser?.user) {
+        const message = createUserError?.message ?? "unknown_error";
+        console.error("create-demo-event createUserError:", message);
+        return json({ error: "CREATE_USER_FAILED", detail: message }, 500);
       }
-      console.error("create-demo-event createUserError:", message);
-      return json({ error: "CREATE_USER_FAILED", detail: message }, 500);
+
+      userId = newUser.user.id;
     }
 
-    const userId = newUser.user.id;
+    // Ensure only one demo event per user
+    const { data: existingDemo } = await supabaseAdmin
+      .from("events")
+      .select("id")
+      .eq("owner_id", userId)
+      .eq("type", "demo")
+      .maybeSingle();
+
+    if (existingDemo?.id) {
+      return json({ error: "DEMO_ALREADY_EXISTS" }, 409);
+    }
 
     const { error: profileError } = await supabaseAdmin
       .from("user_profiles")
-      .insert({
+      .upsert({
         id: userId,
         phone,
-      });
+      }, { onConflict: "id" });
 
     if (profileError) {
-      return json({ error: "CREATE_PROFILE_FAILED" }, 500);
+      return json({ error: "CREATE_PROFILE_FAILED", detail: profileError.message }, 500);
     }
 
     const { data: createdEvent, error: eventError } = await supabaseAdmin
