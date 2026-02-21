@@ -45,6 +45,12 @@ type DemoEventPayload = {
 const isEmail = (value: string) =>
   /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
+const isUserExistsError = (message: string) =>
+  message.toLowerCase().includes("already been registered") ||
+  message.toLowerCase().includes("user already registered") ||
+  message.toLowerCase().includes("email already") ||
+  message.toLowerCase().includes("already exists");
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -81,12 +87,16 @@ serve(async (req) => {
     }
 
     // Try to locate existing user first
-    const { data: existingAuthUser } = await supabaseAdmin
+    const { data: existingAuthUser, error: existingUserError } = await supabaseAdmin
       .schema("auth")
       .from("users")
       .select("id")
       .eq("email", email)
       .maybeSingle();
+
+    if (existingUserError) {
+      console.error("create-demo-event user lookup error:", existingUserError.message);
+    }
 
     let userId = existingAuthUser?.id || null;
 
@@ -101,6 +111,9 @@ serve(async (req) => {
       if (createUserError || !newUser?.user) {
         const message = createUserError?.message ?? "unknown_error";
         console.error("create-demo-event createUserError:", message);
+        if (isUserExistsError(message)) {
+          return json({ error: "USER_EXISTS", detail: message }, 409);
+        }
         return json({ error: "CREATE_USER_FAILED", detail: message }, 500);
       }
 
