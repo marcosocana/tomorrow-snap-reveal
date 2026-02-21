@@ -34,7 +34,7 @@ serve(async (req) => {
   const authHeader = req.headers.get("Authorization") || "";
   const token = authHeader.replace("Bearer ", "").trim();
   if (!token) {
-    return json({ error: "UNAUTHORIZED" }, 401);
+    return json({ error: "UNAUTHORIZED", detail: "Missing Authorization header" }, 401);
   }
 
   try {
@@ -43,7 +43,7 @@ serve(async (req) => {
       token,
     );
     if (userError || !userData?.user) {
-      return json({ error: "UNAUTHORIZED" }, 401);
+      return json({ error: "UNAUTHORIZED", detail: userError?.message ?? "No user" }, 401);
     }
 
     const supabaseAdmin = createClient(
@@ -57,12 +57,12 @@ serve(async (req) => {
       .order("created_at", { ascending: false });
 
     if (error) {
-      return json({ error: "LOAD_FAILED" }, 500);
+      return json({ error: "LOAD_FAILED", detail: error.message }, 500);
     }
 
     return json({ events: data ?? [] });
   } catch (error) {
     console.error("my-events error:", error);
-    return json({ error: "UNKNOWN_ERROR" }, 500);
+    return json({ error: "UNKNOWN_ERROR", detail: `${error}` }, 500);
   }
 });
