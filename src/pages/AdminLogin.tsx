@@ -31,8 +31,8 @@ const AdminLogin = () => {
     checkUser();
     if (reason === "exists") {
       toast({
-        title: "Ya existe una cuenta",
-        description: "Este usuario ya existe. Inicia sesión para ver tus eventos.",
+        title: "El email ya está registrado",
+        description: "Inicia sesión para ver tus eventos.",
         variant: "destructive",
       });
       if (prefEmail) {

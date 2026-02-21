@@ -297,8 +297,8 @@ const PublicDemoEventForm = () => {
 
         if (errorCode === "USER_EXISTS" || `${errorCode}`.includes("USER_EXISTS")) {
           toast({
-            title: "Ya existe una cuenta",
-            description: "Este email ya tiene una cuenta. Inicia sesión para ver tus eventos.",
+            title: "El email ya está registrado",
+            description: "Inicia sesión para ver tus eventos.",
             variant: "destructive",
           });
           navigate(`/admin-login?reason=exists&email=${encodeURIComponent(formData.contactEmail)}`);
