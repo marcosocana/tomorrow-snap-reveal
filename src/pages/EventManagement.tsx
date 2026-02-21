@@ -44,6 +44,8 @@ interface Event {
   sort_order: number;
   allow_photo_sharing?: boolean;
   gallery_view_mode?: string;
+  owner_email?: string | null;
+  owner_phone?: string | null;
 }
 
 const EventManagement = () => {
@@ -53,6 +55,7 @@ const EventManagement = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isDemoMode] = useState(() => localStorage.getItem("isDemoMode") === "true");
   const [adminEventId] = useState(() => localStorage.getItem("adminEventId"));
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [previewEvent, setPreviewEvent] = useState<Event | null>(null);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   
@@ -120,13 +123,23 @@ const EventManagement = () => {
           return;
         }
 
-        const { data: eventsPayload, error: eventsError } = await supabase.functions.invoke("my-events", {
-          method: "GET",
-        });
+        const isAdminUser = (session.user?.email || "").toLowerCase() === "revelao.cam@gmail.com";
+        setIsSuperAdmin(isAdminUser);
+
+        const { data: eventsPayload, error: eventsError } = await supabase.functions.invoke(
+          isAdminUser ? "admin-events" : "my-events",
+          { method: "GET" },
+        );
         if (eventsError) throw eventsError;
 
         const fetchedEvents = (eventsPayload?.events || []) as Event[];
         setEvents(fetchedEvents);
+
+        if (isAdminUser) {
+          setFolders([]);
+          setEventPhotoCounts({});
+          return;
+        }
 
         const folderIds = Array.from(new Set(fetchedEvents.map((e) => e.folder_id).filter(Boolean))) as string[];
         if (folderIds.length > 0) {
@@ -567,7 +580,63 @@ const EventManagement = () => {
           </div>
         </div>
 
-        {events.length === 0 && folders.length === 0 ? (
+        {isSuperAdmin ? (
+          <Card className="p-4">
+            <div className="overflow-x-auto">
+              <table className="min-w-[720px] w-full text-sm">
+                <thead>
+                  <tr className="text-left text-muted-foreground border-b">
+                    <th className="py-3 pr-4 font-medium">{t("events.table.name")}</th>
+                    <th className="py-3 pr-4 font-medium">{t("events.table.code")}</th>
+                    <th className="py-3 pr-4 font-medium">{t("events.table.maxPhotos")}</th>
+                    <th className="py-3 pr-4 font-medium">{t("events.table.email")}</th>
+                    <th className="py-3 pr-4 font-medium">{t("events.table.phone")}</th>
+                    <th className="py-3 font-medium">{t("events.table.actions")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {events.map((event) => (
+                    <tr key={event.id} className="border-b last:border-b-0">
+                      <td className="py-3 pr-4">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{event.name}</span>
+                          {event.max_photos === 10 && (
+                            <span className="text-[10px] font-semibold uppercase tracking-wide bg-[#f06a5f]/10 text-[#f06a5f] px-2 py-0.5 rounded-full">
+                              {t("events.demoBadge")}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-3 pr-4 font-mono text-xs break-all">
+                        {event.password_hash}
+                      </td>
+                      <td className="py-3 pr-4">
+                        {event.max_photos ?? "-"}
+                      </td>
+                      <td className="py-3 pr-4">
+                        {event.owner_email || "-"}
+                      </td>
+                      <td className="py-3 pr-4">
+                        {event.owner_phone || "-"}
+                      </td>
+                      <td className="py-3">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1"
+                          onClick={() => navigate(`${pathPrefix}/event-form/${event.id}`)}
+                        >
+                          <Edit className="w-4 h-4" />
+                          <span>{t("events.edit")}</span>
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        ) : events.length === 0 && folders.length === 0 ? (
           <Card className="p-12 text-center">
             <Calendar className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
             <p className="text-muted-foreground">
