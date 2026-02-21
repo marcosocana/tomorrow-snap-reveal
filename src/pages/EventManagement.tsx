@@ -169,6 +169,13 @@ const EventManagement = () => {
     }
   };
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    localStorage.removeItem("isDemoMode");
+    localStorage.removeItem("adminEventId");
+    navigate(`${pathPrefix}/admin-login`, { replace: true });
+  };
+
   // Get events organized by folder, sorted by sort_order
   const eventsByFolder = useMemo(() => {
     const result: Record<string, Event[]> = { unfiled: [] };
@@ -546,7 +553,7 @@ const EventManagement = () => {
             <Button
               variant="outline"
               className="gap-2"
-              onClick={() => navigate(`${pathPrefix}/logout`)}
+              onClick={handleLogout}
             >
               <LogOut className="w-4 h-4" />
               {t("events.logout")}
