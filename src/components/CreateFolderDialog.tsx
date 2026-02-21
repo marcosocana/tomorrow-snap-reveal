@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import FontSelect from "./FontSelect";
 import FontSizeSelect, { FontSizeOption } from "./FontSizeSelect";
 import { EventFontFamily, getEventFontFamily } from "@/lib/eventFonts";
+import { useAdminI18n } from "@/lib/adminI18n";
 
 interface CreateFolderDialogProps {
   open: boolean;
@@ -37,6 +38,7 @@ const CreateFolderDialog = ({
   const [fontSize, setFontSize] = useState<FontSizeOption | null>(null);
   const [uploadingImage, setUploadingImage] = useState<"custom" | "background" | null>(null);
   const { toast } = useToast();
+  const { t } = useAdminI18n();
 
   const handleImageUpload = async (file: File, type: "custom" | "background") => {
     try {
@@ -63,8 +65,8 @@ const CreateFolderDialog = ({
     } catch (error) {
       console.error("Error uploading image:", error);
       toast({
-        title: "Error",
-        description: "No se pudo subir la imagen",
+        title: t("form.errorTitle"),
+        description: t("folder.imageUploadError"),
         variant: "destructive",
       });
     } finally {
@@ -75,8 +77,8 @@ const CreateFolderDialog = ({
   const handleCreate = async () => {
     if (!name.trim()) {
       toast({
-        title: "Error",
-        description: "El nombre de la carpeta es obligatorio",
+        title: t("form.errorTitle"),
+        description: t("folder.nameRequiredError"),
         variant: "destructive",
       });
       return;
@@ -96,8 +98,8 @@ const CreateFolderDialog = ({
       if (error) throw error;
 
       toast({
-        title: "Carpeta creada",
-        description: "La carpeta se ha creado correctamente",
+        title: t("folder.createSuccessTitle"),
+        description: t("folder.createSuccessDesc"),
       });
 
       // Reset form
@@ -111,8 +113,8 @@ const CreateFolderDialog = ({
     } catch (error) {
       console.error("Error creating folder:", error);
       toast({
-        title: "Error",
-        description: "No se pudo crear la carpeta",
+        title: t("form.errorTitle"),
+        description: t("folder.createError"),
         variant: "destructive",
       });
     } finally {
@@ -124,31 +126,27 @@ const CreateFolderDialog = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Nueva carpeta</DialogTitle>
+          <DialogTitle>{t("folder.createTitle")}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="folderName">Nombre de la carpeta *</Label>
+            <Label htmlFor="folderName">{t("folder.nameLabel")}</Label>
             <Input
               id="folderName"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Ej: Eventos de verano"
+              placeholder={t("folder.placeholder")}
             />
           </div>
 
           <div className="border-t pt-4">
-            <p className="text-sm font-medium mb-2">
-              Configuración de carpeta (opcional)
-            </p>
-            <p className="text-xs text-muted-foreground mb-4">
-              Estos valores sobreescribirán la configuración individual de los eventos dentro de la carpeta.
-            </p>
+            <p className="text-sm font-medium mb-2">{t("folder.settingsTitle")}</p>
+            <p className="text-xs text-muted-foreground mb-4">{t("folder.settingsHint")}</p>
 
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label>Imagen personalizada</Label>
+                <Label>{t("folder.customImageLabel")}</Label>
                 <div className="flex items-center gap-2">
                   <Input
                     type="file"
@@ -180,7 +178,7 @@ const CreateFolderDialog = ({
               </div>
 
               <div className="space-y-2">
-                <Label>Fotografía de fondo</Label>
+                <Label>{t("folder.backgroundImageLabel")}</Label>
                 <div className="flex items-center gap-2">
                   <Input
                     type="file"
@@ -212,13 +210,13 @@ const CreateFolderDialog = ({
               </div>
 
               <div className="space-y-2">
-                <Label>Tipografía del título</Label>
+                <Label>{t("folder.fontLabel")}</Label>
                 <div className="flex items-center gap-2">
                   <div className="flex-1">
                     <FontSelect
                       value={fontFamily || "system"}
                       onChange={(font) => setFontFamily(font)}
-                      previewText="Título del evento"
+                      previewText={t("folder.previewTitle")}
                     />
                   </div>
                   {fontFamily && (
@@ -234,13 +232,13 @@ const CreateFolderDialog = ({
               </div>
 
               <div className="space-y-2">
-                <Label>Tamaño del título</Label>
+                <Label>{t("folder.fontSizeLabel")}</Label>
                 <div className="flex items-center gap-2">
                   <div className="flex-1">
                     <FontSizeSelect
                       value={fontSize || "text-3xl"}
                       onChange={(size) => setFontSize(size)}
-                      previewText="Título del evento"
+                      previewText={t("folder.previewTitle")}
                       fontFamily={fontFamily ? getEventFontFamily(fontFamily) : undefined}
                     />
                   </div>
@@ -265,16 +263,16 @@ const CreateFolderDialog = ({
             onClick={() => onOpenChange(false)}
             disabled={isLoading}
           >
-            Cancelar
+            {t("shared.cancel")}
           </Button>
           <Button onClick={handleCreate} disabled={isLoading || !name.trim()}>
             {isLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Creando...
+                {t("folder.creating")}
               </>
             ) : (
-              "Crear carpeta"
+              t("folder.createAction")
             )}
           </Button>
         </DialogFooter>

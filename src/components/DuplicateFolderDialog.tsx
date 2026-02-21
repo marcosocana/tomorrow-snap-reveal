@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Loader2, ImageIcon, FolderOpen } from "lucide-react";
 import { EventFolder } from "./FolderCard";
+import { useAdminI18n } from "@/lib/adminI18n";
 
 interface DuplicateFolderDialogProps {
   open: boolean;
@@ -33,6 +34,7 @@ const DuplicateFolderDialog = ({
   const [newName, setNewName] = useState(`${folder.name} (copia)`);
   const [includePhotos, setIncludePhotos] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const { t } = useAdminI18n();
 
   const handleDuplicate = async () => {
     if (!newName.trim()) return;
@@ -51,25 +53,25 @@ const DuplicateFolderDialog = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Duplicar carpeta</DialogTitle>
+          <DialogTitle>{t("duplicateFolder.title")}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Se creará una copia de la carpeta <strong>{folder.name}</strong> con todos sus eventos ({eventCount}).
+            {t("duplicateFolder.desc", { name: folder.name, count: eventCount })}
           </p>
 
           {/* Folder name input */}
           <div className="space-y-2">
             <Label htmlFor="folder-name" className="flex items-center gap-2">
               <FolderOpen className="h-4 w-4" />
-              Nombre de la nueva carpeta
+              {t("duplicateFolder.newNameLabel")}
             </Label>
             <Input
               id="folder-name"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
-              placeholder="Nombre de la carpeta"
+              placeholder={t("duplicateFolder.newNamePlaceholder")}
             />
           </div>
 
@@ -79,10 +81,10 @@ const DuplicateFolderDialog = ({
               <div className="space-y-0.5">
                 <Label htmlFor="include-photos" className="flex items-center gap-2">
                   <ImageIcon className="h-4 w-4" />
-                  Duplicar fotos
+                  {t("duplicateFolder.includePhotos")}
                 </Label>
                 <p className="text-sm text-muted-foreground">
-                  Incluir las {totalPhotoCount} fotos de los eventos
+                  {t("duplicateFolder.includePhotosDesc", { count: totalPhotoCount })}
                 </p>
               </div>
               <Switch
@@ -94,12 +96,12 @@ const DuplicateFolderDialog = ({
           )}
 
           <div className="rounded-lg bg-muted p-3 text-sm text-muted-foreground">
-            <p>Se duplicarán:</p>
+            <p>{t("duplicateFolder.summaryTitle")}</p>
             <ul className="list-disc list-inside mt-1 space-y-1">
-              <li>Configuración visual de la carpeta</li>
-              <li>{eventCount} evento{eventCount !== 1 ? "s" : ""} con nuevas contraseñas</li>
+              <li>{t("duplicateFolder.summaryConfig")}</li>
+              <li>{t("duplicateFolder.summaryEvents", { count: eventCount, suffix: eventCount !== 1 ? "s" : "" })}</li>
               {includePhotos && totalPhotoCount > 0 && (
-                <li>{totalPhotoCount} foto{totalPhotoCount !== 1 ? "s" : ""}</li>
+                <li>{t("duplicateFolder.summaryPhotos", { count: totalPhotoCount, suffix: totalPhotoCount !== 1 ? "s" : "" })}</li>
               )}
             </ul>
           </div>
@@ -111,16 +113,16 @@ const DuplicateFolderDialog = ({
             onClick={() => onOpenChange(false)}
             disabled={isLoading}
           >
-            Cancelar
+            {t("shared.cancel")}
           </Button>
           <Button onClick={handleDuplicate} disabled={isLoading || !newName.trim()}>
             {isLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Duplicando...
+                {t("duplicateFolder.duplicating")}
               </>
             ) : (
-              "Duplicar carpeta"
+              t("duplicateFolder.action")
             )}
           </Button>
         </DialogFooter>

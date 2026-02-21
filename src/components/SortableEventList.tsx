@@ -17,6 +17,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import SortableEventCard from "./SortableEventCard";
+import { useAdminI18n } from "@/lib/adminI18n";
 
 interface SortableEventListProps<T extends { id: string; sort_order: number }> {
   events: T[];
@@ -33,6 +34,7 @@ function SortableEventList<T extends { id: string; sort_order: number }>({
 }: SortableEventListProps<T>) {
   const [items, setItems] = useState(events);
   const { toast } = useToast();
+  const { t } = useAdminI18n();
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -78,8 +80,8 @@ function SortableEventList<T extends { id: string; sort_order: number }>({
       } catch (error) {
         console.error("Error updating sort order:", error);
         toast({
-          title: "Error",
-          description: "No se pudo guardar el orden",
+          title: t("form.errorTitle"),
+          description: t("events.loadError"),
           variant: "destructive",
         });
         // Revert on error

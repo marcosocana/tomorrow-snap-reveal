@@ -18,7 +18,9 @@ import FontSizeSelect, { FontSizeOption } from "@/components/FontSizeSelect";
 import EventPreview from "@/components/EventPreview";
 import { Language } from "@/lib/translations";
 import { EventFontFamily, getEventFontFamily } from "@/lib/eventFonts";
-import { FilterType, FILTER_LABELS, FILTER_ORDER } from "@/lib/photoFilters";
+import { FilterType, FILTER_ORDER } from "@/lib/photoFilters";
+import { useAdminI18n } from "@/lib/adminI18n";
+import { QRCodeSVG } from "qrcode.react";
 
 // Background image - no size restrictions
 
@@ -112,6 +114,7 @@ const EventForm = () => {
   });
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { t, pathPrefix } = useAdminI18n();
 
   useEffect(() => {
     // Check authentication - demo mode bypasses auth
@@ -121,7 +124,7 @@ const EventForm = () => {
           loadEvent();
           return;
         }
-        navigate("/event-management");
+        navigate(`${pathPrefix}/event-management`);
         return;
       }
       if (isDemoMode) {
@@ -134,7 +137,7 @@ const EventForm = () => {
       }
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        navigate("/admin-login");
+        navigate(`${pathPrefix}/admin-login`);
         return;
       }
       if (isEditing) {
@@ -203,11 +206,11 @@ const EventForm = () => {
     } catch (error) {
       console.error("Error loading event:", error);
       toast({
-        title: "Error",
-        description: "No se pudo cargar el evento",
+        title: t("form.errorTitle"),
+        description: t("form.loadError"),
         variant: "destructive",
       });
-      navigate("/event-management");
+      navigate(`${pathPrefix}/event-management`);
     } finally {
       setIsLoading(false);
     }
@@ -234,13 +237,99 @@ const EventForm = () => {
     } catch (error) {
       console.error("Error uploading image:", error);
       toast({
-        title: "Error",
-        description: "No se pudo subir la imagen",
+        title: t("form.errorTitle"),
+        description: t("form.uploadError"),
         variant: "destructive",
       });
       return null;
     } finally {
       setUploadingImage(false);
+    }
+  };
+
+  const generateQrBlob = async (eventUrl: string): Promise<Blob | null> => {
+    try {
+      const container = document.createElement("div");
+      container.style.position = "absolute";
+      container.style.left = "-9999px";
+      document.body.appendChild(container);
+
+      const qrSize = 1024;
+      const qrWrapper = document.createElement("div");
+      container.appendChild(qrWrapper);
+
+      const { createRoot } = await import("react-dom/client");
+      const root = createRoot(qrWrapper);
+
+      await new Promise<void>((resolve) => {
+        root.render(<QRCodeSVG value={eventUrl} size={qrSize} level="H" includeMargin />);
+        setTimeout(resolve, 100);
+      });
+
+      const svgElement = qrWrapper.querySelector("svg");
+      if (!svgElement) throw new Error("No se pudo generar el QR");
+
+      const canvas = document.createElement("canvas");
+      canvas.width = qrSize;
+      canvas.height = qrSize;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("No se pudo crear el canvas");
+
+      const svgData = new XMLSerializer().serializeToString(svgElement);
+      const svgBlob = new Blob([svgData], {
+        type: "image/svg+xml;charset=utf-8",
+      });
+      const url = URL.createObjectURL(svgBlob);
+
+      const blob = await new Promise<Blob | null>((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0);
+          URL.revokeObjectURL(url);
+          canvas.toBlob((result) => resolve(result), "image/png");
+        };
+        img.onerror = () => {
+          URL.revokeObjectURL(url);
+          resolve(null);
+        };
+        img.src = url;
+      });
+
+      root.unmount();
+      document.body.removeChild(container);
+      return blob;
+    } catch (error) {
+      console.error("Error generating QR:", error);
+      return null;
+    }
+  };
+
+  const uploadQrImage = async (eventUrl: string, eventId: string) => {
+    const qrBlob = await generateQrBlob(eventUrl);
+    if (!qrBlob) return null;
+
+    try {
+      const filePath = `event-qr/qr-${eventId}.png`;
+      const { error: uploadError } = await supabase.storage
+        .from("event-photos")
+        .upload(filePath, qrBlob, {
+          contentType: "image/png",
+          upsert: true,
+          cacheControl: "3600",
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from("event-photos")
+        .getPublicUrl(filePath);
+
+      return publicUrl;
+    } catch (error) {
+      console.error("Error uploading QR:", error);
+      return null;
     }
   };
 
@@ -310,11 +399,12 @@ const EventForm = () => {
         if (error) throw error;
 
         toast({
-          title: "Evento actualizado",
-          description: "El evento se actualizó correctamente",
+          title: t("form.updateTitle"),
+          description: t("form.updateDesc"),
         });
       } else {
-        const { error } = await supabase.from("events").insert({
+        const { data: { user } } = await supabase.auth.getUser();
+        const { data: newEvent, error } = await supabase.from("events").insert({
           name: formData.name,
           password_hash: formData.password,
           admin_password: formData.adminPassword || null,
@@ -328,6 +418,7 @@ const EventForm = () => {
           font_family: formData.fontFamily,
           font_size: formData.fontSize,
           is_demo: isDemoMode,
+          owner_id: user?.id || null,
           country_code: formData.countryCode,
           timezone: formData.timezone,
           language: formData.language,
@@ -342,22 +433,30 @@ const EventForm = () => {
           custom_privacy_text: formData.legalTextType === 'custom' ? (formData.customPrivacyText || null) : null,
           gallery_view_mode: formData.galleryViewMode,
           like_counting_enabled: formData.likeCountingEnabled,
-        } as any);
+        } as any).select().single();
 
         if (error) throw error;
 
+        if (newEvent) {
+          const eventUrl = `https://acceso.revelao.cam/events/${newEvent.password_hash}`;
+          const qrUrl = await uploadQrImage(eventUrl, newEvent.id);
+          if (qrUrl) {
+            localStorage.setItem(`event-qr-url-${newEvent.id}`, qrUrl);
+          }
+        }
+
         toast({
-          title: "Evento creado",
-          description: "El evento se creó correctamente",
+          title: t("form.createTitle"),
+          description: t("form.createDesc"),
         });
       }
 
-      navigate("/event-management");
+      navigate(`${pathPrefix}/event-management`);
     } catch (error) {
       console.error("Error saving event:", error);
       toast({
-        title: "Error",
-        description: isEditing ? "No se pudo actualizar el evento" : "No se pudo crear el evento",
+        title: t("form.errorTitle"),
+        description: isEditing ? t("form.updateError") : t("form.createError"),
         variant: "destructive",
       });
     } finally {
@@ -368,7 +467,7 @@ const EventForm = () => {
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <p className="text-muted-foreground">Cargando...</p>
+        <p className="text-muted-foreground">{t("form.loading")}</p>
       </div>
     );
   }
@@ -380,14 +479,14 @@ const EventForm = () => {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => navigate("/event-management")}
+            onClick={() => navigate(`${pathPrefix}/event-management`)}
             className="rounded-full"
-            title="Volver al listado"
+            title={t("form.back")}
           >
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
-            {isEditing ? "Editar Evento" : "Nuevo Evento"}
+            {isEditing ? t("form.title.edit") : t("form.title.new")}
           </h1>
         </div>
 
@@ -398,7 +497,7 @@ const EventForm = () => {
             <div className="space-y-2">
               <Label className="flex items-center gap-2">
                 <Globe className="w-4 h-4" />
-                ¿Dónde es el evento?
+                {t("form.countryQuestion")}
               </Label>
               <CountrySelect
                 value={formData.countryCode}
@@ -407,12 +506,12 @@ const EventForm = () => {
                 }
               />
               <p className="text-xs text-muted-foreground">
-                Las horas se ajustarán a la zona horaria del país seleccionado
+                {t("form.countryHint")}
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label>Idioma del evento</Label>
+              <Label>{t("form.language")}</Label>
               <LanguageSelect
                 value={formData.language as Language}
                 onChange={(language) =>
@@ -420,12 +519,12 @@ const EventForm = () => {
                 }
               />
               <p className="text-xs text-muted-foreground">
-                Las pantallas del evento se mostrarán en este idioma
+                {t("form.languageHint")}
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="name">Nombre del evento</Label>
+              <Label htmlFor="name">{t("form.name")}</Label>
               <Input
                 id="name"
                 value={formData.name}
@@ -437,33 +536,33 @@ const EventForm = () => {
             </div>
 
             <div className="space-y-2">
-              <Label>Tipografía del nombre</Label>
+              <Label>{t("form.font")}</Label>
               <FontSelect
                 value={formData.fontFamily}
                 onChange={(fontFamily) =>
                   setFormData({ ...formData, fontFamily })
                 }
-                previewText={formData.name || "Nombre del evento"}
+                previewText={formData.name || t("form.namePreview")}
               />
             </div>
 
             <div className="space-y-2">
-              <Label>Tamaño del nombre</Label>
+              <Label>{t("form.fontSize")}</Label>
               <FontSizeSelect
                 value={formData.fontSize}
                 onChange={(fontSize) =>
                   setFormData({ ...formData, fontSize })
                 }
-                previewText={formData.name || "Nombre del evento"}
+                previewText={formData.name || t("form.namePreview")}
                 fontFamily={getEventFontFamily(formData.fontFamily)}
               />
               <p className="text-xs text-muted-foreground">
-                Tipografía y tamaño se mostrarán en todas las pantallas del evento
+                {t("form.fontHint")}
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">Contraseña del evento</Label>
+              <Label htmlFor="password">{t("form.password")}</Label>
               <Input
                 id="password"
                 type="text"
@@ -477,7 +576,7 @@ const EventForm = () => {
 
             <div className="space-y-2">
               <Label htmlFor="adminPassword">
-                Contraseña admin (ver fotos antes del revelado)
+                {t("form.adminPassword")}
               </Label>
               <Input
                 id="adminPassword"
@@ -486,13 +585,13 @@ const EventForm = () => {
                 onChange={(e) =>
                   setFormData({ ...formData, adminPassword: e.target.value })
                 }
-                placeholder="Opcional"
+                placeholder={t("form.optional")}
               />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="maxPhotos">
-                Máximo de fotos permitido
+                {t("form.maxPhotos")}
               </Label>
               <Input
                 id="maxPhotos"
@@ -502,25 +601,25 @@ const EventForm = () => {
                 onChange={(e) =>
                   setFormData({ ...formData, maxPhotos: e.target.value })
                 }
-                placeholder={isDemoMode ? "30 por defecto en demo" : "Ilimitado si se deja vacío"}
+                placeholder={isDemoMode ? t("form.maxPhotosDemoDefault") : t("form.maxPhotosUnlimited")}
                 disabled={isRestrictedAdmin}
                 className={isRestrictedAdmin ? "bg-muted cursor-not-allowed" : ""}
               />
               {isRestrictedAdmin && (
                 <p className="text-xs text-muted-foreground">
-                  Límite fijo de 10 fotos para eventos demo
+                  {t("form.maxPhotosFixedDemo")}
                 </p>
               )}
               {isDemoMode && !isRestrictedAdmin && (
                 <p className="text-xs text-muted-foreground">
-                  En modo demo el valor por defecto es 30 fotos, pero puedes modificarlo
+                  {t("form.maxPhotosDemoHint")}
                 </p>
               )}
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="filterType">
-                Filtro de fotos
+                {t("form.filterLabel")}
               </Label>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {FILTER_ORDER.map((filter) => (
@@ -534,7 +633,7 @@ const EventForm = () => {
                         : "bg-muted border-border hover:bg-muted/80"
                     }`}
                   >
-                    {FILTER_LABELS[filter]}
+                    {t(`form.filter.${filter}`)}
                   </button>
                 ))}
               </div>
@@ -542,16 +641,16 @@ const EventForm = () => {
 
             <div className="space-y-2">
               <Label htmlFor="customImage">
-                Imagen personalizada (opcional)
+                {t("form.customImageLabel")}
               </Label>
               <div className="text-xs text-muted-foreground mb-2">
-                Máximo 240px ancho × 100px alto. Se muestra como icono en las pantallas.
+                {t("form.customImageHint")}
               </div>
               {formData.customImageUrl && !formData.customImage && (
                 <div className="mb-2 relative inline-block">
                   <img 
                     src={formData.customImageUrl} 
-                    alt="Preview" 
+                    alt="Preview"
                     className="max-w-[240px] max-h-[100px] object-contain border border-border rounded"
                   />
                   <Button
@@ -569,7 +668,7 @@ const EventForm = () => {
                 <div className="mb-2 relative inline-block">
                   <img 
                     src={URL.createObjectURL(formData.customImage)} 
-                    alt="Preview" 
+                    alt="Preview"
                     className="max-w-[240px] max-h-[100px] object-contain border border-border rounded"
                   />
                   <Button
@@ -598,16 +697,16 @@ const EventForm = () => {
 
             <div className="space-y-2">
               <Label htmlFor="backgroundImage">
-                Fotografía de fondo (opcional)
+                {t("form.backgroundImageLabel")}
               </Label>
               <p className="text-xs text-muted-foreground mb-2">
-                Imagen que aparecerá como fondo en la cabecera de la galería y las pantallas del evento.
+                {t("form.backgroundImageHint")}
               </p>
               {formData.backgroundImageUrl && !formData.backgroundImage && (
                 <div className="mb-2 relative inline-block">
                   <img 
                     src={formData.backgroundImageUrl} 
-                    alt="Preview fondo" 
+                    alt={t("form.preview")}
                     className="w-full max-w-[320px] aspect-video object-cover border border-border rounded"
                   />
                   <Button
@@ -625,7 +724,7 @@ const EventForm = () => {
                 <div className="mb-2 relative inline-block">
                   <img 
                     src={URL.createObjectURL(formData.backgroundImage)} 
-                    alt="Preview fondo" 
+                    alt={t("form.preview")}
                     className="w-full max-w-[320px] aspect-video object-cover border border-border rounded"
                   />
                   <Button
@@ -654,7 +753,7 @@ const EventForm = () => {
 
             <div className="space-y-2">
               <Label htmlFor="description">
-                Descripción (opcional)
+                {t("form.descriptionLabel")}
               </Label>
               <Textarea
                 id="description"
@@ -662,19 +761,19 @@ const EventForm = () => {
                 onChange={(e) =>
                   setFormData({ ...formData, description: e.target.value })
                 }
-                placeholder="Descripción breve del evento. Puedes usar saltos de línea."
+                placeholder={t("form.descriptionPlaceholder")}
                 rows={3}
               />
               <p className="text-xs text-muted-foreground">
-                Los saltos de línea se mostrarán en las pantallas del evento
+                {t("form.descriptionHint")}
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label className="text-base font-semibold">Período de subida de fotos</Label>
+              <Label className="text-base font-semibold">{t("form.uploadSection")}</Label>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="uploadStartDate">Fecha inicio</Label>
+                  <Label htmlFor="uploadStartDate">{t("form.uploadStartDate")}</Label>
                   <Input
                     id="uploadStartDate"
                     type="date"
@@ -687,7 +786,7 @@ const EventForm = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="uploadStartTime">Hora inicio</Label>
+                  <Label htmlFor="uploadStartTime">{t("form.uploadStartTime")}</Label>
                   <Input
                     id="uploadStartTime"
                     type="time"
@@ -702,7 +801,7 @@ const EventForm = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="uploadEndDate">Fecha fin</Label>
+                  <Label htmlFor="uploadEndDate">{t("form.uploadEndDate")}</Label>
                   <Input
                     id="uploadEndDate"
                     type="date"
@@ -715,7 +814,7 @@ const EventForm = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="uploadEndTime">Hora fin</Label>
+                  <Label htmlFor="uploadEndTime">{t("form.uploadEndTime")}</Label>
                   <Input
                     id="uploadEndTime"
                     type="time"
@@ -729,7 +828,7 @@ const EventForm = () => {
               </div>
               {formData.countryCode !== "ES" && formData.uploadStartDate && formData.uploadEndDate && (
                 <p className="text-xs text-muted-foreground">
-                  🇪🇸 En España: {(() => {
+                  🇪🇸 {t("events.inSpain")}: {(() => {
                     try {
                       const eventTz = formData.timezone;
                       const spainTz = "Europe/Madrid";
@@ -750,10 +849,10 @@ const EventForm = () => {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-base font-semibold">Fecha de revelado</Label>
+              <Label className="text-base font-semibold">{t("form.revealSection")}</Label>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="revealDate">Fecha</Label>
+                  <Label htmlFor="revealDate">{t("form.revealDateLabel")}</Label>
                   <Input
                     id="revealDate"
                     type="date"
@@ -766,7 +865,7 @@ const EventForm = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="revealTime">Hora</Label>
+                  <Label htmlFor="revealTime">{t("form.revealTimeLabel")}</Label>
                   <Input
                     id="revealTime"
                     type="time"
@@ -780,7 +879,7 @@ const EventForm = () => {
               </div>
               {formData.countryCode !== "ES" && formData.revealDate && (
                 <p className="text-xs text-muted-foreground">
-                  🇪🇸 En España: {(() => {
+                  🇪🇸 {t("events.inSpain")}: {(() => {
                     try {
                       const eventTz = formData.timezone;
                       const spainTz = "Europe/Madrid";
@@ -797,14 +896,14 @@ const EventForm = () => {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-base font-semibold">Fecha de caducidad (opcional)</Label>
+              <Label className="text-base font-semibold">{t("form.expirySection")}</Label>
               <div className="text-xs text-muted-foreground mb-2">
-                Después de esta fecha y hora, la galería no será accesible y mostrará un mensaje con el enlace indicado.
+                {t("form.expiryHint")}
               </div>
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="expiryDate">Fecha</Label>
+                    <Label htmlFor="expiryDate">{t("form.expiryDateLabel")}</Label>
                     <Input
                       id="expiryDate"
                       type="date"
@@ -816,7 +915,7 @@ const EventForm = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="expiryTime">Hora</Label>
+                    <Label htmlFor="expiryTime">{t("form.expiryTimeLabel")}</Label>
                     <Input
                       id="expiryTime"
                       type="time"
@@ -829,7 +928,7 @@ const EventForm = () => {
                 </div>
                 {formData.countryCode !== "ES" && formData.expiryDate && (
                   <p className="text-xs text-muted-foreground">
-                    🇪🇸 En España: {(() => {
+                    🇪🇸 {t("events.inSpain")}: {(() => {
                       try {
                         const eventTz = formData.timezone;
                         const spainTz = "Europe/Madrid";
@@ -845,7 +944,7 @@ const EventForm = () => {
                 )}
 
                 <div className="space-y-2">
-                  <Label htmlFor="expiryRedirectUrl">URL de redirección</Label>
+                  <Label htmlFor="expiryRedirectUrl">{t("form.expiryRedirectLabel")}</Label>
                   <Input
                     id="expiryRedirectUrl"
                     type="url"
@@ -853,17 +952,17 @@ const EventForm = () => {
                     onChange={(e) =>
                       setFormData({ ...formData, expiryRedirectUrl: e.target.value })
                     }
-                    placeholder="https://..."
+                    placeholder={t("form.expiryRedirectPlaceholder")}
                   />
                 </div>
               </div>
             </div>
 
             <div className="space-y-4 border-t border-border pt-4">
-              <Label className="text-base font-semibold">Opciones adicionales</Label>
+              <Label className="text-base font-semibold">{t("form.optionsSection")}</Label>
               
               <div className="space-y-2">
-                <Label>Modo de visualización de galería</Label>
+                <Label>{t("form.galleryViewLabel")}</Label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
@@ -874,7 +973,7 @@ const EventForm = () => {
                         : "bg-muted border-border hover:bg-muted/80"
                     }`}
                   >
-                    Normal
+                    {t("form.galleryViewNormal")}
                   </button>
                   <button
                     type="button"
@@ -885,19 +984,19 @@ const EventForm = () => {
                         : "bg-muted border-border hover:bg-muted/80"
                     }`}
                   >
-                    Cuadrícula
+                    {t("form.galleryViewGrid")}
                   </button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Normal: scroll vertical con tarjetas grandes. Cuadrícula: 3 columnas compactas estilo iPhone.
+                  {t("form.galleryViewHint")}
                 </p>
               </div>
               
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label htmlFor="allowPhotoDeletion">Posibilidad de eliminar fotos</Label>
+                  <Label htmlFor="allowPhotoDeletion">{t("form.allowDeletionLabel")}</Label>
                   <p className="text-xs text-muted-foreground">
-                    Si está activado, los usuarios podrán eliminar fotos desde la galería
+                    {t("form.allowDeletionHint")}
                   </p>
                 </div>
                 <Switch
@@ -911,9 +1010,9 @@ const EventForm = () => {
 
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label htmlFor="allowPhotoSharing">Posibilidad de compartir fotos</Label>
+                  <Label htmlFor="allowPhotoSharing">{t("form.allowSharingLabel")}</Label>
                   <p className="text-xs text-muted-foreground">
-                    Si está activado, los usuarios podrán compartir fotos individuales en redes sociales
+                    {t("form.allowSharingHint")}
                   </p>
                 </div>
                 <Switch
@@ -927,9 +1026,9 @@ const EventForm = () => {
 
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label htmlFor="likeCountingEnabled">Contar likes</Label>
+                  <Label htmlFor="likeCountingEnabled">{t("form.likeCountingLabel")}</Label>
                   <p className="text-xs text-muted-foreground">
-                    Si está activado, se mostrarán los likes de cada foto. Solo 1 like por dispositivo.
+                    {t("form.likeCountingHint")}
                   </p>
                 </div>
                 <Switch
@@ -943,9 +1042,9 @@ const EventForm = () => {
 
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label htmlFor="showLegalText">Añadir texto legal</Label>
+                  <Label htmlFor="showLegalText">{t("form.showLegalLabel")}</Label>
                   <p className="text-xs text-muted-foreground">
-                    Mostrará texto de aceptación de Términos y Política de Privacidad en la pantalla de hacer foto
+                    {t("form.showLegalHint")}
                   </p>
                 </div>
                 <Switch
@@ -960,7 +1059,7 @@ const EventForm = () => {
               {formData.showLegalText && (
                 <div className="ml-4 space-y-4 border-l-2 border-border pl-4">
                   <div className="space-y-2">
-                    <Label>Tipo de texto legal</Label>
+                    <Label>{t("form.legalTypeLabel")}</Label>
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         type="button"
@@ -971,7 +1070,7 @@ const EventForm = () => {
                             : "bg-muted border-border hover:bg-muted/80"
                         }`}
                       >
-                        Texto por defecto
+                        {t("form.legalTypeDefault")}
                       </button>
                       <button
                         type="button"
@@ -982,39 +1081,39 @@ const EventForm = () => {
                             : "bg-muted border-border hover:bg-muted/80"
                         }`}
                       >
-                        Texto personalizado
+                        {t("form.legalTypeCustom")}
                       </button>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      {formData.legalTextType === "default" 
-                        ? "Se usará el texto legal genérico de Revelao" 
-                        : "Puedes escribir tu propio texto legal. Usa Markdown: **negrita**, # Encabezado, [enlace](url)"}
+                      {formData.legalTextType === "default"
+                        ? t("form.legalTypeHintDefault")
+                        : t("form.legalTypeHintCustom")}
                     </p>
                   </div>
 
                   {formData.legalTextType === "custom" && (
                     <>
                       <div className="space-y-2">
-                        <Label htmlFor="customTermsText">Términos y Condiciones</Label>
+                        <Label htmlFor="customTermsText">{t("form.customTermsLabel")}</Label>
                         <Textarea
                           id="customTermsText"
                           value={formData.customTermsText}
                           onChange={(e) =>
                             setFormData({ ...formData, customTermsText: e.target.value })
                           }
-                          placeholder="Escribe aquí los Términos y Condiciones personalizados...&#10;&#10;Puedes usar Markdown:&#10;# Encabezado&#10;**texto en negrita**&#10;[texto del enlace](https://url.com)"
+                          placeholder={t("form.customTermsPlaceholder")}
                           rows={8}
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="customPrivacyText">Política de Privacidad</Label>
+                        <Label htmlFor="customPrivacyText">{t("form.customPrivacyLabel")}</Label>
                         <Textarea
                           id="customPrivacyText"
                           value={formData.customPrivacyText}
                           onChange={(e) =>
                             setFormData({ ...formData, customPrivacyText: e.target.value })
                           }
-                          placeholder="Escribe aquí la Política de Privacidad personalizada...&#10;&#10;Puedes usar Markdown:&#10;# Encabezado&#10;**texto en negrita**&#10;[texto del enlace](https://url.com)"
+                          placeholder={t("form.customPrivacyPlaceholder")}
                           rows={8}
                         />
                       </div>
@@ -1028,17 +1127,17 @@ const EventForm = () => {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => navigate("/event-management")}
+                onClick={() => navigate(`${pathPrefix}/event-management`)}
                 className="w-full sm:w-auto"
               >
-                Cancelar
+                {t("form.cancel")}
               </Button>
               <Button type="submit" className="w-full sm:flex-1" disabled={isSubmitting || uploadingImage}>
                 {uploadingImage
-                  ? "Subiendo imagen..."
+                  ? t("form.uploadingImage")
                   : isSubmitting 
-                    ? (isEditing ? "Actualizando..." : "Creando...") 
-                    : (isEditing ? "Actualizar Evento" : "Crear Evento")
+                    ? (isEditing ? t("form.updating") : t("form.creatingText")) 
+                    : (isEditing ? t("form.updateButton") : t("form.createButton"))
                 }
               </Button>
             </div>

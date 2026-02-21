@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { LogOut, Upload, X, CheckCircle2 } from "lucide-react";
 import { compressImage } from "@/lib/imageCompression";
+import { useAdminI18n } from "@/lib/adminI18n";
 
 interface UploadItem {
   id: string;
@@ -19,22 +20,23 @@ const BulkUpload = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { t, pathPrefix } = useAdminI18n();
   const eventId = localStorage.getItem("eventId");
   const eventName = localStorage.getItem("eventName");
 
   useEffect(() => {
     if (!eventId) {
-      navigate("/");
+      navigate(`${pathPrefix}/`);
       return;
     }
 
     // Check if bulk upload mode is enabled
     const bulkMode = localStorage.getItem("bulkUploadMode");
     if (!bulkMode) {
-      navigate("/camera");
+      navigate(`${pathPrefix}/camera`);
       return;
     }
-  }, [eventId, navigate]);
+  }, [eventId, navigate, pathPrefix]);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
@@ -126,10 +128,10 @@ const BulkUpload = () => {
 
     setIsUploading(false);
     toast({
-      title: "Subida completada",
-      description: `Se subieron ${
-        uploadItems.filter((it) => it.status === "success").length
-      } fotos correctamente`,
+      title: t("bulk.doneTitle"),
+      description: t("bulk.doneDesc", {
+        count: uploadItems.filter((it) => it.status === "success").length,
+      }),
     });
   };
 
@@ -137,7 +139,7 @@ const BulkUpload = () => {
     localStorage.removeItem("eventId");
     localStorage.removeItem("eventName");
     localStorage.removeItem("bulkUploadMode");
-    navigate("/");
+    navigate(`${pathPrefix}/`);
   };
 
   const pendingCount = uploadItems.filter((it) => it.status === "pending")
@@ -151,7 +153,7 @@ const BulkUpload = () => {
       <header className="p-4 flex justify-between items-center bg-card border-b border-border">
         <div>
           <h1 className="text-xl font-bold text-foreground">{eventName}</h1>
-          <p className="text-sm text-muted-foreground">Carga múltiple</p>
+          <p className="text-sm text-muted-foreground">{t("bulk.header")}</p>
         </div>
         <Button
           variant="ghost"
@@ -166,10 +168,10 @@ const BulkUpload = () => {
       <div className="flex-1 flex flex-col p-6 space-y-6">
         <div className="text-center space-y-4">
           <h2 className="text-2xl font-bold text-foreground">
-            Subida masiva de fotos
+            {t("bulk.title")}
           </h2>
           <p className="text-muted-foreground">
-            Selecciona múltiples fotos para subirlas todas al evento
+            {t("bulk.subtitle")}
           </p>
         </div>
 
@@ -181,7 +183,7 @@ const BulkUpload = () => {
             className="flex items-center gap-2"
           >
             <Upload className="w-4 h-4" />
-            Seleccionar fotos
+            {t("bulk.select")}
           </Button>
 
           {uploadItems.length > 0 && (
@@ -190,7 +192,7 @@ const BulkUpload = () => {
               disabled={isUploading || pendingCount === 0}
               className="flex items-center gap-2"
             >
-              {isUploading ? "Subiendo..." : `Subir todo (${pendingCount})`}
+              {isUploading ? t("bulk.uploading") : t("bulk.uploadAll", { count: pendingCount })}
             </Button>
           )}
         </div>
@@ -199,15 +201,15 @@ const BulkUpload = () => {
           <div className="bg-card border border-border rounded-lg p-4">
             <div className="flex justify-between items-center mb-4">
               <p className="text-sm font-semibold text-foreground">
-                Total: {uploadItems.length} fotos
+                {t("bulk.total", { count: uploadItems.length })}
               </p>
               <div className="flex gap-4 text-xs">
                 <span className="text-muted-foreground">
-                  Pendientes: {pendingCount}
+                  {t("bulk.pending", { count: pendingCount })}
                 </span>
-                <span className="text-green-500">Exitosas: {successCount}</span>
+                <span className="text-green-500">{t("bulk.success", { count: successCount })}</span>
                 {errorCount > 0 && (
-                  <span className="text-destructive">Errores: {errorCount}</span>
+                  <span className="text-destructive">{t("bulk.errors", { count: errorCount })}</span>
                 )}
               </div>
             </div>

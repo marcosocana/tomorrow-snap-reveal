@@ -970,6 +970,7 @@ const Gallery = () => {
       {/* Share Dialog */}
       {eventPassword && (
                <ShareDialog
+                 eventId={eventId}
                  eventPassword={eventPassword}
                  eventName={eventName || ""}
                  open={showShareDialog}

@@ -10,8 +10,10 @@ import {
 import { Share2, Copy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Language } from "@/lib/translations";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ShareDialogProps {
+  eventId?: string | null;
   eventPassword: string;
   eventName: string;
   open: boolean;
@@ -20,9 +22,15 @@ interface ShareDialogProps {
   language?: Language;
 }
 
-const ShareDialog = ({ eventPassword, eventName, open, onOpenChange, isRevealed = false, language = "es" }: ShareDialogProps) => {
+const ShareDialog = ({ eventId, eventPassword, eventName, open, onOpenChange, isRevealed = false, language = "es" }: ShareDialogProps) => {
   const { toast } = useToast();
   const eventUrl = `https://acceso.revelao.cam/events/${eventPassword}`;
+  const qrUrl = eventId
+    ? localStorage.getItem(`event-qr-url-${eventId}`) ||
+      supabase.storage
+        .from("event-photos")
+        .getPublicUrl(`event-qr/qr-${eventId}.png`).data.publicUrl
+    : "";
 
   // Translations
   const texts = {
@@ -113,7 +121,11 @@ const ShareDialog = ({ eventPassword, eventName, open, onOpenChange, isRevealed 
         <div className="flex flex-col items-center space-y-4 py-4">
           {/* QR Code */}
           <div className="bg-white p-4 rounded-lg">
-            <QRCodeSVG value={eventUrl} size={200} />
+            {qrUrl ? (
+              <img src={qrUrl} alt="QR del evento" className="w-[200px] h-[200px]" />
+            ) : (
+              <QRCodeSVG value={eventUrl} size={200} />
+            )}
           </div>
 
           {/* URL */}

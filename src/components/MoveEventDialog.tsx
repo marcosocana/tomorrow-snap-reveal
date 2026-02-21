@@ -7,6 +7,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Folder, Home } from "lucide-react";
 import { EventFolder } from "./FolderCard";
+import { useAdminI18n } from "@/lib/adminI18n";
 
 interface MoveEventDialogProps {
   open: boolean;
@@ -23,11 +24,12 @@ const MoveEventDialog = ({
   currentFolderId,
   onMove,
 }: MoveEventDialogProps) => {
+  const { t } = useAdminI18n();
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Mover evento a...</DialogTitle>
+          <DialogTitle>{t("moveEvent.title")}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-2 max-h-[300px] overflow-y-auto">
@@ -40,7 +42,7 @@ const MoveEventDialog = ({
             }}
           >
             <Home className="h-4 w-4" />
-            Listado general
+            {t("moveEvent.generalList")}
           </Button>
 
           {folders.map((folder) => (

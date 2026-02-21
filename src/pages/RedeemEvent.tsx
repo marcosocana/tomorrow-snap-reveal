@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,23 +19,29 @@ import { Language } from "@/lib/translations";
 import { EventFontFamily } from "@/lib/eventFonts";
 import { FilterType } from "@/lib/photoFilters";
 import logoDemo from "@/assets/Frame 626035.png";
+import { useAdminI18n } from "@/lib/adminI18n";
 
 const generateHash = (): string => Math.random().toString(36).substring(2, 10);
 
-const PublicDemoEventForm = () => {
+type RedeemPlan = {
+  id: string;
+  label: string;
+  maxPhotos: number | null;
+};
+
+const RedeemEvent = () => {
+  const { token } = useParams<{ token: string }>();
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [plan, setPlan] = useState<RedeemPlan | null>(null);
+  const [loadingPlan, setLoadingPlan] = useState(true);
+  const [planError, setPlanError] = useState<string | null>(null);
   const [formData, setFormData] = useState(() => {
     const now = new Date();
     const currentTime = format(now, "HH:mm");
 
     return {
-      // Contact info fields (required for public demo)
-      contactEmail: "",
-      contactPassword: "",
-      contactPasswordConfirm: "",
-      contactPhone: "",
       // Event fields
       name: "",
       password: generateHash(),
@@ -61,6 +67,39 @@ const PublicDemoEventForm = () => {
   });
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { pathPrefix } = useAdminI18n();
+
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        navigate(`${pathPrefix}/admin-login?redirect=${encodeURIComponent(`${pathPrefix}/redeem/${token}`)}`);
+      }
+    };
+    checkSession();
+  }, [navigate, token]);
+
+  useEffect(() => {
+    const fetchPlan = async () => {
+      if (!token) return;
+      setLoadingPlan(true);
+      setPlanError(null);
+      try {
+        const { data, error } = await supabase.functions.invoke(`redeem-get?token=${token}`, {
+          method: "GET",
+        });
+        if (error || !data?.plan) {
+          throw error || new Error("INVALID_TOKEN");
+        }
+        setPlan(data.plan as RedeemPlan);
+      } catch {
+        setPlanError("El enlace de canje no es válido o ha caducado.");
+      } finally {
+        setLoadingPlan(false);
+      }
+    };
+    fetchPlan();
+  }, [token]);
 
   const generateQrBlob = async (eventUrl: string): Promise<Blob | null> => {
     try {
@@ -193,46 +232,7 @@ const PublicDemoEventForm = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Validate contact fields
-    if (!formData.contactEmail.trim()) {
-      toast({
-        title: "Error",
-        description: "El email es obligatorio",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Basic email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.contactEmail)) {
-      toast({
-        title: "Error",
-        description: "Por favor, introduce un email válido",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!formData.contactPassword || formData.contactPassword.length < 8) {
-      toast({
-        title: "Error",
-        description: "La contraseña debe tener al menos 8 caracteres",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (formData.contactPassword !== formData.contactPasswordConfirm) {
-      toast({
-        title: "Error",
-        description: "Las contraseñas no coinciden",
-        variant: "destructive",
-      });
-      return;
-    }
-
+    if (!token) return;
     setIsSubmitting(true);
 
     try {
@@ -257,11 +257,9 @@ const PublicDemoEventForm = () => {
         }
       }
 
-      const { data, error } = await supabase.functions.invoke("create-demo-event", {
+      const { data, error } = await supabase.functions.invoke("redeem-create-event", {
         body: {
-          contactEmail: formData.contactEmail,
-          password: formData.contactPassword,
-          phone: formData.contactPhone,
+          token,
           event: {
             name: formData.name,
             password_hash: formData.password,
@@ -269,7 +267,6 @@ const PublicDemoEventForm = () => {
             upload_start_time: uploadStartDateTime.toISOString(),
             upload_end_time: uploadEndDateTime.toISOString(),
             reveal_time: revealDateTime.toISOString(),
-            max_photos: 10,
             custom_image_url: customImageUrl,
             background_image_url: backgroundImageUrl,
             filter_type: formData.filterType,
@@ -283,29 +280,7 @@ const PublicDemoEventForm = () => {
         },
       });
 
-      if (error) {
-        let errorCode = (error as any)?.message || "";
-        try {
-          const res = (error as any)?.context;
-          if (res && typeof res.json === "function") {
-            const body = await res.json();
-            errorCode = body?.error || errorCode;
-          }
-        } catch {
-          // ignore
-        }
-
-        if (errorCode === "USER_EXISTS" || `${errorCode}`.includes("USER_EXISTS")) {
-          toast({
-            title: "Ya existe una cuenta",
-            description: "Este email ya tiene una cuenta. Inicia sesión para ver tus eventos.",
-            variant: "destructive",
-          });
-          navigate("/admin-login");
-          return;
-        }
-        throw error;
-      }
+      if (error) throw error;
 
       const newEvent = data?.event;
       if (!newEvent) throw new Error("No se pudo crear el evento");
@@ -319,20 +294,27 @@ const PublicDemoEventForm = () => {
         localStorage.setItem(`event-qr-url-${newEvent.id}`, fallbackQr);
       }
 
-      // Navigate to summary page with event data
-      navigate("/nuevoeventodemo/resumen", { 
-        state: { 
-          event: newEvent,
-          qrUrl,
-          contactInfo: {
-            email: formData.contactEmail,
-            phone: formData.contactPhone,
-          }
-        } 
-      });
+      const { data: userData } = await supabase.auth.getUser();
+      const userEmail = userData?.user?.email;
+      if (userEmail) {
+        await supabase.functions.invoke("send-demo-event-email", {
+          body: {
+            event: newEvent,
+            qrUrl: qrUrl || localStorage.getItem(`event-qr-url-${newEvent.id}`),
+            contactInfo: { email: userEmail },
+            eventType: "paid",
+            planLabel: plan?.label ?? null,
+          },
+        });
+      }
 
+      toast({
+        title: "Evento creado",
+        description: "Tu evento de pago se ha creado correctamente.",
+      });
+      navigate("/event-management");
     } catch (error) {
-      console.error("Error creating event:", error);
+      console.error("Error creating paid event:", error);
       toast({
         title: "Error",
         description: "No se pudo crear el evento",
@@ -342,6 +324,25 @@ const PublicDemoEventForm = () => {
       setIsSubmitting(false);
     }
   };
+
+  if (loadingPlan) {
+    return (
+      <div className="min-h-screen bg-background p-6 flex items-center justify-center">
+        <p className="text-muted-foreground">Cargando...</p>
+      </div>
+    );
+  }
+
+  if (planError) {
+    return (
+      <div className="min-h-screen bg-background p-6 flex items-center justify-center">
+        <Card className="p-6 text-center max-w-md">
+          <h2 className="text-lg font-semibold mb-2">Enlace no válido</h2>
+          <p className="text-muted-foreground">{planError}</p>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-6">
@@ -353,10 +354,10 @@ const PublicDemoEventForm = () => {
             className="h-16 w-auto"
           />
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground text-center">
-            Crea tu evento de prueba
+            Crea tu evento de pago
           </h1>
           <p className="text-muted-foreground text-center max-w-md">
-            Crea un evento gratuito con hasta 10 fotos para probar Revelao
+            {plan ? `Plan ${plan.label}` : "Configura tu evento"}
           </p>
         </div>
 
@@ -635,59 +636,16 @@ const PublicDemoEventForm = () => {
               {currentStep === 2 && (
                 <>
                   <div className="space-y-4">
-                    <Label className="text-base font-semibold">Información de contacto</Label>
+                    <Label className="text-base font-semibold">Confirma tu evento</Label>
                     <p className="text-xs text-muted-foreground">
-                      Necesitamos tus datos para poder contactarte si tienes algún problema con tu evento
+                      Revisa la información antes de crear el evento de pago.
                     </p>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="contactEmail">Email *</Label>
-                      <Input
-                        id="contactEmail"
-                        type="email"
-                        value={formData.contactEmail}
-                        onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })}
-                        required
-                        placeholder="tu@email.com"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="contactPassword">Contraseña *</Label>
-                      <Input
-                        id="contactPassword"
-                        type="password"
-                        value={formData.contactPassword}
-                        onChange={(e) => setFormData({ ...formData, contactPassword: e.target.value })}
-                        required
-                        placeholder="Mínimo 8 caracteres"
-                        autoComplete="new-password"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="contactPasswordConfirm">Repetir contraseña *</Label>
-                      <Input
-                        id="contactPasswordConfirm"
-                        type="password"
-                        value={formData.contactPasswordConfirm}
-                        onChange={(e) => setFormData({ ...formData, contactPasswordConfirm: e.target.value })}
-                        required
-                        placeholder="Repite la contraseña"
-                        autoComplete="new-password"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="contactPhone">Teléfono (opcional)</Label>
-                      <Input
-                        id="contactPhone"
-                        type="tel"
-                        value={formData.contactPhone}
-                        onChange={(e) => setFormData({ ...formData, contactPhone: e.target.value })}
-                        placeholder="+34 600 000 000"
-                      />
-                    </div>
+                    {plan ? (
+                      <div className="rounded-lg border border-border bg-muted/40 p-4 text-sm">
+                        <p><strong>Plan:</strong> {plan.label}</p>
+                        <p><strong>Máximo de fotos:</strong> {plan.maxPhotos ?? "Sin límite"}</p>
+                      </div>
+                    ) : null}
                   </div>
                 </>
               )}
@@ -709,13 +667,12 @@ const PublicDemoEventForm = () => {
                       ? "Subiendo imagen..."
                       : isSubmitting
                         ? "Creando evento..."
-                        : "Crear evento de prueba"}
+                        : "Crear evento de pago"}
                 </Button>
               </div>
             </form>
           </Card>
 
-          {/* Preview Column */}
           <div className="hidden lg:block">
             <div className="sticky top-6">
               <Card className="p-4">
@@ -746,4 +703,4 @@ const PublicDemoEventForm = () => {
   );
 };
 
-export default PublicDemoEventForm;
+export default RedeemEvent;

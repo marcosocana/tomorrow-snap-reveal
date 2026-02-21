@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { getFontById, loadGoogleFont, getEventFontFamily, EventFontFamily } from "@/lib/eventFonts";
 import { getFilterClass, FilterType } from "@/lib/photoFilters";
+import { useAdminI18n } from "@/lib/adminI18n";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -60,6 +61,7 @@ export const GalleryPreviewModal = ({
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
   const [sortBy, setSortBy] = useState<SortBy>("chronological");
   const { toast } = useToast();
+  const { t, lang } = useAdminI18n();
 
   const totalPages = Math.ceil(totalPhotos / PHOTOS_PER_PAGE);
 
@@ -197,8 +199,8 @@ export const GalleryPreviewModal = ({
     } catch (error) {
       console.error("Error loading photos:", error);
       toast({
-        title: "Error",
-        description: "No se pudieron cargar las fotos",
+        title: t("form.errorTitle"),
+        description: t("gallery.loadError"),
         variant: "destructive",
       });
     } finally {
@@ -221,7 +223,7 @@ export const GalleryPreviewModal = ({
   };
 
   const handleDeletePhoto = async (photo: Photo) => {
-    if (!confirm("¿Eliminar esta foto?")) return;
+    if (!confirm(t("gallery.deleteConfirm"))) return;
     
     try {
       // Delete from storage
@@ -243,14 +245,14 @@ export const GalleryPreviewModal = ({
       setTotalPhotos((prev) => prev - 1);
       setSelectedPhoto(null);
       toast({
-        title: "Foto eliminada",
-        description: "La foto se eliminó correctamente",
+        title: t("gallery.photoDeletedTitle"),
+        description: t("gallery.photoDeletedDesc"),
       });
     } catch (error) {
       console.error("Error deleting photo:", error);
       toast({
-        title: "Error",
-        description: "No se pudo eliminar la foto",
+        title: t("form.errorTitle"),
+        description: t("gallery.photoDeleteError"),
         variant: "destructive",
       });
     }
@@ -272,14 +274,14 @@ export const GalleryPreviewModal = ({
       document.body.removeChild(a);
       
       toast({
-        title: "Foto descargada",
-        description: "La foto se descargó correctamente",
+        title: t("gallery.photoDownloadedTitle"),
+        description: t("gallery.photoDownloadedDesc"),
       });
     } catch (error) {
       console.error("Error downloading photo:", error);
       toast({
-        title: "Error",
-        description: "No se pudo descargar la foto",
+        title: t("form.errorTitle"),
+        description: t("gallery.photoDownloadError"),
         variant: "destructive",
       });
     }
@@ -298,8 +300,8 @@ export const GalleryPreviewModal = ({
           
           if (navigator.canShare && navigator.canShare({ files: [file] })) {
             await navigator.share({
-              title: `Foto de ${eventName}`,
-              text: `¡Mira esta foto de ${eventName}!`,
+              title: t("gallery.shareTitle", { name: eventName }),
+              text: t("gallery.shareText", { name: eventName }),
               files: [file],
             });
             return;
@@ -309,15 +311,15 @@ export const GalleryPreviewModal = ({
         }
         
         await navigator.share({
-          title: `Foto de ${eventName}`,
-          text: `¡Mira esta foto de ${eventName}!`,
+          title: t("gallery.shareTitle", { name: eventName }),
+          text: t("gallery.shareText", { name: eventName }),
           url: photo.fullQualityUrl,
         });
       } else {
         await navigator.clipboard.writeText(photo.fullQualityUrl);
         toast({
-          title: "Enlace copiado",
-          description: "Enlace de la foto copiado al portapapeles",
+          title: t("gallery.linkCopiedTitle"),
+          description: t("gallery.linkCopiedDesc"),
         });
       }
     } catch (error) {
@@ -336,16 +338,16 @@ export const GalleryPreviewModal = ({
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span>Vista previa de galería</span>
+                <span>{t("gallery.title")}</span>
                 <span className="text-sm font-normal text-muted-foreground">
-                  ({totalPhotos} fotos)
+                  {t("gallery.photosCount", { count: totalPhotos })}
                 </span>
               </div>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm" className="ml-2">
                     <ArrowUpDown className="w-4 h-4 mr-2" />
-                    {sortBy === "chronological" ? "Cronológico" : "Más likes"}
+                    {sortBy === "chronological" ? t("gallery.sortChronological") : t("gallery.sortMostLiked")}
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
@@ -353,14 +355,14 @@ export const GalleryPreviewModal = ({
                     onClick={() => handleSortChange("chronological")}
                     className={sortBy === "chronological" ? "bg-accent" : ""}
                   >
-                    Orden cronológico
+                    {t("gallery.sortOptionChronological")}
                   </DropdownMenuItem>
                   <DropdownMenuItem 
                     onClick={() => handleSortChange("most_liked")}
                     className={sortBy === "most_liked" ? "bg-accent" : ""}
                   >
                     <Heart className="w-4 h-4 mr-2" />
-                    Más likes primero
+                    {t("gallery.sortOptionMostLiked")}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -407,11 +409,11 @@ export const GalleryPreviewModal = ({
           <div className="flex-1 overflow-y-auto">
             {isLoading ? (
               <div className="flex items-center justify-center h-48">
-                <p className="text-muted-foreground">Cargando fotos...</p>
+                <p className="text-muted-foreground">{t("gallery.loading")}</p>
               </div>
             ) : photos.length === 0 ? (
               <div className="flex items-center justify-center h-48">
-                <p className="text-muted-foreground">No hay fotos en este evento</p>
+                <p className="text-muted-foreground">{t("gallery.empty")}</p>
               </div>
             ) : (
               <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
@@ -517,7 +519,9 @@ export const GalleryPreviewModal = ({
             </div>
             <div className="p-4 flex items-center justify-between">
               <p className="text-sm text-muted-foreground">
-                {new Date(selectedPhoto.captured_at).toLocaleString("es-ES")}
+                {new Date(selectedPhoto.captured_at).toLocaleString(
+                  lang === "en" ? "en-US" : lang === "it" ? "it-IT" : "es-ES"
+                )}
               </p>
               <div className="flex gap-2">
                 <Button
@@ -526,7 +530,7 @@ export const GalleryPreviewModal = ({
                   onClick={() => handleDownload(selectedPhoto)}
                 >
                   <Download className="w-4 h-4 sm:mr-2" />
-                  <span className="hidden sm:inline">Descargar</span>
+                  <span className="hidden sm:inline">{t("gallery.downloadAction")}</span>
                 </Button>
                 {allowPhotoSharing && (
                   <Button
@@ -535,7 +539,7 @@ export const GalleryPreviewModal = ({
                     onClick={() => handleSharePhoto(selectedPhoto)}
                   >
                     <Share2 className="w-4 h-4 sm:mr-2" />
-                    <span className="hidden sm:inline">Compartir</span>
+                    <span className="hidden sm:inline">{t("gallery.shareAction")}</span>
                   </Button>
                 )}
                 <Button
@@ -544,7 +548,7 @@ export const GalleryPreviewModal = ({
                   onClick={() => handleDeletePhoto(selectedPhoto)}
                 >
                   <Trash2 className="w-4 h-4 sm:mr-2" />
-                  <span className="hidden sm:inline">Eliminar</span>
+                  <span className="hidden sm:inline">{t("gallery.deleteAction")}</span>
                 </Button>
               </div>
             </div>

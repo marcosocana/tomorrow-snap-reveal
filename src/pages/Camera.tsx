@@ -817,6 +817,7 @@ const Camera = () => {
                       <Share2 className="w-5 h-5" />
                     </Button>
                     <ShareDialog
+                      eventId={eventId}
                       eventPassword={eventPassword}
                       eventName={eventName || ""}
                       open={showShareDialog}
@@ -942,6 +943,7 @@ const Camera = () => {
                     <Share2 className="w-5 h-5" />
                   </Button>
                   <ShareDialog
+                    eventId={eventId}
                     eventPassword={eventPassword}
                     eventName={eventName || ""}
                     open={showShareDialog}

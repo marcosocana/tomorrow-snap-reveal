@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import EditFolderDialog from "./EditFolderDialog";
 import { exportFolderToPdf } from "@/lib/exportFolderPdf";
+import { useAdminI18n } from "@/lib/adminI18n";
 
 export interface EventFolder {
   id: string;
@@ -57,6 +58,7 @@ const FolderCard = ({
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const { toast } = useToast();
+  const { t } = useAdminI18n();
 
   const handleSave = async () => {
     if (!editName.trim()) return;
@@ -70,16 +72,16 @@ const FolderCard = ({
       if (error) throw error;
 
       toast({
-        title: "Carpeta actualizada",
-        description: "El nombre de la carpeta se ha actualizado",
+        title: t("folder.updated"),
+        description: t("folder.renameDesc"),
       });
       setIsEditing(false);
       onUpdate();
     } catch (error) {
       console.error("Error updating folder:", error);
       toast({
-        title: "Error",
-        description: "No se pudo actualizar la carpeta",
+        title: t("form.errorTitle"),
+        description: t("folder.updateError"),
         variant: "destructive",
       });
     }
@@ -88,14 +90,14 @@ const FolderCard = ({
   const handleDelete = async () => {
     if (eventCount > 0) {
       toast({
-        title: "No se puede eliminar",
-        description: "La carpeta contiene eventos. Muévelos primero.",
+        title: t("folder.deleteNotAllowedTitle"),
+        description: t("folder.deleteNotAllowedDesc"),
         variant: "destructive",
       });
       return;
     }
 
-    if (!confirm("¿Estás seguro de que quieres eliminar esta carpeta?")) return;
+    if (!confirm(t("folder.confirmDelete"))) return;
 
     try {
       const { error } = await supabase
@@ -106,15 +108,15 @@ const FolderCard = ({
       if (error) throw error;
 
       toast({
-        title: "Carpeta eliminada",
-        description: "La carpeta se ha eliminado correctamente",
+        title: t("folder.deletedTitle"),
+        description: t("folder.deletedDesc"),
       });
       onDelete();
     } catch (error) {
       console.error("Error deleting folder:", error);
       toast({
-        title: "Error",
-        description: "No se pudo eliminar la carpeta",
+        title: t("form.errorTitle"),
+        description: t("folder.deleteError"),
         variant: "destructive",
       });
     }
@@ -123,8 +125,8 @@ const FolderCard = ({
   const handleExportPdf = async () => {
     if (folderEvents.length === 0) {
       toast({
-        title: "Carpeta vacía",
-        description: "No hay eventos para exportar",
+        title: t("folder.exportEmptyTitle"),
+        description: t("folder.exportEmptyDesc"),
         variant: "destructive",
       });
       return;
@@ -141,14 +143,14 @@ const FolderCard = ({
         folderEvents
       );
       toast({
-        title: "PDF exportado",
-        description: `Se ha descargado el PDF con ${folderEvents.length} evento(s)`,
+        title: t("folder.exportSuccessTitle"),
+        description: t("folder.exportSuccessDesc", { count: folderEvents.length }),
       });
     } catch (error) {
       console.error("Error exporting PDF:", error);
       toast({
-        title: "Error",
-        description: "No se pudo generar el PDF",
+        title: t("form.errorTitle"),
+        description: t("folder.exportError"),
         variant: "destructive",
       });
     } finally {
@@ -201,12 +203,12 @@ const FolderCard = ({
               <div className="flex items-center gap-2">
                 <span className="font-medium truncate">{folder.name}</span>
                 <span className="text-sm text-muted-foreground">
-                  ({eventCount} {eventCount === 1 ? "evento" : "eventos"})
+                  ({eventCount} {eventCount === 1 ? t("folder.eventSingular") : t("folder.eventPlural")})
                 </span>
                 {hasOverrides && (
                   <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full flex items-center gap-1">
                     <Image className="h-3 w-3" />
-                    Config
+                    {t("folder.configBadge")}
                   </span>
                 )}
               </div>
@@ -220,7 +222,7 @@ const FolderCard = ({
               className="h-8 w-8"
               onClick={handleExportPdf}
               disabled={isExporting}
-              title="Exportar PDF"
+              title={t("folder.exportLabel")}
             >
               {isExporting ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -233,7 +235,7 @@ const FolderCard = ({
               size="icon"
               className="h-8 w-8"
               onClick={() => setIsEditDialogOpen(true)}
-              title="Editar configuración"
+              title={t("folder.editConfig")}
             >
               <Settings className="h-4 w-4" />
             </Button>
@@ -242,7 +244,7 @@ const FolderCard = ({
               size="icon"
               className="h-8 w-8"
               onClick={onDuplicate}
-              title="Duplicar carpeta"
+              title={t("folder.duplicateLabel")}
             >
               <CopyPlus className="h-4 w-4" />
             </Button>
@@ -251,7 +253,7 @@ const FolderCard = ({
               size="icon"
               className="h-8 w-8"
               onClick={() => setIsEditing(true)}
-              title="Editar nombre"
+              title={t("folder.editName")}
             >
               <Edit className="h-4 w-4" />
             </Button>
@@ -260,7 +262,7 @@ const FolderCard = ({
               size="icon"
               className="h-8 w-8 text-destructive hover:text-destructive"
               onClick={handleDelete}
-              title="Eliminar carpeta"
+              title={t("folder.deleteLabel")}
             >
               <Trash2 className="h-4 w-4" />
             </Button>

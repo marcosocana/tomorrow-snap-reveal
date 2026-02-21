@@ -14,7 +14,6 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
-import { es } from "date-fns/locale";
 import { formatInTimeZone } from "date-fns-tz";
 import { getCountryByCode } from "@/lib/countries";
 import { getLanguageByCode } from "@/lib/translations";
@@ -28,6 +27,7 @@ import DuplicateEventDialog from "@/components/DuplicateEventDialog";
 import DuplicateFolderDialog from "@/components/DuplicateFolderDialog";
 import CreateFolderDialog from "@/components/CreateFolderDialog";
 import SortableEventList from "@/components/SortableEventList";
+import { useAdminI18n } from "@/lib/adminI18n";
 
 interface Event {
   id: string;
@@ -77,6 +77,7 @@ const EventManagement = () => {
 
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { t, dateLocale, pathPrefix } = useAdminI18n();
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -85,13 +86,9 @@ const EventManagement = () => {
         loadData();
         return;
       }
-      if (isDemoMode) {
-        loadData();
-        return;
-      }
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        navigate("/admin-login");
+        navigate(`${pathPrefix}/admin-login`);
         return;
       }
       loadData();
@@ -102,7 +99,7 @@ const EventManagement = () => {
     if (!isDemoMode && !adminEventId) {
       const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
         if (!session) {
-          navigate("/admin-login");
+          navigate(`${pathPrefix}/admin-login`);
         }
       });
 
@@ -133,31 +130,38 @@ const EventManagement = () => {
           
           setEventPhotoCounts({ [eventData.id]: count || 0 });
         }
-      } else {
-        // Load folders and events in parallel
-        const [foldersResult, eventsResult] = await Promise.all([
-          supabase
+    } else {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          navigate(`${pathPrefix}/admin-login`);
+          return;
+        }
+
+        const { data: eventsPayload, error: eventsError } = await supabase.functions.invoke("my-events", {
+          method: "GET",
+        });
+        if (eventsError) throw eventsError;
+
+        const fetchedEvents = (eventsPayload?.events || []) as Event[];
+        setEvents(fetchedEvents);
+
+        const folderIds = Array.from(new Set(fetchedEvents.map((e) => e.folder_id).filter(Boolean))) as string[];
+        if (folderIds.length > 0) {
+          const { data: folderData, error: folderError } = await supabase
             .from("event_folders")
             .select("*")
-            .eq("is_demo", isDemoMode)
-            .order("created_at", { ascending: true }),
-          supabase
-            .from("events")
-            .select("*")
-            .eq("is_demo", isDemoMode)
-            .order("created_at", { ascending: false }),
-        ]);
-
-        if (foldersResult.error) throw foldersResult.error;
-        if (eventsResult.error) throw eventsResult.error;
-
-        setFolders((foldersResult.data || []) as EventFolder[]);
-        setEvents((eventsResult.data || []) as Event[]);
+            .in("id", folderIds)
+            .order("created_at", { ascending: true });
+          if (folderError) throw folderError;
+          setFolders((folderData || []) as EventFolder[]);
+        } else {
+          setFolders([]);
+        }
 
         // Load photo counts
-        if (eventsResult.data) {
+        if (fetchedEvents) {
           const counts: Record<string, number> = {};
-          for (const event of eventsResult.data) {
+          for (const event of fetchedEvents) {
             const { count, error: countError } = await supabase
               .from("photos")
               .select("*", { count: "exact", head: true })
@@ -173,8 +177,8 @@ const EventManagement = () => {
     } catch (error) {
       console.error("Error loading data:", error);
       toast({
-        title: "Error",
-        description: "No se pudieron cargar los datos",
+        title: t("form.errorTitle"),
+        description: t("events.loadError"),
         variant: "destructive",
       });
     } finally {
@@ -233,15 +237,15 @@ const EventManagement = () => {
       if (error) throw error;
 
       toast({
-        title: "Evento movido",
-        description: folderId ? "El evento se ha movido a la carpeta" : "El evento se ha movido al listado general",
+        title: t("events.moveTitle"),
+        description: folderId ? t("events.moveDescFolder") : t("events.moveDescRoot"),
       });
       loadData();
     } catch (error) {
       console.error("Error moving event:", error);
       toast({
-        title: "Error",
-        description: "No se pudo mover el evento",
+        title: t("form.errorTitle"),
+        description: t("events.moveError"),
         variant: "destructive",
       });
     }
@@ -317,15 +321,18 @@ const EventManagement = () => {
       }
 
       toast({
-        title: "Evento duplicado",
-        description: `Se ha creado una copia con contraseña: ${newPassword}${includePhotos ? " (con fotos)" : ""}`,
+        title: t("events.duplicateTitle"),
+        description: t("events.duplicateDesc", {
+          password: newPassword,
+          photos: includePhotos ? t("events.duplicateWithPhotos") : "",
+        }),
       });
       loadData();
     } catch (error) {
       console.error("Error duplicating event:", error);
       toast({
-        title: "Error",
-        description: "No se pudo duplicar el evento",
+        title: t("form.errorTitle"),
+        description: t("events.duplicateError"),
         variant: "destructive",
       });
     }
@@ -393,15 +400,19 @@ const EventManagement = () => {
       }
 
       toast({
-        title: "Carpeta duplicada",
-        description: `Se ha creado "${newName}" con ${folderEvents.length} evento(s)${includePhotos ? " y sus fotos" : ""}`,
+        title: t("folder.duplicateTitle"),
+        description: t("folder.duplicateDesc", {
+          name: newName,
+          count: folderEvents.length,
+          photos: includePhotos ? t("folder.duplicateWithPhotos") : "",
+        }),
       });
       loadData();
     } catch (error) {
       console.error("Error duplicating folder:", error);
       toast({
-        title: "Error",
-        description: "No se pudo duplicar la carpeta",
+        title: t("form.errorTitle"),
+        description: t("folder.duplicateError"),
         variant: "destructive",
       });
     }
@@ -425,10 +436,10 @@ const EventManagement = () => {
 
         if (error) throw error;
 
-        toast({
-          title: "Evento reabierto",
-          description: "El evento se ha abierto de nuevo. Las fotos se revelarán en 24 horas.",
-        });
+      toast({
+        title: t("events.reopenedTitle"),
+        description: t("events.reopenedDesc"),
+      });
       } else {
         const { error } = await supabase
           .from("events")
@@ -437,25 +448,25 @@ const EventManagement = () => {
 
         if (error) throw error;
 
-        toast({
-          title: "Fotos reveladas",
-          description: "Las fotos ya son visibles para todos",
-        });
+      toast({
+        title: t("events.revealedTitle"),
+        description: t("events.revealedDesc"),
+      });
       }
 
       loadData();
     } catch (error) {
       console.error("Error toggling reveal:", error);
       toast({
-        title: "Error",
-        description: "No se pudo cambiar el estado del evento",
+        title: t("form.errorTitle"),
+        description: t("events.toggleError"),
         variant: "destructive",
       });
     }
   };
 
   const handleDeleteEvent = async (eventId: string) => {
-    if (!confirm("¿Estás seguro de que quieres eliminar este evento?")) return;
+    if (!confirm(t("events.confirmDelete"))) return;
 
     try {
       const { error } = await supabase.from("events").delete().eq("id", eventId);
@@ -463,16 +474,16 @@ const EventManagement = () => {
       if (error) throw error;
 
       toast({
-        title: "Evento eliminado",
-        description: "El evento se eliminó correctamente",
+        title: t("events.deleteTitle"),
+        description: t("events.deleteDesc"),
       });
 
       loadData();
     } catch (error) {
       console.error("Error deleting event:", error);
       toast({
-        title: "Error",
-        description: "No se pudo eliminar el evento",
+        title: t("form.errorTitle"),
+        description: t("events.deleteError"),
         variant: "destructive",
       });
     }
@@ -483,8 +494,8 @@ const EventManagement = () => {
     try {
       await navigator.clipboard.writeText(eventUrl);
       toast({
-        title: "URL copiada",
-        description: "La URL del evento se ha copiado al portapapeles",
+        title: t("events.copyUrl"),
+        description: t("events.copyUrlDesc"),
       });
     } catch (error) {
       console.error("Error copying URL:", error);
@@ -492,96 +503,29 @@ const EventManagement = () => {
   };
 
   const getEventQrUrl = (eventId: string) =>
+    localStorage.getItem(`event-qr-url-${eventId}`) ||
     supabase.storage
       .from("event-photos")
       .getPublicUrl(`event-qr/qr-${eventId}.png`).data.publicUrl;
 
-  const handleDownloadQR = async (eventUrl: string, eventName: string, eventId: string, isDemo: boolean) => {
+  const handleDownloadQR = async (eventUrl: string, eventName: string, eventId: string) => {
     try {
-      if (isDemo) {
-        const qrUrl = getEventQrUrl(eventId);
-        const response = await fetch(qrUrl);
-        const blob = await response.blob();
-        const link = document.createElement("a");
-        link.download = `qr-${eventName.replace(/\s+/g, "-").toLowerCase()}.png`;
-        link.href = URL.createObjectURL(blob);
-        link.click();
-        toast({
-          title: "QR descargado",
-          description: "El código QR se ha descargado correctamente",
-        });
-        return;
-      }
-
-      const container = document.createElement('div');
-      container.style.position = 'absolute';
-      container.style.left = '-9999px';
-      document.body.appendChild(container);
-
-      const qrSize = 1024;
-      const qrWrapper = document.createElement('div');
-      container.appendChild(qrWrapper);
-      
-      const { createRoot } = await import('react-dom/client');
-      const root = createRoot(qrWrapper);
-      
-      await new Promise<void>((resolve) => {
-        root.render(
-          <QRCodeSVG value={eventUrl} size={qrSize} level="H" />
-        );
-        setTimeout(resolve, 100);
+      const qrUrl = getEventQrUrl(eventId);
+      const response = await fetch(qrUrl);
+      const blob = await response.blob();
+      const link = document.createElement("a");
+      link.download = `qr-${eventName.replace(/\s+/g, "-").toLowerCase()}.png`;
+      link.href = URL.createObjectURL(blob);
+      link.click();
+      toast({
+        title: t("events.downloadQrSuccessTitle"),
+        description: t("events.downloadQrSuccessDesc"),
       });
-
-      const svgElement = qrWrapper.querySelector('svg');
-      if (!svgElement) throw new Error('No se pudo generar el QR');
-
-      const canvas = document.createElement('canvas');
-      canvas.width = qrSize;
-      canvas.height = qrSize;
-      const ctx = canvas.getContext('2d');
-      
-      if (!ctx) throw new Error('No se pudo crear el canvas');
-
-      const svgData = new XMLSerializer().serializeToString(svgElement);
-      const img = new Image();
-      const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-      const url = URL.createObjectURL(svgBlob);
-
-      img.onload = () => {
-        ctx.drawImage(img, 0, 0);
-        
-        canvas.toBlob((blob) => {
-          if (blob) {
-            const link = document.createElement('a');
-            link.download = `qr-${eventName.replace(/\s+/g, '-').toLowerCase()}.png`;
-            link.href = URL.createObjectURL(blob);
-            link.click();
-            
-            toast({
-              title: "QR descargado",
-              description: "El código QR se ha descargado correctamente",
-            });
-          }
-          
-          URL.revokeObjectURL(url);
-          root.unmount();
-          document.body.removeChild(container);
-        }, 'image/png');
-      };
-
-      img.onerror = () => {
-        URL.revokeObjectURL(url);
-        root.unmount();
-        document.body.removeChild(container);
-        throw new Error('Error al cargar la imagen');
-      };
-
-      img.src = url;
     } catch (error) {
       console.error("Error downloading QR:", error);
       toast({
-        title: "Error",
-        description: "No se pudo descargar el código QR",
+        title: t("form.errorTitle"),
+        description: t("events.downloadQrError"),
         variant: "destructive",
       });
     }
@@ -592,38 +536,31 @@ const EventManagement = () => {
     const eventTz = event.timezone || "Europe/Madrid";
     
     const uploadStartFormatted = event.upload_start_time 
-      ? formatInTimeZone(new Date(event.upload_start_time), eventTz, "dd/MM/yyyy 'a las' HH:mm", { locale: es })
+      ? formatInTimeZone(new Date(event.upload_start_time), eventTz, "dd/MM/yyyy 'a las' HH:mm", { locale: dateLocale })
       : "";
     const uploadEndFormatted = event.upload_end_time 
-      ? formatInTimeZone(new Date(event.upload_end_time), eventTz, "dd/MM/yyyy 'a las' HH:mm", { locale: es })
+      ? formatInTimeZone(new Date(event.upload_end_time), eventTz, "dd/MM/yyyy 'a las' HH:mm", { locale: dateLocale })
       : "";
-    const revealFormatted = formatInTimeZone(new Date(event.reveal_time), eventTz, "dd/MM/yyyy 'a las' HH:mm", { locale: es });
+    const revealFormatted = formatInTimeZone(new Date(event.reveal_time), eventTz, "dd/MM/yyyy 'a las' HH:mm", { locale: dateLocale });
 
-    const message = `¡Hola! Te damos la bienvenida a la demo de Revelao.cam.
-
-Te compartimos el código QR del evento y toda la información necesaria para acceder. Podrás entrar tanto escaneando el QR como a través del siguiente enlace: ${eventUrl}
-
-Durante el evento, podrás hacer todas las fotos que quieras desde el ${uploadStartFormatted} hasta el ${uploadEndFormatted}.
-
-Al día siguiente, el ${revealFormatted}, las fotos se revelarán automáticamente y podrás verlas desde el mismo espacio.
-
-Para disfrutar al máximo de la experiencia, te recomendamos hacer cuantas más fotos mejor durante el periodo habilitado.
-
-Si tienes cualquier problema o duda durante la demo, no dudes en contactarme.
-
-¡Que lo disfrutes!`;
+    const message = t("events.demoMessage", {
+      eventUrl,
+      uploadStart: uploadStartFormatted,
+      uploadEnd: uploadEndFormatted,
+      reveal: revealFormatted,
+    });
 
     try {
       await navigator.clipboard.writeText(message);
       toast({
-        title: "Mensaje copiado",
-        description: "El mensaje de demo se ha copiado al portapapeles",
+        title: t("events.messageCopiedTitle"),
+        description: t("events.messageCopiedDescDemo"),
       });
     } catch (error) {
       console.error("Error copying message:", error);
       toast({
-        title: "Error",
-        description: "No se pudo copiar el mensaje",
+        title: t("form.errorTitle"),
+        description: t("events.messageCopyError"),
         variant: "destructive",
       });
     }
@@ -634,56 +571,35 @@ Si tienes cualquier problema o duda durante la demo, no dudes en contactarme.
     const eventTz = event.timezone || "Europe/Madrid";
     
     const uploadStartFormatted = event.upload_start_time 
-      ? formatInTimeZone(new Date(event.upload_start_time), eventTz, "dd/MM/yyyy 'a las' HH:mm", { locale: es })
+      ? formatInTimeZone(new Date(event.upload_start_time), eventTz, "dd/MM/yyyy 'a las' HH:mm", { locale: dateLocale })
       : "";
     const uploadEndFormatted = event.upload_end_time 
-      ? formatInTimeZone(new Date(event.upload_end_time), eventTz, "dd/MM/yyyy 'a las' HH:mm", { locale: es })
+      ? formatInTimeZone(new Date(event.upload_end_time), eventTz, "dd/MM/yyyy 'a las' HH:mm", { locale: dateLocale })
       : "";
-    const revealFormatted = formatInTimeZone(new Date(event.reveal_time), eventTz, "dd/MM/yyyy 'a las' HH:mm", { locale: es });
+    const revealFormatted = formatInTimeZone(new Date(event.reveal_time), eventTz, "dd/MM/yyyy 'a las' HH:mm", { locale: dateLocale });
     const expiryFormatted = event.expiry_date 
-      ? formatInTimeZone(new Date(event.expiry_date), eventTz, "dd/MM/yyyy 'a las' HH:mm", { locale: es })
+      ? formatInTimeZone(new Date(event.expiry_date), eventTz, "dd/MM/yyyy 'a las' HH:mm", { locale: dateLocale })
       : "";
 
-    const message = `¡Hola! Te damos la bienvenida a la familia Revelao 💛
-
-Nos encanta tenerte con nosotros. A continuación, te compartimos un resumen del evento que has dado de alta, con toda la información clave:
-
-
-🔗 Acceso al evento
-Puedes acceder escaneando el código QR del evento o directamente desde este enlace: ${eventUrl}
-
-
-📅 Fechas del evento
-
-El evento estará activo desde el ${uploadStartFormatted} hasta el ${uploadEndFormatted}.
-
-Las fotos se revelarán el ${revealFormatted}.${expiryFormatted ? `
-
-Las fotos caducarán el ${expiryFormatted}.` : ""}
-
-
-📁 Almacenamiento de las fotos
-Una vez caduque el evento, las fotos se subirán a un Drive.
-
-Te recomendamos que sea vuestro propio Drive, para que podáis tenerlas ya almacenadas y gestionarlas libremente. En ese caso, necesitaremos que nos facilitéis la URL del Drive donde subirlas.
-
-Si preferís que las subamos a nuestro Drive, indícanoslo y te explicamos cómo podréis acceder a ellas.
-
-Para cualquier duda o ayuda adicional, estamos a vuestra disposición.
-
-¡Esperamos que disfrutéis mucho de la experiencia Revelao!`;
+    const message = t("events.eventMessage", {
+      eventUrl,
+      uploadStart: uploadStartFormatted,
+      uploadEnd: uploadEndFormatted,
+      reveal: revealFormatted,
+      expiry: expiryFormatted || "",
+    });
 
     try {
       await navigator.clipboard.writeText(message);
       toast({
-        title: "Mensaje copiado",
-        description: "El mensaje del evento se ha copiado al portapapeles",
+        title: t("events.messageCopiedTitle"),
+        description: t("events.messageCopiedDescEvent"),
       });
     } catch (error) {
       console.error("Error copying message:", error);
       toast({
-        title: "Error",
-        description: "No se pudo copiar el mensaje",
+        title: t("form.errorTitle"),
+        description: t("events.messageCopyError"),
         variant: "destructive",
       });
     }
@@ -718,7 +634,8 @@ Para cualquier duda o ayuda adicional, estamos a vuestra disposición.
       event.reveal_time,
       event.expiry_date
     );
-    const qrStorageUrl = event.is_demo ? getEventQrUrl(event.id) : "";
+    const qrStorageUrl = getEventQrUrl(event.id);
+    const statusLabel = t(`events.status.${statusInfo.status}`);
 
     return (
       <Card key={event.id} className="p-4 md:p-6">
@@ -726,10 +643,10 @@ Para cualquier duda o ayuda adicional, estamos a vuestra disposición.
           {/* QR Code Section */}
           <div className="flex-shrink-0 space-y-2 w-full lg:w-auto">
             <div className="bg-white p-3 rounded-lg border border-border mx-auto lg:mx-0 w-fit">
-              {event.is_demo ? (
+              {qrStorageUrl ? (
                 <img
                   src={qrStorageUrl}
-                  alt="QR del evento"
+                  alt={t("events.qrAlt")}
                   className="w-[120px] h-[120px]"
                 />
               ) : (
@@ -740,16 +657,16 @@ Para cualquier duda o ayuda adicional, estamos a vuestra disposición.
               variant="outline"
               size="sm"
               onClick={() =>
-                handleDownloadQR(eventUrl, event.name, event.id, event.is_demo)
+                handleDownloadQR(eventUrl, event.name, event.id)
               }
               className="w-full gap-2"
             >
               <Download className="w-4 h-4" />
-              Descargar QR
+              {t("events.downloadQrAction")}
             </Button>
             {/* Event Status Badge */}
             <div className={`text-center text-sm font-medium px-3 py-1.5 rounded-md ${statusInfo.bgColor} ${statusInfo.color}`}>
-              {statusInfo.label}
+              {statusLabel}
             </div>
           </div>
 
@@ -773,7 +690,7 @@ Para cualquier duda o ayuda adicional, estamos a vuestra disposición.
                   onCheckedChange={() => handleToggleReveal(event, isRevealed)}
                 />
                 <span className="text-sm text-muted-foreground">
-                  {isRevealed ? "Revelado" : "No revelado"}
+                  {isRevealed ? t("events.status.revealed") : t("events.status.notRevealed")}
                 </span>
               </div>
             </div>
@@ -783,24 +700,24 @@ Para cualquier duda o ayuda adicional, estamos a vuestra disposición.
                 const country = getCountryByCode(event.country_code || "ES");
                 return country ? (
                   <p>
-                    <span className="font-medium">País:</span>{" "}
+                    <span className="font-medium">{t("events.country")}:</span>{" "}
                     {country.flag} {country.name}
                   </p>
                 ) : null;
               })()}
               <p>
-                <span className="font-medium">Contraseña:</span>{" "}
+                <span className="font-medium">{t("events.password")}:</span>{" "}
                 {event.password_hash}
               </p>
               {event.admin_password && (
                 <p>
-                  <span className="font-medium">Contraseña admin:</span>{" "}
+                  <span className="font-medium">{t("events.adminPassword")}:</span>{" "}
                   {event.admin_password}
                 </p>
               )}
               <div className="flex items-center gap-2">
                 <p>
-                  <span className="font-medium">Fotos añadidas:</span>{" "}
+                  <span className="font-medium">{t("events.photoCount")}:</span>{" "}
                   {photoCount}{event.max_photos ? ` / ${event.max_photos}` : ""}
                 </p>
                 <Button
@@ -810,50 +727,50 @@ Para cualquier duda o ayuda adicional, estamos a vuestra disposición.
                   className="h-6 px-2 text-xs gap-1"
                 >
                   <Eye className="w-3 h-3" />
-                  Ver
+                  {t("events.preview")}
                 </Button>
               </div>
               {event.max_photos && (
                 <p>
-                  <span className="font-medium">Máximo de fotos:</span>{" "}
+                  <span className="font-medium">{t("events.maxPhotos")}:</span>{" "}
                   {event.max_photos}
                 </p>
               )}
               {event.upload_start_time && event.upload_end_time && (
                 <>
                   <p className="break-words">
-                    <span className="font-medium">Período de subida:</span>{" "}
+                    <span className="font-medium">{t("events.uploadRange")}:</span>{" "}
                     <span className="inline-block">
-                      {formatInTimeZone(new Date(event.upload_start_time), event.timezone || "Europe/Madrid", "dd/MM/yyyy HH:mm", { locale: es })} - {formatInTimeZone(new Date(event.upload_end_time), event.timezone || "Europe/Madrid", "dd/MM/yyyy HH:mm", { locale: es })}
+                      {formatInTimeZone(new Date(event.upload_start_time), event.timezone || "Europe/Madrid", "dd/MM/yyyy HH:mm", { locale: dateLocale })} - {formatInTimeZone(new Date(event.upload_end_time), event.timezone || "Europe/Madrid", "dd/MM/yyyy HH:mm", { locale: dateLocale })}
                     </span>
                     <span className="text-xs ml-1">({(() => {
                       const country = getCountryByCode(event.country_code || "ES");
-                      return country ? `${country.flag} ${country.name}` : "España";
+                      return country ? `${country.flag} ${country.name}` : t("events.spain");
                     })()})</span>
                   </p>
                   {(event.country_code || "ES") !== "ES" && (
                     <p className="text-xs text-muted-foreground pl-4">
-                      🇪🇸 En España: {formatInTimeZone(new Date(event.upload_start_time), "Europe/Madrid", "dd/MM/yyyy HH:mm", { locale: es })} - {formatInTimeZone(new Date(event.upload_end_time), "Europe/Madrid", "dd/MM/yyyy HH:mm", { locale: es })}
+                      🇪🇸 {t("events.inSpain")}: {formatInTimeZone(new Date(event.upload_start_time), "Europe/Madrid", "dd/MM/yyyy HH:mm", { locale: dateLocale })} - {formatInTimeZone(new Date(event.upload_end_time), "Europe/Madrid", "dd/MM/yyyy HH:mm", { locale: dateLocale })}
                     </p>
                   )}
                 </>
               )}
               <p>
-                <span className="font-medium">Fecha de revelado:</span>{" "}
-                {formatInTimeZone(revealTime, event.timezone || "Europe/Madrid", "PPP 'a las' HH:mm", { locale: es })}
+                <span className="font-medium">{t("events.revealDate")}:</span>{" "}
+                {formatInTimeZone(revealTime, event.timezone || "Europe/Madrid", "PPP 'a las' HH:mm", { locale: dateLocale })}
                 <span className="text-xs ml-1">({(() => {
                   const country = getCountryByCode(event.country_code || "ES");
-                  return country ? `${country.flag} ${country.name}` : "España";
+                  return country ? `${country.flag} ${country.name}` : t("events.spain");
                 })()})</span>
               </p>
               {(event.country_code || "ES") !== "ES" && (
                 <p className="text-xs text-muted-foreground pl-4">
-                  🇪🇸 En España: {formatInTimeZone(revealTime, "Europe/Madrid", "PPP 'a las' HH:mm", { locale: es })}
+                  🇪🇸 {t("events.inSpain")}: {formatInTimeZone(revealTime, "Europe/Madrid", "PPP 'a las' HH:mm", { locale: dateLocale })}
                 </p>
               )}
               {event.language && event.language !== "es" && (
                 <p>
-                  <span className="font-medium">Idioma:</span>{" "}
+                  <span className="font-medium">{t("events.language")}:</span>{" "}
                   {(() => {
                     const lang = getLanguageByCode(event.language);
                     return lang ? `${lang.flag} ${lang.name}` : event.language;
@@ -863,19 +780,19 @@ Para cualquier duda o ayuda adicional, estamos a vuestra disposición.
               {event.expiry_date && (
                 <>
                   <p>
-                    <span className="font-medium">Fecha de caducidad:</span>{" "}
-                    {formatInTimeZone(new Date(event.expiry_date), event.timezone || "Europe/Madrid", "PPP", { locale: es })}
+                    <span className="font-medium">{t("events.expiryDate")}:</span>{" "}
+                    {formatInTimeZone(new Date(event.expiry_date), event.timezone || "Europe/Madrid", "PPP", { locale: dateLocale })}
                   </p>
                   {event.expiry_redirect_url && (
                     <p className="text-xs text-muted-foreground pl-4 break-all">
-                      Redirige a: {event.expiry_redirect_url}
+                      {t("events.expiryRedirect")} {event.expiry_redirect_url}
                     </p>
                   )}
                 </>
               )}
               <p>
-                <span className="font-medium">Creado:</span>{" "}
-                {format(new Date(event.created_at), "PPP", { locale: es })}
+                <span className="font-medium">{t("events.createdAt")}:</span>{" "}
+                {format(new Date(event.created_at), "PPP", { locale: dateLocale })}
               </p>
             </div>
 
@@ -908,16 +825,16 @@ Para cualquier duda o ayuda adicional, estamos a vuestra disposición.
                     className="gap-1"
                   >
                     <MessageCircle className="w-4 h-4" />
-                    <span className="hidden sm:inline">Comunicar</span>
+                    <span className="hidden sm:inline">{t("events.communicateEvent")}</span>
                     <ChevronDown className="w-3 h-3" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="bg-popover">
                   <DropdownMenuItem onClick={() => handleCommunicateDemo(event)}>
-                    Comunicar demo
+                    {t("events.communicateDemo")}
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => handleCommunicateEvent(event)}>
-                    Comunicar evento
+                    {t("events.communicateEvent")}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -928,10 +845,10 @@ Para cualquier duda o ayuda adicional, estamos a vuestra disposición.
                 variant="outline"
                 size="sm"
                 className="gap-1"
-                onClick={() => navigate(`/event-form/${event.id}`)}
+                onClick={() => navigate(`${pathPrefix}/event-form/${event.id}`)}
               >
                 <Edit className="w-4 h-4" />
-                <span>Editar</span>
+                <span>{t("events.edit")}</span>
               </Button>
             ) : (
               <DropdownMenu>
@@ -942,7 +859,7 @@ Para cualquier duda o ayuda adicional, estamos a vuestra disposición.
                     className="gap-1"
                   >
                     <ChevronDown className="w-3 h-3" />
-                    <span className="hidden sm:inline">Más</span>
+                    <span className="hidden sm:inline">{t("events.more")}</span>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="bg-popover">
@@ -951,26 +868,26 @@ Para cualquier duda o ayuda adicional, estamos a vuestra disposición.
                     setMoveEventDialogOpen(true);
                   }}>
                     <MoveHorizontal className="w-4 h-4 mr-2" />
-                    Mover a...
+                    {t("folder.move")}
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => {
                     setSelectedEvent(event);
                     setDuplicateEventDialogOpen(true);
                   }}>
                     <CopyPlus className="w-4 h-4 mr-2" />
-                    Duplicar evento
+                    {t("events.duplicate")}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => navigate(`/event-form/${event.id}`)}>
+                  <DropdownMenuItem onClick={() => navigate(`${pathPrefix}/event-form/${event.id}`)}>
                     <Edit className="w-4 h-4 mr-2" />
-                    Editar
+                    {t("events.edit")}
                   </DropdownMenuItem>
                   <DropdownMenuItem 
                     onClick={() => handleDeleteEvent(event.id)}
                     className="text-destructive focus:text-destructive"
                   >
                     <Trash2 className="w-4 h-4 mr-2" />
-                    Eliminar
+                    {t("events.delete")}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -984,7 +901,7 @@ Para cualquier duda o ayuda adicional, estamos a vuestra disposición.
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <p className="text-muted-foreground">Cargando eventos...</p>
+        <p className="text-muted-foreground">{t("events.loading")}</p>
       </div>
     );
   }
@@ -999,15 +916,15 @@ Para cualquier duda o ayuda adicional, estamos a vuestra disposición.
               size="icon"
               onClick={() => {
                 localStorage.removeItem("adminEventId");
-                navigate("/");
+                navigate(`${pathPrefix}/`);
               }}
               className="rounded-full"
-              title="Volver al inicio"
+              title={t("events.backHome")}
             >
               <Home className="w-5 h-5" />
             </Button>
             <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
-              {isDemoMode ? "Gestión de Eventos (Demo)" : "Gestión de Eventos"}
+              {isDemoMode ? t("events.titleDemo") : t("events.title")}
             </h1>
           </div>
 
@@ -1019,7 +936,7 @@ Para cualquier duda o ayuda adicional, estamos a vuestra disposición.
                 setIsLoading(true);
                 loadData();
               }}
-              title="Actualizar lista"
+              title={t("events.refresh")}
             >
               <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
             </Button>
@@ -1031,11 +948,11 @@ Para cualquier duda o ayuda adicional, estamos a vuestra disposición.
                   onClick={() => setCreateFolderOpen(true)}
                 >
                   <FolderPlus className="w-4 h-4" />
-                  <span className="hidden sm:inline">Nueva Carpeta</span>
+                  <span className="hidden sm:inline">{t("folder.create")}</span>
                 </Button>
-                <Button className="gap-2 flex-1 sm:flex-initial" onClick={() => navigate("/event-form")}>
+                <Button className="gap-2 flex-1 sm:flex-initial" onClick={() => navigate(`${pathPrefix}/event-form`)}>
                   <Plus className="w-4 h-4" />
-                  Nuevo Evento
+                  {t("events.new")}
                 </Button>
               </>
             )}
@@ -1046,7 +963,7 @@ Para cualquier duda o ayuda adicional, estamos a vuestra disposición.
           <Card className="p-12 text-center">
             <Calendar className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
             <p className="text-muted-foreground">
-              No hay eventos creados todavía
+              {t("events.none")}
             </p>
           </Card>
         ) : (
@@ -1085,7 +1002,7 @@ Para cualquier duda o ayuda adicional, estamos a vuestra disposición.
                 ) : (
                   <Card className="p-6 text-center bg-muted/20">
                     <p className="text-sm text-muted-foreground">
-                      Esta carpeta está vacía
+                      {t("folder.empty")}
                     </p>
                   </Card>
                 )}
@@ -1097,7 +1014,7 @@ Para cualquier duda o ayuda adicional, estamos a vuestra disposición.
               <div className="space-y-4">
                 {folders.length > 0 && (
                   <h2 className="text-lg font-medium text-muted-foreground mt-6 mb-2">
-                    Eventos sin carpeta
+                    {t("events.unfiled")}
                   </h2>
                 )}
                 {eventsByFolder.unfiled.map(renderEventCard)}
@@ -1111,21 +1028,21 @@ Para cualquier duda o ayuda adicional, estamos a vuestra disposición.
             <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
               <div className="space-y-2">
                 <p className="text-sm font-semibold text-[#f06a5f] uppercase tracking-wide">
-                  Evento demo
+                  {t("events.demoBadge")}
                 </p>
                 <h2 className="text-2xl md:text-3xl font-bold text-foreground">
-                  Este evento es gratis, de prueba, y tiene un límite de 10 fotos
+                  {t("events.demoText")}
                 </h2>
                 <p className="text-sm md:text-base text-muted-foreground max-w-2xl">
-                  Si quieres contratar un plan de verdad, estos son los disponibles. Haz clic para verlos y elegir el que mejor se adapte a tu evento.
+                  {t("events.demoPlans")}
                 </p>
               </div>
               <Button
                 size="lg"
                 className="w-full lg:w-auto bg-[#f06a5f] text-white hover:bg-[#e95f54]"
-                onClick={() => navigate("/planes")}
+                onClick={() => navigate(`${pathPrefix}/planes`)}
               >
-                Ver planes
+                {t("plans.title")}
               </Button>
             </div>
           </Card>

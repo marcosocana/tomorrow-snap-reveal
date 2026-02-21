@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,49 +7,53 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Lock } from "lucide-react";
+import { useAdminI18n } from "@/lib/adminI18n";
 
 const AdminLogin = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
+  const { t, pathPrefix } = useAdminI18n();
+  const redirectTo = new URLSearchParams(location.search).get("redirect");
 
   useEffect(() => {
     // Check if user is already logged in
     const checkUser = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
-        navigate("/event-management");
+        navigate(redirectTo || `${pathPrefix}/event-management`);
       }
     };
     checkUser();
-  }, [navigate]);
+  }, [navigate, pathPrefix, redirectTo]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+      const { data, error } = await supabase.functions.invoke("auth-login", {
+        body: { email, password },
       });
 
-      if (error) throw error;
-
-      if (data.session) {
-        toast({
-          title: "Acceso concedido",
-          description: "Bienvenido al panel de administración",
-        });
-        navigate("/event-management");
+      if (error || !data?.session) {
+        throw error || new Error("INVALID_CREDENTIALS");
       }
+
+      await supabase.auth.setSession(data.session);
+      toast({
+        title: t("login.successTitle"),
+        description: t("login.successDesc"),
+      });
+      navigate(redirectTo || `${pathPrefix}/event-management`);
     } catch (error: any) {
       console.error("Error logging in:", error);
       toast({
-        title: "Error de acceso",
-        description: "Credenciales incorrectas",
+        title: t("login.errorTitle"),
+        description: t("login.errorDesc"),
         variant: "destructive",
       });
     } finally {
@@ -65,16 +69,16 @@ const AdminLogin = () => {
             <Lock className="w-8 h-8 text-primary" />
           </div>
           <h1 className="text-2xl font-bold text-foreground">
-            Panel de Administración
+            {t("login.title")}
           </h1>
           <p className="text-muted-foreground text-sm mt-2">
-            Acceso restringido
+            {t("login.subtitle")}
           </p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email">{t("login.email")}</Label>
             <Input
               id="email"
               type="email"
@@ -87,7 +91,7 @@ const AdminLogin = () => {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="password">Contraseña</Label>
+            <Label htmlFor="password">{t("login.password")}</Label>
             <Input
               id="password"
               type="password"
@@ -100,7 +104,7 @@ const AdminLogin = () => {
           </div>
 
           <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? "Accediendo..." : "Acceder"}
+            {isLoading ? t("login.button.loading") : t("login.button")}
           </Button>
         </form>
       </Card>

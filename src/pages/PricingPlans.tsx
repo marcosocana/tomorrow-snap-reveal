@@ -1,9 +1,11 @@
 import { Button } from "@/components/ui/button";
 import { PricingPreview } from "@/components/PricingPreview";
 import { useNavigate } from "react-router-dom";
+import { useAdminI18n } from "@/lib/adminI18n";
 
 const PricingPlans = () => {
   const navigate = useNavigate();
+  const { t, pathPrefix } = useAdminI18n();
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-8">
@@ -11,14 +13,14 @@ const PricingPlans = () => {
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="space-y-1">
             <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
-              Planes disponibles
+              {t("plans.title")}
             </h1>
             <p className="text-sm text-muted-foreground">
-              Elige el plan ideal para tu evento y continúa desde tu demo.
+              {t("plans.subtitle")}
             </p>
           </div>
-          <Button variant="outline" onClick={() => navigate("/event-management")}>
-            Volver a gestión
+          <Button variant="outline" onClick={() => navigate(`${pathPrefix}/event-management`)}>
+            {t("plans.back")}
           </Button>
         </div>
 

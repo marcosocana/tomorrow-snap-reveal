@@ -1,62 +1,85 @@
 import { Button } from "@/components/ui/button";
 import { Check } from "lucide-react";
-
-const baseFeatures = [
-  "Fotos ilimitadas",
-  "Galería privada 20 días",
-  "Descarga en alta calidad",
-  "Personalización de marca",
-  "Soporte para dudas",
-];
+import { useAdminI18n } from "@/lib/adminI18n";
+import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
 
 const plans = [
   {
-    title: "Pequeño",
+    titleKey: "pricing.plan.small",
+    planId: "small",
     guests: 50,
     price: "36€",
     costPerGuest: "0,72€",
-    stripeUrl: "https://buy.stripe.com/cNiaEY0i9gnpbi4dL60Fi03",
-    cta: "Elegir",
   },
   {
-    title: "Mediano",
+    titleKey: "pricing.plan.medium",
+    planId: "medium",
     guests: 300,
     price: "74€",
     costPerGuest: "0,25€",
-    stripeUrl: "https://buy.stripe.com/14A5kE9SJgnpeuggXi0Fi02",
-    cta: "Elegir",
     featured: true,
-    badge: "Más popular",
   },
   {
-    title: "Grande",
+    titleKey: "pricing.plan.large",
+    planId: "large",
     guests: 500,
     price: "96€",
     costPerGuest: "0,19€",
-    stripeUrl: "https://buy.stripe.com/dRm8wQ4yp5IL85S7mI0Fi04",
-    cta: "Elegir",
   },
   {
-    title: "XL",
+    titleKey: "pricing.plan.xl",
+    planId: "xl",
     guests: 1000,
     price: "139€",
     costPerGuest: "0,14€",
-    stripeUrl: "https://buy.stripe.com/fZu28sd4VefhgCo5eA0Fi05",
-    cta: "Elegir",
   },
 ];
 
-const whatsappMessage = "Hola! Acabo de crear un evento demo y quiero contratar un plan. ¿Me ayudas?";
-
 export const PricingPreview = () => {
+  const { t, pathPrefix } = useAdminI18n();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const baseFeatures = [
+    t("pricing.feature.photos"),
+    t("pricing.feature.gallery"),
+    t("pricing.feature.download"),
+    t("pricing.feature.brand"),
+    t("pricing.feature.support"),
+  ];
+
+  const handleCheckout = async (planId: string) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      navigate(`${pathPrefix}/admin-login`);
+      return;
+    }
+
+    const { data, error } = await supabase.functions.invoke("stripe-create-checkout-session", {
+      body: { planId },
+    });
+
+    if (error || !data?.url) {
+      toast({
+        title: t("form.errorTitle"),
+        description: t("pricing.errorCheckout") ?? "No se pudo iniciar el pago",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    window.location.href = data.url;
+  };
+
   return (
     <div className="space-y-10">
       <div className="text-center space-y-2">
         <h3 className="text-3xl md:text-4xl font-semibold text-foreground">
-          Precio
+          {t("pricing.title")}
         </h3>
         <p className="text-sm md:text-base text-muted-foreground">
-          Elige el plan ideal según el tamaño de tu evento
+          {t("pricing.subtitle")}
         </p>
       </div>
 
@@ -72,21 +95,21 @@ export const PricingPreview = () => {
                 : "border-border",
             ].join(" ")}
           >
-            {plan.badge ? (
+            {plan.featured ? (
               <span className="absolute right-5 top-5 rounded-full bg-[#f06a5f] text-white text-xs font-semibold px-3 py-1 shadow-sm">
-                {plan.badge}
+                {t("pricing.badge")}
               </span>
             ) : null}
 
             <div className="mb-6 space-y-2">
-              <h4 className="text-lg font-semibold text-foreground">{plan.title}</h4>
-              <p className="text-sm text-muted-foreground">Hasta {plan.guests} invitados</p>
+              <h4 className="text-lg font-semibold text-foreground">{t(plan.titleKey)}</h4>
+              <p className="text-sm text-muted-foreground">{t("pricing.guests", { count: plan.guests })}</p>
               <div className="flex items-end gap-2 pt-1">
                 <span className="text-4xl font-bold text-foreground">{plan.price}</span>
-                <span className="text-sm text-muted-foreground pb-1">/evento</span>
+                <span className="text-sm text-muted-foreground pb-1">{t("pricing.perEvent")}</span>
               </div>
               <p className="text-sm text-muted-foreground">
-                {plan.costPerGuest} por invitado
+                {t("pricing.perGuest", { amount: plan.costPerGuest })}
               </p>
             </div>
 
@@ -107,25 +130,23 @@ export const PricingPreview = () => {
                   : "border-[#e5e7eb] text-foreground hover:bg-[#f9fafb]",
               ].join(" ")}
               variant={plan.featured ? "default" : "outline"}
-              asChild
+              onClick={() => handleCheckout(plan.planId)}
             >
-              <a href={plan.stripeUrl} target="_blank" rel="noopener noreferrer">
-                {plan.cta}
-              </a>
+              {t("pricing.cta")}
             </Button>
           </div>
         ))}
       </div>
 
       <p className="text-center text-sm text-muted-foreground">
-        ¿Más de 1000 invitados?{" "}
+        {t("pricing.moreGuests")}{" "}
         <a
           className="text-foreground font-semibold hover:underline"
-          href={`https://wa.me/34695834018?text=${encodeURIComponent(whatsappMessage)}`}
+          href={`https://wa.me/34695834018?text=${encodeURIComponent(t("pricing.whatsappMessage"))}`}
           target="_blank"
           rel="noopener noreferrer"
         >
-          Escríbenos por WhatsApp
+          {t("pricing.contact")}
         </a>
         .
       </p>

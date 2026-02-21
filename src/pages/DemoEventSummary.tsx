@@ -33,7 +33,7 @@ const DemoEventSummary = () => {
   const event = location.state?.event as EventData | undefined;
   const qrFromState = location.state?.qrUrl as string | undefined;
   const contactInfo = location.state?.contactInfo as
-    | { name?: string; email?: string; phone?: string }
+    | { email?: string; phone?: string }
     | undefined;
 
   // Redirect if no event data
@@ -46,17 +46,15 @@ const DemoEventSummary = () => {
   const eventTz = event.timezone || "Europe/Madrid";
   const shouldShowPricing = /^\d{8}$/.test(event.password_hash);
   const storedQrUrl = event
-    ? localStorage.getItem(`demo-qr-url-${event.id}`) ||
+    ? localStorage.getItem(`event-qr-url-${event.id}`) ||
       supabase.storage
         .from("event-photos")
         .getPublicUrl(`event-qr/qr-${event.id}.png`).data.publicUrl
     : "";
-  const qrImageUrl =
-    qrFromState ||
-    storedQrUrl ||
-    `https://quickchart.io/qr?size=220&margin=1&ecLevel=H&text=${encodeURIComponent(
-      eventUrl
-    )}`;
+  const fallbackQrUrl = `https://quickchart.io/qr?size=220&margin=1&ecLevel=H&text=${encodeURIComponent(
+    eventUrl
+  )}`;
+  const qrImageUrl = qrFromState || storedQrUrl || fallbackQrUrl;
 
   const downloadQR = useCallback(async () => {
     if (!event) return;
@@ -94,6 +92,7 @@ const DemoEventSummary = () => {
             event,
             qrUrl: qrImageUrl,
             contactInfo,
+            eventType: "demo",
           },
         });
         localStorage.setItem(sentKey, "1");

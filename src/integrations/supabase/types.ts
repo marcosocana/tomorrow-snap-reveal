@@ -71,13 +71,17 @@ export type Database = {
           language: string
           legal_text_type: string
           like_counting_enabled: boolean
+          limits_json: Json | null
           max_photos: number | null
           name: string
+          owner_id: string | null
           password_hash: string
+          plan_id: string | null
           reveal_time: string
           show_legal_text: boolean
           sort_order: number | null
           timezone: string
+          type: string
           upload_end_time: string | null
           upload_start_time: string | null
         }
@@ -104,13 +108,17 @@ export type Database = {
           language?: string
           legal_text_type?: string
           like_counting_enabled?: boolean
+          limits_json?: Json | null
           max_photos?: number | null
           name: string
+          owner_id?: string | null
           password_hash: string
+          plan_id?: string | null
           reveal_time: string
           show_legal_text?: boolean
           sort_order?: number | null
           timezone?: string
+          type?: string
           upload_end_time?: string | null
           upload_start_time?: string | null
         }
@@ -137,13 +145,17 @@ export type Database = {
           language?: string
           legal_text_type?: string
           like_counting_enabled?: boolean
+          limits_json?: Json | null
           max_photos?: number | null
           name?: string
+          owner_id?: string | null
           password_hash?: string
+          plan_id?: string | null
           reveal_time?: string
           show_legal_text?: boolean
           sort_order?: number | null
           timezone?: string
+          type?: string
           upload_end_time?: string | null
           upload_start_time?: string | null
         }
@@ -153,6 +165,13 @@ export type Database = {
             columns: ["folder_id"]
             isOneToOne: false
             referencedRelation: "event_folders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "events_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
@@ -214,6 +233,35 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_profiles: {
+        Row: {
+          created_at: string
+          id: string
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_profiles_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
@@ -356,3 +404,50 @@ export const Constants = {
     Enums: {},
   },
 } as const
+      purchases: {
+        Row: {
+          created_at: string
+          id: string
+          plan_id: string
+          redeem_token: string
+          redeem_token_expires_at: string | null
+          redeemed_at: string | null
+          status: string
+          stripe_session_id: string
+          user_email: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          plan_id: string
+          redeem_token: string
+          redeem_token_expires_at?: string | null
+          redeemed_at?: string | null
+          status?: string
+          stripe_session_id: string
+          user_email?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          plan_id?: string
+          redeem_token?: string
+          redeem_token_expires_at?: string | null
+          redeemed_at?: string | null
+          status?: string
+          stripe_session_id?: string
+          user_email?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchases_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
