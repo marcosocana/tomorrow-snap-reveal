@@ -157,12 +157,28 @@ const Login = () => {
 
           <Button
             type="submit"
-            className="w-full h-14 text-lg bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98]"
+            className="w-full h-14 text-lg bg-[hsl(5_85%_65%)] hover:bg-[hsl(5_85%_60%)] text-white font-semibold rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98]"
             disabled={isLoading}
           >
             {isLoading ? "Accediendo..." : "Entrar"}
           </Button>
         </form>
+
+        <div className="rounded-2xl border border-border bg-card px-5 py-4 text-center space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Si todavía no has creado un evento, ahora lo puedes hacer gratis o ver los planes de pago disponibles.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Button asChild className="bg-primary text-primary-foreground hover:bg-primary/90">
+              <a href="/nuevoeventodemo">Pruébalo gratis</a>
+            </Button>
+            <Button asChild variant="outline">
+              <a href="https://www.revelao.cam/#precio" target="_blank" rel="noopener noreferrer">
+                Ver planes
+              </a>
+            </Button>
+          </div>
+        </div>
 
         <p className="text-center text-sm text-muted-foreground">
           ¿Algún problema?{" "}

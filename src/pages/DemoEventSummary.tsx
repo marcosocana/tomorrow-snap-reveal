@@ -36,10 +36,33 @@ const DemoEventSummary = () => {
     | { name?: string; email?: string; phone?: string }
     | undefined;
 
+  // Redirect if no event data
+  if (!event) {
+    return <Navigate to="/nuevoeventodemo" replace />;
+  }
+
+  const eventUrl = `https://acceso.revelao.cam/events/${event.password_hash}`;
+  const adminUrl = "https://acceso.revelao.cam";
+  const eventTz = event.timezone || "Europe/Madrid";
+  const shouldShowPricing = /^\d{8}$/.test(event.password_hash);
+  const storedQrUrl = event
+    ? localStorage.getItem(`demo-qr-url-${event.id}`) ||
+      supabase.storage
+        .from("event-photos")
+        .getPublicUrl(`event-qr/qr-${event.id}.png`).data.publicUrl
+    : "";
+  const qrImageUrl =
+    qrFromState ||
+    storedQrUrl ||
+    `https://quickchart.io/qr?size=220&margin=1&ecLevel=H&text=${encodeURIComponent(
+      eventUrl
+    )}`;
+
   const downloadQR = useCallback(async () => {
     if (!event) return;
     const qrImageUrl =
       qrFromState ||
+      storedQrUrl ||
       `https://quickchart.io/qr?size=220&margin=1&ecLevel=H&text=${encodeURIComponent(
         `https://acceso.revelao.cam/events/${event.password_hash}`
       )}`;
@@ -56,25 +79,10 @@ const DemoEventSummary = () => {
     } catch {
       window.open(qrImageUrl, "_blank", "noopener,noreferrer");
     }
-  }, [event, qrFromState]);
-
-  // Redirect if no event data
-  if (!event) {
-    return <Navigate to="/nuevoeventodemo" replace />;
-  }
-
-  const eventUrl = `https://acceso.revelao.cam/events/${event.password_hash}`;
-  const adminUrl = "https://acceso.revelao.cam";
-  const eventTz = event.timezone || "Europe/Madrid";
-  const shouldShowPricing = /^\d{8}$/.test(event.password_hash);
-  const qrImageUrl =
-    qrFromState ||
-    `https://quickchart.io/qr?size=220&margin=1&ecLevel=H&text=${encodeURIComponent(
-      eventUrl
-    )}`;
+  }, [event, qrFromState, storedQrUrl]);
 
   useEffect(() => {
-    if (!event || !contactInfo?.email || !qrFromState || isSendingEmail) return;
+    if (!event || !contactInfo?.email || !qrImageUrl || isSendingEmail) return;
     const sentKey = `demo-email-sent-${event.id}`;
     if (localStorage.getItem(sentKey)) return;
 
@@ -84,7 +92,7 @@ const DemoEventSummary = () => {
         await supabase.functions.invoke("send-demo-event-email", {
           body: {
             event,
-            qrUrl: qrFromState,
+            qrUrl: qrImageUrl,
             contactInfo,
           },
         });
@@ -97,7 +105,7 @@ const DemoEventSummary = () => {
     }, 1500);
 
     return () => window.clearTimeout(timer);
-  }, [event, contactInfo, qrFromState, isSendingEmail]);
+  }, [event, contactInfo, qrImageUrl, isSendingEmail]);
 
 
   const formatEventDate = (dateString: string) => {

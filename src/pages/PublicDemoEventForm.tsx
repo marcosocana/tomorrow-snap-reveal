@@ -267,6 +267,9 @@ const PublicDemoEventForm = () => {
 
       const eventUrl = `https://acceso.revelao.cam/events/${newEvent.password_hash}`;
       const qrUrl = await uploadQrImage(eventUrl, newEvent.id);
+      if (qrUrl) {
+        localStorage.setItem(`demo-qr-url-${newEvent.id}`, qrUrl);
+      }
 
       // Navigate to summary page with event data
       navigate("/nuevoeventodemo/resumen", { 
