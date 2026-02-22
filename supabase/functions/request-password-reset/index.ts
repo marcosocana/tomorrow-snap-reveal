@@ -41,6 +41,26 @@ const generateToken = (length = 48) => {
   return btoa(String.fromCharCode(...bytes)).replace(/=|\+|\//g, "");
 };
 
+const findAuthUserByEmail = async (
+  supabaseAdmin: ReturnType<typeof createClient>,
+  email: string,
+) => {
+  const normalized = email.trim().toLowerCase();
+  const { data, error } = await supabaseAdmin.auth.admin.listUsers({
+    page: 1,
+    perPage: 1000,
+  });
+
+  if (error) {
+    console.error("request-password-reset listUsers error:", error.message);
+    return null;
+  }
+
+  return (data?.users || []).find(
+    (user) => user.email?.toLowerCase() === normalized,
+  ) ?? null;
+};
+
 const sendResetEmail = async (to: string, resetUrl: string) => {
   if (!RESEND_API_KEY || !FROM_EMAIL) {
     console.error("request-password-reset missing email env", {
@@ -118,14 +138,8 @@ serve(async (req) => {
 
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    const { data: user } = await supabaseAdmin
-      .schema("auth")
-      .from("users")
-      .select("id,email")
-      .ilike("email", cleanEmail)
-      .maybeSingle();
-
-    let userId = user?.id ?? null;
+    const authUser = await findAuthUserByEmail(supabaseAdmin, cleanEmail);
+    let userId = authUser?.id ?? null;
 
     if (!userId) {
       console.log("request-password-reset auth user not found", { email: cleanEmail });
@@ -147,21 +161,10 @@ serve(async (req) => {
         console.error("request-password-reset create auth user error:", message);
 
         if (message.toLowerCase().includes("already been registered")) {
-          const { data: fallbackUser, error: fallbackError } = await supabaseAdmin
-            .schema("auth")
-            .from("users")
-            .select("id")
-            .ilike("email", cleanEmail)
-            .maybeSingle();
-
-          if (fallbackError) {
-            console.error(
-              "request-password-reset fallback auth user lookup error:",
-              fallbackError.message,
-            );
-            // Avoid user enumeration
-            return json({ ok: true });
-          }
+          const fallbackUser = await findAuthUserByEmail(
+            supabaseAdmin,
+            cleanEmail,
+          );
 
           if (!fallbackUser?.id) {
             console.warn("request-password-reset fallback user not found", {
