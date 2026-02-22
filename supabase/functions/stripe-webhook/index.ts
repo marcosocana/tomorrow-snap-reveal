@@ -10,6 +10,7 @@ const STRIPE_WEBHOOK_SECRET = Deno.env.get("STRIPE_WEBHOOK_SECRET") ?? "";
 const APP_ORIGIN = Deno.env.get("APP_ORIGIN") ?? "https://www.revelao.cam";
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
 const FROM_EMAIL = Deno.env.get("FROM_EMAIL") ?? "";
+const LOGO_URL = Deno.env.get("LOGO_URL") ?? "";
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -21,17 +22,24 @@ const sendRedeemEmail = async (to: string, redeemUrl: string, planLabel: string,
   if (!RESEND_API_KEY || !FROM_EMAIL) return;
   const html = `
     <div style="font-family: Arial, sans-serif; color: #111; line-height: 1.6;">
-      <h2 style="margin: 0 0 8px;">Tu plan ${planLabel} ya está listo</h2>
-      <p style="margin: 0 0 12px;">
-        Usa este enlace para crear tu evento de pago:
+      ${LOGO_URL ? `<div style="text-align:center;margin-bottom:24px;"><img src="${LOGO_URL}" alt="Revelao" style="width:240px; height:auto;" /></div>` : ""}
+      <h2 style="margin: 0 0 8px; text-align:center;">Tu plan ${planLabel} ya está listo</h2>
+      <p style="margin: 0 0 16px; text-align:center;">
+        Puedes crear tu evento usando el siguiente enlace:
       </p>
-      <p style="margin: 0 0 16px;">
-        <a href="${redeemUrl}" style="color:#f06a5f; font-weight:700;">Crear mi evento</a>
+      <div style="text-align:center; margin: 0 0 24px;">
+        <a href="${redeemUrl}" style="display:inline-block;padding:12px 18px;background:#f06a5f;color:#fff;border-radius:10px;text-decoration:none;font-weight:700;">
+          Crear mi evento
+        </a>
+      </div>
+      <div style="background:#f5f5f5;border-radius:12px;padding:16px 18px;">
+        <p style="margin:0 0 8px;font-weight:700;">Código de canje</p>
+        <p style="margin:0 0 4px;font-size:18px;letter-spacing:1px;"><strong>${redeemCode}</strong></p>
+        <p style="margin:0;color:#666;font-size:12px;">Guarda este código por si necesitas acceder de nuevo.</p>
+      </div>
+      <p style="font-size:12px;color:#666;margin-top:16px;text-align:center;">
+        Si no solicitaste esto, ignora este correo.
       </p>
-      <p style="margin: 0 0 12px;">
-        Código de canje (16 caracteres): <strong>${redeemCode}</strong>
-      </p>
-      <p style="font-size:12px;color:#666;">Si no solicitaste esto, ignora este correo.</p>
     </div>
   `;
 

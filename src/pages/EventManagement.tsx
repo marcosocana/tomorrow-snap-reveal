@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { Calendar, Plus, Edit, Copy, Download, Eye, LogOut } from "lucide-react";
@@ -17,6 +18,7 @@ import GalleryPreviewModal from "@/components/GalleryPreviewModal";
 import FolderCard, { EventFolder } from "@/components/FolderCard";
 import SortableEventList from "@/components/SortableEventList";
 import { useAdminI18n } from "@/lib/adminI18n";
+import { PricingPreview } from "@/components/PricingPreview";
 
 interface Event {
   id: string;
@@ -58,6 +60,7 @@ const EventManagement = () => {
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [previewEvent, setPreviewEvent] = useState<Event | null>(null);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+  const [pricingOpen, setPricingOpen] = useState(false);
   
   // Dialogs
 
@@ -572,7 +575,7 @@ const EventManagement = () => {
               {t("events.logout")}
             </Button>
             {!adminEventId && (
-              <Button className="gap-2 flex-1 sm:flex-initial" onClick={() => navigate(`${pathPrefix}/event-form`)}>
+              <Button className="gap-2 flex-1 sm:flex-initial" onClick={() => setPricingOpen(true)}>
                 <Plus className="w-4 h-4" />
                 {t("events.new")}
               </Button>
@@ -736,6 +739,20 @@ const EventManagement = () => {
         filterType={previewEvent?.filter_type}
         allowPhotoSharing={previewEvent?.allow_photo_sharing !== false}
       />
+
+      <Dialog open={pricingOpen} onOpenChange={setPricingOpen}>
+        <DialogContent className="max-w-5xl w-[95vw] sm:w-full">
+          <DialogHeader>
+            <DialogTitle>{t("pricing.newEventTitle")}</DialogTitle>
+            <p className="text-sm text-muted-foreground">
+              {t("pricing.newEventSubtitle")}
+            </p>
+          </DialogHeader>
+          <div className="max-h-[80vh] overflow-y-auto pr-1">
+            <PricingPreview showHeader={false} />
+          </div>
+        </DialogContent>
+      </Dialog>
 
     </div>
   );

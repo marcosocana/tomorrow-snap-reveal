@@ -399,6 +399,8 @@ const translations: Record<AdminLanguage, Record<string, string>> = {
     "pricing.plan.medium": "Mediano",
     "pricing.plan.large": "Grande",
     "pricing.plan.xl": "XL",
+    "pricing.newEventTitle": "Elige tu plan",
+    "pricing.newEventSubtitle": "Selecciona el plan para crear tu evento",
 
     "shared.yes": "Sí",
     "shared.no": "No",
@@ -787,6 +789,8 @@ const translations: Record<AdminLanguage, Record<string, string>> = {
     "pricing.plan.medium": "Medium",
     "pricing.plan.large": "Large",
     "pricing.plan.xl": "XL",
+    "pricing.newEventTitle": "Choose your plan",
+    "pricing.newEventSubtitle": "Select a plan to create your event",
 
     "shared.yes": "Yes",
     "shared.no": "No",
@@ -1176,6 +1180,8 @@ const translations: Record<AdminLanguage, Record<string, string>> = {
     "pricing.plan.medium": "Medio",
     "pricing.plan.large": "Grande",
     "pricing.plan.xl": "XL",
+    "pricing.newEventTitle": "Scegli il tuo piano",
+    "pricing.newEventSubtitle": "Seleziona il piano per creare il tuo evento",
 
     "shared.yes": "Sì",
     "shared.no": "No",

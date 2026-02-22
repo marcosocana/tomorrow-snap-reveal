@@ -37,7 +37,12 @@ const plans = [
   },
 ];
 
-export const PricingPreview = () => {
+type PricingPreviewProps = {
+  showHeader?: boolean;
+  onSelectPlan?: (planId: string) => void;
+};
+
+export const PricingPreview = ({ showHeader = true, onSelectPlan }: PricingPreviewProps) => {
   const { t, pathPrefix } = useAdminI18n();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -50,6 +55,23 @@ export const PricingPreview = () => {
   ];
 
   const handleCheckout = async (planId: string) => {
+    if (onSelectPlan) {
+      onSelectPlan(planId);
+      return;
+    }
+
+    const testUrlMap: Record<string, string | undefined> = {
+      small: import.meta.env.VITE_STRIPE_CHECKOUT_URL_SMALL,
+      medium: import.meta.env.VITE_STRIPE_CHECKOUT_URL_MEDIUM,
+      large: import.meta.env.VITE_STRIPE_CHECKOUT_URL_LARGE,
+      xl: import.meta.env.VITE_STRIPE_CHECKOUT_URL_XL,
+    };
+    const testUrl = testUrlMap[planId];
+    if (testUrl) {
+      window.location.href = testUrl;
+      return;
+    }
+
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
       navigate(`${pathPrefix}/admin-login`);
@@ -74,14 +96,16 @@ export const PricingPreview = () => {
 
   return (
     <div className="space-y-10">
-      <div className="text-center space-y-2">
-        <h3 className="text-3xl md:text-4xl font-semibold text-foreground">
-          {t("pricing.title")}
-        </h3>
-        <p className="text-sm md:text-base text-muted-foreground">
-          {t("pricing.subtitle")}
-        </p>
-      </div>
+      {showHeader && (
+        <div className="text-center space-y-2">
+          <h3 className="text-3xl md:text-4xl font-semibold text-foreground">
+            {t("pricing.title")}
+          </h3>
+          <p className="text-sm md:text-base text-muted-foreground">
+            {t("pricing.subtitle")}
+          </p>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
         {plans.map((plan) => (
@@ -138,18 +162,20 @@ export const PricingPreview = () => {
         ))}
       </div>
 
-      <p className="text-center text-sm text-muted-foreground">
-        {t("pricing.moreGuests")}{" "}
-        <a
-          className="text-foreground font-semibold hover:underline"
-          href={`https://wa.me/34695834018?text=${encodeURIComponent(t("pricing.whatsappMessage"))}`}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          {t("pricing.contact")}
-        </a>
-        .
-      </p>
+      {showHeader && (
+        <p className="text-center text-sm text-muted-foreground">
+          {t("pricing.moreGuests")}{" "}
+          <a
+            className="text-foreground font-semibold hover:underline"
+            href={`https://wa.me/34695834018?text=${encodeURIComponent(t("pricing.whatsappMessage"))}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {t("pricing.contact")}
+          </a>
+          .
+        </p>
+      )}
     </div>
   );
 };
