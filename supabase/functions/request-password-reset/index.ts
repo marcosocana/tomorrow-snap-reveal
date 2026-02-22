@@ -130,25 +130,7 @@ serve(async (req) => {
     if (!userId) {
       console.log("request-password-reset auth user not found", { email: cleanEmail });
 
-      const { data: publicUser, error: publicUserError } = await supabaseAdmin
-        .from("users")
-        .select("id,email")
-        .ilike("email", cleanEmail)
-        .maybeSingle();
-
-      if (publicUserError) {
-        console.error("request-password-reset public users lookup error:", publicUserError.message);
-        // Avoid user enumeration
-        return json({ ok: true });
-      }
-
-      if (!publicUser?.id) {
-        console.log("request-password-reset public user not found", { email: cleanEmail });
-        // Avoid user enumeration
-        return json({ ok: true });
-      }
-
-      console.log("request-password-reset creating auth user from public users", {
+      console.log("request-password-reset creating auth user", {
         email: cleanEmail,
       });
 
@@ -161,19 +143,48 @@ serve(async (req) => {
         });
 
       if (createUserError || !createdUser?.user) {
-        console.error(
-          "request-password-reset create auth user error:",
-          createUserError?.message ?? "unknown_error",
-        );
-        // Avoid user enumeration
-        return json({ ok: true });
+        const message = createUserError?.message ?? "unknown_error";
+        console.error("request-password-reset create auth user error:", message);
+
+        if (message.toLowerCase().includes("already been registered")) {
+          const { data: fallbackUser, error: fallbackError } = await supabaseAdmin
+            .schema("auth")
+            .from("users")
+            .select("id")
+            .ilike("email", cleanEmail)
+            .maybeSingle();
+
+          if (fallbackError) {
+            console.error(
+              "request-password-reset fallback auth user lookup error:",
+              fallbackError.message,
+            );
+            // Avoid user enumeration
+            return json({ ok: true });
+          }
+
+          if (!fallbackUser?.id) {
+            console.warn("request-password-reset fallback user not found", {
+              email: cleanEmail,
+            });
+            // Avoid user enumeration
+            return json({ ok: true });
+          }
+
+          userId = fallbackUser.id;
+        } else {
+          // Avoid user enumeration
+          return json({ ok: true });
+        }
       }
 
-      console.log("request-password-reset auth user created", {
-        userId: createdUser.user.id,
-      });
+      if (!userId && createdUser?.user?.id) {
+        console.log("request-password-reset auth user created", {
+          userId: createdUser.user.id,
+        });
 
-      userId = createdUser.user.id;
+        userId = createdUser.user.id;
+      }
     }
 
     const rawToken = generateToken(32);
