@@ -42,7 +42,9 @@ const generateToken = (length = 48) => {
 };
 
 const sendResetEmail = async (to: string, resetUrl: string) => {
-  if (!RESEND_API_KEY || !FROM_EMAIL) return;
+  if (!RESEND_API_KEY || !FROM_EMAIL) {
+    throw new Error("MISSING_EMAIL_ENV");
+  }
   const html = `
     <div style="font-family: Arial, sans-serif; color: #111; line-height: 1.6;">
       ${LOGO_URL ? `<div style="text-align:center;margin-bottom:24px;"><img src="${LOGO_URL}" alt="Revelao" style="width:240px; height:auto;" /></div>` : ""}
@@ -59,7 +61,7 @@ const sendResetEmail = async (to: string, resetUrl: string) => {
     </div>
   `;
 
-  await fetch("https://api.resend.com/emails", {
+  const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -72,6 +74,12 @@ const sendResetEmail = async (to: string, resetUrl: string) => {
       html,
     }),
   });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("Resend error:", response.status, errorText);
+    throw new Error(`RESEND_FAILED:${response.status}`);
+  }
 };
 
 serve(async (req) => {
