@@ -1,0 +1,130 @@
+import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
+const FROM_EMAIL = Deno.env.get("FROM_EMAIL") ?? "";
+const APP_ORIGIN = Deno.env.get("APP_ORIGIN") ?? "https://acceso.revelao.cam";
+const LOGO_URL = Deno.env.get("LOGO_URL") ?? "";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json", ...corsHeaders },
+  });
+
+const isEmail = (value: string) =>
+  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+
+const toHex = (buffer: ArrayBuffer) =>
+  Array.from(new Uint8Array(buffer))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+
+const sha256 = async (text: string) => {
+  const data = new TextEncoder().encode(text);
+  const hash = await crypto.subtle.digest("SHA-256", data);
+  return toHex(hash);
+};
+
+const generateToken = (length = 48) => {
+  const bytes = new Uint8Array(length);
+  crypto.getRandomValues(bytes);
+  return btoa(String.fromCharCode(...bytes)).replace(/=|\+|\//g, "");
+};
+
+const sendResetEmail = async (to: string, resetUrl: string) => {
+  if (!RESEND_API_KEY || !FROM_EMAIL) return;
+  const html = `
+    <div style="font-family: Arial, sans-serif; color: #111; line-height: 1.6;">
+      ${LOGO_URL ? `<div style="text-align:center;margin-bottom:24px;"><img src="${LOGO_URL}" alt="Revelao" style="width:240px; height:auto;" /></div>` : ""}
+      <h2 style="margin: 0 0 8px; text-align:center;">Restablece tu contraseña</h2>
+      <p style="margin: 0 0 16px; text-align:center;">
+        Haz clic en el botón para crear una nueva contraseña.
+      </p>
+      <div style="text-align:center; margin: 0 0 24px;">
+        <a href="${resetUrl}" style="display:inline-block;padding:12px 18px;background:#f06a5f;color:#fff;border-radius:10px;text-decoration:none;font-weight:700;">
+          Cambiar contraseña
+        </a>
+      </div>
+      <p style="font-size:12px;color:#666;text-align:center;">Este enlace caduca en 2 horas.</p>
+    </div>
+  `;
+
+  await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${RESEND_API_KEY}`,
+    },
+    body: JSON.stringify({
+      from: FROM_EMAIL,
+      to,
+      subject: "Restablece tu contraseña",
+      html,
+    }),
+  });
+};
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
+  if (req.method !== "POST") {
+    return json({ error: "Method not allowed" }, 405);
+  }
+
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    return json({ error: "Missing env" }, 500);
+  }
+
+  try {
+    const { email } = (await req.json()) as { email?: string };
+    const cleanEmail = (email || "").trim().toLowerCase();
+    if (!isEmail(cleanEmail)) {
+      return json({ error: "INVALID_EMAIL" }, 400);
+    }
+
+    const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    const { data: user } = await supabaseAdmin
+      .schema("auth")
+      .from("users")
+      .select("id")
+      .eq("email", cleanEmail)
+      .maybeSingle();
+
+    if (!user?.id) {
+      // Avoid user enumeration
+      return json({ ok: true });
+    }
+
+    const rawToken = generateToken(32);
+    const tokenHash = await sha256(rawToken);
+    const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
+
+    await supabaseAdmin.from("password_resets").insert({
+      user_id: user.id,
+      email: cleanEmail,
+      token_hash: tokenHash,
+      expires_at: expiresAt,
+    });
+
+    const resetUrl = `${APP_ORIGIN}/reset-password?token=${rawToken}`;
+    await sendResetEmail(cleanEmail, resetUrl);
+
+    return json({ ok: true });
+  } catch (error) {
+    console.error("request-password-reset error:", error);
+    return json({ error: "UNKNOWN_ERROR" }, 500);
+  }
+});

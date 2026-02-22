@@ -11,7 +11,8 @@ const AdminResetPassword = () => {
   const [email, setEmail] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
-  const [hasSession, setHasSession] = useState(false);
+  const [hasToken, setHasToken] = useState(false);
+  const [token, setToken] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [repeatPassword, setRepeatPassword] = useState("");
   const navigate = useNavigate();
@@ -19,68 +20,23 @@ const AdminResetPassword = () => {
   const { t, pathPrefix } = useAdminI18n();
 
   useEffect(() => {
-    const checkSession = async () => {
-      const url = new URL(window.location.href);
-      const code = url.searchParams.get("code");
-      const errorDescription = url.searchParams.get("error_description");
-
-      if (errorDescription) {
-        toast({
-          title: t("reset.errorTitle"),
-          description: decodeURIComponent(errorDescription),
-          variant: "destructive",
-        });
-      }
-
-      if (code) {
-        try {
-          const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-          if (error) throw error;
-          setHasSession(!!data.session);
-          window.history.replaceState(null, "", `${pathPrefix}/reset-password`);
-          return;
-        } catch (error) {
-          console.error("Error exchanging code for session:", error);
-          toast({
-            title: t("reset.errorTitle"),
-            description: t("reset.errorDesc"),
-            variant: "destructive",
-          });
-        }
-      } else {
-        const hash = new URLSearchParams(window.location.hash.replace("#", ""));
-        const accessToken = hash.get("access_token");
-        const refreshToken = hash.get("refresh_token");
-        if (accessToken && refreshToken) {
-          try {
-            const { data, error } = await supabase.auth.setSession({
-              access_token: accessToken,
-              refresh_token: refreshToken,
-            });
-            if (error) throw error;
-            setHasSession(!!data.session);
-            window.history.replaceState(null, "", `${pathPrefix}/reset-password`);
-            return;
-          } catch (error) {
-            console.error("Error setting session from hash:", error);
-          }
-        }
-      }
-
-      const { data: { session } } = await supabase.auth.getSession();
-      setHasSession(!!session);
-    };
-    checkSession();
-  }, [pathPrefix, t, toast]);
+    const url = new URL(window.location.href);
+    const tokenParam = url.searchParams.get("token");
+    if (tokenParam) {
+      setToken(tokenParam);
+      setHasToken(true);
+    }
+  }, []);
 
   const handleSendReset = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) return;
     setIsSending(true);
     try {
-      const redirectTo = `${window.location.origin}${pathPrefix}/reset-password`;
-      const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
-      if (error) throw error;
+      const { data, error } = await supabase.functions.invoke("request-password-reset", {
+        body: { email },
+      });
+      if (error || data?.error) throw error || new Error(data?.error || "ERROR");
       toast({
         title: t("reset.sentTitle"),
         description: t("reset.sentDesc"),
@@ -110,8 +66,10 @@ const AdminResetPassword = () => {
 
     setIsUpdating(true);
     try {
-      const { error } = await supabase.auth.updateUser({ password: newPassword });
-      if (error) throw error;
+      const { data, error } = await supabase.functions.invoke("reset-password", {
+        body: { token, password: newPassword },
+      });
+      if (error || data?.error) throw error || new Error(data?.error || "ERROR");
       toast({
         title: t("reset.successTitle"),
         description: t("reset.successDesc"),
@@ -146,7 +104,7 @@ const AdminResetPassword = () => {
           </p>
         </div>
 
-        {hasSession ? (
+        {hasToken ? (
           <form onSubmit={handleUpdatePassword} className="space-y-4">
             <Input
               id="new-password"
