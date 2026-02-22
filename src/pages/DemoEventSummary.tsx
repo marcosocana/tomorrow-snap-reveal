@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { enUS, es, it } from "date-fns/locale";
 import { toZonedTime } from "date-fns-tz";
-import logoRevelao from "@/assets/logo-revelao.png";
+const demoLogoUrl = "/assets/Frame%20626035-GjZMgkfV.png";
 import { PricingPreview } from "@/components/PricingPreview";
 import { useDemoI18n } from "@/lib/demoI18n";
 
@@ -149,7 +149,7 @@ const DemoEventSummary = () => {
         {/* Header */}
         <div className="flex flex-col items-center gap-4 text-center">
           <img 
-            src={logoRevelao} 
+            src={demoLogoUrl} 
             alt="Revelao.com" 
             className="w-48 h-auto"
           />
