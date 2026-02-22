@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useAdminI18n } from "@/lib/adminI18n";
-import logoRevelao from "@/assets/logo-revelao.png";
+import logoRevelao from "@/assets/logo__revelao.png";
 
 const AdminLogin = () => {
   const [email, setEmail] = useState("");
