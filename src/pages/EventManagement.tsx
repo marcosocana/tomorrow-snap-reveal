@@ -244,6 +244,18 @@ const EventManagement = () => {
     return null;
   };
 
+  const getPlanType = (maxPhotos?: number | null) => {
+    if (maxPhotos === 10) return { label: "D", color: "bg-[#f06a5f]/10 text-[#f06a5f] border-[#f06a5f]/30" };
+    if (maxPhotos === 50) return { label: "P", color: "bg-emerald-50 text-emerald-700 border-emerald-200" };
+    if (maxPhotos === 300) return { label: "M", color: "bg-blue-50 text-blue-700 border-blue-200" };
+    if (maxPhotos === 500) return { label: "G", color: "bg-amber-50 text-amber-700 border-amber-200" };
+    if (maxPhotos === 1000) return { label: "XL", color: "bg-purple-50 text-purple-700 border-purple-200" };
+    return { label: "-", color: "bg-muted text-muted-foreground border-border" };
+  };
+
+  const truncate = (value: string, max: number) =>
+    value.length > max ? `${value.slice(0, max)}...` : value;
+
   const handleCopyUrl = async (password: string) => {
     const eventUrl = `https://acceso.revelao.cam/events/${password}`;
     try {
@@ -318,10 +330,10 @@ const EventManagement = () => {
 
     return (
       <Card key={event.id} className="p-4 md:p-6">
-        <div className="flex flex-col lg:flex-row items-start gap-4 md:gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-[160px_1fr] gap-4 md:gap-6 items-start">
           {/* QR Code Section */}
-          <div className="flex-shrink-0 space-y-2 w-full lg:w-auto">
-            <div className="bg-white p-3 rounded-lg border border-border mx-auto lg:mx-0 w-fit">
+          <div className="space-y-3">
+            <div className="bg-white p-3 rounded-xl border border-border w-fit">
               {qrStorageUrl ? (
                 <img
                   src={qrStorageUrl}
@@ -350,41 +362,37 @@ const EventManagement = () => {
           </div>
 
           {/* Event Info */}
-          <div className="flex-1 space-y-3 w-full">
-            <div className="flex flex-wrap items-center gap-2">
-              <h3 className="text-lg md:text-xl font-semibold text-foreground">
-                {event.name}
-              </h3>
-              {getPlanBadge(event.max_photos) && (
-                <span className="text-xs font-semibold uppercase tracking-wide bg-[#f06a5f]/10 text-[#f06a5f] px-2 py-1 rounded-full">
-                  {getPlanBadge(event.max_photos)}
-                </span>
-              )}
-              {(() => {
-                const country = getCountryByCode(event.country_code || "ES");
-                return country ? (
-                  <span className="text-lg" title={country.name}>
-                    {country.flag}
+          <div className="flex-1 space-y-4 w-full">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-lg md:text-xl font-semibold text-foreground">
+                  {event.name}
+                </h3>
+                {getPlanBadge(event.max_photos) && (
+                  <span className="text-xs font-semibold uppercase tracking-wide bg-[#f06a5f]/10 text-[#f06a5f] px-2 py-1 rounded-full">
+                    {getPlanBadge(event.max_photos)}
                   </span>
-                ) : null;
-              })()}
+                )}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1"
+                onClick={() => navigate(`${pathPrefix}/event-form/${event.id}`)}
+              >
+                <Edit className="w-4 h-4" />
+                <span>{t("events.edit")}</span>
+              </Button>
             </div>
             
             <div className="space-y-3 text-sm text-muted-foreground">
-              {(() => {
-                const country = getCountryByCode(event.country_code || "ES");
-                return country ? (
-                  <p>
-                    <span className="font-medium">{t("events.country")}:</span>{" "}
-                    {country.flag} {country.name}
-                  </p>
-                ) : null;
-              })()}
-              <div className="flex items-center gap-2">
-                <p>
-                  <span className="font-medium">{t("events.photoCount")}:</span>{" "}
-                  {photoCount}{event.max_photos ? ` / ${event.max_photos}` : ""}
-                </p>
+              <p>
+                <span className="font-medium">{t("events.createdLabel")}:</span>{" "}
+                {format(new Date(event.created_at), "dd/MM/yyyy HH:mm", { locale: dateLocale })}
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-medium">{t("events.photoCount")}:</span>{" "}
+                {photoCount}{event.max_photos ? ` / ${event.max_photos}` : ""}
                 <Button
                   variant="outline"
                   size="sm"
@@ -395,12 +403,6 @@ const EventManagement = () => {
                   {t("events.preview")}
                 </Button>
               </div>
-              {event.max_photos && (
-                <p>
-                  <span className="font-medium">{t("events.maxPhotosLabel")}:</span>{" "}
-                  {t("events.maxPhotosText", { count: event.max_photos })}
-                </p>
-              )}
               <div className="space-y-1">
                 <p className="font-medium text-foreground">{t("events.durationLabel")}:</p>
                 {event.upload_start_time && (
@@ -415,62 +417,43 @@ const EventManagement = () => {
                     {formatInTimeZone(new Date(event.upload_end_time), event.timezone || "Europe/Madrid", "dd/MM/yyyy HH:mm", { locale: dateLocale })}
                   </p>
                 )}
-                <p>
-                  <span className="font-medium">{t("events.createdLabel")}:</span>{" "}
-                  {format(new Date(event.created_at), "dd/MM/yyyy HH:mm", { locale: dateLocale })}
-                </p>
               </div>
-              {event.language && event.language !== "es" && (
-                <p>
-                  <span className="font-medium">{t("events.language")}:</span>{" "}
-                  {(() => {
-                    const lang = getLanguageByCode(event.language);
-                    return lang ? `${lang.flag} ${lang.name}` : event.language;
-                  })()}
-                </p>
-              )}
-              {event.expiry_date && (
-                <>
-                  <p>
-                    <span className="font-medium">{t("events.expiryDate")}:</span>{" "}
-                    {formatInTimeZone(new Date(event.expiry_date), event.timezone || "Europe/Madrid", "PPP", { locale: dateLocale })}
-                  </p>
-                  {event.expiry_redirect_url && (
-                    <p className="text-xs text-muted-foreground pl-4 break-all">
-                      {t("events.expiryRedirect")} {event.expiry_redirect_url}
-                    </p>
-                  )}
-                </>
-              )}
-              <p>
-                <span className="font-medium">{t("events.createdAt")}:</span>{" "}
-                {format(new Date(event.created_at), "PPP", { locale: dateLocale })}
+              <div className="space-y-2 pt-1">
+                <p className="text-sm font-medium text-foreground">{t("events.accessLink")}</p>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={eventUrl}
+                    readOnly
+                    className="flex-1 px-3 py-2 text-sm bg-muted rounded-md border border-border min-w-0"
+                  />
+                  <Button
+                    size="icon"
+                    variant="outline"
+                    onClick={() => handleCopyUrl(event.password_hash)}
+                  >
+                    <Copy className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                <span className="font-medium">{t("events.country")}:</span>{" "}
+                {(() => {
+                  const country = getCountryByCode(event.country_code || "ES");
+                  return country ? `${country.flag} ${country.name}` : "-";
+                })()}
+                {" / "}
+                <span className="font-medium">{t("events.language")}:</span>{" "}
+                {(() => {
+                  const lang = getLanguageByCode(event.language || "es");
+                  return lang ? `${lang.flag} ${lang.name}` : event.language || "es";
+                })()}
               </p>
-            </div>
-
-            {/* URL Section */}
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-foreground">{t("events.accessLink")}</p>
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={eventUrl}
-                  readOnly
-                  className="flex-1 px-3 py-2 text-sm bg-muted rounded-md border border-border min-w-0"
-                />
-                <Button
-                  size="icon"
-                  variant="outline"
-                  onClick={() => handleCopyUrl(event.password_hash)}
-                >
-                  <Copy className="w-4 h-4" />
-                </Button>
-              </div>
             </div>
           </div>
 
           {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row lg:flex-col gap-2 w-full lg:w-auto justify-end">
+          <div className="hidden">
             <Button
               variant="outline"
               size="sm"
@@ -485,6 +468,20 @@ const EventManagement = () => {
       </Card>
     );
   };
+
+  const renderEventTable = (tableEvents: Event[]) => (
+    <div className="w-full">
+      <table className="w-full border-separate border-spacing-y-3">
+        <tbody>
+          {tableEvents.map((event) => (
+            <tr key={event.id}>
+              <td className="p-0">{renderEventCard(event)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 
   if (isLoading) {
     return (
@@ -529,7 +526,7 @@ const EventManagement = () => {
                 <thead>
                   <tr className="text-left text-muted-foreground border-b">
                     <th className="py-3 pr-4 font-medium">{t("events.table.name")}</th>
-                    <th className="py-3 pr-4 font-medium">{t("events.table.code")}</th>
+                    <th className="py-3 pr-4 font-medium">{t("events.table.type")}</th>
                     <th className="py-3 pr-4 font-medium">{t("events.table.maxPhotos")}</th>
                     <th className="py-3 pr-4 font-medium">{t("events.table.email")}</th>
                     <th className="py-3 pr-4 font-medium">{t("events.table.phone")}</th>
@@ -541,7 +538,9 @@ const EventManagement = () => {
                     <tr key={event.id} className="border-b last:border-b-0">
                       <td className="py-3 pr-4">
                         <div className="flex items-center gap-2">
-                          <span className="font-medium">{event.name}</span>
+                          <span className="font-medium">
+                            {truncate(event.name, 22)}
+                          </span>
                           {event.max_photos === 10 && (
                             <span className="text-[10px] font-semibold uppercase tracking-wide bg-[#f06a5f]/10 text-[#f06a5f] px-2 py-0.5 rounded-full">
                               {t("events.demoBadge")}
@@ -549,17 +548,21 @@ const EventManagement = () => {
                           )}
                         </div>
                       </td>
-                      <td className="py-3 pr-4 font-mono text-xs break-all">
-                        {event.password_hash}
+                      <td className="py-3 pr-4">
+                        <span
+                          className={`inline-flex items-center justify-center w-9 h-6 rounded-full border text-xs font-semibold ${getPlanType(event.max_photos).color}`}
+                        >
+                          {getPlanType(event.max_photos).label}
+                        </span>
                       </td>
                       <td className="py-3 pr-4">
                         {event.max_photos ?? "-"}
                       </td>
                       <td className="py-3 pr-4">
-                        {event.owner_email || "-"}
+                        {event.owner_email ? truncate(event.owner_email, 10) : "-"}
                       </td>
                       <td className="py-3 pr-4">
-                        {event.owner_phone || "-"}
+                        {event.owner_phone ? t("events.table.phoneYes") : t("events.table.phoneNo")}
                       </td>
                       <td className="py-3">
                         <Button
@@ -608,12 +611,7 @@ const EventManagement = () => {
                 })) || []}
               >
                 {eventsByFolder[folder.id]?.length > 0 ? (
-                  <SortableEventList
-                    events={eventsByFolder[folder.id]}
-                    folderId={folder.id}
-                    onReorder={loadData}
-                    renderEventCard={renderEventCard}
-                  />
+                  renderEventTable(eventsByFolder[folder.id])
                 ) : (
                   <Card className="p-6 text-center bg-muted/20">
                     <p className="text-sm text-muted-foreground">
@@ -632,7 +630,7 @@ const EventManagement = () => {
                     {t("events.unfiled")}
                   </h2>
                 )}
-                {eventsByFolder.unfiled.map(renderEventCard)}
+                {renderEventTable(eventsByFolder.unfiled)}
               </div>
             )}
           </div>

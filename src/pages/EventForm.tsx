@@ -16,7 +16,8 @@ import LanguageSelect from "@/components/LanguageSelect";
 import FontSelect from "@/components/FontSelect";
 import FontSizeSelect, { FontSizeOption } from "@/components/FontSizeSelect";
 import EventPreview from "@/components/EventPreview";
-import { Language } from "@/lib/translations";
+import { Language, getLanguageByCode } from "@/lib/translations";
+import { getCountryByCode } from "@/lib/countries";
 import { EventFontFamily, getEventFontFamily } from "@/lib/eventFonts";
 import { FilterType, FILTER_ORDER } from "@/lib/photoFilters";
 import { useAdminI18n } from "@/lib/adminI18n";
@@ -55,6 +56,7 @@ const EventForm = () => {
   const [isDemoMode] = useState(() => localStorage.getItem("isDemoMode") === "true");
   const [adminEventId] = useState(() => localStorage.getItem("adminEventId"));
   const [isRestrictedAdmin] = useState(() => !!localStorage.getItem("adminEventId"));
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   // Generate a random 32-character hash for passwords
   const generateHash = () => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -116,6 +118,33 @@ const EventForm = () => {
   const { toast } = useToast();
   const { t, pathPrefix } = useAdminI18n();
   const isDemoEvent = formData.maxPhotos === "10";
+  const eventUrl = eventId ? `https://acceso.revelao.cam/events/${formData.password}` : "";
+
+  const getEventQrUrl = (id: string) =>
+    localStorage.getItem(`event-qr-url-${id}`) ||
+    supabase.storage
+      .from("event-photos")
+      .getPublicUrl(`event-qr/qr-${id}.png`).data.publicUrl;
+
+  const handleDownloadQR = async () => {
+    if (!eventId) return;
+    try {
+      const qrUrl = getEventQrUrl(eventId);
+      const response = await fetch(qrUrl);
+      const blob = await response.blob();
+      const link = document.createElement("a");
+      link.download = `qr-${formData.name || "evento"}.png`;
+      link.href = URL.createObjectURL(blob);
+      link.click();
+    } catch (error) {
+      console.error("Error downloading QR:", error);
+      toast({
+        title: t("form.errorTitle"),
+        description: t("events.downloadQrError"),
+        variant: "destructive",
+      });
+    }
+  };
 
   useEffect(() => {
     // Check authentication - demo mode bypasses auth
@@ -141,6 +170,7 @@ const EventForm = () => {
         navigate(`${pathPrefix}/admin-login`);
         return;
       }
+      setIsSuperAdmin((session.user?.email || "").toLowerCase() === "revelao.cam@gmail.com");
       if (isEditing) {
         loadEvent();
       } else {
@@ -524,35 +554,6 @@ const EventForm = () => {
           <Card className="p-6">
             <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
-              <Label className="flex items-center gap-2">
-                <Globe className="w-4 h-4" />
-                {t("form.countryQuestion")}
-              </Label>
-              <CountrySelect
-                value={formData.countryCode}
-                onChange={(countryCode, timezone) =>
-                  setFormData({ ...formData, countryCode, timezone })
-                }
-              />
-              <p className="text-xs text-muted-foreground">
-                {t("form.countryHint")}
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label>{t("form.language")}</Label>
-              <LanguageSelect
-                value={formData.language as Language}
-                onChange={(language) =>
-                  setFormData({ ...formData, language })
-                }
-              />
-              <p className="text-xs text-muted-foreground">
-                {t("form.languageHint")}
-              </p>
-            </div>
-
-            <div className="space-y-2">
               <Label htmlFor="name">{t("form.name")}</Label>
               <Input
                 id="name"
@@ -626,15 +627,15 @@ const EventForm = () => {
                 id="maxPhotos"
                 type="number"
                 min="1"
-                value={isRestrictedAdmin ? "10" : formData.maxPhotos}
+                value={formData.maxPhotos}
                 onChange={(e) =>
                   setFormData({ ...formData, maxPhotos: e.target.value })
                 }
                 placeholder={isDemoMode ? t("form.maxPhotosDemoDefault") : t("form.maxPhotosUnlimited")}
-                disabled={isRestrictedAdmin}
-                className={isRestrictedAdmin ? "bg-muted cursor-not-allowed" : ""}
+                disabled={!isSuperAdmin}
+                className={!isSuperAdmin ? "bg-muted cursor-not-allowed" : ""}
               />
-              {isRestrictedAdmin && (
+              {!isSuperAdmin && (
                 <p className="text-xs text-muted-foreground">
                   {t("form.maxPhotosFixedDemo")}
                 </p>
@@ -796,6 +797,34 @@ const EventForm = () => {
               <p className="text-xs text-muted-foreground">
                 {t("form.descriptionHint")}
               </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>{t("form.countryQuestion")}</Label>
+                <CountrySelect
+                  value={formData.countryCode}
+                  onChange={(countryCode, timezone) =>
+                    setFormData({ ...formData, countryCode, timezone })
+                  }
+                />
+                <p className="text-xs text-muted-foreground">
+                  {t("form.countryHint")}
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>{t("form.language")}</Label>
+                <LanguageSelect
+                  value={formData.language as Language}
+                  onChange={(language) =>
+                    setFormData({ ...formData, language })
+                  }
+                />
+                <p className="text-xs text-muted-foreground">
+                  {t("form.languageHint")}
+                </p>
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -1181,12 +1210,47 @@ const EventForm = () => {
                 }
               </Button>
             </div>
+
+            {isEditing && (
+              <div className="pt-4 text-sm text-muted-foreground" />
+            )}
           </form>
           </Card>
 
           {/* Preview Column */}
           <div className="hidden lg:block">
             <div className="sticky top-6">
+              {isEditing && eventId && (
+                <Card className="p-4 mb-4">
+                  <div className="flex justify-center">
+                    {getEventQrUrl(eventId) ? (
+                      <img
+                        src={getEventQrUrl(eventId)}
+                        alt="QR"
+                        className="w-[160px] h-[160px]"
+                      />
+                    ) : (
+                      <QRCodeSVG value={eventUrl} size={160} />
+                    )}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full mt-3"
+                    onClick={handleDownloadQR}
+                  >
+                    {t("events.downloadQrAction")}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full mt-2"
+                    onClick={() => window.open(eventUrl, "_blank")}
+                  >
+                    {t("events.accessLink")}
+                  </Button>
+                </Card>
+              )}
               <Card className="p-4">
                 <EventPreview
                   eventName={formData.name}
@@ -1210,6 +1274,40 @@ const EventForm = () => {
             </div>
           </div>
         </div>
+
+        {isEditing && eventId && (
+          <div className="lg:hidden">
+            <Card className="p-4">
+              <div className="flex justify-center">
+                {getEventQrUrl(eventId) ? (
+                  <img
+                    src={getEventQrUrl(eventId)}
+                    alt="QR"
+                    className="w-[160px] h-[160px]"
+                  />
+                ) : (
+                  <QRCodeSVG value={eventUrl} size={160} />
+                )}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full mt-3"
+                onClick={handleDownloadQR}
+              >
+                {t("events.downloadQrAction")}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full mt-2"
+                onClick={() => window.open(eventUrl, "_blank")}
+              >
+                {t("events.accessLink")}
+              </Button>
+            </Card>
+          </div>
+        )}
       </div>
     </div>
   );
