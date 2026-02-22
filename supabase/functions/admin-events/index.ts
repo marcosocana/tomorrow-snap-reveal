@@ -51,10 +51,17 @@ serve(async (req) => {
   const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
   try {
-    const { data: events, error: eventsError } = await supabaseAdmin
+    const url = new URL(req.url);
+    const eventId = url.searchParams.get("eventId");
+
+    const baseQuery = supabaseAdmin
       .from("events")
       .select("id,name,password_hash,max_photos,upload_start_time,upload_end_time,reveal_time,created_at,owner_id")
       .order("created_at", { ascending: false });
+
+    const { data: events, error: eventsError } = eventId
+      ? await baseQuery.eq("id", eventId)
+      : await baseQuery;
 
     if (eventsError) {
       return json({ error: "LOAD_FAILED", detail: eventsError.message }, 500);

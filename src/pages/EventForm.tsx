@@ -57,6 +57,8 @@ const EventForm = () => {
   const [adminEventId] = useState(() => localStorage.getItem("adminEventId"));
   const [isRestrictedAdmin] = useState(() => !!localStorage.getItem("adminEventId"));
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [ownerEmail, setOwnerEmail] = useState<string | null>(null);
+  const [ownerPhone, setOwnerPhone] = useState<string | null>(null);
   // Generate a random 32-character hash for passwords
   const generateHash = () => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -234,6 +236,19 @@ const EventForm = () => {
         galleryViewMode: ((event as any).gallery_view_mode || "normal") as "normal" | "grid",
         likeCountingEnabled: (event as any).like_counting_enabled === true,
       });
+
+      if ((await supabase.auth.getSession()).data.session?.user?.email?.toLowerCase() === "revelao.cam@gmail.com") {
+        try {
+          const { data: ownerPayload } = await supabase.functions.invoke(`admin-events?eventId=${eventId}`, {
+            method: "GET",
+          });
+          const ownerEvent = ownerPayload?.events?.[0];
+          setOwnerEmail(ownerEvent?.owner_email || null);
+          setOwnerPhone(ownerEvent?.owner_phone || null);
+        } catch (error) {
+          console.error("Error loading owner info:", error);
+        }
+      }
     } catch (error) {
       console.error("Error loading event:", error);
       toast({
@@ -548,6 +563,22 @@ const EventForm = () => {
             </span>
           )}
         </div>
+        {isEditing && isSuperAdmin && (ownerEmail || ownerPhone) && (
+          <div className="text-sm text-muted-foreground">
+            {ownerEmail && (
+              <p>
+                <span className="font-medium">{t("events.ownerEmail")}:</span>{" "}
+                {ownerEmail}
+              </p>
+            )}
+            {ownerPhone && (
+              <p>
+                <span className="font-medium">{t("events.ownerPhone")}:</span>{" "}
+                {ownerPhone}
+              </p>
+            )}
+          </div>
+        )}
 
         <div className="grid lg:grid-cols-[1fr,280px] gap-6">
           {/* Form Column */}
