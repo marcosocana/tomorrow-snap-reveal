@@ -19,6 +19,7 @@ import { Language } from "@/lib/translations";
 import { EventFontFamily } from "@/lib/eventFonts";
 import { FilterType } from "@/lib/photoFilters";
 import logoDemo from "@/assets/Frame 626035.png";
+import { useDemoI18n } from "@/lib/demoI18n";
 
 const generateHash = (): string => Math.random().toString(36).substring(2, 10);
 
@@ -26,6 +27,7 @@ const PublicDemoEventForm = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const { lang, t, pathPrefix } = useDemoI18n();
   const [formData, setFormData] = useState(() => {
     const now = new Date();
     const currentTime = format(now, "HH:mm");
@@ -55,7 +57,7 @@ const PublicDemoEventForm = () => {
       fontSize: "text-3xl",
       countryCode: "ES",
       timezone: "Europe/Madrid",
-      language: "es",
+      language: lang,
       description: "",
     };
   });
@@ -181,8 +183,8 @@ const PublicDemoEventForm = () => {
     } catch (error) {
       console.error("Error uploading image:", error);
       toast({
-        title: "Error",
-        description: "No se pudo subir la imagen",
+        title: t("summary.copyErrorTitle"),
+        description: t("form.errors.imageUpload"),
         variant: "destructive",
       });
       return null;
@@ -197,8 +199,8 @@ const PublicDemoEventForm = () => {
     // Validate contact fields
     if (!formData.contactEmail.trim()) {
       toast({
-        title: "Error",
-        description: "El email es obligatorio",
+        title: t("summary.copyErrorTitle"),
+        description: t("form.errors.emailRequired"),
         variant: "destructive",
       });
       return;
@@ -208,8 +210,8 @@ const PublicDemoEventForm = () => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.contactEmail)) {
       toast({
-        title: "Error",
-        description: "Por favor, introduce un email válido",
+        title: t("summary.copyErrorTitle"),
+        description: t("form.errors.emailInvalid"),
         variant: "destructive",
       });
       return;
@@ -217,8 +219,8 @@ const PublicDemoEventForm = () => {
 
     if (!formData.contactPassword || formData.contactPassword.length < 8) {
       toast({
-        title: "Error",
-        description: "La contraseña debe tener al menos 8 caracteres",
+        title: t("summary.copyErrorTitle"),
+        description: t("form.errors.passwordMin"),
         variant: "destructive",
       });
       return;
@@ -226,8 +228,8 @@ const PublicDemoEventForm = () => {
 
     if (formData.contactPassword !== formData.contactPasswordConfirm) {
       toast({
-        title: "Error",
-        description: "Las contraseñas no coinciden",
+        title: t("summary.copyErrorTitle"),
+        description: t("form.errors.passwordMismatch"),
         variant: "destructive",
       });
       return;
@@ -297,20 +299,20 @@ const PublicDemoEventForm = () => {
 
         if (errorCode === "DEMO_ALREADY_EXISTS") {
           toast({
-            title: "Ya existe un evento de prueba",
-            description: "Inicia sesión para ver tu evento demo.",
+            title: t("form.errors.demoExistsTitle"),
+            description: t("form.errors.demoExistsDesc"),
             variant: "destructive",
           });
-          navigate(`/admin-login?reason=exists&email=${encodeURIComponent(formData.contactEmail)}`);
+          navigate(`${pathPrefix}/admin-login?reason=exists&email=${encodeURIComponent(formData.contactEmail)}`);
           return;
         }
         if (errorCode === "USER_EXISTS" || `${errorCode}`.includes("USER_EXISTS")) {
           toast({
-            title: "El email ya está registrado",
-            description: "Inicia sesión para ver tus eventos.",
+            title: t("form.errors.userExistsTitle"),
+            description: t("form.errors.userExistsDesc"),
             variant: "destructive",
           });
-          navigate(`/admin-login?reason=exists&email=${encodeURIComponent(formData.contactEmail)}`);
+          navigate(`${pathPrefix}/admin-login?reason=exists&email=${encodeURIComponent(formData.contactEmail)}`);
           return;
         }
         throw error;
@@ -329,7 +331,7 @@ const PublicDemoEventForm = () => {
       }
 
       // Navigate to summary page with event data
-      navigate("/nuevoeventodemo/resumen", { 
+      navigate(`${pathPrefix}/nuevoeventodemo/resumen`, { 
         state: { 
           event: newEvent,
           qrUrl,
@@ -343,8 +345,8 @@ const PublicDemoEventForm = () => {
     } catch (error) {
       console.error("Error creating event:", error);
       toast({
-        title: "Error",
-        description: "No se pudo crear el evento",
+        title: t("summary.copyErrorTitle"),
+        description: t("form.errors.eventCreate"),
         variant: "destructive",
       });
     } finally {
@@ -362,10 +364,10 @@ const PublicDemoEventForm = () => {
             className="h-16 w-auto"
           />
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground text-center">
-            Crea tu evento de prueba
+            {t("form.title")}
           </h1>
           <p className="text-muted-foreground text-center max-w-md">
-            Crea un evento gratuito con hasta 10 fotos para probar Revelao
+            {t("form.subtitle")}
           </p>
         </div>
 
@@ -375,7 +377,7 @@ const PublicDemoEventForm = () => {
               {currentStep === 1 && (
                 <>
                   <div className="space-y-2">
-                    <Label htmlFor="name">Nombre del evento *</Label>
+                    <Label htmlFor="name">{t("form.step1.eventName")}</Label>
                     <Input
                       id="name"
                       value={formData.name}
@@ -385,29 +387,29 @@ const PublicDemoEventForm = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Tipografía</Label>
+                    <Label>{t("form.step1.font")}</Label>
                     <FontSelect
                       value={formData.fontFamily}
                       onChange={(fontFamily) => setFormData({ ...formData, fontFamily })}
-                      previewText={formData.name || "Nombre del evento"}
+                      previewText={formData.name || t("form.step1.eventName")}
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="description">Descripción del evento</Label>
+                    <Label htmlFor="description">{t("form.step1.description")}</Label>
                     <Textarea
                       id="description"
                       value={formData.description}
                       onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                      placeholder="Escribe el texto que quieres que aparezca en la pantalla"
+                      placeholder={t("form.step1.descriptionPlaceholder")}
                       rows={3}
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="backgroundImage">Fotografía de fondo (opcional)</Label>
+                    <Label htmlFor="backgroundImage">{t("form.step1.background")}</Label>
                     <div className="text-xs text-muted-foreground mb-2 space-y-1">
-                      <p>Imagen que aparecerá como fondo en la cabecera de la galería.</p>
+                      <p>{t("form.step1.backgroundHelp")}</p>
                     </div>
                     {formData.backgroundImageUrl && !formData.backgroundImage && (
                       <div className="mb-2 relative inline-block">
@@ -459,9 +461,9 @@ const PublicDemoEventForm = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="customImage">Logo personalizado (opcional)</Label>
+                    <Label htmlFor="customImage">{t("form.step1.customLogo")}</Label>
                     <div className="text-xs text-muted-foreground mb-2">
-                      Máximo 240px ancho × 100px alto. Se muestra como icono en las pantallas.
+                      {t("form.step1.customLogoHelp")}
                     </div>
                     {formData.customImageUrl && !formData.customImage && (
                       <div className="mb-2 relative inline-block">
@@ -514,7 +516,7 @@ const PublicDemoEventForm = () => {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>¿Dónde es el evento?</Label>
+                      <Label>{t("form.step1.country")}</Label>
                       <CountrySelect
                         value={formData.countryCode}
                         onChange={(countryCode, timezone) =>
@@ -523,7 +525,7 @@ const PublicDemoEventForm = () => {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Idioma</Label>
+                      <Label>{t("form.step1.language")}</Label>
                       <LanguageSelect
                         value={formData.language as Language}
                         onChange={(language) => setFormData({ ...formData, language })}
@@ -532,10 +534,10 @@ const PublicDemoEventForm = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-base font-semibold">Duración del evento</Label>
+                    <Label className="text-base font-semibold">{t("form.step1.duration")}</Label>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="uploadStartDate">Fecha de inicio</Label>
+                        <Label htmlFor="uploadStartDate">{t("form.step1.startDate")}</Label>
                         <Input
                           id="uploadStartDate"
                           type="date"
@@ -545,7 +547,7 @@ const PublicDemoEventForm = () => {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="uploadStartTime">Hora de inicio</Label>
+                        <Label htmlFor="uploadStartTime">{t("form.step1.startTime")}</Label>
                         <Input
                           id="uploadStartTime"
                           type="time"
@@ -560,7 +562,7 @@ const PublicDemoEventForm = () => {
                   <div className="space-y-2">
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="uploadEndDate">Fecha fin</Label>
+                        <Label htmlFor="uploadEndDate">{t("form.step1.endDate")}</Label>
                         <Input
                           id="uploadEndDate"
                           type="date"
@@ -570,7 +572,7 @@ const PublicDemoEventForm = () => {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="uploadEndTime">Hora de fin</Label>
+                        <Label htmlFor="uploadEndTime">{t("form.step1.endTime")}</Label>
                         <Input
                           id="uploadEndTime"
                           type="time"
@@ -582,7 +584,7 @@ const PublicDemoEventForm = () => {
                     </div>
                     {formData.countryCode !== "ES" && formData.uploadStartDate && formData.uploadEndDate && (
                       <p className="text-xs text-muted-foreground">
-                        En España: {(() => {
+                        {t("form.step1.spainTime")} {(() => {
                           try {
                             const eventTz = formData.timezone;
                             const spainTz = "Europe/Madrid";
@@ -600,10 +602,10 @@ const PublicDemoEventForm = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-base font-semibold">Revelado</Label>
+                    <Label className="text-base font-semibold">{t("form.step1.reveal")}</Label>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="revealDate">Fecha del revelado</Label>
+                        <Label htmlFor="revealDate">{t("form.step1.revealDate")}</Label>
                         <Input
                           id="revealDate"
                           type="date"
@@ -613,7 +615,7 @@ const PublicDemoEventForm = () => {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="revealTime">Hora del revelado</Label>
+                        <Label htmlFor="revealTime">{t("form.step1.revealTime")}</Label>
                         <Input
                           id="revealTime"
                           type="time"
@@ -625,7 +627,7 @@ const PublicDemoEventForm = () => {
                     </div>
                     {formData.countryCode !== "ES" && formData.revealDate && (
                       <p className="text-xs text-muted-foreground">
-                        En España: {(() => {
+                        {t("form.step1.spainTime")} {(() => {
                           try {
                             const eventTz = formData.timezone;
                             const spainTz = "Europe/Madrid";
@@ -644,57 +646,57 @@ const PublicDemoEventForm = () => {
               {currentStep === 2 && (
                 <>
                   <div className="space-y-4">
-                    <Label className="text-base font-semibold">Información de contacto</Label>
+                    <Label className="text-base font-semibold">{t("form.step2.title")}</Label>
                     <p className="text-xs text-muted-foreground">
-                      Necesitamos tus datos para poder contactarte si tienes algún problema con tu evento
+                      {t("form.step2.subtitle")}
                     </p>
 
                     <div className="space-y-2">
-                      <Label htmlFor="contactEmail">Email *</Label>
+                      <Label htmlFor="contactEmail">{t("form.step2.email")}</Label>
                       <Input
                         id="contactEmail"
                         type="email"
                         value={formData.contactEmail}
                         onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })}
                         required
-                        placeholder="tu@email.com"
+                        placeholder={t("form.step2.emailPlaceholder")}
                       />
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="contactPassword">Contraseña *</Label>
+                      <Label htmlFor="contactPassword">{t("form.step2.password")}</Label>
                       <Input
                         id="contactPassword"
                         type="password"
                         value={formData.contactPassword}
                         onChange={(e) => setFormData({ ...formData, contactPassword: e.target.value })}
                         required
-                        placeholder="Mínimo 8 caracteres"
+                        placeholder={t("form.step2.passwordPlaceholder")}
                         autoComplete="new-password"
                       />
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="contactPasswordConfirm">Repetir contraseña *</Label>
+                      <Label htmlFor="contactPasswordConfirm">{t("form.step2.passwordConfirm")}</Label>
                       <Input
                         id="contactPasswordConfirm"
                         type="password"
                         value={formData.contactPasswordConfirm}
                         onChange={(e) => setFormData({ ...formData, contactPasswordConfirm: e.target.value })}
                         required
-                        placeholder="Repite la contraseña"
+                        placeholder={t("form.step2.passwordConfirmPlaceholder")}
                         autoComplete="new-password"
                       />
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="contactPhone">Teléfono (opcional)</Label>
+                      <Label htmlFor="contactPhone">{t("form.step2.phone")}</Label>
                       <Input
                         id="contactPhone"
                         type="tel"
                         value={formData.contactPhone}
                         onChange={(e) => setFormData({ ...formData, contactPhone: e.target.value })}
-                        placeholder="+34 600 000 000"
+                        placeholder={t("form.step2.phonePlaceholder")}
                       />
                     </div>
                   </div>
@@ -704,7 +706,7 @@ const PublicDemoEventForm = () => {
               <div className="pt-4 flex gap-3">
                 {currentStep === 2 && (
                   <Button type="button" variant="outline" className="flex-1" onClick={handleStepBack}>
-                    Atrás
+                    {t("form.actions.back")}
                   </Button>
                 )}
                 <Button
@@ -713,12 +715,12 @@ const PublicDemoEventForm = () => {
                   disabled={currentStep === 1 ? !formData.name.trim() || uploadingImage : isSubmitting || uploadingImage}
                 >
                   {currentStep === 1
-                    ? "Siguiente"
+                    ? t("form.actions.next")
                     : uploadingImage
-                      ? "Subiendo imagen..."
+                      ? t("form.actions.uploading")
                       : isSubmitting
-                        ? "Creando evento..."
-                        : "Crear evento de prueba"}
+                        ? t("form.actions.creating")
+                        : t("form.actions.create")}
                 </Button>
               </div>
             </form>

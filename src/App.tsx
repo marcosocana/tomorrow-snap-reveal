@@ -64,6 +64,8 @@ const App = () => (
             <Route path="/en/event-form/:eventId" element={<EventForm />} />
             <Route path="/en/bulk-upload" element={<BulkUpload />} />
             <Route path="/en/planes" element={<PricingPlans />} />
+            <Route path="/en/nuevoeventodemo" element={<PublicDemoEventForm />} />
+            <Route path="/en/nuevoeventodemo/resumen" element={<DemoEventSummary />} />
             <Route path="/en/logout" element={<Logout />} />
             <Route path="/en/redeem/:token" element={<RedeemEvent />} />
             <Route path="/en/evento-pago/resumen" element={<PaidEventSummary />} />
@@ -76,6 +78,8 @@ const App = () => (
             <Route path="/it/event-form/:eventId" element={<EventForm />} />
             <Route path="/it/bulk-upload" element={<BulkUpload />} />
             <Route path="/it/planes" element={<PricingPlans />} />
+            <Route path="/it/nuevoeventodemo" element={<PublicDemoEventForm />} />
+            <Route path="/it/nuevoeventodemo/resumen" element={<DemoEventSummary />} />
             <Route path="/it/logout" element={<Logout />} />
             <Route path="/it/redeem/:token" element={<RedeemEvent />} />
             <Route path="/it/evento-pago/resumen" element={<PaidEventSummary />} />

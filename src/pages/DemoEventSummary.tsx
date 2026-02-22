@@ -6,10 +6,11 @@ import { useEffect, useState, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
-import { es } from "date-fns/locale";
+import { enUS, es, it } from "date-fns/locale";
 import { toZonedTime } from "date-fns-tz";
 import logoRevelao from "@/assets/logo-revelao.png";
 import { PricingPreview } from "@/components/PricingPreview";
+import { useDemoI18n } from "@/lib/demoI18n";
 
 interface EventData {
   id: string;
@@ -29,6 +30,7 @@ const DemoEventSummary = () => {
   const { toast } = useToast();
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const { lang, t, pathPrefix } = useDemoI18n();
 
   const event = location.state?.event as EventData | undefined;
   const qrFromState = location.state?.qrUrl as string | undefined;
@@ -38,11 +40,11 @@ const DemoEventSummary = () => {
 
   // Redirect if no event data
   if (!event) {
-    return <Navigate to="/nuevoeventodemo" replace />;
+    return <Navigate to={`${pathPrefix}/nuevoeventodemo`} replace />;
   }
 
   const eventUrl = `https://acceso.revelao.cam/events/${event.password_hash}`;
-  const adminUrl = "https://acceso.revelao.cam";
+  const adminUrl = `https://acceso.revelao.cam${pathPrefix}/admin-login`;
   const eventTz = event.timezone || "Europe/Madrid";
   const shouldShowPricing = /^\d{8}$/.test(event.password_hash);
   const storedQrUrl = event
@@ -93,6 +95,7 @@ const DemoEventSummary = () => {
             qrUrl: qrImageUrl,
             contactInfo,
             eventType: "demo",
+            lang,
           },
         });
         localStorage.setItem(sentKey, "1");
@@ -110,7 +113,13 @@ const DemoEventSummary = () => {
   const formatEventDate = (dateString: string) => {
     try {
       const date = toZonedTime(new Date(dateString), eventTz);
-      return format(date, "d 'de' MMMM 'de' yyyy 'a las' HH:mm", { locale: es });
+      if (lang === "es") {
+        return format(date, "d 'de' MMMM 'de' yyyy 'a las' HH:mm", { locale: es });
+      }
+      if (lang === "it") {
+        return format(date, "d MMMM yyyy, HH:mm", { locale: it });
+      }
+      return format(date, "MMMM d, yyyy, HH:mm", { locale: enUS });
     } catch {
       return dateString;
     }
@@ -121,14 +130,14 @@ const DemoEventSummary = () => {
       await navigator.clipboard.writeText(text);
       setCopiedField(field);
       toast({
-        title: "Copiado",
-        description: "Texto copiado al portapapeles",
+        title: t("summary.copyTitle"),
+        description: t("summary.copyDesc"),
       });
       setTimeout(() => setCopiedField(null), 2000);
     } catch (error) {
       toast({
-        title: "Error",
-        description: "No se pudo copiar al portapapeles",
+        title: t("summary.copyErrorTitle"),
+        description: t("summary.copyErrorDesc"),
         variant: "destructive",
       });
     }
@@ -148,7 +157,7 @@ const DemoEventSummary = () => {
             <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
               <Check className="w-5 h-5" />
             </div>
-            <span className="text-xl font-semibold">¡Evento creado con éxito!</span>
+            <span className="text-xl font-semibold">{t("summary.createdTitle")}</span>
           </div>
         </div>
 
@@ -156,7 +165,9 @@ const DemoEventSummary = () => {
         <Card className="p-6 space-y-6">
           <div className="text-center">
             <h2 className="text-2xl font-bold text-foreground">{event.name}</h2>
-            <p className="text-muted-foreground mt-1">Evento de prueba • Máximo {event.max_photos} fotos</p>
+            <p className="text-muted-foreground mt-1">
+              {t("summary.demoLabel", { count: event.max_photos })}
+            </p>
           </div>
 
           {/* QR Code */}
@@ -164,7 +175,7 @@ const DemoEventSummary = () => {
             <div className="bg-white p-4 rounded-lg shadow-sm">
               <img
                 src={qrImageUrl}
-                alt="QR del evento"
+                alt={t("summary.qrAlt")}
                 className="w-[200px] h-[200px]"
               />
             </div>
@@ -175,10 +186,10 @@ const DemoEventSummary = () => {
               className="gap-2"
             >
               <Download className="w-4 h-4" />
-              Descargar QR
+              {t("summary.qrDownload")}
             </Button>
             <p className="text-sm text-muted-foreground text-center">
-              Los invitados pueden escanear este código QR para acceder al evento
+              {t("summary.qrHint")}
             </p>
           </div>
 
@@ -186,7 +197,7 @@ const DemoEventSummary = () => {
           <div className="space-y-4 border-t border-border pt-4">
             {/* Event URL */}
             <div className="space-y-1">
-              <label className="text-sm font-medium text-muted-foreground">URL del evento</label>
+              <label className="text-sm font-medium text-muted-foreground">{t("summary.eventUrl")}</label>
               <div className="flex items-center gap-2">
                 <code className="flex-1 bg-muted px-3 py-2 rounded text-sm break-all">
                   {eventUrl}
@@ -204,17 +215,17 @@ const DemoEventSummary = () => {
             {/* Dates */}
             <div className="grid sm:grid-cols-2 gap-4">
               <div className="space-y-1">
-                <label className="text-sm font-medium text-muted-foreground">Inicio de subida</label>
+                <label className="text-sm font-medium text-muted-foreground">{t("summary.uploadStart")}</label>
                 <p className="text-sm">{formatEventDate(event.upload_start_time)}</p>
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-muted-foreground">Fin de subida</label>
+                <label className="text-sm font-medium text-muted-foreground">{t("summary.uploadEnd")}</label>
                 <p className="text-sm">{formatEventDate(event.upload_end_time)}</p>
               </div>
             </div>
 
             <div className="space-y-1">
-              <label className="text-sm font-medium text-muted-foreground">Fecha de revelado</label>
+              <label className="text-sm font-medium text-muted-foreground">{t("summary.revealDate")}</label>
               <p className="text-sm">{formatEventDate(event.reveal_time)}</p>
             </div>
           </div>
@@ -224,15 +235,15 @@ const DemoEventSummary = () => {
         <Card className="p-6 border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-900/10">
           <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2">
             <span className="text-lg">🔐</span>
-            Cómo gestionar tu evento
+            {t("summary.adminTitle")}
           </h3>
           <div className="space-y-3 text-sm">
             <p className="text-muted-foreground">
-              Para ver las fotos y administrar tu evento, sigue estos pasos:
+              {t("summary.adminStepIntro")}
             </p>
             <ol className="list-decimal list-inside space-y-2 text-muted-foreground">
               <li>
-                Entra en{" "}
+                {t("summary.adminStep1")}{" "}
                 <a 
                   href={adminUrl} 
                   target="_blank" 
@@ -243,16 +254,19 @@ const DemoEventSummary = () => {
                   <ExternalLink className="w-3 h-3" />
                 </a>
               </li>
-              <li>Introduce tu <strong>contraseña de administrador</strong>: <code className="bg-background px-1 rounded">{event.admin_password}</code></li>
-              <li>Podrás ver todas las fotos incluso antes del revelado</li>
+              <li>
+                {t("summary.adminStep2")}{" "}
+                <code className="bg-background px-1 rounded">{event.admin_password}</code>
+              </li>
+              <li>{t("summary.adminStep3")}</li>
             </ol>
           </div>
         </Card>
 
         <Card className="p-6 border-primary/30 bg-primary/5">
-          <h3 className="font-semibold text-foreground mb-2">Este es un evento de prueba</h3>
+          <h3 className="font-semibold text-foreground mb-2">{t("summary.demoNoticeTitle")}</h3>
           <p className="text-sm text-muted-foreground">
-            Para contratar un evento real, visita{" "}
+            {t("summary.demoNoticeText")}{" "}
             <a
               href="https://www.revelao.cam"
               target="_blank"
@@ -261,7 +275,7 @@ const DemoEventSummary = () => {
             >
               revelao.cam
             </a>{" "}
-            y elige el plan que mejor se ajuste.
+            {t("summary.demoNoticeTextEnd")}
           </p>
         </Card>
 
@@ -276,29 +290,29 @@ const DemoEventSummary = () => {
           <Button 
             variant="outline" 
             className="flex-1"
-            onClick={() => navigate("/nuevoeventodemo")}
+            onClick={() => navigate(`${pathPrefix}/nuevoeventodemo`)}
           >
-            Crear otro evento
+            {t("summary.createAnother")}
           </Button>
           <Button 
             className="flex-1"
             onClick={() => window.open(eventUrl, '_blank')}
           >
             <ExternalLink className="w-4 h-4 mr-2" />
-            Ir al evento
+            {t("summary.goToEvent")}
           </Button>
         </div>
 
         {/* Help */}
         <p className="text-center text-sm text-muted-foreground">
-          ¿Algún problema?{" "}
+          {t("summary.help")}{" "}
           <a
             href="https://wa.me/34695834018?text=Hola%2C%20acabo%20de%20crear%20un%20evento%20de%20prueba%20y%20tengo%20una%20duda."
             target="_blank"
             rel="noopener noreferrer"
             className="text-primary hover:underline font-semibold"
           >
-            ¡Contáctanos!
+            {t("summary.contact")}
           </a>
         </p>
       </div>
