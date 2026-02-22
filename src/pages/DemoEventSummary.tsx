@@ -233,33 +233,27 @@ const DemoEventSummary = () => {
 
         {/* Admin Access Instructions */}
         <Card className="p-6 border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-900/10">
-          <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2">
-            <span className="text-lg">🔐</span>
-            {t("summary.adminTitle")}
-          </h3>
-          <div className="space-y-3 text-sm">
+          <div className="space-y-4 text-sm">
             <p className="text-muted-foreground">
-              {t("summary.adminStepIntro")}
+              Entra en{" "}
+              <a
+                href={adminUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline font-medium"
+              >
+                acceso.revelao.cam
+              </a>{" "}
+              o accede a través del siguiente botón.
             </p>
-            <ol className="list-decimal list-inside space-y-2 text-muted-foreground">
-              <li>
-                {t("summary.adminStep1")}{" "}
-                <a 
-                  href={adminUrl} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-primary hover:underline font-medium inline-flex items-center gap-1"
-                >
-                  acceso.revelao.cam
-                  <ExternalLink className="w-3 h-3" />
-                </a>
-              </li>
-              <li>
-                {t("summary.adminStep2")}{" "}
-                <code className="bg-background px-1 rounded">{event.admin_password}</code>
-              </li>
-              <li>{t("summary.adminStep3")}</li>
-            </ol>
+            <Button
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
+              asChild
+            >
+              <a href={adminUrl} target="_blank" rel="noopener noreferrer">
+                Gestionar evento
+              </a>
+            </Button>
           </div>
         </Card>
 
@@ -284,24 +278,6 @@ const DemoEventSummary = () => {
             <PricingPreview />
           </Card>
         ) : null}
-
-        {/* Actions */}
-        <div className="flex flex-col sm:flex-row gap-3">
-          <Button 
-            variant="outline" 
-            className="flex-1"
-            onClick={() => navigate(`${pathPrefix}/nuevoeventodemo`)}
-          >
-            {t("summary.createAnother")}
-          </Button>
-          <Button 
-            className="flex-1"
-            onClick={() => window.open(eventUrl, '_blank')}
-          >
-            <ExternalLink className="w-4 h-4 mr-2" />
-            {t("summary.goToEvent")}
-          </Button>
-        </div>
 
         {/* Help */}
         <p className="text-center text-sm text-muted-foreground">

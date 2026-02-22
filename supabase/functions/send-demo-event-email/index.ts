@@ -217,7 +217,7 @@ serve(async (req) => {
         <p style="margin: 6px 0 0;">${t.maxPhotos}: ${event.max_photos}</p>
         <p style="margin: 6px 0 0;">${t.timezone}: ${eventTz}</p>
       </div>
-      <div style="margin: 16px 0 20px; padding: 16px; background: #fdecec; border-radius: 12px;">
+      <div style="margin: 16px 0 20px; padding: 16px; background: #fef9c3; border: 1px solid #fde68a; border-radius: 12px;">
         <p style="margin: 0 0 10px; font-size: 13px; color: #333;">
           ${t.manageText.replace("{adminUrl}", `<a href="${adminUrl}">${adminUrl}</a>`)}
         </p>
