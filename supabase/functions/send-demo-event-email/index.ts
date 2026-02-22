@@ -183,7 +183,7 @@ serve(async (req) => {
   const html = `
     <div style="font-family: Arial, sans-serif; color: #111; line-height: 1.6; background: #ffffff;">
       <div style="text-align: center; padding: 8px 0 16px;">
-        <img src="${LOGO_URL}" alt="Revelao" style="height: 192px; width: auto; display: inline-block;" />
+        <img src="${LOGO_URL}" alt="Revelao" style="height: 96px; width: auto; display: inline-block;" />
       </div>
       <p style="font-size: 13px; margin: 0 0 4px;">${isDemo ? t.introDemo : t.introPaid}</p>
       <p style="font-size: 20px; font-weight: 700; margin: 0 0 16px;">${event.name}</p>
