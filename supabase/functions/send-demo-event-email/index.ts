@@ -102,23 +102,24 @@ serve(async (req) => {
       subjectPaid: "Tu evento en Revelao",
       introDemo: "Tu evento de prueba está listo",
       introPaid: "Tu evento está listo",
-      summary: "Resumen del evento",
+      howTitle: "Cómo funciona",
+      howStep1: "Comparte el QR con tus invitados para que puedan acceder al evento.",
+      howStep2: "Tus invitados suben fotos durante el periodo de subida.",
+      howStep3: "En la fecha de Revelado, todas las fotos aparecen juntas.",
+      summary: "Fechas del evento",
       qrTitle: "Código QR del evento",
       qrLabel: "QR Code",
       qrHint: "Escanea con tu móvil para acceder al evento",
-      qrUrlHint: "También puedes acceder a través de la URL:",
+      qrUrlHint: "También puedes acceder con este enlace:",
       uploadStart: "Inicio de subida",
       uploadEnd: "Fin de subida",
       reveal: "Revelado",
-      maxPhotos: "Máximo de fotos",
+      maxPhotos: "Fotografías incluidas",
       timezone: "Zona horaria",
-      adminHelp:
-        "Si quieres ver las fotos antes del revelado o editar cualquier cosa, debes acceder al panel de administración.",
-      adminAccess: "Acceso de administrador",
-      adminPassword: "Contraseña de administrador",
-      demoTitle: "Evento de prueba",
-      demoText:
-        "Para contratar un evento real, visita {planUrl} y elige el plan que mejor se ajuste.",
+      manageTitle: "Gestiona tu evento",
+      manageButton: "Gestionar mi evento",
+      demoNote:
+        "Recuerda que este es un evento de prueba con un máximo de 10 fotos. Si quieres crear un evento real, puedes contratar un plan de pago desde {price}. Hazlo fácilmente desde el botón “Gestionar mi evento”.",
       paidTitle: "Evento de pago",
       paidText: "Gracias por confiar en Revelao. Si necesitas ayuda, responde a este email.",
       plan: "Plan",
@@ -128,23 +129,24 @@ serve(async (req) => {
       subjectPaid: "Your Revelao event",
       introDemo: "Your demo event is ready",
       introPaid: "Your event is ready",
-      summary: "Event summary",
+      howTitle: "How it works",
+      howStep1: "Share the QR with your guests so they can access the event.",
+      howStep2: "Your guests upload photos during the upload period.",
+      howStep3: "On the Reveal date, all photos appear together.",
+      summary: "Event dates",
       qrTitle: "Event QR code",
       qrLabel: "QR Code",
       qrHint: "Scan with your phone to access the event",
-      qrUrlHint: "You can also access via this URL:",
+      qrUrlHint: "You can also access with this link:",
       uploadStart: "Upload start",
       uploadEnd: "Upload end",
       reveal: "Reveal",
-      maxPhotos: "Max photos",
+      maxPhotos: "Photos included",
       timezone: "Time zone",
-      adminHelp:
-        "If you want to see photos before the reveal or edit anything, access the admin panel.",
-      adminAccess: "Admin access",
-      adminPassword: "Admin password",
-      demoTitle: "Demo event",
-      demoText:
-        "To purchase a real event, visit {planUrl} and choose the plan that fits best.",
+      manageTitle: "Manage your event",
+      manageButton: "Manage my event",
+      demoNote:
+        "Remember this is a demo event with a maximum of 10 photos. If you want to create a real event, you can purchase a paid plan from {price}. You can do it easily from the “Manage my event” button.",
       paidTitle: "Paid event",
       paidText: "Thanks for choosing Revelao. If you need help, reply to this email.",
       plan: "Plan",
@@ -154,23 +156,24 @@ serve(async (req) => {
       subjectPaid: "Il tuo evento su Revelao",
       introDemo: "Il tuo evento demo è pronto",
       introPaid: "Il tuo evento è pronto",
-      summary: "Riepilogo evento",
+      howTitle: "Come funziona",
+      howStep1: "Condividi il QR con gli invitati per accedere all’evento.",
+      howStep2: "Gli invitati caricano foto durante il periodo di caricamento.",
+      howStep3: "Alla data di Rivelazione, tutte le foto compaiono insieme.",
+      summary: "Date dell’evento",
       qrTitle: "Codice QR dell’evento",
       qrLabel: "QR Code",
       qrHint: "Scansiona con il telefono per accedere all’evento",
-      qrUrlHint: "Puoi accedere anche tramite questo URL:",
+      qrUrlHint: "Puoi accedere anche con questo link:",
       uploadStart: "Inizio caricamento",
       uploadEnd: "Fine caricamento",
       reveal: "Rivelazione",
-      maxPhotos: "Numero massimo di foto",
+      maxPhotos: "Foto incluse",
       timezone: "Fuso orario",
-      adminHelp:
-        "Se vuoi vedere le foto prima della rivelazione o modificare qualcosa, accedi al pannello di amministrazione.",
-      adminAccess: "Accesso amministratore",
-      adminPassword: "Password amministratore",
-      demoTitle: "Evento demo",
-      demoText:
-        "Per acquistare un evento reale, visita {planUrl} e scegli il piano più adatto.",
+      manageTitle: "Gestisci il tuo evento",
+      manageButton: "Gestisci il mio evento",
+      demoNote:
+        "Ricorda che questo è un evento demo con un massimo di 10 foto. Se vuoi creare un evento reale, puoi acquistare un piano a pagamento da {price}. Puoi farlo facilmente dal pulsante “Gestisci il mio evento”.",
       paidTitle: "Evento a pagamento",
       paidText: "Grazie per aver scelto Revelao. Se hai bisogno di aiuto, rispondi a questa email.",
       plan: "Piano",
@@ -184,10 +187,15 @@ serve(async (req) => {
       </div>
       <p style="font-size: 13px; margin: 0 0 4px;">${isDemo ? t.introDemo : t.introPaid}</p>
       <p style="font-size: 20px; font-weight: 700; margin: 0 0 16px;">${event.name}</p>
-      <p style="font-weight: 700; margin: 0 0 8px;">${t.summary}</p>
+      <p style="font-weight: 700; margin: 0 0 8px;">${t.howTitle}</p>
+      <ul style="margin: 0 0 16px; padding-left: 20px; color: #444;">
+        <li style="margin-bottom: 6px;">${t.howStep1}</li>
+        <li style="margin-bottom: 6px;">${t.howStep2}</li>
+        <li style="margin-bottom: 6px;">${t.howStep3}</li>
+      </ul>
+      <p style="font-weight: 700; margin: 0 0 8px;">${t.qrTitle}</p>
       <div style="margin: 12px 0 20px; padding: 16px; background: #f5f5f5; border-radius: 12px;">
         <div style="text-align: center; margin-bottom: 12px;">
-          <p style="font-weight: 700; margin: 0 0 6px;">${t.qrTitle}</p>
           <p style="font-size: 12px; color: #666; margin: 0 0 6px;">${t.qrLabel}</p>
           <img src="${resolvedQrUrl}" alt="QR del evento" style="width: 180px; height: 180px; display: inline-block;" />
           <p style="margin: 8px 0 0; font-size: 12px; color: #666;">${t.qrHint}</p>
@@ -196,20 +204,23 @@ serve(async (req) => {
           </p>
         </div>
         ${planLabel ? `<p style="margin: 8px 0 0;">${t.plan}: ${planLabel}</p>` : ""}
-        <p style="margin: 8px 0 0;">${t.uploadStart}: ${formatDate(event.upload_start_time)}</p>
-        <p style="margin: 8px 0 0;">${t.uploadEnd}: ${formatDate(event.upload_end_time)}</p>
-        <p style="margin: 8px 0 0;">${t.reveal}: ${formatDate(event.reveal_time)}</p>
-        <p style="margin: 8px 0 0;">${t.maxPhotos}: ${event.max_photos}</p>
-        <p style="margin: 8px 0 0;">${t.timezone}: ${eventTz}</p>
+        <p style="font-weight: 700; margin: 12px 0 6px;">${t.summary}</p>
+        <p style="margin: 6px 0 0;">${t.uploadStart}: ${formatDate(event.upload_start_time)}</p>
+        <p style="margin: 6px 0 0;">${t.uploadEnd}: ${formatDate(event.upload_end_time)}</p>
+        <p style="margin: 6px 0 0;">${t.reveal}: ${formatDate(event.reveal_time)}</p>
+        <p style="margin: 6px 0 0;">${t.maxPhotos}: ${event.max_photos}</p>
+        <p style="margin: 6px 0 0;">${t.timezone}: ${eventTz}</p>
       </div>
-      <p style="margin: 0 0 12px;">${t.adminHelp}</p>
-      <p style="margin: 0 0 6px;">${t.adminAccess}: <a href="${adminUrl}">${adminUrl}</a></p>
-      <p style="margin: 0 0 6px;">${t.adminPassword}: <strong>${event.admin_password}</strong></p>
+      <p style="font-weight: 700; margin: 0 0 8px;">${t.manageTitle}</p>
+      <div style="margin: 0 0 16px;">
+        <a href="${adminUrl}" style="display:inline-block;padding:12px 18px;background:#111;color:#fff;border-radius:10px;text-decoration:none;font-weight:700;">
+          ${t.manageButton}
+        </a>
+      </div>
       <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;" />
       ${
         isDemo
-          ? `<p><strong>${t.demoTitle}</strong></p>
-      <p>${t.demoText.replace("{planUrl}", `<a href="${planUrl}">${planUrl}</a>`)}</p>`
+          ? `<p>${t.demoNote.replace("{price}", "36€")}</p>`
           : `<p><strong>${t.paidTitle}</strong></p>
       <p>${t.paidText}</p>`
       }
