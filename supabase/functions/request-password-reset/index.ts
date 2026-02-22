@@ -43,8 +43,13 @@ const generateToken = (length = 48) => {
 
 const sendResetEmail = async (to: string, resetUrl: string) => {
   if (!RESEND_API_KEY || !FROM_EMAIL) {
+    console.error("request-password-reset missing email env", {
+      hasResendKey: Boolean(RESEND_API_KEY),
+      hasFromEmail: Boolean(FROM_EMAIL),
+    });
     throw new Error("MISSING_EMAIL_ENV");
   }
+  console.log("request-password-reset sending email", { to });
   const html = `
     <div style="font-family: Arial, sans-serif; color: #111; line-height: 1.6;">
       ${LOGO_URL ? `<div style="text-align:center;margin-bottom:24px;"><img src="${LOGO_URL}" alt="Revelao" style="width:240px; height:auto;" /></div>` : ""}
@@ -80,6 +85,9 @@ const sendResetEmail = async (to: string, resetUrl: string) => {
     console.error("Resend error:", response.status, errorText);
     throw new Error(`RESEND_FAILED:${response.status}`);
   }
+
+  const responseBody = await response.text();
+  console.log("request-password-reset resend ok", responseBody || "(empty)");
 };
 
 serve(async (req) => {
@@ -92,6 +100,10 @@ serve(async (req) => {
   }
 
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    console.error("request-password-reset missing supabase env", {
+      hasUrl: Boolean(SUPABASE_URL),
+      hasServiceRole: Boolean(SUPABASE_SERVICE_ROLE_KEY),
+    });
     return json({ error: "Missing env" }, 500);
   }
 
@@ -99,8 +111,10 @@ serve(async (req) => {
     const { email } = (await req.json()) as { email?: string };
     const cleanEmail = (email || "").trim().toLowerCase();
     if (!isEmail(cleanEmail)) {
+      console.warn("request-password-reset invalid email", { email });
       return json({ error: "INVALID_EMAIL" }, 400);
     }
+    console.log("request-password-reset request", { email: cleanEmail });
 
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
@@ -112,6 +126,7 @@ serve(async (req) => {
       .maybeSingle();
 
     if (!user?.id) {
+      console.log("request-password-reset user not found", { email: cleanEmail });
       // Avoid user enumeration
       return json({ ok: true });
     }
@@ -125,6 +140,10 @@ serve(async (req) => {
       email: cleanEmail,
       token_hash: tokenHash,
       expires_at: expiresAt,
+    });
+    console.log("request-password-reset token stored", {
+      userId: user.id,
+      expiresAt,
     });
 
     const resetUrl = `${APP_ORIGIN}/reset-password?token=${rawToken}`;
