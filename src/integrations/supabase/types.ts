@@ -71,14 +71,17 @@ export type Database = {
           language: string
           legal_text_type: string
           like_counting_enabled: boolean
+          limits_json: Json | null
           max_photos: number | null
           name: string
           owner_id: string | null
           password_hash: string
+          plan_id: string | null
           reveal_time: string
           show_legal_text: boolean
           sort_order: number | null
           timezone: string
+          type: string | null
           upload_end_time: string | null
           upload_start_time: string | null
         }
@@ -105,14 +108,17 @@ export type Database = {
           language?: string
           legal_text_type?: string
           like_counting_enabled?: boolean
+          limits_json?: Json | null
           max_photos?: number | null
           name: string
           owner_id?: string | null
           password_hash: string
+          plan_id?: string | null
           reveal_time: string
           show_legal_text?: boolean
           sort_order?: number | null
           timezone?: string
+          type?: string | null
           upload_end_time?: string | null
           upload_start_time?: string | null
         }
@@ -139,14 +145,17 @@ export type Database = {
           language?: string
           legal_text_type?: string
           like_counting_enabled?: boolean
+          limits_json?: Json | null
           max_photos?: number | null
           name?: string
           owner_id?: string | null
           password_hash?: string
+          plan_id?: string | null
           reveal_time?: string
           show_legal_text?: boolean
           sort_order?: number | null
           timezone?: string
+          type?: string | null
           upload_end_time?: string | null
           upload_start_time?: string | null
         }
@@ -158,7 +167,44 @@ export type Database = {
             referencedRelation: "event_folders"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "events_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      password_resets: {
+        Row: {
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          token_hash: string
+          used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          expires_at: string
+          id?: string
+          token_hash: string
+          used_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          token_hash?: string
+          used_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
       photo_likes: {
         Row: {
@@ -240,11 +286,33 @@ export type Database = {
           phone?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_profiles_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
-      [_ in never]: never
+      users: {
+        Row: {
+          email: string | null
+          id: string | null
+        }
+        Insert: {
+          email?: string | null
+          id?: string | null
+        }
+        Update: {
+          email?: string | null
+          id?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       [_ in never]: never
