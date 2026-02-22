@@ -121,14 +121,59 @@ serve(async (req) => {
     const { data: user } = await supabaseAdmin
       .schema("auth")
       .from("users")
-      .select("id")
-      .eq("email", cleanEmail)
+      .select("id,email")
+      .ilike("email", cleanEmail)
       .maybeSingle();
 
-    if (!user?.id) {
-      console.log("request-password-reset user not found", { email: cleanEmail });
-      // Avoid user enumeration
-      return json({ ok: true });
+    let userId = user?.id ?? null;
+
+    if (!userId) {
+      console.log("request-password-reset auth user not found", { email: cleanEmail });
+
+      const { data: publicUser, error: publicUserError } = await supabaseAdmin
+        .from("users")
+        .select("id,email")
+        .ilike("email", cleanEmail)
+        .maybeSingle();
+
+      if (publicUserError) {
+        console.error("request-password-reset public users lookup error:", publicUserError.message);
+        // Avoid user enumeration
+        return json({ ok: true });
+      }
+
+      if (!publicUser?.id) {
+        console.log("request-password-reset public user not found", { email: cleanEmail });
+        // Avoid user enumeration
+        return json({ ok: true });
+      }
+
+      console.log("request-password-reset creating auth user from public users", {
+        email: cleanEmail,
+      });
+
+      const tempPassword = generateToken(24);
+      const { data: createdUser, error: createUserError } =
+        await supabaseAdmin.auth.admin.createUser({
+          email: cleanEmail,
+          password: tempPassword,
+          email_confirm: true,
+        });
+
+      if (createUserError || !createdUser?.user) {
+        console.error(
+          "request-password-reset create auth user error:",
+          createUserError?.message ?? "unknown_error",
+        );
+        // Avoid user enumeration
+        return json({ ok: true });
+      }
+
+      console.log("request-password-reset auth user created", {
+        userId: createdUser.user.id,
+      });
+
+      userId = createdUser.user.id;
     }
 
     const rawToken = generateToken(32);
@@ -136,13 +181,13 @@ serve(async (req) => {
     const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
 
     await supabaseAdmin.from("password_resets").insert({
-      user_id: user.id,
+      user_id: userId,
       email: cleanEmail,
       token_hash: tokenHash,
       expires_at: expiresAt,
     });
     console.log("request-password-reset token stored", {
-      userId: user.id,
+      userId,
       expiresAt,
     });
 
