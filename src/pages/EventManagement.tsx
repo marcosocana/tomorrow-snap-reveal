@@ -4,7 +4,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { Calendar, Plus, Edit, Copy, Download, Eye, LogOut } from "lucide-react";
 import { format } from "date-fns";
@@ -186,10 +185,15 @@ const EventManagement = () => {
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    localStorage.removeItem("isDemoMode");
-    localStorage.removeItem("adminEventId");
-    navigate(`${pathPrefix}/admin-login`, { replace: true });
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.error("Error signing out:", error);
+    } finally {
+      localStorage.removeItem("isDemoMode");
+      localStorage.removeItem("adminEventId");
+      navigate(`${pathPrefix}/admin-login`, { replace: true });
+    }
   };
 
   // Get events organized by folder, sorted by sort_order
@@ -231,46 +235,13 @@ const EventManagement = () => {
     });
   };
 
-  const handleToggleReveal = async (event: Event, isRevealed: boolean) => {
-    try {
-      if (isRevealed) {
-        const newRevealTime = new Date();
-        newRevealTime.setHours(newRevealTime.getHours() + 24);
-
-        const { error } = await supabase
-          .from("events")
-          .update({ reveal_time: newRevealTime.toISOString() })
-          .eq("id", event.id);
-
-        if (error) throw error;
-
-      toast({
-        title: t("events.reopenedTitle"),
-        description: t("events.reopenedDesc"),
-      });
-      } else {
-        const { error } = await supabase
-          .from("events")
-          .update({ reveal_time: new Date().toISOString() })
-          .eq("id", event.id);
-
-        if (error) throw error;
-
-      toast({
-        title: t("events.revealedTitle"),
-        description: t("events.revealedDesc"),
-      });
-      }
-
-      loadData();
-    } catch (error) {
-      console.error("Error toggling reveal:", error);
-      toast({
-        title: t("form.errorTitle"),
-        description: t("events.toggleError"),
-        variant: "destructive",
-      });
-    }
+  const getPlanBadge = (maxPhotos?: number | null) => {
+    if (maxPhotos === 10) return t("events.badge.demo");
+    if (maxPhotos === 50) return t("events.badge.small");
+    if (maxPhotos === 300) return t("events.badge.medium");
+    if (maxPhotos === 500) return t("events.badge.large");
+    if (maxPhotos === 1000) return t("events.badge.xl");
+    return null;
   };
 
   const handleCopyUrl = async (password: string) => {
@@ -334,9 +305,6 @@ const EventManagement = () => {
 
   const renderEventCard = (event: Event) => {
     const effectiveEvent = getEffectiveEvent(event);
-    const revealTime = new Date(event.reveal_time);
-    const now = new Date();
-    const isRevealed = now >= revealTime;
     const photoCount = eventPhotoCounts[event.id] || 0;
     const eventUrl = `https://acceso.revelao.cam/events/${event.password_hash}`;
     const statusInfo = getEventStatus(
@@ -387,9 +355,9 @@ const EventManagement = () => {
               <h3 className="text-lg md:text-xl font-semibold text-foreground">
                 {event.name}
               </h3>
-              {event.max_photos === 10 && (
+              {getPlanBadge(event.max_photos) && (
                 <span className="text-xs font-semibold uppercase tracking-wide bg-[#f06a5f]/10 text-[#f06a5f] px-2 py-1 rounded-full">
-                  {t("events.demoBadge")}
+                  {getPlanBadge(event.max_photos)}
                 </span>
               )}
               {(() => {
@@ -400,18 +368,9 @@ const EventManagement = () => {
                   </span>
                 ) : null;
               })()}
-              <div className="flex items-center gap-2">
-                <Switch
-                  checked={isRevealed}
-                  onCheckedChange={() => handleToggleReveal(event, isRevealed)}
-                />
-                <span className="text-sm text-muted-foreground">
-                  {isRevealed ? t("events.status.revealed") : t("events.status.notRevealed")}
-                </span>
-              </div>
             </div>
             
-            <div className="space-y-1 text-sm text-muted-foreground">
+            <div className="space-y-3 text-sm text-muted-foreground">
               {(() => {
                 const country = getCountryByCode(event.country_code || "ES");
                 return country ? (
@@ -421,16 +380,6 @@ const EventManagement = () => {
                   </p>
                 ) : null;
               })()}
-              <p>
-                <span className="font-medium">{t("events.password")}:</span>{" "}
-                {event.password_hash}
-              </p>
-              {event.admin_password && (
-                <p>
-                  <span className="font-medium">{t("events.adminPassword")}:</span>{" "}
-                  {event.admin_password}
-                </p>
-              )}
               <div className="flex items-center gap-2">
                 <p>
                   <span className="font-medium">{t("events.photoCount")}:</span>{" "}
@@ -448,42 +397,29 @@ const EventManagement = () => {
               </div>
               {event.max_photos && (
                 <p>
-                  <span className="font-medium">{t("events.maxPhotos")}:</span>{" "}
-                  {event.max_photos}
+                  <span className="font-medium">{t("events.maxPhotosLabel")}:</span>{" "}
+                  {t("events.maxPhotosText", { count: event.max_photos })}
                 </p>
               )}
-              {event.upload_start_time && event.upload_end_time && (
-                <>
-                  <p className="break-words">
-                    <span className="font-medium">{t("events.uploadRange")}:</span>{" "}
-                    <span className="inline-block">
-                      {formatInTimeZone(new Date(event.upload_start_time), event.timezone || "Europe/Madrid", "dd/MM/yyyy HH:mm", { locale: dateLocale })} - {formatInTimeZone(new Date(event.upload_end_time), event.timezone || "Europe/Madrid", "dd/MM/yyyy HH:mm", { locale: dateLocale })}
-                    </span>
-                    <span className="text-xs ml-1">({(() => {
-                      const country = getCountryByCode(event.country_code || "ES");
-                      return country ? `${country.flag} ${country.name}` : t("events.spain");
-                    })()})</span>
+              <div className="space-y-1">
+                <p className="font-medium text-foreground">{t("events.durationLabel")}:</p>
+                {event.upload_start_time && (
+                  <p>
+                    <span className="font-medium">{t("events.startLabel")}:</span>{" "}
+                    {formatInTimeZone(new Date(event.upload_start_time), event.timezone || "Europe/Madrid", "dd/MM/yyyy HH:mm", { locale: dateLocale })}
                   </p>
-                  {(event.country_code || "ES") !== "ES" && (
-                    <p className="text-xs text-muted-foreground pl-4">
-                      🇪🇸 {t("events.inSpain")}: {formatInTimeZone(new Date(event.upload_start_time), "Europe/Madrid", "dd/MM/yyyy HH:mm", { locale: dateLocale })} - {formatInTimeZone(new Date(event.upload_end_time), "Europe/Madrid", "dd/MM/yyyy HH:mm", { locale: dateLocale })}
-                    </p>
-                  )}
-                </>
-              )}
-              <p>
-                <span className="font-medium">{t("events.revealDate")}:</span>{" "}
-                {formatInTimeZone(revealTime, event.timezone || "Europe/Madrid", "PPP 'a las' HH:mm", { locale: dateLocale })}
-                <span className="text-xs ml-1">({(() => {
-                  const country = getCountryByCode(event.country_code || "ES");
-                  return country ? `${country.flag} ${country.name}` : t("events.spain");
-                })()})</span>
-              </p>
-              {(event.country_code || "ES") !== "ES" && (
-                <p className="text-xs text-muted-foreground pl-4">
-                  🇪🇸 {t("events.inSpain")}: {formatInTimeZone(revealTime, "Europe/Madrid", "PPP 'a las' HH:mm", { locale: dateLocale })}
+                )}
+                {event.upload_end_time && (
+                  <p>
+                    <span className="font-medium">{t("events.endLabel")}:</span>{" "}
+                    {formatInTimeZone(new Date(event.upload_end_time), event.timezone || "Europe/Madrid", "dd/MM/yyyy HH:mm", { locale: dateLocale })}
+                  </p>
+                )}
+                <p>
+                  <span className="font-medium">{t("events.createdLabel")}:</span>{" "}
+                  {format(new Date(event.created_at), "dd/MM/yyyy HH:mm", { locale: dateLocale })}
                 </p>
-              )}
+              </div>
               {event.language && event.language !== "es" && (
                 <p>
                   <span className="font-medium">{t("events.language")}:</span>{" "}
@@ -513,20 +449,23 @@ const EventManagement = () => {
             </div>
 
             {/* URL Section */}
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                value={eventUrl}
-                readOnly
-                className="flex-1 px-3 py-2 text-sm bg-muted rounded-md border border-border min-w-0"
-              />
-              <Button
-                size="icon"
-                variant="outline"
-                onClick={() => handleCopyUrl(event.password_hash)}
-              >
-                <Copy className="w-4 h-4" />
-              </Button>
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-foreground">{t("events.accessLink")}</p>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={eventUrl}
+                  readOnly
+                  className="flex-1 px-3 py-2 text-sm bg-muted rounded-md border border-border min-w-0"
+                />
+                <Button
+                  size="icon"
+                  variant="outline"
+                  onClick={() => handleCopyUrl(event.password_hash)}
+                >
+                  <Copy className="w-4 h-4" />
+                </Button>
+              </div>
             </div>
           </div>
 
