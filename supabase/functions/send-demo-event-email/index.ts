@@ -107,8 +107,8 @@ serve(async (req) => {
       howStep2: "Tus invitados suben fotos durante el periodo de subida.",
       howStep3: "En la fecha de Revelado, todas las fotos aparecen juntas.",
       summary: "Fechas del evento",
-      qrTitle: "Código QR del evento",
-      qrLabel: "QR Code",
+      qrTitle: "Información de tu evento",
+      qrLabel: "Código QR",
       qrHint: "Escanea con tu móvil para acceder al evento",
       qrUrlHint: "También puedes acceder con este enlace:",
       uploadStart: "Inicio de subida",
@@ -117,6 +117,8 @@ serve(async (req) => {
       maxPhotos: "Fotografías incluidas",
       timezone: "Zona horaria",
       manageTitle: "Gestiona tu evento",
+      manageText:
+        "Para poder editar todos los detalles de tu evento, puedes acceder a {adminUrl} o haciendo click en el siguiente botón.",
       manageButton: "Gestionar mi evento",
       demoNote:
         "Recuerda que este es un evento de prueba con un máximo de 10 fotos. Si quieres crear un evento real, puedes contratar un plan de pago desde {price}. Hazlo fácilmente desde el botón “Gestionar mi evento”.",
@@ -134,8 +136,8 @@ serve(async (req) => {
       howStep2: "Your guests upload photos during the upload period.",
       howStep3: "On the Reveal date, all photos appear together.",
       summary: "Event dates",
-      qrTitle: "Event QR code",
-      qrLabel: "QR Code",
+      qrTitle: "Your event information",
+      qrLabel: "QR code",
       qrHint: "Scan with your phone to access the event",
       qrUrlHint: "You can also access with this link:",
       uploadStart: "Upload start",
@@ -144,6 +146,8 @@ serve(async (req) => {
       maxPhotos: "Photos included",
       timezone: "Time zone",
       manageTitle: "Manage your event",
+      manageText:
+        "To edit all the details of your event, you can access {adminUrl} or click the button below.",
       manageButton: "Manage my event",
       demoNote:
         "Remember this is a demo event with a maximum of 10 photos. If you want to create a real event, you can purchase a paid plan from {price}. You can do it easily from the “Manage my event” button.",
@@ -161,8 +165,8 @@ serve(async (req) => {
       howStep2: "Gli invitati caricano foto durante il periodo di caricamento.",
       howStep3: "Alla data di Rivelazione, tutte le foto compaiono insieme.",
       summary: "Date dell’evento",
-      qrTitle: "Codice QR dell’evento",
-      qrLabel: "QR Code",
+      qrTitle: "Informazioni sul tuo evento",
+      qrLabel: "Codice QR",
       qrHint: "Scansiona con il telefono per accedere all’evento",
       qrUrlHint: "Puoi accedere anche con questo link:",
       uploadStart: "Inizio caricamento",
@@ -171,6 +175,8 @@ serve(async (req) => {
       maxPhotos: "Foto incluse",
       timezone: "Fuso orario",
       manageTitle: "Gestisci il tuo evento",
+      manageText:
+        "Per modificare tutti i dettagli del tuo evento, puoi accedere a {adminUrl} oppure fare clic sul pulsante qui sotto.",
       manageButton: "Gestisci il mio evento",
       demoNote:
         "Ricorda che questo è un evento demo con un massimo di 10 foto. Se vuoi creare un evento reale, puoi acquistare un piano a pagamento da {price}. Puoi farlo facilmente dal pulsante “Gestisci il mio evento”.",
@@ -211,19 +217,23 @@ serve(async (req) => {
         <p style="margin: 6px 0 0;">${t.maxPhotos}: ${event.max_photos}</p>
         <p style="margin: 6px 0 0;">${t.timezone}: ${eventTz}</p>
       </div>
-      <p style="font-weight: 700; margin: 0 0 8px;">${t.manageTitle}</p>
-      <div style="margin: 0 0 16px;">
-        <a href="${adminUrl}" style="display:inline-block;padding:12px 18px;background:#111;color:#fff;border-radius:10px;text-decoration:none;font-weight:700;">
-          ${t.manageButton}
-        </a>
+      <div style="margin: 16px 0 20px; padding: 16px; background: #fdecec; border-radius: 12px;">
+        <p style="margin: 0 0 10px; font-size: 13px; color: #333;">
+          ${t.manageText.replace("{adminUrl}", `<a href="${adminUrl}">${adminUrl}</a>`)}
+        </p>
+        <div style="margin: 0 0 12px;">
+          <a href="${adminUrl}" style="display:inline-block;padding:12px 18px;background:#111;color:#fff;border-radius:10px;text-decoration:none;font-weight:700;">
+            ${t.manageButton}
+          </a>
+        </div>
+        ${
+          isDemo
+            ? `<p style="margin: 0;">${t.demoNote.replace("{price}", "36€")}</p>`
+            : `<p style="margin: 0;"><strong>${t.paidTitle}</strong> ${t.paidText}</p>`
+        }
       </div>
       <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;" />
-      ${
-        isDemo
-          ? `<p>${t.demoNote.replace("{price}", "36€")}</p>`
-          : `<p><strong>${t.paidTitle}</strong></p>
-      <p>${t.paidText}</p>`
-      }
+      
     </div>
   `;
 

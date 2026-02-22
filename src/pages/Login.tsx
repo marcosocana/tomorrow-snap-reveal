@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import logoRevelao from "@/assets/logo-revelao.png";
+import logoRevelao from "@/assets/logo__revelao.png";
 
 const Login = () => {
   const [password, setPassword] = useState("");

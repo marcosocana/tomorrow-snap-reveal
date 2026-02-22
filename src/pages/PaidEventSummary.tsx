@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { toZonedTime } from "date-fns-tz";
-import logoRevelao from "@/assets/logo-revelao.png";
+import logoRevelao from "@/assets/logo__revelao.png";
 
 interface EventData {
   id: string;
