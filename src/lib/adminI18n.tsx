@@ -1245,10 +1245,7 @@ const getDateLocale = (lang: AdminLanguage) => {
 
 export const AdminI18nProvider = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
-  const [lang, setLang] = useState<AdminLanguage>(() => {
-    const saved = localStorage.getItem(STORAGE_KEY) as AdminLanguage | null;
-    return saved ?? "es";
-  });
+  const [lang, setLang] = useState<AdminLanguage>("es");
 
   useEffect(() => {
     if (location.pathname.startsWith("/en/")) {
@@ -1259,8 +1256,7 @@ export const AdminI18nProvider = ({ children }: { children: React.ReactNode }) =
       setLang("it");
       return;
     }
-    const saved = localStorage.getItem(STORAGE_KEY) as AdminLanguage | null;
-    setLang(saved ?? "es");
+    setLang("es");
   }, [location.pathname]);
 
   useEffect(() => {
