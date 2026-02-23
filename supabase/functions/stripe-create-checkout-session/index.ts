@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import Stripe from "https://esm.sh/stripe@13.10.0?target=deno";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { getPlanById } from "../_shared/planConfig.ts";
 
@@ -53,29 +52,39 @@ serve(async (req) => {
     }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    const { data: userData, error: userError } = await supabase.auth.getUser(
-      token,
-    );
+    const { data: userData, error: userError } = await supabase.auth.getUser(token);
     if (userError || !userData?.user) {
       return json({ error: "UNAUTHORIZED" }, 401);
     }
 
-    const stripe = new Stripe(STRIPE_SECRET_KEY, {
-      apiVersion: "2023-10-16",
-    });
+    const params = new URLSearchParams();
+    params.set("mode", "payment");
+    params.set("success_url", `${APP_ORIGIN}/?checkout=success`);
+    params.set("cancel_url", `${APP_ORIGIN}/?checkout=cancel`);
+    params.set("line_items[0][price]", priceId);
+    params.set("line_items[0][quantity]", "1");
+    if (userData.user.email) {
+      params.set("customer_email", userData.user.email);
+    }
+    params.set("metadata[planId]", plan.id);
+    params.set("metadata[userId]", userData.user.id);
 
-    const session = await stripe.checkout.sessions.create({
-      mode: "payment",
-      line_items: [{ price: priceId, quantity: 1 }],
-      customer_email: userData.user.email ?? undefined,
-      success_url: `${APP_ORIGIN}/?checkout=success`,
-      cancel_url: `${APP_ORIGIN}/?checkout=cancel`,
-      metadata: {
-        planId: plan.id,
-        userId: userData.user.id,
+    const response = await fetch("https://api.stripe.com/v1/checkout/sessions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${STRIPE_SECRET_KEY}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Stripe-Version": "2023-10-16",
       },
+      body: params,
     });
 
+    if (!response.ok) {
+      const detail = await response.text();
+      return json({ error: "STRIPE_ERROR", detail }, 500);
+    }
+
+    const session = await response.json();
     return json({ url: session.url });
   } catch (error) {
     console.error("stripe-create-checkout-session error:", error);
