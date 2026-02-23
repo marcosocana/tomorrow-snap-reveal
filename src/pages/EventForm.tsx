@@ -22,6 +22,7 @@ import { EventFontFamily, getEventFontFamily } from "@/lib/eventFonts";
 import { FilterType, FILTER_ORDER } from "@/lib/photoFilters";
 import { useAdminI18n } from "@/lib/adminI18n";
 import { QRCodeSVG } from "qrcode.react";
+import defaultQrLogo from "@/assets/marca_revelao_qr_evento.png";
 
 // Background image - no size restrictions
 
@@ -60,7 +61,7 @@ const EventForm = () => {
   const [ownerEmail, setOwnerEmail] = useState<string | null>(null);
   const [ownerPhone, setOwnerPhone] = useState<string | null>(null);
   const [ownerEmailInput, setOwnerEmailInput] = useState("");
-  const [planType, setPlanType] = useState<"demo" | "small" | "medium" | "large" | "xxl" | "custom">("demo");
+  const [planType, setPlanType] = useState<"demo" | "small" | "medium" | "xxl" | "custom">("demo");
   // Generate a random 32-character hash for passwords
   const generateHash = () => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -238,6 +239,14 @@ const EventForm = () => {
         galleryViewMode: ((event as any).gallery_view_mode || "normal") as "normal" | "grid",
         likeCountingEnabled: (event as any).like_counting_enabled === true,
       });
+
+      const resolvedPlanType =
+        event.max_photos === 10 ? "demo" :
+        event.max_photos === 200 ? "small" :
+        event.max_photos === 1200 ? "medium" :
+        event.max_photos == null ? "custom" :
+        "custom";
+      setPlanType(resolvedPlanType);
 
       if ((await supabase.auth.getSession()).data.session?.user?.email?.toLowerCase() === "revelao.cam@gmail.com") {
         try {
@@ -641,6 +650,13 @@ const EventForm = () => {
     }
   };
 
+  useEffect(() => {
+    if (!isSuperAdmin || isEditing) return;
+    setFormData((prev) =>
+      prev.customImageUrl ? prev : { ...prev, customImageUrl: defaultQrLogo }
+    );
+  }, [isSuperAdmin, isEditing]);
+
   const nowTz = toZonedTime(new Date(), formData.timezone);
   const todayStr = format(nowTz, "yyyy-MM-dd");
   const startMinTimeStr = format(subHours(nowTz, 2), "HH:mm");
@@ -651,6 +667,7 @@ const EventForm = () => {
   };
 
   const getExpiryDays = () => {
+    if (planType === "custom") return null;
     if (formData.maxPhotos === "10" || isDemoMode || planType === "demo") return 10;
     if (formData.maxPhotos === "200") return 20;
     if (formData.maxPhotos === "1200") return 60;
@@ -659,9 +676,16 @@ const EventForm = () => {
 
   useEffect(() => {
     if (!formData.revealDate) return;
+    const expiryDays = getExpiryDays();
+    if (expiryDays === null) {
+      setFormData((prev) =>
+        prev.expiryDate === "" && prev.expiryTime === "" ? prev : { ...prev, expiryDate: "", expiryTime: "" }
+      );
+      return;
+    }
     const eventTz = formData.timezone;
     const revealBase = fromZonedTime(`${formData.revealDate}T00:00:00`, eventTz);
-    const expiryDate = formatInTimeZone(addDays(revealBase, getExpiryDays()), eventTz, "yyyy-MM-dd");
+    const expiryDate = formatInTimeZone(addDays(revealBase, expiryDays), eventTz, "yyyy-MM-dd");
     setFormData((prev) =>
       prev.expiryDate === expiryDate && prev.expiryTime === "23:59"
         ? prev
@@ -747,13 +771,20 @@ const EventForm = () => {
                       demo: "10",
                       small: "200",
                       medium: "1200",
-                      large: "1200",
                       xxl: "",
+                      custom: "",
                     };
                     if (value !== "custom") {
                       setFormData((prev) => ({
                         ...prev,
                         maxPhotos: planToMaxPhotos[value],
+                      }));
+                    } else {
+                      setFormData((prev) => ({
+                        ...prev,
+                        maxPhotos: "",
+                        expiryDate: "",
+                        expiryTime: "",
                       }));
                     }
                   }}
@@ -762,7 +793,6 @@ const EventForm = () => {
                   <option value="demo">{t("events.planDemo")}</option>
                   <option value="small">{t("events.planSmall")}</option>
                   <option value="medium">{t("events.planMedium")}</option>
-                  <option value="large">{t("events.planLarge")}</option>
                   <option value="xxl">{t("events.planXl")}</option>
                   <option value="custom">{t("events.planCustom")}</option>
                 </select>
@@ -843,18 +873,18 @@ const EventForm = () => {
               <Label htmlFor="maxPhotos">
                 {t("form.maxPhotos")}
               </Label>
-              <Input
-                id="maxPhotos"
-                type="number"
-                min="1"
-                value={formData.maxPhotos}
-                onChange={(e) =>
-                  setFormData({ ...formData, maxPhotos: e.target.value })
-                }
-                placeholder={isDemoMode ? t("form.maxPhotosDemoDefault") : t("form.maxPhotosUnlimited")}
-                disabled={!isSuperAdmin}
-                className={!isSuperAdmin ? "bg-muted cursor-not-allowed" : ""}
-              />
+                <Input
+                  id="maxPhotos"
+                  type="number"
+                  min="1"
+                  value={formData.maxPhotos}
+                  onChange={(e) =>
+                    setFormData({ ...formData, maxPhotos: e.target.value })
+                  }
+                  placeholder={isDemoMode ? t("form.maxPhotosDemoDefault") : t("form.maxPhotosUnlimited")}
+                  disabled={!isSuperAdmin || planType !== "custom"}
+                  className={!isSuperAdmin || planType !== "custom" ? "bg-muted cursor-not-allowed" : ""}
+                />
               {!isSuperAdmin && (
                 <p className="text-xs text-muted-foreground">
                   {t("form.maxPhotosFixedDemo")}
@@ -1202,22 +1232,22 @@ const EventForm = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="expiryDate">{t("form.expiryDateLabel")}</Label>
-                    <Input
-                      id="expiryDate"
-                      type="date"
-                      value={formData.expiryDate}
-                      disabled
-                    />
+                  <Input
+                    id="expiryDate"
+                    type="date"
+                    value={formData.expiryDate}
+                    disabled={!isSuperAdmin || planType !== "custom"}
+                  />
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="expiryTime">{t("form.expiryTimeLabel")}</Label>
-                    <Input
-                      id="expiryTime"
-                      type="time"
-                      value={formData.expiryTime}
-                      disabled
-                    />
+                  <Input
+                    id="expiryTime"
+                    type="time"
+                    value={formData.expiryTime}
+                    disabled={!isSuperAdmin || planType !== "custom"}
+                  />
                   </div>
                 </div>
                 {formData.countryCode !== "ES" && formData.expiryDate && (

@@ -95,6 +95,7 @@ const DemoEventSummary = () => {
             qrUrl: qrImageUrl,
             contactInfo,
             eventType: "demo",
+            planLabel: "Demo",
             lang,
           },
         });
