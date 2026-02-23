@@ -60,7 +60,7 @@ const EventForm = () => {
   const [ownerEmail, setOwnerEmail] = useState<string | null>(null);
   const [ownerPhone, setOwnerPhone] = useState<string | null>(null);
   const [ownerEmailInput, setOwnerEmailInput] = useState("");
-  const [planType, setPlanType] = useState<"demo" | "small" | "medium" | "large" | "xl" | "custom">("demo");
+  const [planType, setPlanType] = useState<"demo" | "small" | "medium" | "large" | "xxl" | "custom">("demo");
   // Generate a random 32-character hash for passwords
   const generateHash = () => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -401,7 +401,7 @@ const EventForm = () => {
         small: "50",
         medium: "300",
         large: "500",
-        xl: "1000",
+        xxl: "1000",
       };
       const resolvedMaxPhotos =
         isSuperAdmin && !isEditing && planType !== "custom"
@@ -704,7 +704,7 @@ const EventForm = () => {
                       small: "50",
                       medium: "300",
                       large: "500",
-                      xl: "1000",
+                      xxl: "1000",
                     };
                     if (value !== "custom") {
                       setFormData((prev) => ({
@@ -719,7 +719,7 @@ const EventForm = () => {
                   <option value="small">{t("events.planSmall")}</option>
                   <option value="medium">{t("events.planMedium")}</option>
                   <option value="large">{t("events.planLarge")}</option>
-                  <option value="xl">{t("events.planXl")}</option>
+                  <option value="xxl">{t("events.planXl")}</option>
                   <option value="custom">{t("events.planCustom")}</option>
                 </select>
               </div>

@@ -1,4 +1,4 @@
-export type PlanId = "small" | "medium" | "large" | "xl";
+export type PlanId = "small" | "medium" | "large" | "xxl";
 
 export type PlanConfig = {
   id: PlanId;
@@ -26,15 +26,16 @@ export const PLANS: Record<PlanId, PlanConfig> = {
     maxPhotos: 500,
     stripePriceIdEnv: "STRIPE_PRICE_LARGE",
   },
-  xl: {
-    id: "xl",
-    label: "XL",
+  xxl: {
+    id: "xxl",
+    label: "XXL",
     maxPhotos: 1000,
-    stripePriceIdEnv: "STRIPE_PRICE_XL",
+    stripePriceIdEnv: "STRIPE_PRICE_XXL",
   },
 };
 
 export const getPlanById = (planId: string | null | undefined): PlanConfig | null => {
   if (!planId) return null;
+  if (planId === "xl") return PLANS.xxl;
   return (PLANS as Record<string, PlanConfig>)[planId] ?? null;
 };

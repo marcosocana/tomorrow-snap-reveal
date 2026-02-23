@@ -30,7 +30,7 @@ const plans = [
   },
   {
     titleKey: "pricing.plan.xl",
-    planId: "xl",
+    planId: "xxl",
     guests: 1000,
     price: "139€",
     costPerGuest: "0,14€",
@@ -64,7 +64,7 @@ export const PricingPreview = ({ showHeader = true, onSelectPlan }: PricingPrevi
       small: import.meta.env.VITE_STRIPE_CHECKOUT_URL_SMALL,
       medium: import.meta.env.VITE_STRIPE_CHECKOUT_URL_MEDIUM,
       large: import.meta.env.VITE_STRIPE_CHECKOUT_URL_LARGE,
-      xl: import.meta.env.VITE_STRIPE_CHECKOUT_URL_XL,
+      xxl: import.meta.env.VITE_STRIPE_CHECKOUT_URL_XXL,
     };
     const testUrl = testUrlMap[planId];
     if (testUrl) {

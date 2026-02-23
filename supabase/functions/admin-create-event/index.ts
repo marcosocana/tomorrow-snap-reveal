@@ -59,7 +59,7 @@ const getPlanMeta = (maxPhotos: number | null | undefined) => {
   if (maxPhotos === 50) return { label: "Evento pequeño", type: "paid", planId: "small" };
   if (maxPhotos === 300) return { label: "Evento mediano", type: "paid", planId: "medium" };
   if (maxPhotos === 500) return { label: "Evento grande", type: "paid", planId: "large" };
-  if (maxPhotos === 1000) return { label: "Evento XL", type: "paid", planId: "xl" };
+  if (maxPhotos === 1000) return { label: "Evento XXL", type: "paid", planId: "xxl" };
   return { label: "Evento personalizado", type: "paid", planId: "custom" };
 };
 
