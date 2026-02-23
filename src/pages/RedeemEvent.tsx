@@ -63,6 +63,7 @@ const RedeemEvent = () => {
       timezone: "Europe/Madrid",
       language: "es",
       description: "",
+      expiryRedirectUrl: "",
     };
   });
   const navigate = useNavigate();
@@ -71,6 +72,20 @@ const RedeemEvent = () => {
   const nowTz = toZonedTime(new Date(), formData.timezone);
   const todayStr = format(nowTz, "yyyy-MM-dd");
   const startMinTimeStr = format(subHours(nowTz, 2), "HH:mm");
+  const expiryDays =
+    plan?.maxPhotos === 10 ? 10 :
+    plan?.maxPhotos === 200 ? 20 :
+    plan?.maxPhotos === 1200 ? 60 :
+    90;
+
+  const getExpiryDateTime = () => {
+    if (!formData.revealDate || !formData.revealTime) return null;
+    const eventTz = formData.timezone;
+    const revealUtc = fromZonedTime(`${formData.revealDate}T${formData.revealTime}:00`, eventTz);
+    const expiryBase = addDays(revealUtc, expiryDays);
+    const expiryDateStr = formatInTimeZone(expiryBase, eventTz, "yyyy-MM-dd");
+    return fromZonedTime(`${expiryDateStr}T23:59:00`, eventTz);
+  };
 
   const clampTime = (value: string, min?: string) => {
     if (!min) return value;
@@ -296,6 +311,7 @@ const RedeemEvent = () => {
             timezone: formData.timezone,
             language: formData.language,
             description: formData.description || null,
+            expiry_redirect_url: formData.expiryRedirectUrl?.trim() || null,
           },
         },
       });
@@ -376,7 +392,7 @@ const RedeemEvent = () => {
             className="h-16 w-auto"
           />
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground text-center">
-            Crea tu evento de pago
+            Crea tu evento
           </h1>
           <p className="text-muted-foreground text-center max-w-md">
             {plan ? `Plan ${plan.label}` : "Configura tu evento"}
@@ -673,6 +689,33 @@ const RedeemEvent = () => {
                       </p>
                     )}
                   </div>
+
+                  <div className="rounded-lg border border-border bg-muted/40 p-4 space-y-2 text-sm">
+                    <p className="font-semibold">Caducidad de la galería</p>
+                    <p className="text-muted-foreground">
+                      {(() => {
+                        const expiry = getExpiryDateTime();
+                        if (!expiry) return "Se calculará automáticamente al indicar el revelado.";
+                        return `La galería caduca el ${formatInTimeZone(expiry, formData.timezone, "dd/MM/yyyy HH:mm")}.`;
+                      })()}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      La caducidad se calcula según tu plan y no se puede editar. La extracción de fotos debe ser manual (exporta todas las imágenes y súbelas al repositorio que quieras para mantenerlas accesibles).
+                    </p>
+                    <div className="space-y-2 pt-2">
+                      <Label htmlFor="expiryRedirectUrl">URL de redirección al caducar (opcional)</Label>
+                      <Input
+                        id="expiryRedirectUrl"
+                        type="url"
+                        placeholder="https://tu-web.com/galeria"
+                        value={formData.expiryRedirectUrl}
+                        onChange={(e) => setFormData({ ...formData, expiryRedirectUrl: e.target.value })}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Cuando la galería caduque, esta URL será la que verán tus invitados.
+                      </p>
+                    </div>
+                  </div>
                 </>
               )}
 
@@ -687,6 +730,22 @@ const RedeemEvent = () => {
                       <div className="rounded-lg border border-border bg-muted/40 p-4 text-sm">
                         <p><strong>Plan:</strong> {plan.label}</p>
                         <p><strong>Máximo de fotos:</strong> {plan.maxPhotos ?? "Sin límite"}</p>
+                        <p>
+                          <strong>Caducidad:</strong>{" "}
+                          {(() => {
+                            const expiry = getExpiryDateTime();
+                            return expiry
+                              ? formatInTimeZone(expiry, formData.timezone, "dd/MM/yyyy HH:mm")
+                              : "Se calculará automáticamente";
+                          })()}
+                        </p>
+                        <p>
+                          <strong>URL al caducar:</strong>{" "}
+                          {formData.expiryRedirectUrl?.trim() ? formData.expiryRedirectUrl : "—"}
+                        </p>
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          La caducidad se calcula según el plan y no se puede editar. La extracción de fotos es manual.
+                        </p>
                       </div>
                     ) : null}
                   </div>
@@ -710,7 +769,7 @@ const RedeemEvent = () => {
                       ? "Subiendo imagen..."
                       : isSubmitting
                         ? "Creando evento..."
-                        : "Crear evento de pago"}
+                        : "Terminar"}
                 </Button>
               </div>
             </form>

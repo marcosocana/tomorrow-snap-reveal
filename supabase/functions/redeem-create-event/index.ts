@@ -37,6 +37,7 @@ type PaidEventPayload = {
     timezone?: string | null;
     language?: string | null;
     description?: string | null;
+    expiry_redirect_url?: string | null;
   };
 };
 
@@ -140,7 +141,7 @@ serve(async (req) => {
         language: event.language ?? "es",
         description: event.description ?? null,
         expiry_date: expiryDate.toISOString(),
-        expiry_redirect_url: null,
+        expiry_redirect_url: event.expiry_redirect_url ?? null,
         allow_photo_deletion: true,
         show_legal_text: true,
         owner_id: userData.user.id,
