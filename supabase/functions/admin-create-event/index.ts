@@ -108,14 +108,18 @@ serve(async (req) => {
       SUPABASE_SERVICE_ROLE_KEY,
     );
 
-    const { data: existingUser, error: userLookupError } =
-      await supabaseAdmin.auth.admin.getUserByEmail(ownerEmail);
+    const { data: listData, error: listError } =
+      await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
 
-    if (userLookupError) {
-      return json({ error: "OWNER_LOOKUP_FAILED", detail: userLookupError.message }, 500);
+    if (listError) {
+      return json({ error: "OWNER_LOOKUP_FAILED", detail: listError.message }, 500);
     }
 
-    if (!existingUser?.user?.id) {
+    const existingUser = (listData?.users || []).find(
+      (u) => (u.email || "").toLowerCase() === ownerEmail
+    );
+
+    if (!existingUser?.id) {
       return json({ error: "USER_NOT_FOUND" }, 404);
     }
 
@@ -154,7 +158,7 @@ serve(async (req) => {
         custom_privacy_text: event.custom_privacy_text ?? null,
         gallery_view_mode: event.gallery_view_mode ?? "normal",
         like_counting_enabled: event.like_counting_enabled ?? false,
-        owner_id: existingUser.user.id,
+        owner_id: existingUser.id,
       })
       .select()
       .single();
