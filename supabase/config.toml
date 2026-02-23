@@ -1,1 +1,4 @@
 project_id = "towysccybgjyojcxkbkp"
+
+[functions.admin-generate-redeem]
+verify_jwt = false
