@@ -58,7 +58,7 @@ const findAuthUserByEmail = async (
   }
 
   return (data?.users || []).find(
-    (user) => user.email?.toLowerCase() === normalized,
+    (user: any) => user.email?.toLowerCase() === normalized,
   ) ?? null;
 };
 

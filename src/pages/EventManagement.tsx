@@ -144,7 +144,7 @@ const EventManagement = () => {
         setEvents(eventData ? [eventData as Event] : []);
 
         if (eventData) {
-          setEventPhotoCounts({ [eventData.id]: eventData.photo_count || 0 });
+          setEventPhotoCounts({ [eventData.id]: (eventData as any).photo_count || 0 });
         }
     } else {
         const { data: { session } } = await supabase.auth.getSession();

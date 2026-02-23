@@ -82,7 +82,7 @@ serve(async (req) => {
         .select("id,email")
         .in("id", ownerIds);
 
-      (users || []).forEach((u) => {
+      (users || []).forEach((u: any) => {
         emailsById[u.id] = u.email;
       });
 
@@ -91,7 +91,7 @@ serve(async (req) => {
         .select("id,phone")
         .in("id", ownerIds);
 
-      (profiles || []).forEach((p) => {
+      (profiles || []).forEach((p: any) => {
         phonesById[p.id] = p.phone ?? null;
       });
     }
