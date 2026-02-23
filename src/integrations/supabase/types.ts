@@ -267,6 +267,45 @@ export type Database = {
           },
         ]
       }
+      purchases: {
+        Row: {
+          created_at: string | null
+          id: string
+          plan_id: string
+          redeem_token: string | null
+          redeem_token_expires_at: string | null
+          redeemed_at: string | null
+          status: string
+          stripe_session_id: string | null
+          user_email: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          plan_id: string
+          redeem_token?: string | null
+          redeem_token_expires_at?: string | null
+          redeemed_at?: string | null
+          status: string
+          stripe_session_id?: string | null
+          user_email?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          plan_id?: string
+          redeem_token?: string | null
+          redeem_token_expires_at?: string | null
+          redeemed_at?: string | null
+          status?: string
+          stripe_session_id?: string | null
+          user_email?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       user_profiles: {
         Row: {
           created_at: string
