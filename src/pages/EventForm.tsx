@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Globe, Trash2 } from "lucide-react";
-import { addDays, format } from "date-fns";
+import { addDays, format, subHours } from "date-fns";
 import { toZonedTime, fromZonedTime, formatInTimeZone } from "date-fns-tz";
 import CountrySelect from "@/components/CountrySelect";
 import LanguageSelect from "@/components/LanguageSelect";
@@ -396,6 +396,22 @@ const EventForm = () => {
         return;
       }
 
+      if (!isEditing) {
+        const nowTz = toZonedTime(new Date(), formData.timezone);
+        const todayStr = format(nowTz, "yyyy-MM-dd");
+        const minStart = subHours(nowTz, 2);
+        const startUtc = fromZonedTime(`${formData.uploadStartDate}T${formData.uploadStartTime}:00`, formData.timezone);
+        if (formData.uploadStartDate < todayStr || startUtc < minStart) {
+          toast({
+            title: t("form.errorTitle"),
+            description: "La fecha de inicio no puede ser anterior a hoy y la hora no puede ser anterior a 2 horas.",
+            variant: "destructive",
+          });
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
       const planToMaxPhotos: Record<string, string> = {
         demo: "10",
         small: "200",
@@ -555,7 +571,7 @@ const EventForm = () => {
           filter_type: formData.filterType,
           font_family: formData.fontFamily,
           font_size: formData.fontSize,
-          is_demo: isDemoMode,
+          is_demo: isDemoMode || planType === "demo",
           owner_id: user?.id || null,
           country_code: formData.countryCode,
           timezone: formData.timezone,
@@ -624,6 +640,34 @@ const EventForm = () => {
       });
     }
   };
+
+  const nowTz = toZonedTime(new Date(), formData.timezone);
+  const todayStr = format(nowTz, "yyyy-MM-dd");
+  const startMinTimeStr = format(subHours(nowTz, 2), "HH:mm");
+
+  const clampTime = (value: string, min?: string) => {
+    if (!min) return value;
+    return value < min ? min : value;
+  };
+
+  const getExpiryDays = () => {
+    if (formData.maxPhotos === "10" || isDemoMode || planType === "demo") return 10;
+    if (formData.maxPhotos === "200") return 20;
+    if (formData.maxPhotos === "1200") return 60;
+    return 90;
+  };
+
+  useEffect(() => {
+    if (!formData.revealDate) return;
+    const eventTz = formData.timezone;
+    const revealBase = fromZonedTime(`${formData.revealDate}T00:00:00`, eventTz);
+    const expiryDate = formatInTimeZone(addDays(revealBase, getExpiryDays()), eventTz, "yyyy-MM-dd");
+    setFormData((prev) =>
+      prev.expiryDate === expiryDate && prev.expiryTime === "23:59"
+        ? prev
+        : { ...prev, expiryDate, expiryTime: "23:59" }
+    );
+  }, [formData.revealDate, formData.timezone, formData.maxPhotos, planType, isDemoMode]);
 
   if (isLoading) {
     return (
@@ -763,33 +807,37 @@ const EventForm = () => {
               </p>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="password">{t("form.password")}</Label>
-              <Input
-                id="password"
-                type="text"
-                value={formData.password}
-                onChange={(e) =>
-                  setFormData({ ...formData, password: e.target.value })
-                }
-                required
-              />
-            </div>
+            {(!isEditing || isSuperAdmin) && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="password">{t("form.password")}</Label>
+                  <Input
+                    id="password"
+                    type="text"
+                    value={formData.password}
+                    onChange={(e) =>
+                      setFormData({ ...formData, password: e.target.value })
+                    }
+                    required
+                  />
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="adminPassword">
-                {t("form.adminPassword")}
-              </Label>
-              <Input
-                id="adminPassword"
-                type="text"
-                value={formData.adminPassword}
-                onChange={(e) =>
-                  setFormData({ ...formData, adminPassword: e.target.value })
-                }
-                placeholder={t("form.optional")}
-              />
-            </div>
+                <div className="space-y-2">
+                  <Label htmlFor="adminPassword">
+                    {t("form.adminPassword")}
+                  </Label>
+                  <Input
+                    id="adminPassword"
+                    type="text"
+                    value={formData.adminPassword}
+                    onChange={(e) =>
+                      setFormData({ ...formData, adminPassword: e.target.value })
+                    }
+                    placeholder={t("form.optional")}
+                  />
+                </div>
+              </>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="maxPhotos">
@@ -1008,9 +1056,19 @@ const EventForm = () => {
                     id="uploadStartDate"
                     type="date"
                     value={formData.uploadStartDate}
-                    onChange={(e) =>
-                      setFormData({ ...formData, uploadStartDate: e.target.value })
-                    }
+                    onChange={(e) => {
+                      const nextDate = e.target.value;
+                      const nextStartTime = clampTime(
+                        formData.uploadStartTime,
+                        nextDate === todayStr ? startMinTimeStr : undefined
+                      );
+                      setFormData({
+                        ...formData,
+                        uploadStartDate: nextDate,
+                        uploadStartTime: nextStartTime,
+                      });
+                    }}
+                    min={todayStr}
                     required
                   />
                 </div>
@@ -1022,8 +1080,15 @@ const EventForm = () => {
                     type="time"
                     value={formData.uploadStartTime}
                     onChange={(e) =>
-                      setFormData({ ...formData, uploadStartTime: e.target.value })
+                      setFormData({
+                        ...formData,
+                        uploadStartTime: clampTime(
+                          e.target.value,
+                          formData.uploadStartDate === todayStr ? startMinTimeStr : undefined
+                        ),
+                      })
                     }
+                    min={formData.uploadStartDate === todayStr ? startMinTimeStr : undefined}
                     required
                   />
                 </div>
@@ -1130,6 +1195,9 @@ const EventForm = () => {
               <div className="text-xs text-muted-foreground mb-2">
                 {t("form.expiryHint")}
               </div>
+              <div className="text-xs text-muted-foreground">
+                {t("form.expiryManualNote")}
+              </div>
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -1138,9 +1206,7 @@ const EventForm = () => {
                       id="expiryDate"
                       type="date"
                       value={formData.expiryDate}
-                      onChange={(e) =>
-                        setFormData({ ...formData, expiryDate: e.target.value })
-                      }
+                      disabled
                     />
                   </div>
 
@@ -1150,9 +1216,7 @@ const EventForm = () => {
                       id="expiryTime"
                       type="time"
                       value={formData.expiryTime}
-                      onChange={(e) =>
-                        setFormData({ ...formData, expiryTime: e.target.value })
-                      }
+                      disabled
                     />
                   </div>
                 </div>

@@ -2,6 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Login from "./pages/Login";
 import Logout from "./pages/Logout";
@@ -25,72 +26,96 @@ import PaidEventSummary from "./pages/PaidEventSummary";
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <BrowserRouter>
-        <AdminI18nProvider>
-          <Toaster />
-          <Sonner />
-          <Routes>
-            <Route path="/" element={<AdminLogin />} />
-            <Route path="/login" element={<AdminLogin />} />
-            <Route path="/logout" element={<Logout />} />
-            <Route path="/event-login" element={<Login />} />
-            <Route path="/camera" element={<Camera />} />
-            <Route path="/gallery" element={<Gallery />} />
-            <Route path="/admin-login" element={<AdminLogin />} />
-            <Route path="/reset-password" element={<AdminResetPassword />} />
-            <Route path="/event-management" element={<EventManagement />} />
-            <Route path="/event-form" element={<EventForm />} />
-            <Route path="/event-form/:eventId" element={<EventForm />} />
-            <Route path="/bulk-upload" element={<BulkUpload />} />
-            <Route path="/event/:password" element={<EventAccess />} />
-            <Route path="/events/:password" element={<EventAccess />} />
-            <Route path="/redeem/:token" element={<RedeemEvent />} />
-            <Route path="/terms" element={<TermsAndConditions />} />
-            <Route path="/privacy" element={<PrivacyPolicy />} />
-            <Route path="/nuevoeventodemo" element={<PublicDemoEventForm />} />
-            <Route path="/nuevoeventodemo/resumen" element={<DemoEventSummary />} />
-            <Route path="/evento-pago/resumen" element={<PaidEventSummary />} />
-            <Route path="/planes" element={<PricingPlans />} />
+const APP_VERSION = import.meta.env.VITE_APP_VERSION ?? "2026-02-23";
+const APP_VERSION_KEY = "app-version";
+const RESET_KEYS = [
+  "adminEventId",
+  "isDemoMode",
+  "isAdmin",
+  "eventId",
+  "eventName",
+  "eventLanguage",
+  "eventTimezone",
+  "bulkUploadMode",
+  "likedPhotos",
+];
 
-            {/* Admin translations via URL prefix */}
-            <Route path="/en/login" element={<AdminLogin />} />
-            <Route path="/en/admin-login" element={<AdminLogin />} />
-            <Route path="/en/reset-password" element={<AdminResetPassword />} />
-            <Route path="/en/event-management" element={<EventManagement />} />
-            <Route path="/en/event-form" element={<EventForm />} />
-            <Route path="/en/event-form/:eventId" element={<EventForm />} />
-            <Route path="/en/bulk-upload" element={<BulkUpload />} />
-            <Route path="/en/planes" element={<PricingPlans />} />
-            <Route path="/en/nuevoeventodemo" element={<PublicDemoEventForm />} />
-            <Route path="/en/nuevoeventodemo/resumen" element={<DemoEventSummary />} />
-            <Route path="/en/logout" element={<Logout />} />
-            <Route path="/en/redeem/:token" element={<RedeemEvent />} />
-            <Route path="/en/evento-pago/resumen" element={<PaidEventSummary />} />
+const App = () => {
+  useEffect(() => {
+    const storedVersion = localStorage.getItem(APP_VERSION_KEY);
+    if (storedVersion === APP_VERSION) return;
+    RESET_KEYS.forEach((key) => localStorage.removeItem(key));
+    localStorage.setItem(APP_VERSION_KEY, APP_VERSION);
+    window.location.reload();
+  }, []);
 
-            <Route path="/it/login" element={<AdminLogin />} />
-            <Route path="/it/admin-login" element={<AdminLogin />} />
-            <Route path="/it/reset-password" element={<AdminResetPassword />} />
-            <Route path="/it/event-management" element={<EventManagement />} />
-            <Route path="/it/event-form" element={<EventForm />} />
-            <Route path="/it/event-form/:eventId" element={<EventForm />} />
-            <Route path="/it/bulk-upload" element={<BulkUpload />} />
-            <Route path="/it/planes" element={<PricingPlans />} />
-            <Route path="/it/nuevoeventodemo" element={<PublicDemoEventForm />} />
-            <Route path="/it/nuevoeventodemo/resumen" element={<DemoEventSummary />} />
-            <Route path="/it/logout" element={<Logout />} />
-            <Route path="/it/redeem/:token" element={<RedeemEvent />} />
-            <Route path="/it/evento-pago/resumen" element={<PaidEventSummary />} />
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <BrowserRouter>
+          <AdminI18nProvider>
+            <Toaster />
+            <Sonner />
+            <Routes>
+              <Route path="/" element={<AdminLogin />} />
+              <Route path="/login" element={<AdminLogin />} />
+              <Route path="/logout" element={<Logout />} />
+              <Route path="/event-login" element={<Login />} />
+              <Route path="/camera" element={<Camera />} />
+              <Route path="/gallery" element={<Gallery />} />
+              <Route path="/admin-login" element={<AdminLogin />} />
+              <Route path="/reset-password" element={<AdminResetPassword />} />
+              <Route path="/event-management" element={<EventManagement />} />
+              <Route path="/event-form" element={<EventForm />} />
+              <Route path="/event-form/:eventId" element={<EventForm />} />
+              <Route path="/bulk-upload" element={<BulkUpload />} />
+              <Route path="/event/:password" element={<EventAccess />} />
+              <Route path="/events/:password" element={<EventAccess />} />
+              <Route path="/redeem/:token" element={<RedeemEvent />} />
+              <Route path="/terms" element={<TermsAndConditions />} />
+              <Route path="/privacy" element={<PrivacyPolicy />} />
+              <Route path="/nuevoeventodemo" element={<PublicDemoEventForm />} />
+              <Route path="/nuevoeventodemo/resumen" element={<DemoEventSummary />} />
+              <Route path="/evento-pago/resumen" element={<PaidEventSummary />} />
+              <Route path="/planes" element={<PricingPlans />} />
 
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </AdminI18nProvider>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+              {/* Admin translations via URL prefix */}
+              <Route path="/en/login" element={<AdminLogin />} />
+              <Route path="/en/admin-login" element={<AdminLogin />} />
+              <Route path="/en/reset-password" element={<AdminResetPassword />} />
+              <Route path="/en/event-management" element={<EventManagement />} />
+              <Route path="/en/event-form" element={<EventForm />} />
+              <Route path="/en/event-form/:eventId" element={<EventForm />} />
+              <Route path="/en/bulk-upload" element={<BulkUpload />} />
+              <Route path="/en/planes" element={<PricingPlans />} />
+              <Route path="/en/nuevoeventodemo" element={<PublicDemoEventForm />} />
+              <Route path="/en/nuevoeventodemo/resumen" element={<DemoEventSummary />} />
+              <Route path="/en/logout" element={<Logout />} />
+              <Route path="/en/redeem/:token" element={<RedeemEvent />} />
+              <Route path="/en/evento-pago/resumen" element={<PaidEventSummary />} />
+
+              <Route path="/it/login" element={<AdminLogin />} />
+              <Route path="/it/admin-login" element={<AdminLogin />} />
+              <Route path="/it/reset-password" element={<AdminResetPassword />} />
+              <Route path="/it/event-management" element={<EventManagement />} />
+              <Route path="/it/event-form" element={<EventForm />} />
+              <Route path="/it/event-form/:eventId" element={<EventForm />} />
+              <Route path="/it/bulk-upload" element={<BulkUpload />} />
+              <Route path="/it/planes" element={<PricingPlans />} />
+              <Route path="/it/nuevoeventodemo" element={<PublicDemoEventForm />} />
+              <Route path="/it/nuevoeventodemo/resumen" element={<DemoEventSummary />} />
+              <Route path="/it/logout" element={<Logout />} />
+              <Route path="/it/redeem/:token" element={<RedeemEvent />} />
+              <Route path="/it/evento-pago/resumen" element={<PaidEventSummary />} />
+
+              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </AdminI18nProvider>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;

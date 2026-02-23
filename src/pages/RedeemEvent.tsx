@@ -8,8 +8,8 @@ import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Trash2 } from "lucide-react";
-import { addDays, format } from "date-fns";
-import { fromZonedTime, formatInTimeZone } from "date-fns-tz";
+import { addDays, format, subHours } from "date-fns";
+import { fromZonedTime, formatInTimeZone, toZonedTime } from "date-fns-tz";
 import { QRCodeSVG } from "qrcode.react";
 import CountrySelect from "@/components/CountrySelect";
 import LanguageSelect from "@/components/LanguageSelect";
@@ -68,6 +68,14 @@ const RedeemEvent = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { pathPrefix } = useAdminI18n();
+  const nowTz = toZonedTime(new Date(), formData.timezone);
+  const todayStr = format(nowTz, "yyyy-MM-dd");
+  const startMinTimeStr = format(subHours(nowTz, 2), "HH:mm");
+
+  const clampTime = (value: string, min?: string) => {
+    if (!min) return value;
+    return value < min ? min : value;
+  };
 
   useEffect(() => {
     const checkSession = async () => {
@@ -237,9 +245,21 @@ const RedeemEvent = () => {
 
     try {
       const eventTz = formData.timezone;
+      const nowTz = toZonedTime(new Date(), eventTz);
+      const minStart = subHours(nowTz, 2);
       const uploadStartDateTime = fromZonedTime(`${formData.uploadStartDate}T${formData.uploadStartTime}:00`, eventTz);
       const uploadEndDateTime = fromZonedTime(`${formData.uploadEndDate}T${formData.uploadEndTime}:00`, eventTz);
       const revealDateTime = fromZonedTime(`${formData.revealDate}T${formData.revealTime}:00`, eventTz);
+
+      if (formData.uploadStartDate < format(nowTz, "yyyy-MM-dd") || uploadStartDateTime < minStart) {
+        toast({
+          title: "Error",
+          description: "La fecha de inicio no puede ser anterior a hoy y la hora no puede ser anterior a 2 horas.",
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
+      }
 
       let customImageUrl = formData.customImageUrl;
       if (formData.customImage) {
@@ -534,7 +554,19 @@ const RedeemEvent = () => {
                           id="uploadStartDate"
                           type="date"
                           value={formData.uploadStartDate}
-                          onChange={(e) => setFormData({ ...formData, uploadStartDate: e.target.value })}
+                          min={todayStr}
+                          onChange={(e) => {
+                            const nextDate = e.target.value;
+                            const nextStartTime = clampTime(
+                              formData.uploadStartTime,
+                              nextDate === todayStr ? startMinTimeStr : undefined
+                            );
+                            setFormData({
+                              ...formData,
+                              uploadStartDate: nextDate,
+                              uploadStartTime: nextStartTime,
+                            });
+                          }}
                           required
                         />
                       </div>
@@ -544,7 +576,16 @@ const RedeemEvent = () => {
                           id="uploadStartTime"
                           type="time"
                           value={formData.uploadStartTime}
-                          onChange={(e) => setFormData({ ...formData, uploadStartTime: e.target.value })}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              uploadStartTime: clampTime(
+                                e.target.value,
+                                formData.uploadStartDate === todayStr ? startMinTimeStr : undefined
+                              ),
+                            })
+                          }
+                          min={formData.uploadStartDate === todayStr ? startMinTimeStr : undefined}
                           required
                         />
                       </div>

@@ -106,6 +106,12 @@ serve(async (req) => {
 
     const maxPhotos = plan.maxPhotos;
 
+    const revealBase = new Date(event.reveal_time);
+    const expiryDate = new Date(revealBase);
+    const expiryDays = plan?.maxPhotos === 200 ? 20 : plan?.maxPhotos === 1200 ? 60 : 90;
+    expiryDate.setUTCDate(expiryDate.getUTCDate() + expiryDays);
+    expiryDate.setUTCHours(23, 59, 0, 0);
+
     const { data: createdEvent, error: eventError } = await supabaseAdmin
       .from("events")
       .insert({
@@ -129,7 +135,7 @@ serve(async (req) => {
         timezone: event.timezone ?? "Europe/Madrid",
         language: event.language ?? "es",
         description: event.description ?? null,
-        expiry_date: null,
+        expiry_date: expiryDate.toISOString(),
         expiry_redirect_url: null,
         allow_photo_deletion: true,
         show_legal_text: true,

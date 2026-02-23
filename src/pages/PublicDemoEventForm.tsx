@@ -8,8 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { addDays, format } from "date-fns";
-import { fromZonedTime, formatInTimeZone } from "date-fns-tz";
+import { addDays, format, subHours } from "date-fns";
+import { fromZonedTime, formatInTimeZone, toZonedTime } from "date-fns-tz";
 import { QRCodeSVG } from "qrcode.react";
 import CountrySelect from "@/components/CountrySelect";
 import LanguageSelect from "@/components/LanguageSelect";
@@ -65,8 +65,10 @@ const PublicDemoEventForm = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const now = new Date();
-  const todayStr = format(now, "yyyy-MM-dd");
-  const nowTimeStr = format(now, "HH:mm");
+  const nowTz = toZonedTime(now, formData.timezone);
+  const todayStr = format(nowTz, "yyyy-MM-dd");
+  const nowTimeStr = format(nowTz, "HH:mm");
+  const startMinTimeStr = format(subHours(nowTz, 2), "HH:mm");
 
   const timeToMinutes = (value: string) => {
     const [h, m] = value.split(":").map(Number);
@@ -93,7 +95,7 @@ const PublicDemoEventForm = () => {
   };
 
   const getStartTimeMin = () =>
-    formData.uploadStartDate === todayStr ? nowTimeStr : undefined;
+    formData.uploadStartDate === todayStr ? startMinTimeStr : undefined;
 
   const getEndTimeMin = (overrideDate?: string) => {
     const date = overrideDate ?? formData.uploadEndDate;
@@ -120,7 +122,10 @@ const PublicDemoEventForm = () => {
       const endUtc = fromZonedTime(`${formData.uploadEndDate}T${formData.uploadEndTime}:00`, eventTz);
       const revealUtc = fromZonedTime(`${formData.revealDate}T${formData.revealTime}:00`, eventTz);
 
-      if (startUtc < now) return false;
+      const nowTz = toZonedTime(now, eventTz);
+      const minStart = subHours(nowTz, 2);
+      if (formData.uploadStartDate < format(nowTz, "yyyy-MM-dd")) return false;
+      if (startUtc < minStart) return false;
       if (endUtc < now || endUtc < startUtc) return false;
       if (revealUtc < now || revealUtc < endUtc) return false;
       return true;
@@ -579,7 +584,7 @@ const PublicDemoEventForm = () => {
                             const nextDate = e.target.value;
                             const nextStartTime = clampTime(
                               formData.uploadStartTime,
-                              nextDate === todayStr ? nowTimeStr : undefined
+                              nextDate === todayStr ? startMinTimeStr : undefined
                             );
                             setFormData({
                               ...formData,
