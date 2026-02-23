@@ -6,7 +6,7 @@ import { getPlanById } from "../_shared/planConfig.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 const STRIPE_SECRET_KEY = Deno.env.get("STRIPE_SECRET_KEY") ?? "";
-const APP_ORIGIN = Deno.env.get("APP_ORIGIN") ?? "https://www.revelao.cam";
+const APP_ORIGIN = Deno.env.get("APP_ORIGIN") ?? "https://acceso.revelao.cam";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

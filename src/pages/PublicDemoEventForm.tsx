@@ -7,7 +7,6 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Trash2 } from "lucide-react";
 import { addDays, format } from "date-fns";
 import { fromZonedTime, formatInTimeZone } from "date-fns-tz";
 import { QRCodeSVG } from "qrcode.react";
@@ -19,6 +18,7 @@ import { Language } from "@/lib/translations";
 import { EventFontFamily } from "@/lib/eventFonts";
 import { FilterType } from "@/lib/photoFilters";
 import logoDemo from "@/assets/Frame 626035.png";
+import defaultQrLogo from "@/assets/marca_revelao_qr_evento.png";
 import { useDemoI18n } from "@/lib/demoI18n";
 
 const generateHash = (): string => Math.random().toString(36).substring(2, 10);
@@ -49,7 +49,7 @@ const PublicDemoEventForm = () => {
       revealDate: format(addDays(now, 2), "yyyy-MM-dd"),
       revealTime: currentTime,
       customImage: null as File | null,
-      customImageUrl: "",
+      customImageUrl: defaultQrLogo,
       backgroundImage: null as File | null,
       backgroundImageUrl: "",
       filterType: "none" as FilterType,
@@ -63,6 +63,70 @@ const PublicDemoEventForm = () => {
   });
   const navigate = useNavigate();
   const { toast } = useToast();
+  const now = new Date();
+  const todayStr = format(now, "yyyy-MM-dd");
+  const nowTimeStr = format(now, "HH:mm");
+
+  const timeToMinutes = (value: string) => {
+    const [h, m] = value.split(":").map(Number);
+    return h * 60 + m;
+  };
+
+  const maxTime = (...values: Array<string | null | undefined>) => {
+    const times = values.filter(Boolean) as string[];
+    if (times.length === 0) return undefined;
+    return times.reduce((max, current) =>
+      timeToMinutes(current) > timeToMinutes(max) ? current : max
+    );
+  };
+
+  const maxDate = (...values: Array<string | null | undefined>) => {
+    const dates = values.filter(Boolean) as string[];
+    if (dates.length === 0) return undefined;
+    return dates.reduce((max, current) => (current > max ? current : max));
+  };
+
+  const clampTime = (value: string, min?: string) => {
+    if (!min) return value;
+    return timeToMinutes(value) < timeToMinutes(min) ? min : value;
+  };
+
+  const getStartTimeMin = () =>
+    formData.uploadStartDate === todayStr ? nowTimeStr : undefined;
+
+  const getEndTimeMin = (overrideDate?: string) => {
+    const date = overrideDate ?? formData.uploadEndDate;
+    return maxTime(
+      date === todayStr ? nowTimeStr : undefined,
+      date === formData.uploadStartDate ? formData.uploadStartTime : undefined
+    );
+  };
+
+  const getRevealTimeMin = (overrideDate?: string) => {
+    const date = overrideDate ?? formData.revealDate;
+    return maxTime(
+      date === todayStr ? nowTimeStr : undefined,
+      date === formData.uploadStartDate ? formData.uploadStartTime : undefined,
+      date === formData.uploadEndDate ? formData.uploadEndTime : undefined
+    );
+  };
+
+  const validateEventDates = () => {
+    try {
+      const eventTz = formData.timezone;
+      const now = new Date();
+      const startUtc = fromZonedTime(`${formData.uploadStartDate}T${formData.uploadStartTime}:00`, eventTz);
+      const endUtc = fromZonedTime(`${formData.uploadEndDate}T${formData.uploadEndTime}:00`, eventTz);
+      const revealUtc = fromZonedTime(`${formData.revealDate}T${formData.revealTime}:00`, eventTz);
+
+      if (startUtc < now) return false;
+      if (endUtc < now || endUtc < startUtc) return false;
+      if (revealUtc < now || revealUtc < endUtc) return false;
+      return true;
+    } catch {
+      return false;
+    }
+  };
 
   const generateQrBlob = async (eventUrl: string): Promise<Blob | null> => {
     try {
@@ -157,6 +221,14 @@ const PublicDemoEventForm = () => {
     if (!formData.name.trim()) {
       return;
     }
+    if (!validateEventDates()) {
+      toast({
+        title: t("form.errorTitle"),
+        description: t("form.errors.invalidDates"),
+        variant: "destructive",
+      });
+      return;
+    }
     setCurrentStep(2);
   };
 
@@ -195,6 +267,14 @@ const PublicDemoEventForm = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!validateEventDates()) {
+      toast({
+        title: t("form.errorTitle"),
+        description: t("form.errors.invalidDates"),
+        variant: "destructive",
+      });
+      return;
+    }
     
     // Validate contact fields
     if (!formData.contactEmail.trim()) {
@@ -382,6 +462,7 @@ const PublicDemoEventForm = () => {
                       id="name"
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      placeholder={t("form.step1.eventNamePlaceholder")}
                       required
                     />
                   </div>
@@ -460,59 +541,6 @@ const PublicDemoEventForm = () => {
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="customImage">{t("form.step1.customLogo")}</Label>
-                    <div className="text-xs text-muted-foreground mb-2">
-                      {t("form.step1.customLogoHelp")}
-                    </div>
-                    {formData.customImageUrl && !formData.customImage && (
-                      <div className="mb-2 relative inline-block">
-                        <img 
-                          src={formData.customImageUrl} 
-                          alt="Preview" 
-                          className="max-w-[240px] max-h-[100px] object-contain border border-border rounded"
-                        />
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="icon"
-                          className="absolute -top-2 -right-2 h-6 w-6"
-                          onClick={() => setFormData({ ...formData, customImageUrl: "", customImage: null })}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    )}
-                    {formData.customImage && (
-                      <div className="mb-2 relative inline-block">
-                        <img 
-                          src={URL.createObjectURL(formData.customImage)} 
-                          alt="Preview" 
-                          className="max-w-[240px] max-h-[100px] object-contain border border-border rounded"
-                        />
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="icon"
-                          className="absolute -top-2 -right-2 h-6 w-6"
-                          onClick={() => setFormData({ ...formData, customImage: null })}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    )}
-                    <Input
-                      id="customImage"
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          setFormData({ ...formData, customImage: file });
-                        }
-                      }}
-                    />
-                  </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
@@ -535,6 +563,9 @@ const PublicDemoEventForm = () => {
 
                   <div className="space-y-2">
                     <Label className="text-base font-semibold">{t("form.step1.duration")}</Label>
+                    <p className="text-xs text-muted-foreground">
+                      {t("form.step1.durationHelp")}
+                    </p>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="uploadStartDate">{t("form.step1.startDate")}</Label>
@@ -542,7 +573,19 @@ const PublicDemoEventForm = () => {
                           id="uploadStartDate"
                           type="date"
                           value={formData.uploadStartDate}
-                          onChange={(e) => setFormData({ ...formData, uploadStartDate: e.target.value })}
+                          min={todayStr}
+                          onChange={(e) => {
+                            const nextDate = e.target.value;
+                            const nextStartTime = clampTime(
+                              formData.uploadStartTime,
+                              nextDate === todayStr ? nowTimeStr : undefined
+                            );
+                            setFormData({
+                              ...formData,
+                              uploadStartDate: nextDate,
+                              uploadStartTime: nextStartTime,
+                            });
+                          }}
                           required
                         />
                       </div>
@@ -552,7 +595,13 @@ const PublicDemoEventForm = () => {
                           id="uploadStartTime"
                           type="time"
                           value={formData.uploadStartTime}
-                          onChange={(e) => setFormData({ ...formData, uploadStartTime: e.target.value })}
+                          min={getStartTimeMin()}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              uploadStartTime: clampTime(e.target.value, getStartTimeMin()),
+                            })
+                          }
                           required
                         />
                       </div>
@@ -567,7 +616,19 @@ const PublicDemoEventForm = () => {
                           id="uploadEndDate"
                           type="date"
                           value={formData.uploadEndDate}
-                          onChange={(e) => setFormData({ ...formData, uploadEndDate: e.target.value })}
+                          min={maxDate(todayStr, formData.uploadStartDate)}
+                          onChange={(e) => {
+                            const nextDate = e.target.value;
+                            const nextEndTime = clampTime(
+                              formData.uploadEndTime,
+                              getEndTimeMin(nextDate)
+                            );
+                            setFormData({
+                              ...formData,
+                              uploadEndDate: nextDate,
+                              uploadEndTime: nextEndTime,
+                            });
+                          }}
                           required
                         />
                       </div>
@@ -577,7 +638,13 @@ const PublicDemoEventForm = () => {
                           id="uploadEndTime"
                           type="time"
                           value={formData.uploadEndTime}
-                          onChange={(e) => setFormData({ ...formData, uploadEndTime: e.target.value })}
+                          min={getEndTimeMin()}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              uploadEndTime: clampTime(e.target.value, getEndTimeMin()),
+                            })
+                          }
                           required
                         />
                       </div>
@@ -603,6 +670,9 @@ const PublicDemoEventForm = () => {
 
                   <div className="space-y-2">
                     <Label className="text-base font-semibold">{t("form.step1.reveal")}</Label>
+                    <p className="text-xs text-muted-foreground">
+                      {t("form.step1.revealHelp")}
+                    </p>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="revealDate">{t("form.step1.revealDate")}</Label>
@@ -610,7 +680,19 @@ const PublicDemoEventForm = () => {
                           id="revealDate"
                           type="date"
                           value={formData.revealDate}
-                          onChange={(e) => setFormData({ ...formData, revealDate: e.target.value })}
+                          min={maxDate(todayStr, formData.uploadStartDate, formData.uploadEndDate)}
+                          onChange={(e) => {
+                            const nextDate = e.target.value;
+                            const nextRevealTime = clampTime(
+                              formData.revealTime,
+                              getRevealTimeMin(nextDate)
+                            );
+                            setFormData({
+                              ...formData,
+                              revealDate: nextDate,
+                              revealTime: nextRevealTime,
+                            });
+                          }}
                           required
                         />
                       </div>
@@ -620,7 +702,13 @@ const PublicDemoEventForm = () => {
                           id="revealTime"
                           type="time"
                           value={formData.revealTime}
-                          onChange={(e) => setFormData({ ...formData, revealTime: e.target.value })}
+                          min={getRevealTimeMin()}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              revealTime: clampTime(e.target.value, getRevealTimeMin()),
+                            })
+                          }
                           required
                         />
                       </div>

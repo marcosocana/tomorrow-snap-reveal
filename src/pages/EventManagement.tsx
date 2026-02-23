@@ -60,6 +60,9 @@ const EventManagement = () => {
   const [previewEvent, setPreviewEvent] = useState<Event | null>(null);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [pricingOpen, setPricingOpen] = useState(false);
+  const [redeemOpen, setRedeemOpen] = useState(false);
+  const [redeemCode, setRedeemCode] = useState("");
+  const [redeemError, setRedeemError] = useState<string | null>(null);
   
   // Dialogs
 
@@ -194,6 +197,17 @@ const EventManagement = () => {
       localStorage.removeItem("adminEventId");
       navigate(`${pathPrefix}/admin-login`, { replace: true });
     }
+  };
+
+  const handleRedeemSubmit = () => {
+    const code = redeemCode.trim();
+    if (code.length !== 16 && code.length !== 36) {
+      setRedeemError(t("events.redeemInvalidLength"));
+      return;
+    }
+    setRedeemError(null);
+    setRedeemOpen(false);
+    navigate(`${pathPrefix}/redeem/${code}`);
   };
 
   // Get events organized by folder, sorted by sort_order
@@ -511,6 +525,19 @@ const EventManagement = () => {
               {t("events.logout")}
             </Button>
             {!adminEventId && (
+              <Button
+                variant="outline"
+                className="gap-2 flex-1 sm:flex-initial"
+                onClick={() => {
+                  setRedeemError(null);
+                  setRedeemCode("");
+                  setRedeemOpen(true);
+                }}
+              >
+                {t("events.redeemTitle")}
+              </Button>
+            )}
+            {!adminEventId && (
               <Button className="gap-2 flex-1 sm:flex-initial" onClick={() => setPricingOpen(true)}>
                 <Plus className="w-4 h-4" />
                 {t("events.new")}
@@ -687,6 +714,31 @@ const EventManagement = () => {
           </DialogHeader>
           <div className="max-h-[80vh] overflow-y-auto pr-1">
             <PricingPreview showHeader={false} />
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={redeemOpen} onOpenChange={setRedeemOpen}>
+        <DialogContent className="max-w-md w-[95vw] sm:w-full">
+          <DialogHeader>
+            <DialogTitle>{t("events.redeemTitle")}</DialogTitle>
+            <p className="text-sm text-muted-foreground">
+              {t("events.redeemDescription")}
+            </p>
+          </DialogHeader>
+          <div className="space-y-3">
+            <input
+              value={redeemCode}
+              onChange={(e) => setRedeemCode(e.target.value)}
+              placeholder={t("events.redeemPlaceholder")}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            />
+            {redeemError ? (
+              <p className="text-sm text-destructive">{redeemError}</p>
+            ) : null}
+            <Button className="w-full" onClick={handleRedeemSubmit}>
+              {t("events.redeemAction")}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
