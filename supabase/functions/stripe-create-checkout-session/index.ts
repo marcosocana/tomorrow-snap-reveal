@@ -61,30 +61,29 @@ serve(async (req) => {
     params.set("mode", "payment");
     params.set("success_url", `${APP_ORIGIN}/?checkout=success`);
     params.set("cancel_url", `${APP_ORIGIN}/?checkout=cancel`);
-    params.set("line_items[0][price]", priceId);
-    params.set("line_items[0][quantity]", "1");
+    params.append("line_items[0][price]", priceId);
+    params.append("line_items[0][quantity]", "1");
     if (userData.user.email) {
       params.set("customer_email", userData.user.email);
     }
-    params.set("metadata[planId]", plan.id);
-    params.set("metadata[userId]", userData.user.id);
+    params.append("metadata[planId]", plan.id);
+    params.append("metadata[userId]", userData.user.id);
 
     const response = await fetch("https://api.stripe.com/v1/checkout/sessions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${STRIPE_SECRET_KEY}`,
         "Content-Type": "application/x-www-form-urlencoded",
-        "Stripe-Version": "2023-10-16",
       },
-      body: params,
+      body: params.toString(),
     });
 
-    if (!response.ok) {
-      const detail = await response.text();
-      return json({ error: "STRIPE_ERROR", detail }, 500);
+    const session = await response.json();
+    if (!response.ok || !session?.url) {
+      console.error("stripe-create-checkout-session error:", session);
+      return json({ error: "CHECKOUT_CREATE_FAILED" }, 500);
     }
 
-    const session = await response.json();
     return json({ url: session.url });
   } catch (error) {
     console.error("stripe-create-checkout-session error:", error);

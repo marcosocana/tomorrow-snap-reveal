@@ -181,6 +181,13 @@ const Login = () => {
         </div>
 
         <p className="text-center text-sm text-muted-foreground">
+          ¿No tienes cuenta?{" "}
+          <a href="/nuevoeventodemo" className="text-primary hover:underline font-semibold">
+            Regístrate y crea tu evento
+          </a>
+        </p>
+
+        <p className="text-center text-sm text-muted-foreground">
           ¿Algún problema?{" "}
           <a
             href="https://wa.me/34695834018?text=Hola%2C%20tengo%20un%20problema%20con%20Revelao.%20%C2%BFMe%20puedes%20ayudar%3F"

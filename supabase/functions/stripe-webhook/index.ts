@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-import { getPlanById } from "../_shared/planConfig.ts";
+import { getPlanById, PLANS } from "../_shared/planConfig.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -68,6 +68,26 @@ const generateRedeemToken = (length = 16) => {
   return token;
 };
 
+const getPlanByPriceId = (priceId: string | null | undefined) => {
+  if (!priceId) return null;
+  return Object.values(PLANS).find((plan) => Deno.env.get(plan.stripePriceIdEnv) === priceId) ?? null;
+};
+
+const fetchStripeJson = async (path: string) => {
+  const response = await fetch(`https://api.stripe.com/v1/${path}`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${STRIPE_SECRET_KEY}`,
+    },
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    console.error("Stripe API error:", data);
+    return null;
+  }
+  return data;
+};
+
 async function verifyStripeSignature(rawBody: string, signatureHeader: string, secret: string) {
   const parts = signatureHeader.split(",").reduce((acc, part) => {
     const [k, v] = part.split("=");
@@ -124,7 +144,12 @@ serve(async (req) => {
   }
 
   const planId = session.metadata?.planId || "";
-  const plan = getPlanById(planId);
+  let plan = getPlanById(planId);
+  if (!plan) {
+    const lineItems = await fetchStripeJson(`checkout/sessions/${session.id}/line_items?limit=1`);
+    const priceId = lineItems?.data?.[0]?.price?.id ?? null;
+    plan = getPlanByPriceId(priceId);
+  }
   if (!plan) {
     return json({ error: "Unknown plan" }, 400);
   }

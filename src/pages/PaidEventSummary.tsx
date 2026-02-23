@@ -172,30 +172,27 @@ const PaidEventSummary = () => {
         </Card>
 
         <Card className="p-6 border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-900/10">
-          <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2">
-            <span className="text-lg">🔐</span>
-            Cómo gestionar tu evento
-          </h3>
-          <div className="space-y-3 text-sm">
+          <div className="space-y-4 text-sm">
             <p className="text-muted-foreground">
-              Para ver las fotos y administrar tu evento, sigue estos pasos:
+              Entra en{" "}
+              <a
+                href={adminUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline font-medium"
+              >
+                acceso.revelao.cam
+              </a>{" "}
+              o accede a través del siguiente botón.
             </p>
-            <ol className="list-decimal list-inside space-y-2 text-muted-foreground">
-              <li>
-                Entra en{" "}
-                <a 
-                  href={adminUrl} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-primary hover:underline font-medium inline-flex items-center gap-1"
-                >
-                  acceso.revelao.cam
-                  <ExternalLink className="w-3 h-3" />
-                </a>
-              </li>
-              <li>Introduce tu <strong>contraseña de administrador</strong>: <code className="bg-background px-1 rounded">{event.admin_password}</code></li>
-              <li>Podrás ver todas las fotos incluso antes del revelado</li>
-            </ol>
+            <Button
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
+              asChild
+            >
+              <a href={adminUrl} target="_blank" rel="noopener noreferrer">
+                Gestionar evento
+              </a>
+            </Button>
           </div>
         </Card>
 
