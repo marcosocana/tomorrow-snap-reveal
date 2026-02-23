@@ -77,7 +77,9 @@ const EventManagement = () => {
     direction: "desc",
   });
   const [adminPage, setAdminPage] = useState(1);
-  const pageSize = 30;
+  const [adminPageSize, setAdminPageSize] = useState<number | "all">(30);
+  const pageSize = adminPageSize === "all" ? superAdminEvents.length || 1 : adminPageSize;
+  const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(new Set());
   const [redeemPlan, setRedeemPlan] = useState<"small" | "medium" | "large" | "xxl">("small");
   const [generatedRedeem, setGeneratedRedeem] = useState<string | null>(null);
   const [isGeneratingRedeem, setIsGeneratingRedeem] = useState(false);
@@ -407,7 +409,16 @@ const EventManagement = () => {
 
   useEffect(() => {
     setAdminPage(1);
-  }, [adminSearch, adminTypeFilter, adminPhoneFilter, adminSort]);
+  }, [adminSearch, adminTypeFilter, adminPhoneFilter, adminSort, adminPageSize]);
+
+  useEffect(() => {
+    if (selectedEventIds.size === 0) return;
+    const currentIds = new Set(superAdminEvents.map((event) => event.id));
+    const next = new Set(Array.from(selectedEventIds).filter((id) => currentIds.has(id)));
+    if (next.size !== selectedEventIds.size) {
+      setSelectedEventIds(next);
+    }
+  }, [superAdminEvents, selectedEventIds]);
 
   const paginatedAdminEvents = useMemo(() => {
     const start = (adminPage - 1) * pageSize;
@@ -415,6 +426,47 @@ const EventManagement = () => {
   }, [superAdminEvents, adminPage]);
 
   const totalAdminPages = Math.max(1, Math.ceil(superAdminEvents.length / pageSize));
+
+  const toggleEventSelection = (eventId: string) => {
+    setSelectedEventIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(eventId)) {
+        next.delete(eventId);
+      } else {
+        next.add(eventId);
+      }
+      return next;
+    });
+  };
+
+  const handleDeleteSelection = async () => {
+    const ids = Array.from(selectedEventIds);
+    if (ids.length === 0) return;
+    const confirmed = window.confirm(`¿Eliminar ${ids.length} evento(s) seleccionados?`);
+    if (!confirmed) return;
+
+    try {
+      const { error } = await supabase
+        .from("events")
+        .delete()
+        .in("id", ids);
+
+      if (error) throw error;
+      setSelectedEventIds(new Set());
+      await loadData();
+      toast({
+        title: t("events.deleteTitle"),
+        description: t("events.deleteDesc"),
+      });
+    } catch (error) {
+      console.error("Error deleting selection:", error);
+      toast({
+        title: t("events.deleteError"),
+        description: t("events.deleteError"),
+        variant: "destructive",
+      });
+    }
+  };
 
   const handleCopyUrl = async (password: string) => {
     const eventUrl = `https://acceso.revelao.cam/events/${password}`;
@@ -783,10 +835,25 @@ const EventManagement = () => {
                 </Button>
               </div>
             </div>
+            {selectedEventIds.size > 0 ? (
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-muted/50 px-3 py-2">
+                <p className="text-xs text-muted-foreground">
+                  {selectedEventIds.size} seleccionados
+                </p>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={handleDeleteSelection}
+                >
+                  Eliminar selección
+                </Button>
+              </div>
+            ) : null}
             <div className="overflow-x-auto">
               <table className="min-w-[900px] w-full text-sm">
                 <thead>
                   <tr className="text-left text-muted-foreground border-b">
+                    <th className="py-3 pr-3 font-medium w-10"> </th>
                     <th className="py-3 pr-4 font-medium">ID</th>
                     <th className="py-3 pr-4 font-medium cursor-pointer" onClick={() => handleAdminSort("name")}>
                       {t("events.table.name")}
@@ -813,6 +880,14 @@ const EventManagement = () => {
                     const maxPhotos = event.max_photos ?? "-";
                     return (
                       <tr key={event.id} className="border-b last:border-b-0">
+                        <td className="py-3 pr-3">
+                          <input
+                            type="checkbox"
+                            checked={selectedEventIds.has(event.id)}
+                            onChange={() => toggleEventSelection(event.id)}
+                            className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                          />
+                        </td>
                         <td className="py-3 pr-4 text-muted-foreground">
                           {(adminPage - 1) * pageSize + index + 1}
                         </td>
@@ -880,10 +955,22 @@ const EventManagement = () => {
                 })}
               </p>
               <div className="flex items-center gap-2">
+                <select
+                  value={adminPageSize}
+                  onChange={(e) =>
+                    setAdminPageSize(e.target.value === "all" ? "all" : Number(e.target.value))
+                  }
+                  className="h-9 rounded-md border border-input bg-background px-2 text-xs"
+                >
+                  <option value={30}>30</option>
+                  <option value={60}>60</option>
+                  <option value={100}>100</option>
+                  <option value="all">Ver todos</option>
+                </select>
                 <Button
                   variant="outline"
                   size="sm"
-                  disabled={adminPage === 1}
+                  disabled={adminPage === 1 || adminPageSize === "all"}
                   onClick={() => setAdminPage((prev) => Math.max(1, prev - 1))}
                 >
                   {t("events.paginationPrev")}
@@ -894,7 +981,7 @@ const EventManagement = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  disabled={adminPage >= totalAdminPages}
+                  disabled={adminPage >= totalAdminPages || adminPageSize === "all"}
                   onClick={() => setAdminPage((prev) => Math.min(totalAdminPages, prev + 1))}
                 >
                   {t("events.paginationNext")}
