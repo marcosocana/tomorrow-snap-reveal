@@ -78,6 +78,9 @@ const EventManagement = () => {
   });
   const [adminPage, setAdminPage] = useState(1);
   const pageSize = 30;
+  const [redeemPlan, setRedeemPlan] = useState<"small" | "medium" | "large" | "xxl">("small");
+  const [generatedRedeem, setGeneratedRedeem] = useState<string | null>(null);
+  const [isGeneratingRedeem, setIsGeneratingRedeem] = useState(false);
   const [createdSummary, setCreatedSummary] = useState<{
     id: string;
     name: string;
@@ -242,6 +245,51 @@ const EventManagement = () => {
     setRedeemError(null);
     setRedeemOpen(false);
     navigate(`${pathPrefix}/redeem/${code}`);
+  };
+
+  const handleGenerateRedeem = async () => {
+    try {
+      setIsGeneratingRedeem(true);
+      setGeneratedRedeem(null);
+      const { data, error } = await supabase.functions.invoke("admin-generate-redeem", {
+        body: { planId: redeemPlan },
+      });
+      if (error || !data?.token) {
+        throw error || new Error("NO_TOKEN");
+      }
+      setGeneratedRedeem(data.token);
+      toast({
+        title: "Código generado",
+        description: "El código ya está listo para usar.",
+      });
+    } catch (error) {
+      console.error("Error generating redeem:", error);
+      toast({
+        title: t("form.errorTitle"),
+        description: "No se pudo generar el código.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingRedeem(false);
+    }
+  };
+
+  const handleCopyRedeem = async () => {
+    if (!generatedRedeem) return;
+    const redeemUrl = `${window.location.origin}${pathPrefix}/redeem/${generatedRedeem}`;
+    try {
+      await navigator.clipboard.writeText(redeemUrl);
+      toast({
+        title: "Enlace copiado",
+        description: "Ya puedes compartir el enlace de canje.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "No se pudo copiar el enlace.",
+        variant: "destructive",
+      });
+    }
   };
 
   // Get events organized by folder, sorted by sort_order
@@ -662,6 +710,45 @@ const EventManagement = () => {
 
         {isSuperAdmin ? (
           <Card className="p-4 space-y-4">
+            <div className="flex flex-col lg:flex-row lg:items-center gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-foreground">Generar código de canje</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  value={redeemPlan}
+                  onChange={(e) => setRedeemPlan(e.target.value as any)}
+                  className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                >
+                  <option value="small">Pequeño</option>
+                  <option value="medium">Mediano</option>
+                  <option value="large">Grande</option>
+                  <option value="xxl">XXL</option>
+                </select>
+                <Button
+                  variant="default"
+                  className="gap-2"
+                  onClick={handleGenerateRedeem}
+                  disabled={isGeneratingRedeem}
+                >
+                  {isGeneratingRedeem ? "Generando..." : "Generar"}
+                </Button>
+                {generatedRedeem ? (
+                  <Button
+                    variant="outline"
+                    className="gap-2"
+                    onClick={handleCopyRedeem}
+                  >
+                    Copiar enlace
+                  </Button>
+                ) : null}
+              </div>
+            </div>
+            {generatedRedeem ? (
+              <div className="rounded-md border border-border bg-muted/50 px-3 py-2 text-sm">
+                Código: <span className="font-semibold">{generatedRedeem}</span>
+              </div>
+            ) : null}
             <div className="flex flex-col lg:flex-row lg:items-center gap-3">
               <div className="flex-1">
                 <Input
