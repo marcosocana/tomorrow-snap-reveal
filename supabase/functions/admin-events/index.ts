@@ -73,18 +73,16 @@ serve(async (req) => {
 
     let emailsById: Record<string, string> = {};
     let phonesById: Record<string, string | null> = {};
-    let photoCounts: Record<string, number> = {};
 
     if (ownerIds.length > 0) {
-      const { data: users } = await supabaseAdmin
-        .schema("auth")
-        .from("users")
-        .select("id,email")
-        .in("id", ownerIds);
+      const { data: usersData, error: usersError } =
+        await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
 
-      (users || []).forEach((u: any) => {
-        emailsById[u.id] = u.email;
-      });
+      if (!usersError && usersData?.users) {
+        usersData.users.forEach((u) => {
+          if (u.id) emailsById[u.id] = u.email ?? "";
+        });
+      }
 
       const { data: profiles } = await supabaseAdmin
         .from("user_profiles")
