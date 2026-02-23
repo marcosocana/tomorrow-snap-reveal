@@ -32,45 +32,61 @@ serve(async (req) => {
     return json({ error: "Missing env" }, 500);
   }
 
-  const authHeader = req.headers.get("Authorization") ?? "";
-  const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    global: { headers: { Authorization: authHeader } },
-    auth: { persistSession: false },
-  });
-
-  const { data: { user }, error: userError } = await userClient.auth.getUser();
-  if (userError || !user) {
+  const authHeader = req.headers.get("Authorization") || "";
+  const token = authHeader.replace("Bearer ", "").trim();
+  if (!token) {
     return json({ error: "UNAUTHORIZED" }, 401);
   }
 
-  const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-  const email = user.email?.toLowerCase() ?? "";
+  try {
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const { data: userData, error: userError } = await supabase.auth.getUser(token);
+    if (userError || !userData?.user) {
+      return json({ error: "UNAUTHORIZED" }, 401);
+    }
 
-  const { data, error } = await supabaseAdmin
-    .from("purchases")
-    .select("id,plan_id,redeem_token,redeem_token_expires_at,status,redeemed_at,created_at")
-    .or(`user_id.eq.${user.id},user_email.eq.${email}`)
-    .eq("status", "paid")
-    .is("redeemed_at", null)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    const user = userData.user;
+    const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-  if (error || !data || !data.redeem_token) {
-    return json({ pending: null });
+    const { data: purchase, error: purchaseError } = await supabaseAdmin
+      .from("purchases")
+      .select("*")
+      .eq("status", "paid")
+      .is("redeemed_at", null)
+      .or(`user_id.eq.${user.id},user_email.eq.${user.email}`)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (purchaseError) {
+      console.error("redeem-pending query error:", purchaseError);
+      return json({ error: "DB_ERROR" }, 500);
+    }
+
+    if (!purchase) {
+      return json({ pending: null });
+    }
+
+    if (
+      purchase.redeem_token_expires_at &&
+      new Date(purchase.redeem_token_expires_at) < new Date()
+    ) {
+      return json({ pending: null });
+    }
+
+    const plan = getPlanById(purchase.plan_id);
+
+    return json({
+      pending: {
+        token: purchase.redeem_token,
+        plan: plan
+          ? { id: plan.id, label: plan.label, maxPhotos: plan.maxPhotos, stripePriceIdEnv: plan.stripePriceIdEnv }
+          : null,
+        expiresAt: purchase.redeem_token_expires_at ?? null,
+      },
+    });
+  } catch (error) {
+    console.error("redeem-pending error:", error);
+    return json({ error: "UNKNOWN_ERROR" }, 500);
   }
-
-  if (data.redeem_token_expires_at && new Date(data.redeem_token_expires_at) < new Date()) {
-    return json({ pending: null });
-  }
-
-  const plan = getPlanById(data.plan_id);
-
-  return json({
-    pending: {
-      token: data.redeem_token,
-      plan,
-      expiresAt: data.redeem_token_expires_at,
-    },
-  });
 });
