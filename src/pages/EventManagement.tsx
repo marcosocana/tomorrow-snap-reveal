@@ -59,6 +59,7 @@ const EventManagement = () => {
   const [isDemoMode] = useState(() => localStorage.getItem("isDemoMode") === "true");
   const [adminEventId] = useState(() => localStorage.getItem("adminEventId"));
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
   const [previewEvent, setPreviewEvent] = useState<Event | null>(null);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [pricingOpen, setPricingOpen] = useState(false);
@@ -128,6 +129,14 @@ const EventManagement = () => {
       return () => subscription.unsubscribe();
     }
   }, [navigate, isDemoMode, adminEventId]);
+
+  useEffect(() => {
+    const loadUserEmail = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUserEmail(user?.email ?? null);
+    };
+    loadUserEmail();
+  }, []);
 
   useEffect(() => {
     const created = (location.state as any)?.createdEvent;
@@ -709,16 +718,19 @@ const EventManagement = () => {
             <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
               {isDemoMode ? t("events.titleDemo") : t("events.title")}
             </h1>
+            {currentUserEmail ? (
+              <span className="text-sm text-muted-foreground">{currentUserEmail}</span>
+            ) : null}
           </div>
 
           <div className="flex gap-2 w-full sm:w-auto flex-wrap">
             <Button
               variant="outline"
-              className="gap-2"
+              size="icon"
               onClick={handleLogout}
+              aria-label={t("events.logout")}
             >
               <LogOut className="w-4 h-4" />
-              {t("events.logout")}
             </Button>
             {!adminEventId && !isSuperAdmin && (
               <Button
