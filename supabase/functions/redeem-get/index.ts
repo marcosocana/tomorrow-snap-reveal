@@ -57,13 +57,13 @@ serve(async (req) => {
 
   let plan = getPlanById(data.plan_id);
   if (!plan) {
-    const fallbackPlans: Record<string, { id: string; label: string; maxPhotos: number | null }> = {
-      demo: { id: "demo", label: "Demo", maxPhotos: 10 },
-      small: { id: "small", label: "Start", maxPhotos: 200 },
-      medium: { id: "medium", label: "Plus", maxPhotos: 1200 },
-      large: { id: "large", label: "Plus", maxPhotos: 1200 },
-      xxl: { id: "xxl", label: "Pro", maxPhotos: null },
-      xl: { id: "xxl", label: "Pro", maxPhotos: null },
+    const fallbackPlans: Record<string, { id: string; label: string; maxPhotos: number | null; stripePriceIdEnv: string }> = {
+      demo: { id: "demo", label: "Demo", maxPhotos: 10, stripePriceIdEnv: "STRIPE_PRICE_DEMO" },
+      small: { id: "small", label: "Start", maxPhotos: 200, stripePriceIdEnv: "STRIPE_PRICE_SMALL" },
+      medium: { id: "medium", label: "Plus", maxPhotos: 1200, stripePriceIdEnv: "STRIPE_PRICE_MEDIUM" },
+      large: { id: "large", label: "Plus", maxPhotos: 1200, stripePriceIdEnv: "STRIPE_PRICE_LARGE" },
+      xxl: { id: "xxl", label: "Pro", maxPhotos: null, stripePriceIdEnv: "STRIPE_PRICE_XXL" },
+      xl: { id: "xxl", label: "Pro", maxPhotos: null, stripePriceIdEnv: "STRIPE_PRICE_XXL" },
     };
     plan = fallbackPlans[data.plan_id ?? ""] ?? null;
   }
