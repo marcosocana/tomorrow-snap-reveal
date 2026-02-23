@@ -140,6 +140,14 @@ const AdminLogin = () => {
             {isLoading ? t("login.button.loading") : t("login.button")}
           </Button>
         </form>
+
+        <p className="text-center text-sm text-muted-foreground">
+          Si aún no estás registrado, puedes crear un evento y registrarte desde{" "}
+          <a href={`${pathPrefix}/nuevoeventodemo`} className="text-primary hover:underline font-semibold">
+            aquí
+          </a>
+          .
+        </p>
       </div>
     </div>
   );
