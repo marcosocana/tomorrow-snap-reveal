@@ -112,8 +112,7 @@ export const PricingPreview = ({ showHeader = true, onSelectPlan }: PricingPrevi
           <div
             key={plan.planId}
             className={[
-              "relative rounded-3xl border bg-card p-6 shadow-sm transition-all duration-300",
-              "hover:-translate-y-1",
+              "relative rounded-3xl border bg-card p-6 shadow-sm",
               plan.featured
                 ? "border-[#f06a5f]/40 bg-[#f06a5f]/5 shadow-[0_20px_40px_-30px_rgba(240,106,95,0.35)]"
                 : "border-border",

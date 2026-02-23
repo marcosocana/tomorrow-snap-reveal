@@ -671,19 +671,6 @@ const EventManagement = () => {
               {t("events.logout")}
             </Button>
             {!adminEventId && !isSuperAdmin && (
-              <Button
-                variant="outline"
-                className="gap-2 flex-1 sm:flex-initial"
-                onClick={() => {
-                  setRedeemError(null);
-                  setRedeemCode("");
-                  setRedeemOpen(true);
-                }}
-              >
-                {t("events.redeemTitle")}
-              </Button>
-            )}
-            {!adminEventId && !isSuperAdmin && (
               <Button className="gap-2 flex-1 sm:flex-initial" onClick={() => setPricingOpen(true)}>
                 <Plus className="w-4 h-4" />
                 {t("events.new")}
@@ -1015,6 +1002,35 @@ const EventManagement = () => {
           </DialogHeader>
           <div className="max-h-[80vh] overflow-y-auto pr-1">
             <PricingPreview showHeader={false} />
+            <div className="mt-6 space-y-4 text-sm text-muted-foreground">
+              <p>
+                Si tu evento no se ajusta a estos planes, ponte en contacto con nosotros por{" "}
+                <a className="text-primary font-medium hover:underline" href="mailto:revelao.cam@gmail.com">
+                  mail
+                </a>{" "}
+                o escríbenos por{" "}
+                <a
+                  className="text-primary font-medium hover:underline"
+                  href={`https://wa.me/34695834018?text=${encodeURIComponent(t("pricing.whatsappMessage"))}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  WhatsApp
+                </a>
+                .
+              </p>
+              <Button
+                variant="outline"
+                className="w-full sm:w-auto"
+                onClick={() => {
+                  setRedeemError(null);
+                  setRedeemCode("");
+                  setRedeemOpen(true);
+                }}
+              >
+                Canjear
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
