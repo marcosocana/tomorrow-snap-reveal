@@ -1012,23 +1012,23 @@ const EventManagement = () => {
                 <PricingPreview showHeader={false} />
                 <div className="mt-6 space-y-3 text-sm text-muted-foreground text-center">
                   <p>
-                    Si tu evento no se ajusta a estos planes, ponte en contacto con nosotros por{" "}
+                    {t("events.pricingContactPrefix")}{" "}
                     <a className="text-primary font-medium hover:underline" href="mailto:revelao.cam@gmail.com">
-                      mail
+                      {t("events.pricingContactEmail")}
                     </a>{" "}
-                    o escríbenos por{" "}
+                    {t("events.pricingContactMiddle")}{" "}
                     <a
                       className="text-primary font-medium hover:underline"
                       href={`https://wa.me/34695834018?text=${encodeURIComponent(t("pricing.whatsappMessage"))}`}
                       target="_blank"
                       rel="noopener noreferrer"
                     >
-                      WhatsApp
+                      {t("events.pricingContactWhatsapp")}
                     </a>
                     .
                   </p>
                   <p>
-                    También puedes{" "}
+                    {t("events.redeemInlinePrefix")}{" "}
                     <button
                       type="button"
                       className="text-primary font-medium hover:underline"
@@ -1038,7 +1038,7 @@ const EventManagement = () => {
                         setPricingStep("redeem");
                       }}
                     >
-                      canjear un código de evento
+                      {t("events.redeemInlineLink")}
                     </button>
                     .
                   </p>
@@ -1051,7 +1051,7 @@ const EventManagement = () => {
                   className="px-0 text-sm text-muted-foreground hover:text-foreground"
                   onClick={() => setPricingStep("plans")}
                 >
-                  ← Volver a planes
+                  {t("events.redeemBack")}
                 </Button>
                 <div className="space-y-2">
                   <p className="text-sm text-muted-foreground">
