@@ -41,8 +41,9 @@ const generateToken = (length = 48) => {
   return btoa(String.fromCharCode(...bytes)).replace(/=|\+|\//g, "");
 };
 
+// deno-lint-ignore no-explicit-any
 const findAuthUserByEmail = async (
-  supabaseAdmin: ReturnType<typeof createClient>,
+  supabaseAdmin: any,
   email: string,
 ) => {
   const normalized = email.trim().toLowerCase();
