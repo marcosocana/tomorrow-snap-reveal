@@ -142,9 +142,11 @@ const AdminLogin = () => {
         </form>
 
         <p className="text-center text-sm text-muted-foreground">
+          Si aún no estás registrado, puedes{" "}
           <a href={`${pathPrefix}/nuevoeventodemo`} className="text-primary hover:underline font-semibold">
-            Si aún no estás registrado, puedes crear un evento y registrarte gratis.
+            crear un evento y registrarte gratis
           </a>
+          .
         </p>
       </div>
     </div>
