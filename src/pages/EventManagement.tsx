@@ -62,7 +62,7 @@ const EventManagement = () => {
   const [previewEvent, setPreviewEvent] = useState<Event | null>(null);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [pricingOpen, setPricingOpen] = useState(false);
-  const [redeemOpen, setRedeemOpen] = useState(false);
+  const [pricingStep, setPricingStep] = useState<"plans" | "redeem">("plans");
   const [redeemCode, setRedeemCode] = useState("");
   const [redeemError, setRedeemError] = useState<string | null>(null);
   const [pendingRedeem, setPendingRedeem] = useState<{
@@ -671,7 +671,13 @@ const EventManagement = () => {
               {t("events.logout")}
             </Button>
             {!adminEventId && !isSuperAdmin && (
-              <Button className="gap-2 flex-1 sm:flex-initial" onClick={() => setPricingOpen(true)}>
+              <Button
+                className="gap-2 flex-1 sm:flex-initial"
+                onClick={() => {
+                  setPricingStep("plans");
+                  setPricingOpen(true);
+                }}
+              >
                 <Plus className="w-4 h-4" />
                 {t("events.new")}
               </Button>
@@ -1001,61 +1007,71 @@ const EventManagement = () => {
             </p>
           </DialogHeader>
           <div className="max-h-[80vh] overflow-y-auto pr-1">
-            <PricingPreview showHeader={false} />
-            <div className="mt-6 space-y-4 text-sm text-muted-foreground">
-              <p>
-                Si tu evento no se ajusta a estos planes, ponte en contacto con nosotros por{" "}
-                <a className="text-primary font-medium hover:underline" href="mailto:revelao.cam@gmail.com">
-                  mail
-                </a>{" "}
-                o escríbenos por{" "}
-                <a
-                  className="text-primary font-medium hover:underline"
-                  href={`https://wa.me/34695834018?text=${encodeURIComponent(t("pricing.whatsappMessage"))}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
+            {pricingStep === "plans" ? (
+              <>
+                <PricingPreview showHeader={false} />
+                <div className="mt-6 space-y-3 text-sm text-muted-foreground text-center">
+                  <p>
+                    Si tu evento no se ajusta a estos planes, ponte en contacto con nosotros por{" "}
+                    <a className="text-primary font-medium hover:underline" href="mailto:revelao.cam@gmail.com">
+                      mail
+                    </a>{" "}
+                    o escríbenos por{" "}
+                    <a
+                      className="text-primary font-medium hover:underline"
+                      href={`https://wa.me/34695834018?text=${encodeURIComponent(t("pricing.whatsappMessage"))}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      WhatsApp
+                    </a>
+                    .
+                  </p>
+                  <p>
+                    También puedes{" "}
+                    <button
+                      type="button"
+                      className="text-primary font-medium hover:underline"
+                      onClick={() => {
+                        setRedeemError(null);
+                        setRedeemCode("");
+                        setPricingStep("redeem");
+                      }}
+                    >
+                      canjear un código de evento
+                    </button>
+                    .
+                  </p>
+                </div>
+              </>
+            ) : (
+              <div className="space-y-4">
+                <Button
+                  variant="ghost"
+                  className="px-0 text-sm text-muted-foreground hover:text-foreground"
+                  onClick={() => setPricingStep("plans")}
                 >
-                  WhatsApp
-                </a>
-                .
-              </p>
-              <Button
-                variant="outline"
-                className="w-full sm:w-auto"
-                onClick={() => {
-                  setRedeemError(null);
-                  setRedeemCode("");
-                  setRedeemOpen(true);
-                }}
-              >
-                Canjear
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={redeemOpen} onOpenChange={setRedeemOpen}>
-        <DialogContent className="max-w-md w-[95vw] sm:w-full">
-          <DialogHeader>
-            <DialogTitle>{t("events.redeemTitle")}</DialogTitle>
-            <p className="text-sm text-muted-foreground">
-              {t("events.redeemDescription")}
-            </p>
-          </DialogHeader>
-          <div className="space-y-3">
-            <input
-              value={redeemCode}
-              onChange={(e) => setRedeemCode(e.target.value)}
-              placeholder={t("events.redeemPlaceholder")}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-            />
-            {redeemError ? (
-              <p className="text-sm text-destructive">{redeemError}</p>
-            ) : null}
-            <Button className="w-full" onClick={handleRedeemSubmit}>
-              {t("events.redeemAction")}
-            </Button>
+                  ← Volver a planes
+                </Button>
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground">
+                    {t("events.redeemDescription")}
+                  </p>
+                  <input
+                    value={redeemCode}
+                    onChange={(e) => setRedeemCode(e.target.value)}
+                    placeholder={t("events.redeemPlaceholder")}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  />
+                  {redeemError ? (
+                    <p className="text-sm text-destructive">{redeemError}</p>
+                  ) : null}
+                  <Button className="w-full" onClick={handleRedeemSubmit}>
+                    {t("events.redeemAction")}
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>
