@@ -19,6 +19,7 @@ const AdminLogin = () => {
   const redirectTo = searchParams.get("redirect");
   const reason = searchParams.get("reason");
   const prefEmail = searchParams.get("email");
+  const checkoutStatus = searchParams.get("checkout");
 
   useEffect(() => {
     // Check if user is already logged in
@@ -29,6 +30,12 @@ const AdminLogin = () => {
       }
     };
     checkUser();
+    if (checkoutStatus === "success") {
+      toast({
+        title: t("login.checkoutSuccessTitle"),
+        description: t("login.checkoutSuccessDesc"),
+      });
+    }
     if (reason === "exists") {
       toast({
         title: "El email ya está registrado",
@@ -39,7 +46,7 @@ const AdminLogin = () => {
         setEmail(prefEmail);
       }
     }
-  }, [navigate, pathPrefix, redirectTo, reason, prefEmail, toast]);
+  }, [navigate, pathPrefix, redirectTo, reason, prefEmail, checkoutStatus, toast, t]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

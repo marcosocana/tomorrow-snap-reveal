@@ -65,6 +65,10 @@ const EventManagement = () => {
   const [redeemOpen, setRedeemOpen] = useState(false);
   const [redeemCode, setRedeemCode] = useState("");
   const [redeemError, setRedeemError] = useState<string | null>(null);
+  const [pendingRedeem, setPendingRedeem] = useState<{
+    token: string;
+    planLabel: string;
+  } | null>(null);
   const [adminSearch, setAdminSearch] = useState("");
   const [adminTypeFilter, setAdminTypeFilter] = useState<"all" | "D" | "P" | "M" | "G" | "XXL">("all");
   const [adminPhoneFilter, setAdminPhoneFilter] = useState<"all" | "yes" | "no">("all");
@@ -167,6 +171,21 @@ const EventManagement = () => {
 
         if (isAdminUser) {
           setFolders([]);
+          setPendingRedeem(null);
+        } else {
+          const { data: pendingPayload } = await supabase.functions.invoke(
+            "redeem-pending",
+            { method: "GET" },
+          );
+          const pending = pendingPayload?.pending;
+          if (pending?.token) {
+            setPendingRedeem({
+              token: pending.token,
+              planLabel: pending.plan?.label ?? "evento",
+            });
+          } else {
+            setPendingRedeem(null);
+          }
         }
 
         const folderIds = Array.from(new Set(fetchedEvents.map((e) => e.folder_id).filter(Boolean))) as string[];
@@ -624,6 +643,22 @@ const EventManagement = () => {
             )}
           </div>
         </div>
+
+        {!isSuperAdmin && pendingRedeem ? (
+          <Card className="p-5 border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-900/10">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <p className="text-sm text-muted-foreground">
+                Tienes un evento {pendingRedeem.planLabel} pendiente de canjear.
+              </p>
+              <Button
+                className="bg-primary text-primary-foreground hover:bg-primary/90"
+                onClick={() => navigate(`${pathPrefix}/redeem/${pendingRedeem.token}`)}
+              >
+                Crear evento
+              </Button>
+            </div>
+          </Card>
+        ) : null}
 
         {isSuperAdmin ? (
           <Card className="p-4 space-y-4">
