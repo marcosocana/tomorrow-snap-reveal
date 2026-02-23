@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Check } from "lucide-react";
+import { Check, Star } from "lucide-react";
 import { useAdminI18n } from "@/lib/adminI18n";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
@@ -7,33 +7,30 @@ import { useToast } from "@/hooks/use-toast";
 
 const plans = [
   {
+    titleKey: "pricing.plan.demo",
+    subtitleKey: "pricing.plan.demo.subtitle",
+    ctaKey: "pricing.plan.demo.cta",
+    planId: "demo",
+    price: "0€",
+  },
+  {
     titleKey: "pricing.plan.small",
+    subtitleKey: "pricing.plan.small.subtitle",
     planId: "small",
-    guests: 50,
-    price: "36€",
-    costPerGuest: "0,72€",
+    price: "39€",
   },
   {
     titleKey: "pricing.plan.medium",
+    subtitleKey: "pricing.plan.medium.subtitle",
     planId: "medium",
-    guests: 300,
-    price: "74€",
-    costPerGuest: "0,25€",
+    price: "79€",
     featured: true,
   },
   {
-    titleKey: "pricing.plan.large",
-    planId: "large",
-    guests: 500,
-    price: "96€",
-    costPerGuest: "0,19€",
-  },
-  {
     titleKey: "pricing.plan.xl",
+    subtitleKey: "pricing.plan.xl.subtitle",
     planId: "xxl",
-    guests: 1000,
-    price: "139€",
-    costPerGuest: "0,14€",
+    price: "149€",
   },
 ];
 
@@ -46,17 +43,56 @@ export const PricingPreview = ({ showHeader = true, onSelectPlan }: PricingPrevi
   const { t, pathPrefix } = useAdminI18n();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const baseFeatures = [
-    t("pricing.feature.photos"),
-    t("pricing.feature.gallery"),
-    t("pricing.feature.download"),
-    t("pricing.feature.brand"),
-    t("pricing.feature.support"),
-  ];
+  const planFeatures: Record<string, string[]> = {
+    demo: [
+      t("pricing.plan.demo.feature.photos"),
+      t("pricing.plan.demo.feature.gallery"),
+      t("pricing.plan.demo.feature.download"),
+      t("pricing.plan.demo.feature.brand"),
+      t("pricing.plan.demo.feature.qr"),
+      t("pricing.plan.demo.feature.panel"),
+    ],
+    small: [
+      t("pricing.plan.small.feature.photos"),
+      t("pricing.plan.small.feature.gallery"),
+      t("pricing.plan.small.feature.download"),
+      t("pricing.plan.small.feature.brand"),
+      t("pricing.plan.small.feature.access"),
+      t("pricing.plan.small.feature.qr"),
+      t("pricing.plan.small.feature.panel"),
+      t("pricing.plan.small.feature.ideal"),
+    ],
+    medium: [
+      t("pricing.plan.medium.feature.photos"),
+      t("pricing.plan.medium.feature.gallery"),
+      t("pricing.plan.medium.feature.download"),
+      t("pricing.plan.medium.feature.brand"),
+      t("pricing.plan.medium.feature.support"),
+      t("pricing.plan.medium.feature.qr"),
+      t("pricing.plan.medium.feature.panel"),
+      t("pricing.plan.medium.feature.ideal"),
+    ],
+    xxl: [
+      t("pricing.plan.xl.feature.photos"),
+      t("pricing.plan.xl.feature.gallery"),
+      t("pricing.plan.xl.feature.brand"),
+      t("pricing.plan.xl.feature.download"),
+      t("pricing.plan.xl.feature.support"),
+      t("pricing.plan.xl.feature.backup"),
+      t("pricing.plan.xl.feature.qr"),
+      t("pricing.plan.xl.feature.panel"),
+      t("pricing.plan.xl.feature.ideal"),
+    ],
+  };
 
   const handleCheckout = async (planId: string) => {
     if (onSelectPlan) {
       onSelectPlan(planId);
+      return;
+    }
+
+    if (planId === "demo") {
+      navigate(`${pathPrefix}/nuevoeventodemo`);
       return;
     }
 
@@ -126,23 +162,29 @@ export const PricingPreview = ({ showHeader = true, onSelectPlan }: PricingPrevi
 
             <div className="mb-6 space-y-2">
               <h4 className="text-lg font-semibold text-foreground">{t(plan.titleKey)}</h4>
-              <p className="text-sm text-muted-foreground">{t("pricing.guests", { count: plan.guests })}</p>
+              <p className="text-sm text-muted-foreground">{t(plan.subtitleKey)}</p>
               <div className="flex items-end gap-2 pt-1">
                 <span className="text-4xl font-bold text-foreground">{plan.price}</span>
                 <span className="text-sm text-muted-foreground pb-1">{t("pricing.perEvent")}</span>
               </div>
-              <p className="text-sm text-muted-foreground">
-                {t("pricing.perGuest", { amount: plan.costPerGuest })}
-              </p>
             </div>
 
             <ul className="space-y-3 mb-6">
-              {baseFeatures.map((feature) => (
-                <li key={feature} className="flex items-start gap-3">
-                  <Check className="w-4 h-4 flex-shrink-0 mt-0.5 text-[#f06a5f]" />
-                  <span className="text-sm text-foreground">{feature}</span>
-                </li>
-              ))}
+              {(planFeatures[plan.planId] ?? []).map((feature) => {
+                const normalized = feature.toLowerCase();
+                const isIdeal =
+                  normalized.startsWith("ideal para") ||
+                  normalized.startsWith("ideal for") ||
+                  normalized.startsWith("ideale per");
+                const Icon = isIdeal ? Star : Check;
+                const iconClass = isIdeal ? "text-foreground" : "text-[#f06a5f]";
+                return (
+                  <li key={feature} className="flex items-start gap-3">
+                    <Icon className={`w-4 h-4 flex-shrink-0 mt-0.5 ${iconClass}`} />
+                    <span className="text-sm text-foreground">{feature}</span>
+                  </li>
+                );
+              })}
             </ul>
 
             <Button
@@ -155,7 +197,7 @@ export const PricingPreview = ({ showHeader = true, onSelectPlan }: PricingPrevi
               variant={plan.featured ? "default" : "outline"}
               onClick={() => handleCheckout(plan.planId)}
             >
-              {t("pricing.cta")}
+              {plan.ctaKey ? t(plan.ctaKey) : t("pricing.cta")}
             </Button>
           </div>
         ))}

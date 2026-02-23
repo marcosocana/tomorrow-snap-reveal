@@ -398,10 +398,10 @@ const EventForm = () => {
 
       const planToMaxPhotos: Record<string, string> = {
         demo: "10",
-        small: "50",
-        medium: "300",
-        large: "500",
-        xxl: "1000",
+        small: "200",
+        medium: "1200",
+        large: "1200",
+        xxl: "",
       };
       const resolvedMaxPhotos =
         isSuperAdmin && !isEditing && planType !== "custom"
@@ -701,10 +701,10 @@ const EventForm = () => {
                     setPlanType(value);
                     const planToMaxPhotos: Record<string, string> = {
                       demo: "10",
-                      small: "50",
-                      medium: "300",
-                      large: "500",
-                      xxl: "1000",
+                      small: "200",
+                      medium: "1200",
+                      large: "1200",
+                      xxl: "",
                     };
                     if (value !== "custom") {
                       setFormData((prev) => ({

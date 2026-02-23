@@ -70,7 +70,7 @@ const EventManagement = () => {
     planLabel: string;
   } | null>(null);
   const [adminSearch, setAdminSearch] = useState("");
-  const [adminTypeFilter, setAdminTypeFilter] = useState<"all" | "D" | "P" | "M" | "G" | "XXL">("all");
+  const [adminTypeFilter, setAdminTypeFilter] = useState<"all" | "D" | "S" | "+" | "++">("all");
   const [adminPhoneFilter, setAdminPhoneFilter] = useState<"all" | "yes" | "no">("all");
   const [adminSort, setAdminSort] = useState<{ key: "name" | "type" | "created_at" | "email" | "photos"; direction: "asc" | "desc" }>({
     key: "created_at",
@@ -80,7 +80,7 @@ const EventManagement = () => {
   const [adminPageSize, setAdminPageSize] = useState<number | "all">(30);
   const pageSize = adminPageSize === "all" ? superAdminEvents.length || 1 : adminPageSize;
   const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(new Set());
-  const [redeemPlan, setRedeemPlan] = useState<"small" | "medium" | "large" | "xxl">("small");
+  const [redeemPlan, setRedeemPlan] = useState<"small" | "medium" | "xxl">("small");
   const [generatedRedeem, setGeneratedRedeem] = useState<string | null>(null);
   const [isGeneratingRedeem, setIsGeneratingRedeem] = useState(false);
   const [createdSummary, setCreatedSummary] = useState<{
@@ -335,19 +335,17 @@ const EventManagement = () => {
 
   const getPlanBadge = (maxPhotos?: number | null) => {
     if (maxPhotos === 10) return t("events.badge.demo");
-    if (maxPhotos === 50) return t("events.badge.small");
-    if (maxPhotos === 300) return t("events.badge.medium");
-    if (maxPhotos === 500) return t("events.badge.large");
-    if (maxPhotos === 1000) return t("events.badge.xl");
+    if (maxPhotos === 50 || maxPhotos === 200) return t("events.badge.small");
+    if (maxPhotos === 300 || maxPhotos === 1200) return t("events.badge.medium");
+    if (maxPhotos === 500 || maxPhotos === 1000 || maxPhotos == null) return t("events.badge.xl");
     return null;
   };
 
   const getPlanType = (maxPhotos?: number | null) => {
     if (maxPhotos === 10) return { label: "D", color: "bg-[#f06a5f]/10 text-[#f06a5f] border-[#f06a5f]/30" };
-    if (maxPhotos === 50) return { label: "P", color: "bg-emerald-50 text-emerald-700 border-emerald-200" };
-    if (maxPhotos === 300) return { label: "M", color: "bg-blue-50 text-blue-700 border-blue-200" };
-    if (maxPhotos === 500) return { label: "G", color: "bg-amber-50 text-amber-700 border-amber-200" };
-    if (maxPhotos === 1000) return { label: "XXL", color: "bg-purple-50 text-purple-700 border-purple-200" };
+    if (maxPhotos === 50 || maxPhotos === 200) return { label: "S", color: "bg-emerald-50 text-emerald-700 border-emerald-200" };
+    if (maxPhotos === 300 || maxPhotos === 1200) return { label: "+", color: "bg-blue-50 text-blue-700 border-blue-200" };
+    if (maxPhotos === 500 || maxPhotos === 1000 || maxPhotos == null) return { label: "++", color: "bg-purple-50 text-purple-700 border-purple-200" };
     return { label: "-", color: "bg-muted text-muted-foreground border-border" };
   };
 
@@ -765,10 +763,9 @@ const EventManagement = () => {
                   onChange={(e) => setRedeemPlan(e.target.value as any)}
                   className="h-10 rounded-md border border-input bg-background px-3 text-sm"
                 >
-                  <option value="small">Pequeño</option>
-                  <option value="medium">Mediano</option>
-                  <option value="large">Grande</option>
-                  <option value="xxl">XXL</option>
+                  <option value="small">Start</option>
+                  <option value="medium">Plus</option>
+                  <option value="xxl">Pro</option>
                 </select>
                 <Button
                   variant="default"
@@ -810,10 +807,9 @@ const EventManagement = () => {
                 >
                   <option value="all">{t("events.filters.typeAll")}</option>
                   <option value="D">D</option>
-                  <option value="P">P</option>
-                  <option value="M">M</option>
-                  <option value="G">G</option>
-                  <option value="XXL">XXL</option>
+                  <option value="S">S</option>
+                  <option value="+">+</option>
+                  <option value="++">++</option>
                 </select>
                 <select
                   value={adminPhoneFilter}

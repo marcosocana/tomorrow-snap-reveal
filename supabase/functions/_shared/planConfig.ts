@@ -10,26 +10,26 @@ export type PlanConfig = {
 export const PLANS: Record<PlanId, PlanConfig> = {
   small: {
     id: "small",
-    label: "Pequeño",
-    maxPhotos: 50,
+    label: "Start",
+    maxPhotos: 200,
     stripePriceIdEnv: "STRIPE_PRICE_SMALL",
   },
   medium: {
     id: "medium",
-    label: "Mediano",
-    maxPhotos: 300,
+    label: "Plus",
+    maxPhotos: 1200,
     stripePriceIdEnv: "STRIPE_PRICE_MEDIUM",
   },
   large: {
     id: "large",
-    label: "Grande",
-    maxPhotos: 500,
+    label: "Plus",
+    maxPhotos: 1200,
     stripePriceIdEnv: "STRIPE_PRICE_LARGE",
   },
   xxl: {
     id: "xxl",
-    label: "XXL",
-    maxPhotos: 1000,
+    label: "Pro",
+    maxPhotos: null,
     stripePriceIdEnv: "STRIPE_PRICE_XXL",
   },
 };
