@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import Stripe from "https://esm.sh/stripe@13.10.0?target=deno";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { getPlanById } from "../_shared/planConfig.ts";
 
@@ -21,23 +20,23 @@ const json = (body: unknown, status = 200) =>
 const sendRedeemEmail = async (to: string, redeemUrl: string, planLabel: string, redeemCode: string) => {
   if (!RESEND_API_KEY || !FROM_EMAIL) return;
   const html = `
-    <div style="font-family: Arial, sans-serif; color: #111; line-height: 1.6;">
-      ${LOGO_URL ? `<div style="text-align:center;margin-bottom:24px;"><img src="${LOGO_URL}" alt="Revelao" style="width:240px; height:auto;" /></div>` : ""}
-      <h2 style="margin: 0 0 8px; text-align:center;">Tu plan ${planLabel} ya está listo</h2>
-      <p style="margin: 0 0 16px; text-align:center;">
+    <div style="font-family:sans-serif;max-width:480px;margin:auto;padding:24px;">
+      ${LOGO_URL ? `<p style="text-align:center;"><img src="${LOGO_URL}" alt="Logo" style="height:48px;" /></p>` : ""}
+      <h2 style="text-align:center;">Tu plan ${planLabel} ya está listo</h2>
+      <p style="text-align:center;">
         Puedes crear tu evento usando el siguiente enlace:
       </p>
-      <div style="text-align:center; margin: 0 0 24px;">
-        <a href="${redeemUrl}" style="display:inline-block;padding:12px 18px;background:#f06a5f;color:#fff;border-radius:10px;text-decoration:none;font-weight:700;">
+      <p style="text-align:center;">
+        <a href="${redeemUrl}" style="display:inline-block;background:#f06a5f;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;">
           Crear mi evento
         </a>
+      </p>
+      <div style="background:#f5f5f5;border-radius:8px;padding:16px;margin-top:24px;text-align:center;">
+        <p style="margin:0 0 4px;font-size:13px;color:#888;">Código de canje</p>
+        <p style="margin:0;font-size:20px;font-weight:bold;letter-spacing:2px;">${redeemCode}</p>
+        <p style="margin:8px 0 0;font-size:12px;color:#888;">Guarda este código por si necesitas acceder de nuevo.</p>
       </div>
-      <div style="background:#f5f5f5;border-radius:12px;padding:16px 18px;">
-        <p style="margin:0 0 8px;font-weight:700;">Código de canje</p>
-        <p style="margin:0 0 4px;font-size:18px;letter-spacing:1px;"><strong>${redeemCode}</strong></p>
-        <p style="margin:0;color:#666;font-size:12px;">Guarda este código por si necesitas acceder de nuevo.</p>
-      </div>
-      <p style="font-size:12px;color:#666;margin-top:16px;text-align:center;">
+      <p style="text-align:center;font-size:12px;color:#aaa;margin-top:24px;">
         Si no solicitaste esto, ignora este correo.
       </p>
     </div>
@@ -58,6 +57,41 @@ const sendRedeemEmail = async (to: string, redeemUrl: string, planLabel: string,
   });
 };
 
+const generateRedeemToken = (length = 16) => {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const values = new Uint8Array(length);
+  crypto.getRandomValues(values);
+  let token = "";
+  for (let i = 0; i < length; i++) {
+    token += alphabet[values[i] % alphabet.length];
+  }
+  return token;
+};
+
+async function verifyStripeSignature(rawBody: string, signatureHeader: string, secret: string) {
+  const parts = signatureHeader.split(",").reduce((acc, part) => {
+    const [k, v] = part.split("=");
+    acc[k.trim()] = v;
+    return acc;
+  }, {} as Record<string, string>);
+
+  const timestamp = parts["t"];
+  const sig = parts["v1"];
+  if (!timestamp || !sig) return false;
+
+  const signedPayload = `${timestamp}.${rawBody}`;
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(signedPayload));
+  const expected = Array.from(new Uint8Array(signature)).map((b) => b.toString(16).padStart(2, "0")).join("");
+  return expected === sig;
+}
+
 serve(async (req) => {
   if (req.method !== "POST") {
     return json({ error: "Method not allowed" }, 405);
@@ -72,24 +106,19 @@ serve(async (req) => {
     return json({ error: "Missing signature" }, 400);
   }
 
-  const body = await req.text();
-  const stripe = new Stripe(STRIPE_SECRET_KEY, {
-    apiVersion: "2023-10-16",
-  });
-
-  let event: Stripe.Event;
-  try {
-    event = stripe.webhooks.constructEvent(body, signature, STRIPE_WEBHOOK_SECRET);
-  } catch (err) {
-    console.error("Webhook signature verification failed:", err);
+  const rawBody = await req.text();
+  const isValid = await verifyStripeSignature(rawBody, signature, STRIPE_WEBHOOK_SECRET);
+  if (!isValid) {
     return json({ error: "Invalid signature" }, 400);
   }
+
+  const event = JSON.parse(rawBody);
 
   if (event.type !== "checkout.session.completed") {
     return json({ received: true });
   }
 
-  const session = event.data.object as Stripe.Checkout.Session;
+  const session = event.data.object;
   if (session.payment_status !== "paid") {
     return json({ received: true });
   }
@@ -102,16 +131,6 @@ serve(async (req) => {
 
   const userId = session.metadata?.userId || null;
   const userEmail = session.customer_email || session.customer_details?.email || null;
-  const generateRedeemToken = (length = 16) => {
-    const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-    const values = new Uint8Array(length);
-    crypto.getRandomValues(values);
-    let token = "";
-    for (let i = 0; i < length; i++) {
-      token += alphabet[values[i] % alphabet.length];
-    }
-    return token;
-  };
 
   const redeemToken = generateRedeemToken(16);
   const redeemExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
