@@ -55,7 +55,18 @@ serve(async (req) => {
     return json({ error: "TOKEN_EXPIRED" }, 410);
   }
 
-  const plan = getPlanById(data.plan_id);
+  let plan = getPlanById(data.plan_id);
+  if (!plan) {
+    const fallbackPlans: Record<string, { id: string; label: string; maxPhotos: number | null }> = {
+      demo: { id: "demo", label: "Demo", maxPhotos: 10 },
+      small: { id: "small", label: "Start", maxPhotos: 200 },
+      medium: { id: "medium", label: "Plus", maxPhotos: 1200 },
+      large: { id: "large", label: "Plus", maxPhotos: 1200 },
+      xxl: { id: "xxl", label: "Pro", maxPhotos: null },
+      xl: { id: "xxl", label: "Pro", maxPhotos: null },
+    };
+    plan = fallbackPlans[data.plan_id ?? ""] ?? null;
+  }
   return json({
     token,
     plan,
