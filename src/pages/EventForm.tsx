@@ -59,6 +59,8 @@ const EventForm = () => {
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [ownerEmail, setOwnerEmail] = useState<string | null>(null);
   const [ownerPhone, setOwnerPhone] = useState<string | null>(null);
+  const [ownerEmailInput, setOwnerEmailInput] = useState("");
+  const [planType, setPlanType] = useState<"demo" | "small" | "medium" | "large" | "xl" | "custom">("demo");
   // Generate a random 32-character hash for passwords
   const generateHash = () => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -384,6 +386,27 @@ const EventForm = () => {
     setIsSubmitting(true);
 
     try {
+      if (isSuperAdmin && !isEditing && !ownerEmailInput.trim()) {
+        toast({
+          title: t("form.errorTitle"),
+          description: t("events.ownerEmailRequired"),
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
+      const planToMaxPhotos: Record<string, string> = {
+        demo: "10",
+        small: "50",
+        medium: "300",
+        large: "500",
+        xl: "1000",
+      };
+      const resolvedMaxPhotos =
+        isSuperAdmin && !isEditing && planType !== "custom"
+          ? planToMaxPhotos[planType]
+          : formData.maxPhotos;
       const eventTz = formData.timezone;
       const uploadStartDateTime = fromZonedTime(`${formData.uploadStartDate}T${formData.uploadStartTime}:00`, eventTz);
       const uploadEndDateTime = fromZonedTime(`${formData.uploadEndDate}T${formData.uploadEndTime}:00`, eventTz);
@@ -419,7 +442,7 @@ const EventForm = () => {
             upload_start_time: uploadStartDateTime.toISOString(),
             upload_end_time: uploadEndDateTime.toISOString(),
             reveal_time: revealDateTime.toISOString(),
-            max_photos: isRestrictedAdmin ? 10 : (formData.maxPhotos ? parseInt(formData.maxPhotos) : null),
+            max_photos: isRestrictedAdmin ? 10 : (resolvedMaxPhotos ? parseInt(resolvedMaxPhotos) : null),
             custom_image_url: customImageUrl,
             background_image_url: backgroundImageUrl,
             filter_type: formData.filterType,
@@ -448,6 +471,75 @@ const EventForm = () => {
           title: t("form.updateTitle"),
           description: t("form.updateDesc"),
         });
+      } else if (isSuperAdmin && !isEditing) {
+        const payload = {
+          ownerEmail: ownerEmailInput.trim(),
+          event: {
+            name: formData.name,
+            password_hash: formData.password,
+            admin_password: formData.adminPassword || "",
+            upload_start_time: uploadStartDateTime.toISOString(),
+            upload_end_time: uploadEndDateTime.toISOString(),
+            reveal_time: revealDateTime.toISOString(),
+            max_photos: resolvedMaxPhotos ? parseInt(resolvedMaxPhotos) : null,
+            custom_image_url: customImageUrl,
+            background_image_url: backgroundImageUrl,
+            filter_type: formData.filterType,
+            font_family: formData.fontFamily,
+            font_size: formData.fontSize,
+            country_code: formData.countryCode,
+            timezone: formData.timezone,
+            language: formData.language,
+            description: formData.description || null,
+            expiry_date: expiryDateTime,
+            expiry_redirect_url: formData.expiryRedirectUrl || null,
+            allow_photo_deletion: formData.allowPhotoDeletion,
+            allow_photo_sharing: formData.allowPhotoSharing,
+            show_legal_text: formData.showLegalText,
+            legal_text_type: formData.showLegalText ? formData.legalTextType : 'default',
+            custom_terms_text: formData.legalTextType === 'custom' ? (formData.customTermsText || null) : null,
+            custom_privacy_text: formData.legalTextType === 'custom' ? (formData.customPrivacyText || null) : null,
+            gallery_view_mode: formData.galleryViewMode,
+            like_counting_enabled: formData.likeCountingEnabled,
+          },
+        };
+
+        const { data: created, error } = await supabase.functions.invoke("admin-create-event", {
+          method: "POST",
+          body: payload,
+        });
+
+        if (error) throw error;
+        if (!created?.event) {
+          throw new Error("Missing event");
+        }
+
+        const createdEvent = created.event;
+        const eventUrl = `https://acceso.revelao.cam/events/${createdEvent.password_hash}`;
+        const qrUrl = await uploadQrImage(eventUrl, createdEvent.id);
+        if (qrUrl) {
+          localStorage.setItem(`event-qr-url-${createdEvent.id}`, qrUrl);
+        }
+
+        toast({
+          title: t("form.createTitle"),
+          description: t("form.createDesc"),
+        });
+
+        navigate(`${pathPrefix}/event-management`, {
+          state: {
+            createdEvent: {
+              id: createdEvent.id,
+              name: createdEvent.name,
+              password_hash: createdEvent.password_hash,
+              upload_start_time: createdEvent.upload_start_time,
+              upload_end_time: createdEvent.upload_end_time,
+              reveal_time: createdEvent.reveal_time,
+              max_photos: createdEvent.max_photos,
+              owner_email: createdEvent.owner_email || ownerEmailInput.trim(),
+            },
+          },
+        });
       } else {
         const { data: { user } } = await supabase.auth.getUser();
         const { data: newEvent, error } = await supabase.from("events").insert({
@@ -457,7 +549,7 @@ const EventForm = () => {
           upload_start_time: uploadStartDateTime.toISOString(),
           upload_end_time: uploadEndDateTime.toISOString(),
           reveal_time: revealDateTime.toISOString(),
-          max_photos: formData.maxPhotos ? parseInt(formData.maxPhotos) : (isDemoMode ? 30 : null),
+          max_photos: resolvedMaxPhotos ? parseInt(resolvedMaxPhotos) : (isDemoMode ? 30 : null),
           custom_image_url: customImageUrl,
           background_image_url: backgroundImageUrl,
           filter_type: formData.filterType,
@@ -495,9 +587,9 @@ const EventForm = () => {
           title: t("form.createTitle"),
           description: t("form.createDesc"),
         });
-      }
 
-      navigate(`${pathPrefix}/event-management`);
+        navigate(`${pathPrefix}/event-management`);
+      }
     } catch (error) {
       console.error("Error saving event:", error);
       toast({
@@ -584,6 +676,55 @@ const EventForm = () => {
           {/* Form Column */}
           <Card className="p-6">
             <form onSubmit={handleSubmit} className="space-y-6">
+            {isSuperAdmin && !isEditing && (
+              <div className="space-y-2">
+                <Label htmlFor="ownerEmail">{t("events.ownerEmail")}</Label>
+                <Input
+                  id="ownerEmail"
+                  type="email"
+                  value={ownerEmailInput}
+                  onChange={(e) => setOwnerEmailInput(e.target.value)}
+                  placeholder="email@dominio.com"
+                  required
+                />
+              </div>
+            )}
+
+            {isSuperAdmin && !isEditing && (
+              <div className="space-y-2">
+                <Label htmlFor="planType">{t("events.planType")}</Label>
+                <select
+                  id="planType"
+                  value={planType}
+                  onChange={(e) => {
+                    const value = e.target.value as typeof planType;
+                    setPlanType(value);
+                    const planToMaxPhotos: Record<string, string> = {
+                      demo: "10",
+                      small: "50",
+                      medium: "300",
+                      large: "500",
+                      xl: "1000",
+                    };
+                    if (value !== "custom") {
+                      setFormData((prev) => ({
+                        ...prev,
+                        maxPhotos: planToMaxPhotos[value],
+                      }));
+                    }
+                  }}
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                >
+                  <option value="demo">{t("events.planDemo")}</option>
+                  <option value="small">{t("events.planSmall")}</option>
+                  <option value="medium">{t("events.planMedium")}</option>
+                  <option value="large">{t("events.planLarge")}</option>
+                  <option value="xl">{t("events.planXl")}</option>
+                  <option value="custom">{t("events.planCustom")}</option>
+                </select>
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="name">{t("form.name")}</Label>
               <Input

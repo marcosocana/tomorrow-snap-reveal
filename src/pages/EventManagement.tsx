@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Calendar, Plus, Edit, Copy, Download, Eye, LogOut } from "lucide-react";
 import { format } from "date-fns";
@@ -63,10 +64,30 @@ const EventManagement = () => {
   const [redeemOpen, setRedeemOpen] = useState(false);
   const [redeemCode, setRedeemCode] = useState("");
   const [redeemError, setRedeemError] = useState<string | null>(null);
+  const [adminSearch, setAdminSearch] = useState("");
+  const [adminTypeFilter, setAdminTypeFilter] = useState<"all" | "D" | "P" | "M" | "G" | "XL">("all");
+  const [adminPhoneFilter, setAdminPhoneFilter] = useState<"all" | "yes" | "no">("all");
+  const [adminSort, setAdminSort] = useState<{ key: "name" | "type" | "created_at" | "email" | "photos"; direction: "asc" | "desc" }>({
+    key: "created_at",
+    direction: "desc",
+  });
+  const [adminPage, setAdminPage] = useState(1);
+  const pageSize = 30;
+  const [createdSummary, setCreatedSummary] = useState<{
+    id: string;
+    name: string;
+    password_hash: string;
+    upload_start_time: string | null;
+    upload_end_time: string | null;
+    reveal_time: string;
+    max_photos: number | null;
+    owner_email: string | null;
+  } | null>(null);
   
   // Dialogs
 
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const { t, dateLocale, pathPrefix } = useAdminI18n();
 
@@ -97,6 +118,14 @@ const EventManagement = () => {
       return () => subscription.unsubscribe();
     }
   }, [navigate, isDemoMode, adminEventId]);
+
+  useEffect(() => {
+    const created = (location.state as any)?.createdEvent;
+    if (created) {
+      setCreatedSummary(created);
+      navigate(location.pathname, { replace: true, state: null });
+    }
+  }, [location, navigate]);
 
   const loadData = async () => {
     try {
@@ -142,8 +171,6 @@ const EventManagement = () => {
 
         if (isAdminUser) {
           setFolders([]);
-          setEventPhotoCounts({});
-          return;
         }
 
         const folderIds = Array.from(new Set(fetchedEvents.map((e) => e.folder_id).filter(Boolean))) as string[];
@@ -167,7 +194,7 @@ const EventManagement = () => {
               .from("photos")
               .select("*", { count: "exact", head: true })
               .eq("event_id", event.id);
-            
+
             if (!countError) {
               counts[event.id] = count || 0;
             }
@@ -269,6 +296,70 @@ const EventManagement = () => {
 
   const truncate = (value: string, max: number) =>
     value.length > max ? `${value.slice(0, max)}...` : value;
+
+  const handleAdminSort = (key: "name" | "type" | "created_at" | "email" | "photos") => {
+    setAdminSort((prev) => ({
+      key,
+      direction: prev.key === key && prev.direction === "asc" ? "desc" : "asc",
+    }));
+  };
+
+  const superAdminEvents = useMemo(() => {
+    const search = adminSearch.trim().toLowerCase();
+    let list = events.filter((event) => {
+      const matchesSearch =
+        !search ||
+        event.name.toLowerCase().includes(search) ||
+        (event.owner_email || "").toLowerCase().includes(search);
+      const planLabel = getPlanType(event.max_photos).label;
+      const matchesType = adminTypeFilter === "all" || planLabel === adminTypeFilter;
+      const hasPhone = !!event.owner_phone;
+      const matchesPhone =
+        adminPhoneFilter === "all" ||
+        (adminPhoneFilter === "yes" && hasPhone) ||
+        (adminPhoneFilter === "no" && !hasPhone);
+      return matchesSearch && matchesType && matchesPhone;
+    });
+
+    list = [...list].sort((a, b) => {
+      const direction = adminSort.direction === "asc" ? 1 : -1;
+      const getValue = (event: Event) => {
+        switch (adminSort.key) {
+          case "name":
+            return event.name.toLowerCase();
+          case "type":
+            return getPlanType(event.max_photos).label;
+          case "email":
+            return (event.owner_email || "").toLowerCase();
+          case "photos":
+            return eventPhotoCounts[event.id] || 0;
+          case "created_at":
+          default:
+            return event.created_at || "";
+        }
+      };
+      const aValue = getValue(a);
+      const bValue = getValue(b);
+      if (typeof aValue === "number" && typeof bValue === "number") {
+        return (aValue - bValue) * direction;
+      }
+      if (aValue < bValue) return -1 * direction;
+      if (aValue > bValue) return 1 * direction;
+      return 0;
+    });
+    return list;
+  }, [events, adminSearch, adminTypeFilter, adminPhoneFilter, adminSort, eventPhotoCounts]);
+
+  useEffect(() => {
+    setAdminPage(1);
+  }, [adminSearch, adminTypeFilter, adminPhoneFilter, adminSort]);
+
+  const paginatedAdminEvents = useMemo(() => {
+    const start = (adminPage - 1) * pageSize;
+    return superAdminEvents.slice(start, start + pageSize);
+  }, [superAdminEvents, adminPage]);
+
+  const totalAdminPages = Math.max(1, Math.ceil(superAdminEvents.length / pageSize));
 
   const handleCopyUrl = async (password: string) => {
     const eventUrl = `https://acceso.revelao.cam/events/${password}`;
@@ -524,7 +615,7 @@ const EventManagement = () => {
               <LogOut className="w-4 h-4" />
               {t("events.logout")}
             </Button>
-            {!adminEventId && (
+            {!adminEventId && !isSuperAdmin && (
               <Button
                 variant="outline"
                 className="gap-2 flex-1 sm:flex-initial"
@@ -537,7 +628,7 @@ const EventManagement = () => {
                 {t("events.redeemTitle")}
               </Button>
             )}
-            {!adminEventId && (
+            {!adminEventId && !isSuperAdmin && (
               <Button className="gap-2 flex-1 sm:flex-initial" onClick={() => setPricingOpen(true)}>
                 <Plus className="w-4 h-4" />
                 {t("events.new")}
@@ -547,65 +638,161 @@ const EventManagement = () => {
         </div>
 
         {isSuperAdmin ? (
-          <Card className="p-4">
+          <Card className="p-4 space-y-4">
+            <div className="flex flex-col lg:flex-row lg:items-center gap-3">
+              <div className="flex-1">
+                <Input
+                  value={adminSearch}
+                  onChange={(e) => setAdminSearch(e.target.value)}
+                  placeholder={t("events.filters.search")}
+                />
+              </div>
+              <div className="flex gap-2">
+                <select
+                  value={adminTypeFilter}
+                  onChange={(e) => setAdminTypeFilter(e.target.value as any)}
+                  className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                >
+                  <option value="all">{t("events.filters.typeAll")}</option>
+                  <option value="D">D</option>
+                  <option value="P">P</option>
+                  <option value="M">M</option>
+                  <option value="G">G</option>
+                  <option value="XL">XL</option>
+                </select>
+                <select
+                  value={adminPhoneFilter}
+                  onChange={(e) => setAdminPhoneFilter(e.target.value as any)}
+                  className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                >
+                  <option value="all">{t("events.filters.phoneAll")}</option>
+                  <option value="yes">{t("events.filters.phoneYes")}</option>
+                  <option value="no">{t("events.filters.phoneNo")}</option>
+                </select>
+              </div>
+              <div className="lg:ml-auto">
+                <Button
+                  className="gap-2"
+                  onClick={() => navigate(`${pathPrefix}/event-form`)}
+                >
+                  <Plus className="w-4 h-4" />
+                  {t("events.new")}
+                </Button>
+              </div>
+            </div>
             <div className="overflow-x-auto">
-              <table className="min-w-[720px] w-full text-sm">
+              <table className="min-w-[860px] w-full text-sm">
                 <thead>
                   <tr className="text-left text-muted-foreground border-b">
-                    <th className="py-3 pr-4 font-medium">{t("events.table.name")}</th>
-                    <th className="py-3 pr-4 font-medium">{t("events.table.type")}</th>
-                    <th className="py-3 pr-4 font-medium">{t("events.table.maxPhotos")}</th>
-                    <th className="py-3 pr-4 font-medium">{t("events.table.email")}</th>
+                    <th className="py-3 pr-4 font-medium cursor-pointer" onClick={() => handleAdminSort("name")}>
+                      {t("events.table.name")}
+                    </th>
+                    <th className="py-3 pr-4 font-medium cursor-pointer" onClick={() => handleAdminSort("type")}>
+                      {t("events.table.type")}
+                    </th>
+                    <th className="py-3 pr-4 font-medium cursor-pointer" onClick={() => handleAdminSort("created_at")}>
+                      {t("events.table.created")}
+                    </th>
+                    <th className="py-3 pr-4 font-medium cursor-pointer" onClick={() => handleAdminSort("email")}>
+                      {t("events.table.email")}
+                    </th>
                     <th className="py-3 pr-4 font-medium">{t("events.table.phone")}</th>
-                    <th className="py-3 font-medium">{t("events.table.actions")}</th>
+                    <th className="py-3 pr-4 font-medium cursor-pointer" onClick={() => handleAdminSort("photos")}>
+                      {t("events.table.photos")}
+                    </th>
+                    <th className="py-3 font-medium">{t("events.table.more")}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {events.map((event) => (
-                    <tr key={event.id} className="border-b last:border-b-0">
-                      <td className="py-3 pr-4">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">
-                            {truncate(event.name, 22)}
+                  {paginatedAdminEvents.map((event) => {
+                    const photoCount = eventPhotoCounts[event.id] || 0;
+                    const maxPhotos = event.max_photos ?? "-";
+                    return (
+                      <tr key={event.id} className="border-b last:border-b-0">
+                        <td className="py-3 pr-4 font-medium">{truncate(event.name, 26)}</td>
+                        <td className="py-3 pr-4">
+                          <span
+                            className={`inline-flex items-center justify-center w-9 h-6 rounded-full border text-xs font-semibold ${getPlanType(event.max_photos).color}`}
+                          >
+                            {getPlanType(event.max_photos).label}
                           </span>
-                          {event.max_photos === 10 && (
-                            <span className="text-[10px] font-semibold uppercase tracking-wide bg-[#f06a5f]/10 text-[#f06a5f] px-2 py-0.5 rounded-full">
-                              {t("events.demoBadge")}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="py-3 pr-4">
-                        <span
-                          className={`inline-flex items-center justify-center w-9 h-6 rounded-full border text-xs font-semibold ${getPlanType(event.max_photos).color}`}
-                        >
-                          {getPlanType(event.max_photos).label}
-                        </span>
-                      </td>
-                      <td className="py-3 pr-4">
-                        {event.max_photos ?? "-"}
-                      </td>
-                      <td className="py-3 pr-4">
-                        {event.owner_email ? truncate(event.owner_email, 10) : "-"}
-                      </td>
-                      <td className="py-3 pr-4">
-                        {event.owner_phone ? t("events.table.phoneYes") : t("events.table.phoneNo")}
-                      </td>
-                      <td className="py-3">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="gap-1"
-                          onClick={() => navigate(`${pathPrefix}/event-form/${event.id}`)}
-                        >
-                          <Edit className="w-4 h-4" />
-                          <span>{t("events.edit")}</span>
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className="py-3 pr-4">
+                          {event.created_at
+                            ? format(new Date(event.created_at), "dd/MM/yyyy")
+                            : "-"}
+                        </td>
+                        <td className="py-3 pr-4">
+                          {event.owner_email ? truncate(event.owner_email, 14) : "-"}
+                        </td>
+                        <td className="py-3 pr-4">
+                          <span
+                            className={`inline-flex items-center gap-2 text-sm font-medium ${
+                              event.owner_phone ? "text-emerald-600" : "text-rose-500"
+                            }`}
+                          >
+                            <span
+                              className={`w-2 h-2 rounded-full ${
+                                event.owner_phone ? "bg-emerald-500" : "bg-rose-500"
+                              }`}
+                            />
+                            {event.owner_phone ? t("events.table.phoneYes") : t("events.table.phoneNo")}
+                          </span>
+                        </td>
+                        <td className="py-3 pr-4">
+                          <Button
+                            variant="ghost"
+                            className="px-0 text-primary hover:text-primary"
+                            onClick={() => setPreviewEvent(event)}
+                          >
+                            {photoCount}/{maxPhotos}
+                          </Button>
+                        </td>
+                        <td className="py-3">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-1"
+                            onClick={() => navigate(`${pathPrefix}/event-form/${event.id}`)}
+                          >
+                            <span>{t("events.more")}</span>
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
+            </div>
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4">
+              <p className="text-xs text-muted-foreground">
+                {t("events.paginationInfo", {
+                  from: superAdminEvents.length === 0 ? 0 : (adminPage - 1) * pageSize + 1,
+                  to: Math.min(adminPage * pageSize, superAdminEvents.length),
+                  total: superAdminEvents.length,
+                })}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={adminPage === 1}
+                  onClick={() => setAdminPage((prev) => Math.max(1, prev - 1))}
+                >
+                  {t("events.paginationPrev")}
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  {adminPage} / {totalAdminPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={adminPage >= totalAdminPages}
+                  onClick={() => setAdminPage((prev) => Math.min(totalAdminPages, prev + 1))}
+                >
+                  {t("events.paginationNext")}
+                </Button>
+              </div>
             </div>
           </Card>
         ) : events.length === 0 && folders.length === 0 ? (
@@ -740,6 +927,61 @@ const EventManagement = () => {
               {t("events.redeemAction")}
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!createdSummary} onOpenChange={(open) => !open && setCreatedSummary(null)}>
+        <DialogContent className="max-w-md w-[95vw] sm:w-full">
+          <DialogHeader>
+            <DialogTitle>{t("events.createSummaryTitle")}</DialogTitle>
+            <p className="text-sm text-muted-foreground">
+              {t("events.createSummarySubtitle")}
+            </p>
+          </DialogHeader>
+          {createdSummary && (
+            <div className="space-y-3 text-sm">
+              <p className="font-medium">{createdSummary.name}</p>
+              <p>
+                <span className="font-medium">{t("events.table.email")}:</span>{" "}
+                {createdSummary.owner_email || "-"}
+              </p>
+              <p>
+                <span className="font-medium">{t("events.table.photos")}:</span>{" "}
+                {createdSummary.max_photos ?? "-"}
+              </p>
+              <p>
+                <span className="font-medium">{t("events.startLabel")}:</span>{" "}
+                {createdSummary.upload_start_time
+                  ? formatInTimeZone(new Date(createdSummary.upload_start_time), "Europe/Madrid", "dd/MM/yyyy HH:mm")
+                  : "-"}
+              </p>
+              <p>
+                <span className="font-medium">{t("events.endLabel")}:</span>{" "}
+                {createdSummary.upload_end_time
+                  ? formatInTimeZone(new Date(createdSummary.upload_end_time), "Europe/Madrid", "dd/MM/yyyy HH:mm")
+                  : "-"}
+              </p>
+              <p>
+                <span className="font-medium">{t("events.revealDate")}:</span>{" "}
+                {createdSummary.reveal_time
+                  ? formatInTimeZone(new Date(createdSummary.reveal_time), "Europe/Madrid", "dd/MM/yyyy HH:mm")
+                  : "-"}
+              </p>
+              <Button
+                className="w-full"
+                onClick={() => {
+                  const url = `https://acceso.revelao.cam/events/${createdSummary.password_hash}`;
+                  navigator.clipboard.writeText(url);
+                  toast({
+                    title: t("events.copyUrl"),
+                    description: t("events.copyUrlDesc"),
+                  });
+                }}
+              >
+                {t("events.copyUrl")}
+              </Button>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
