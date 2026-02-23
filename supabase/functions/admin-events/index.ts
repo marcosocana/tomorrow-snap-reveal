@@ -73,6 +73,7 @@ serve(async (req) => {
 
     let emailsById: Record<string, string> = {};
     let phonesById: Record<string, string | null> = {};
+    let photoCounts: Record<string, number> = {};
 
     if (ownerIds.length > 0) {
       const { data: usersData, error: usersError } =
