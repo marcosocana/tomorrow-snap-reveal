@@ -62,7 +62,10 @@ serve(async (req) => {
 
   const payload = await req.json().catch(() => ({}));
   const planId = payload?.planId as string | undefined;
-  const plan = getPlanById(planId);
+  let plan = getPlanById(planId);
+  if (!plan && planId === "demo") {
+    plan = { id: "demo", label: "Demo", maxPhotos: 10, stripePriceIdEnv: "STRIPE_PRICE_DEMO" };
+  }
   if (!plan) {
     return json({ error: "INVALID_PLAN" }, 400);
   }

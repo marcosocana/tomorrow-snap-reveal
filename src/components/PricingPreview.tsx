@@ -67,6 +67,7 @@ export const PricingPreview = ({ showHeader = true, onSelectPlan }: PricingPrevi
       t("pricing.plan.medium.feature.gallery"),
       t("pricing.plan.medium.feature.download"),
       t("pricing.plan.medium.feature.brand"),
+      t("pricing.plan.medium.feature.access"),
       t("pricing.plan.medium.feature.support"),
       t("pricing.plan.medium.feature.qr"),
       t("pricing.plan.medium.feature.panel"),
