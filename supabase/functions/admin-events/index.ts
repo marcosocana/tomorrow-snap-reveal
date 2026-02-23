@@ -73,6 +73,7 @@ serve(async (req) => {
 
     let emailsById: Record<string, string> = {};
     let phonesById: Record<string, string | null> = {};
+    let photoCounts: Record<string, number> = {};
 
     if (ownerIds.length > 0) {
       const { data: users } = await supabaseAdmin
@@ -95,10 +96,27 @@ serve(async (req) => {
       });
     }
 
+    const eventIds = (events || []).map((e) => e.id);
+    if (eventIds.length > 0) {
+      const { data: photos, error: photosError } = await supabaseAdmin
+        .from("photos")
+        .select("event_id")
+        .in("event_id", eventIds);
+
+      if (!photosError && photos) {
+        photoCounts = photos.reduce<Record<string, number>>((acc, row: any) => {
+          const id = row.event_id as string;
+          acc[id] = (acc[id] || 0) + 1;
+          return acc;
+        }, {});
+      }
+    }
+
     const enriched = (events || []).map((event) => ({
       ...event,
       owner_email: event.owner_id ? emailsById[event.owner_id] ?? null : null,
       owner_phone: event.owner_id ? phonesById[event.owner_id] ?? null : null,
+      photo_count: photoCounts[event.id] ?? 0,
     }));
 
     return json({ events: enriched });

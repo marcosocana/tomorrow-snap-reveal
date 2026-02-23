@@ -60,7 +60,31 @@ serve(async (req) => {
       return json({ error: "LOAD_FAILED", detail: error.message }, 500);
     }
 
-    return json({ events: data ?? [] });
+    const events = data ?? [];
+    const eventIds = events.map((e) => e.id);
+    let photoCounts: Record<string, number> = {};
+
+    if (eventIds.length > 0) {
+      const { data: photos, error: photosError } = await supabaseAdmin
+        .from("photos")
+        .select("event_id")
+        .in("event_id", eventIds);
+
+      if (!photosError && photos) {
+        photoCounts = photos.reduce<Record<string, number>>((acc, row: any) => {
+          const id = row.event_id as string;
+          acc[id] = (acc[id] || 0) + 1;
+          return acc;
+        }, {});
+      }
+    }
+
+    const enriched = events.map((event: any) => ({
+      ...event,
+      photo_count: photoCounts[event.id] ?? 0,
+    }));
+
+    return json({ events: enriched });
   } catch (error) {
     console.error("my-events error:", error);
     return json({ error: "UNKNOWN_ERROR", detail: `${error}` }, 500);

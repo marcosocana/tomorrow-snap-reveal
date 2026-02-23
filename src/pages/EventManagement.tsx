@@ -48,6 +48,7 @@ interface Event {
   gallery_view_mode?: string;
   owner_email?: string | null;
   owner_phone?: string | null;
+  photo_count?: number | null;
 }
 
 const EventManagement = () => {
@@ -143,12 +144,7 @@ const EventManagement = () => {
         setEvents(eventData ? [eventData as Event] : []);
 
         if (eventData) {
-          const { count } = await supabase
-            .from("photos")
-            .select("*", { count: "exact", head: true })
-            .eq("event_id", eventData.id);
-          
-          setEventPhotoCounts({ [eventData.id]: count || 0 });
+          setEventPhotoCounts({ [eventData.id]: eventData.photo_count || 0 });
         }
     } else {
         const { data: { session } } = await supabase.auth.getSession();
@@ -186,19 +182,11 @@ const EventManagement = () => {
           setFolders([]);
         }
 
-        // Load photo counts
-        if (fetchedEvents) {
+        if (fetchedEvents?.length) {
           const counts: Record<string, number> = {};
-          for (const event of fetchedEvents) {
-            const { count, error: countError } = await supabase
-              .from("photos")
-              .select("*", { count: "exact", head: true })
-              .eq("event_id", event.id);
-
-            if (!countError) {
-              counts[event.id] = count || 0;
-            }
-          }
+          fetchedEvents.forEach((event) => {
+            counts[event.id] = event.photo_count || 0;
+          });
           setEventPhotoCounts(counts);
         }
       }
@@ -681,9 +669,10 @@ const EventManagement = () => {
               </div>
             </div>
             <div className="overflow-x-auto">
-              <table className="min-w-[860px] w-full text-sm">
+              <table className="min-w-[900px] w-full text-sm">
                 <thead>
                   <tr className="text-left text-muted-foreground border-b">
+                    <th className="py-3 pr-4 font-medium">ID</th>
                     <th className="py-3 pr-4 font-medium cursor-pointer" onClick={() => handleAdminSort("name")}>
                       {t("events.table.name")}
                     </th>
@@ -704,11 +693,14 @@ const EventManagement = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {paginatedAdminEvents.map((event) => {
+                  {paginatedAdminEvents.map((event, index) => {
                     const photoCount = eventPhotoCounts[event.id] || 0;
                     const maxPhotos = event.max_photos ?? "-";
                     return (
                       <tr key={event.id} className="border-b last:border-b-0">
+                        <td className="py-3 pr-4 text-muted-foreground">
+                          {(adminPage - 1) * pageSize + index + 1}
+                        </td>
                         <td className="py-3 pr-4 font-medium">{truncate(event.name, 26)}</td>
                         <td className="py-3 pr-4">
                           <span
@@ -723,7 +715,7 @@ const EventManagement = () => {
                             : "-"}
                         </td>
                         <td className="py-3 pr-4">
-                          {event.owner_email ? truncate(event.owner_email, 14) : "-"}
+                          {event.owner_email ? truncate(event.owner_email, 18) : "-"}
                         </td>
                         <td className="py-3 pr-4">
                           <span
