@@ -81,7 +81,7 @@ const EventManagement = () => {
   const [adminPageSize, setAdminPageSize] = useState<number | "all">(30);
   const pageSize = adminPageSize === "all" ? superAdminEvents.length || 1 : adminPageSize;
   const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(new Set());
-  const [redeemPlan, setRedeemPlan] = useState<"small" | "medium" | "xxl">("small");
+  const [redeemPlan, setRedeemPlan] = useState<"demo" | "small" | "medium" | "xxl">("small");
   const [generatedRedeem, setGeneratedRedeem] = useState<string | null>(null);
   const [isGeneratingRedeem, setIsGeneratingRedeem] = useState(false);
   const [createdSummary, setCreatedSummary] = useState<{
@@ -254,7 +254,6 @@ const EventManagement = () => {
       return;
     }
     setRedeemError(null);
-    setRedeemOpen(false);
     navigate(`${pathPrefix}/redeem/${code}`);
   };
 
@@ -775,6 +774,7 @@ const EventManagement = () => {
                   onChange={(e) => setRedeemPlan(e.target.value as any)}
                   className="h-10 rounded-md border border-input bg-background px-3 text-sm"
                 >
+                  <option value="demo">Demo</option>
                   <option value="small">Start</option>
                   <option value="medium">Plus</option>
                   <option value="xxl">Pro</option>

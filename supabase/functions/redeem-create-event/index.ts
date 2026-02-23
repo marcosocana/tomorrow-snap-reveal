@@ -108,7 +108,11 @@ serve(async (req) => {
 
     const revealBase = new Date(event.reveal_time);
     const expiryDate = new Date(revealBase);
-    const expiryDays = plan?.maxPhotos === 200 ? 20 : plan?.maxPhotos === 1200 ? 60 : 90;
+    const expiryDays =
+      plan?.maxPhotos === 10 ? 10 :
+      plan?.maxPhotos === 200 ? 20 :
+      plan?.maxPhotos === 1200 ? 60 :
+      90;
     expiryDate.setUTCDate(expiryDate.getUTCDate() + expiryDays);
     expiryDate.setUTCHours(23, 59, 0, 0);
 

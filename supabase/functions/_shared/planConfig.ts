@@ -1,4 +1,4 @@
-export type PlanId = "small" | "medium" | "large" | "xxl";
+export type PlanId = "demo" | "small" | "medium" | "large" | "xxl";
 
 export type PlanConfig = {
   id: PlanId;
@@ -8,6 +8,12 @@ export type PlanConfig = {
 };
 
 export const PLANS: Record<PlanId, PlanConfig> = {
+  demo: {
+    id: "demo",
+    label: "Demo",
+    maxPhotos: 10,
+    stripePriceIdEnv: "STRIPE_PRICE_DEMO",
+  },
   small: {
     id: "small",
     label: "Start",
