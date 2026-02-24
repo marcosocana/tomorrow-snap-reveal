@@ -79,7 +79,7 @@ const EventManagement = () => {
   });
   const [adminPage, setAdminPage] = useState(1);
   const [adminPageSize, setAdminPageSize] = useState<number | "all">(30);
-  const pageSize = adminPageSize === "all" ? superAdminEvents.length || 1 : adminPageSize;
+  // pageSize computed after superAdminEvents below
   const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(new Set());
   const [redeemPlan, setRedeemPlan] = useState<"demo" | "small" | "medium" | "xxl">("small");
   const [generatedRedeem, setGeneratedRedeem] = useState<string | null>(null);
@@ -414,6 +414,8 @@ const EventManagement = () => {
     });
     return list;
   }, [events, adminSearch, adminTypeFilter, adminPhoneFilter, adminSort, eventPhotoCounts]);
+
+  const pageSize = adminPageSize === "all" ? superAdminEvents.length || 1 : adminPageSize;
 
   useEffect(() => {
     setAdminPage(1);
