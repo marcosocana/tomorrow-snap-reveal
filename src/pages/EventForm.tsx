@@ -1180,10 +1180,7 @@ const EventForm = () => {
 
                 <div className="space-y-2">
                   <Label htmlFor="uploadStartTime">
-                    {t("form.uploadStartTime")}{" "}
-                    <span className="text-xs font-normal text-muted-foreground">
-                      ({timezoneOffsetLabel})
-                    </span>
+                    {t("form.uploadStartTime")}
                   </Label>
                   <Input
                     id="uploadStartTime"

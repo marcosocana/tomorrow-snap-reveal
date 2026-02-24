@@ -726,10 +726,7 @@ const RedeemEvent = () => {
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="uploadStartTime">
-                          Hora de inicio{" "}
-                          <span className="text-xs font-normal text-muted-foreground">
-                            ({timezoneOffsetLabel})
-                          </span>
+                          Hora de inicio
                         </Label>
                         <Input
                           id="uploadStartTime"
