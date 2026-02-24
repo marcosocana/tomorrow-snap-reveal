@@ -5,7 +5,7 @@ export type DemoLanguage = "es" | "en" | "it";
 const demoTranslations: Record<DemoLanguage, Record<string, string>> = {
   es: {
     "form.title": "Crea tu evento de prueba",
-    "form.subtitle": "Crea un evento gratuito con hasta 10 fotos para probar Revelao",
+    "form.subtitle": "Tardarás 2 minutos.",
     "form.step1.eventName": "Nombre del evento *",
     "form.step1.eventNamePlaceholder": "Por ejemplo: Boda de Ana y Fran",
     "form.step1.font": "Tipografía",
@@ -14,7 +14,7 @@ const demoTranslations: Record<DemoLanguage, Record<string, string>> = {
     "form.step1.background": "Fotografía de fondo (opcional)",
     "form.step1.backgroundHelp": "Imagen que aparecerá como fondo en la cabecera de la galería.",
     "form.step1.customLogo": "Logo personalizado (opcional)",
-    "form.step1.customLogoHelp": "Máximo 240px ancho × 100px alto. Se muestra como icono en las pantallas.",
+    "form.step1.customLogoHelp": "Máximo 240px ancho × 100px alto.",
     "form.step1.country": "¿Dónde es el evento?",
     "form.step1.language": "Idioma",
     "form.step1.duration": "Duración del evento",
@@ -82,7 +82,7 @@ const demoTranslations: Record<DemoLanguage, Record<string, string>> = {
   },
   en: {
     "form.title": "Create your demo event",
-    "form.subtitle": "Create a free event with up to 10 photos to try Revelao",
+    "form.subtitle": "It takes 2 minutes.",
     "form.step1.eventName": "Event name *",
     "form.step1.eventNamePlaceholder": "For example: Ana and Fran’s wedding",
     "form.step1.font": "Font",
@@ -91,7 +91,7 @@ const demoTranslations: Record<DemoLanguage, Record<string, string>> = {
     "form.step1.background": "Background photo (optional)",
     "form.step1.backgroundHelp": "Image that appears as the gallery header background.",
     "form.step1.customLogo": "Custom logo (optional)",
-    "form.step1.customLogoHelp": "Max 240px width × 100px height. Shown as an icon on screens.",
+    "form.step1.customLogoHelp": "Max 240px width × 100px height.",
     "form.step1.country": "Where is the event?",
     "form.step1.language": "Language",
     "form.step1.duration": "Event duration",
@@ -159,7 +159,7 @@ const demoTranslations: Record<DemoLanguage, Record<string, string>> = {
   },
   it: {
     "form.title": "Crea il tuo evento demo",
-    "form.subtitle": "Crea un evento gratuito con fino a 10 foto per provare Revelao",
+    "form.subtitle": "Ci vogliono 2 minuti.",
     "form.step1.eventName": "Nome evento *",
     "form.step1.eventNamePlaceholder": "Per esempio: Matrimonio di Ana e Fran",
     "form.step1.font": "Carattere",
@@ -168,7 +168,7 @@ const demoTranslations: Record<DemoLanguage, Record<string, string>> = {
     "form.step1.background": "Foto di sfondo (opzionale)",
     "form.step1.backgroundHelp": "Immagine che appare come sfondo dell’intestazione della galleria.",
     "form.step1.customLogo": "Logo personalizzato (opzionale)",
-    "form.step1.customLogoHelp": "Massimo 240px larghezza × 100px altezza. Mostrato come icona.",
+    "form.step1.customLogoHelp": "Massimo 240px larghezza × 100px altezza.",
     "form.step1.country": "Dove si svolge l’evento?",
     "form.step1.language": "Lingua",
     "form.step1.duration": "Durata dell’evento",

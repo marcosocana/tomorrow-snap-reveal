@@ -5,7 +5,7 @@ import { Check, Copy, ExternalLink, Download } from "lucide-react";
 import { useEffect, useState, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { format } from "date-fns";
+import { format, differenceInMinutes } from "date-fns";
 import { es } from "date-fns/locale";
 import { toZonedTime } from "date-fns-tz";
 import logoRevelao from "@/assets/logo__revelao.png";
@@ -20,6 +20,8 @@ interface EventData {
   upload_end_time: string;
   timezone: string;
   max_photos: number;
+  expiry_date?: string | null;
+  expiry_redirect_url?: string | null;
 }
 
 const PaidEventSummary = () => {
@@ -72,6 +74,26 @@ const PaidEventSummary = () => {
       return dateString;
     }
   };
+
+  const formatDuration = () => {
+    try {
+      const start = toZonedTime(new Date(event.upload_start_time), eventTz);
+      const end = toZonedTime(new Date(event.upload_end_time), eventTz);
+      const totalMinutes = Math.max(0, differenceInMinutes(end, start));
+      const days = Math.floor(totalMinutes / 1440);
+      const hours = Math.floor((totalMinutes % 1440) / 60);
+      const minutes = totalMinutes % 60;
+      const parts = [];
+      if (days) parts.push(`${days} día${days === 1 ? "" : "s"}`);
+      if (hours) parts.push(`${hours} hora${hours === 1 ? "" : "s"}`);
+      if (!days && !hours) parts.push(`${minutes} min`);
+      return parts.join(" y ");
+    } catch {
+      return "";
+    }
+  };
+
+  const durationLabel = formatDuration();
 
   const copyToClipboard = async (text: string, field: string) => {
     try {
@@ -164,10 +186,31 @@ const PaidEventSummary = () => {
               </div>
             </div>
 
+            {durationLabel ? (
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-muted-foreground">Duración del evento</label>
+                <p className="text-sm">{durationLabel}</p>
+              </div>
+            ) : null}
+
             <div className="space-y-1">
               <label className="text-sm font-medium text-muted-foreground">Fecha de revelado</label>
               <p className="text-sm">{formatEventDate(event.reveal_time)}</p>
             </div>
+
+            {event.expiry_date ? (
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-muted-foreground">Fecha de caducidad</label>
+                <p className="text-sm">{formatEventDate(event.expiry_date)}</p>
+              </div>
+            ) : null}
+
+            {event.expiry_redirect_url ? (
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-muted-foreground">URL de redirección</label>
+                <p className="text-sm break-all">{event.expiry_redirect_url}</p>
+              </div>
+            ) : null}
           </div>
         </Card>
 

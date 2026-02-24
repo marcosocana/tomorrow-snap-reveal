@@ -3,7 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useEffect } from "react";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import Login from "./pages/Login";
 import Logout from "./pages/Logout";
 import Camera from "./pages/Camera";
@@ -40,6 +40,16 @@ const RESET_KEYS = [
   "likedPhotos",
 ];
 
+const ScrollToTop = () => {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+
+  return null;
+};
+
 const App = () => {
   useEffect(() => {
     const storedVersion = localStorage.getItem(APP_VERSION_KEY);
@@ -56,6 +66,7 @@ const App = () => {
           <AdminI18nProvider>
             <Toaster />
             <Sonner />
+            <ScrollToTop />
             <Routes>
               <Route path="/" element={<AdminLogin />} />
               <Route path="/login" element={<AdminLogin />} />

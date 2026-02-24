@@ -71,7 +71,7 @@ const EventManagement = () => {
     planLabel: string;
   } | null>(null);
   const [adminSearch, setAdminSearch] = useState("");
-  const [adminTypeFilter, setAdminTypeFilter] = useState<"all" | "D" | "S" | "+" | "++">("all");
+  const [adminTypeFilter, setAdminTypeFilter] = useState<"all" | "Demo" | "Start" | "Plus" | "Pro">("all");
   const [adminPhoneFilter, setAdminPhoneFilter] = useState<"all" | "yes" | "no">("all");
   const [adminSort, setAdminSort] = useState<{ key: "name" | "type" | "created_at" | "email" | "photos"; direction: "asc" | "desc" }>({
     key: "created_at",
@@ -350,10 +350,10 @@ const EventManagement = () => {
   };
 
   const getPlanType = (maxPhotos?: number | null) => {
-    if (maxPhotos === 10) return { label: "D", color: "bg-[#f06a5f]/10 text-[#f06a5f] border-[#f06a5f]/30" };
-    if (maxPhotos === 50 || maxPhotos === 200) return { label: "S", color: "bg-emerald-50 text-emerald-700 border-emerald-200" };
-    if (maxPhotos === 300 || maxPhotos === 1200) return { label: "+", color: "bg-blue-50 text-blue-700 border-blue-200" };
-    if (maxPhotos === 500 || maxPhotos === 1000 || maxPhotos == null) return { label: "++", color: "bg-purple-50 text-purple-700 border-purple-200" };
+    if (maxPhotos === 10) return { label: "Demo", color: "bg-[#f06a5f]/10 text-[#f06a5f] border-[#f06a5f]/30" };
+    if (maxPhotos === 50 || maxPhotos === 200) return { label: "Start", color: "bg-emerald-50 text-emerald-700 border-emerald-200" };
+    if (maxPhotos === 300 || maxPhotos === 1200) return { label: "Plus", color: "bg-blue-50 text-blue-700 border-blue-200" };
+    if (maxPhotos === 500 || maxPhotos === 1000 || maxPhotos == null) return { label: "Pro", color: "bg-purple-50 text-purple-700 border-purple-200" };
     return { label: "-", color: "bg-muted text-muted-foreground border-border" };
   };
 
@@ -429,7 +429,7 @@ const EventManagement = () => {
   const paginatedAdminEvents = useMemo(() => {
     const start = (adminPage - 1) * pageSize;
     return superAdminEvents.slice(start, start + pageSize);
-  }, [superAdminEvents, adminPage]);
+  }, [superAdminEvents, adminPage, pageSize]);
 
   const totalAdminPages = Math.max(1, Math.ceil(superAdminEvents.length / pageSize));
 
@@ -546,11 +546,14 @@ const EventManagement = () => {
     const qrStorageUrl = getEventQrUrl(event.id);
     const statusLabel = t(`events.status.${statusInfo.status}`);
 
+    const planBadge = getPlanBadge(event.max_photos);
+    const planType = getPlanType(event.max_photos);
+
     return (
       <Card key={event.id} className="p-4 md:p-6">
         <div className="grid grid-cols-1 lg:grid-cols-[160px_1fr] gap-4 md:gap-6 items-start">
           {/* QR Code Section */}
-          <div className="space-y-3">
+          <div className="space-y-3 flex flex-col items-center lg:items-start">
             <div className="bg-white p-3 rounded-xl border border-border w-fit">
               {qrStorageUrl ? (
                 <img
@@ -581,21 +584,21 @@ const EventManagement = () => {
 
           {/* Event Info */}
           <div className="flex-1 space-y-4 w-full">
-            <div className="flex items-start justify-between gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
               <div className="flex flex-wrap items-center gap-2">
                 <h3 className="text-lg md:text-xl font-semibold text-foreground">
                   {event.name}
                 </h3>
-                {getPlanBadge(event.max_photos) && (
-                  <span className="text-xs font-semibold uppercase tracking-wide bg-[#f06a5f]/10 text-[#f06a5f] px-2 py-1 rounded-full">
-                    {getPlanBadge(event.max_photos)}
+                {planBadge && (
+                  <span className={`text-xs font-semibold uppercase tracking-wide px-2 py-1 rounded-full border ${planType.color}`}>
+                    {planBadge}
                   </span>
                 )}
               </div>
               <Button
                 variant="outline"
                 size="sm"
-                className="gap-1"
+                className="gap-1 w-full sm:w-auto"
                 onClick={() => navigate(`${pathPrefix}/event-form/${event.id}`)}
               >
                 <Edit className="w-4 h-4" />
@@ -651,6 +654,13 @@ const EventManagement = () => {
                     onClick={() => handleCopyUrl(event.password_hash)}
                   >
                     <Copy className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="outline"
+                    onClick={() => window.open(eventUrl, "_blank", "noopener,noreferrer")}
+                  >
+                    <Eye className="w-4 h-4" />
                   </Button>
                 </div>
               </div>
@@ -818,10 +828,10 @@ const EventManagement = () => {
                   className="h-10 rounded-md border border-input bg-background px-3 text-sm"
                 >
                   <option value="all">{t("events.filters.typeAll")}</option>
-                  <option value="D">D</option>
-                  <option value="S">S</option>
-                  <option value="+">+</option>
-                  <option value="++">++</option>
+                  <option value="Demo">Demo</option>
+                  <option value="Start">Start</option>
+                  <option value="Plus">Plus</option>
+                  <option value="Pro">Pro</option>
                 </select>
                 <select
                   value={adminPhoneFilter}

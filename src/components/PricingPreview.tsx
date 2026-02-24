@@ -4,6 +4,13 @@ import { useAdminI18n } from "@/lib/adminI18n";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@/components/ui/carousel";
 
 const plans = [
   {
@@ -131,6 +138,64 @@ export const PricingPreview = ({ showHeader = true, onSelectPlan }: PricingPrevi
     window.location.href = data.url;
   };
 
+  const renderPlanCard = (plan: (typeof plans)[number]) => (
+    <div
+      key={plan.planId}
+      className={[
+        "relative rounded-3xl border bg-card p-6 shadow-sm h-full",
+        plan.featured
+          ? "border-[#f06a5f]/40 bg-[#f06a5f]/5 shadow-[0_20px_40px_-30px_rgba(240,106,95,0.35)]"
+          : "border-border",
+      ].join(" ")}
+    >
+      {plan.featured ? (
+        <span className="absolute right-5 top-5 rounded-full bg-[#f06a5f] text-white text-xs font-semibold px-3 py-1 shadow-sm">
+          {t("pricing.badge")}
+        </span>
+      ) : null}
+
+      <div className="mb-6 space-y-2">
+        <h4 className="text-lg font-semibold text-foreground">{t(plan.titleKey)}</h4>
+        <p className="text-sm text-muted-foreground">{t(plan.subtitleKey)}</p>
+        <div className="flex items-end gap-2 pt-1">
+          <span className="text-4xl font-bold text-foreground">{plan.price}</span>
+          <span className="text-sm text-muted-foreground pb-1">{t("pricing.perEvent")}</span>
+        </div>
+      </div>
+
+      <ul className="space-y-3 mb-6">
+        {(planFeatures[plan.planId] ?? []).map((feature) => {
+          const normalized = feature.toLowerCase();
+          const isIdeal =
+            normalized.startsWith("ideal para") ||
+            normalized.startsWith("ideal for") ||
+            normalized.startsWith("ideale per");
+          const Icon = isIdeal ? Star : Check;
+          const iconClass = isIdeal ? "text-foreground" : "text-[#f06a5f]";
+          return (
+            <li key={feature} className="flex items-start gap-3">
+              <Icon className={`w-4 h-4 flex-shrink-0 mt-0.5 ${iconClass}`} />
+              <span className="text-sm text-foreground">{feature}</span>
+            </li>
+          );
+        })}
+      </ul>
+
+      <Button
+        className={[
+          "w-full",
+          plan.featured
+            ? "bg-[#f06a5f] text-white hover:bg-[#e95f54]"
+            : "border-[#e5e7eb] text-foreground hover:bg-[#f9fafb]",
+        ].join(" ")}
+        variant={plan.featured ? "default" : "outline"}
+        onClick={() => handleCheckout(plan.planId)}
+      >
+        {plan.ctaKey ? t(plan.ctaKey) : t("pricing.cta")}
+      </Button>
+    </div>
+  );
+
   return (
     <div className="space-y-10">
       {showHeader && (
@@ -144,64 +209,22 @@ export const PricingPreview = ({ showHeader = true, onSelectPlan }: PricingPrevi
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
-        {plans.map((plan) => (
-          <div
-            key={plan.planId}
-            className={[
-              "relative rounded-3xl border bg-card p-6 shadow-sm",
-              plan.featured
-                ? "border-[#f06a5f]/40 bg-[#f06a5f]/5 shadow-[0_20px_40px_-30px_rgba(240,106,95,0.35)]"
-                : "border-border",
-            ].join(" ")}
-          >
-            {plan.featured ? (
-              <span className="absolute right-5 top-5 rounded-full bg-[#f06a5f] text-white text-xs font-semibold px-3 py-1 shadow-sm">
-                {t("pricing.badge")}
-              </span>
-            ) : null}
+      <div className="md:hidden">
+        <Carousel opts={{ align: "start" }} className="w-full">
+          <CarouselContent className="ml-0">
+            {plans.map((plan) => (
+              <CarouselItem key={plan.planId} className="basis-[85%] sm:basis-1/2 pl-0 pr-4">
+                {renderPlanCard(plan)}
+              </CarouselItem>
+            ))}
+          </CarouselContent>
+          <CarouselPrevious className="hidden sm:inline-flex" />
+          <CarouselNext className="hidden sm:inline-flex" />
+        </Carousel>
+      </div>
 
-            <div className="mb-6 space-y-2">
-              <h4 className="text-lg font-semibold text-foreground">{t(plan.titleKey)}</h4>
-              <p className="text-sm text-muted-foreground">{t(plan.subtitleKey)}</p>
-              <div className="flex items-end gap-2 pt-1">
-                <span className="text-4xl font-bold text-foreground">{plan.price}</span>
-                <span className="text-sm text-muted-foreground pb-1">{t("pricing.perEvent")}</span>
-              </div>
-            </div>
-
-            <ul className="space-y-3 mb-6">
-              {(planFeatures[plan.planId] ?? []).map((feature) => {
-                const normalized = feature.toLowerCase();
-                const isIdeal =
-                  normalized.startsWith("ideal para") ||
-                  normalized.startsWith("ideal for") ||
-                  normalized.startsWith("ideale per");
-                const Icon = isIdeal ? Star : Check;
-                const iconClass = isIdeal ? "text-foreground" : "text-[#f06a5f]";
-                return (
-                  <li key={feature} className="flex items-start gap-3">
-                    <Icon className={`w-4 h-4 flex-shrink-0 mt-0.5 ${iconClass}`} />
-                    <span className="text-sm text-foreground">{feature}</span>
-                  </li>
-                );
-              })}
-            </ul>
-
-            <Button
-              className={[
-                "w-full",
-                plan.featured
-                  ? "bg-[#f06a5f] text-white hover:bg-[#e95f54]"
-                  : "border-[#e5e7eb] text-foreground hover:bg-[#f9fafb]",
-              ].join(" ")}
-              variant={plan.featured ? "default" : "outline"}
-              onClick={() => handleCheckout(plan.planId)}
-            >
-              {plan.ctaKey ? t(plan.ctaKey) : t("pricing.cta")}
-            </Button>
-          </div>
-        ))}
+      <div className="hidden md:grid md:grid-cols-2 xl:grid-cols-4 gap-6">
+        {plans.map((plan) => renderPlanCard(plan))}
       </div>
 
       {showHeader && (

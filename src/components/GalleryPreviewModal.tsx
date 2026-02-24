@@ -371,18 +371,7 @@ export const GalleryPreviewModal = ({
 
           {/* Hero Header Preview */}
           <div className="relative h-32 rounded-lg overflow-hidden mb-4 flex-shrink-0">
-            {backgroundImageUrl ? (
-              <>
-                <img
-                  src={backgroundImageUrl}
-                  alt=""
-                  className="absolute inset-0 w-full h-full object-cover"
-                />
-                <div className="absolute inset-0 bg-white/85" />
-              </>
-            ) : (
-              <div className="absolute inset-0 bg-gradient-to-b from-primary/20 to-background" />
-            )}
+            <div className="absolute inset-0 bg-gradient-to-b from-primary/20 to-background" />
             <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-4">
               <h2 
                 className={`${fontSize} font-bold text-foreground leading-tight`}

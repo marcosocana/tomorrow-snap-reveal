@@ -8,7 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Trash2 } from "lucide-react";
-import { addDays, format, subHours } from "date-fns";
+import { addDays, format, subHours, differenceInMinutes } from "date-fns";
 import { fromZonedTime, formatInTimeZone, toZonedTime } from "date-fns-tz";
 import { QRCodeSVG } from "qrcode.react";
 import CountrySelect from "@/components/CountrySelect";
@@ -20,6 +20,7 @@ import { EventFontFamily } from "@/lib/eventFonts";
 import { FilterType } from "@/lib/photoFilters";
 import logoDemo from "@/assets/Frame 626035.png";
 import { useAdminI18n } from "@/lib/adminI18n";
+import { getTimezoneOffset } from "@/lib/countries";
 
 const generateHash = (): string => Math.random().toString(36).substring(2, 10);
 
@@ -27,6 +28,12 @@ type RedeemPlan = {
   id: string;
   label: string;
   maxPhotos: number | null;
+};
+
+const languageLabels: Record<string, string> = {
+  es: "Español",
+  en: "English",
+  it: "Italiano",
 };
 
 const RedeemEvent = () => {
@@ -72,11 +79,53 @@ const RedeemEvent = () => {
   const nowTz = toZonedTime(new Date(), formData.timezone);
   const todayStr = format(nowTz, "yyyy-MM-dd");
   const startMinTimeStr = format(subHours(nowTz, 2), "HH:mm");
+  const formatTimezoneOffset = (timezone: string) => {
+    const offsetMinutes = getTimezoneOffset(timezone);
+    const sign = offsetMinutes >= 0 ? "+" : "-";
+    const absMinutes = Math.abs(offsetMinutes);
+    const hours = String(Math.floor(absMinutes / 60)).padStart(2, "0");
+    const minutes = String(absMinutes % 60).padStart(2, "0");
+    return `GMT${sign}${hours}:${minutes}`;
+  };
+  const timezoneOffsetLabel = formatTimezoneOffset(formData.timezone);
   const expiryDays =
     plan?.maxPhotos === 10 ? 10 :
     plan?.maxPhotos === 200 ? 20 :
     plan?.maxPhotos === 1200 ? 60 :
     90;
+
+  const getPlanBadge = () => {
+    if (!plan) return null;
+    const label = plan.label;
+    if (label.toLowerCase() === "demo" || plan.maxPhotos === 10) {
+      return { label: "Demo", color: "bg-[#f06a5f]/10 text-[#f06a5f] border-[#f06a5f]/30" };
+    }
+    if (label.toLowerCase() === "start" || plan.maxPhotos === 200) {
+      return { label: "Start", color: "bg-emerald-50 text-emerald-700 border-emerald-200" };
+    }
+    if (label.toLowerCase() === "plus" || plan.maxPhotos === 1200) {
+      return { label: "Plus", color: "bg-blue-50 text-blue-700 border-blue-200" };
+    }
+    return { label: "Pro", color: "bg-purple-50 text-purple-700 border-purple-200" };
+  };
+
+  const formatDuration = () => {
+    try {
+      const start = fromZonedTime(`${formData.uploadStartDate}T${formData.uploadStartTime}:00`, formData.timezone);
+      const end = fromZonedTime(`${formData.uploadEndDate}T${formData.uploadEndTime}:00`, formData.timezone);
+      const totalMinutes = Math.max(0, differenceInMinutes(end, start));
+      const days = Math.floor(totalMinutes / 1440);
+      const hours = Math.floor((totalMinutes % 1440) / 60);
+      const minutes = totalMinutes % 60;
+      const parts = [];
+      if (days) parts.push(`${days} día${days === 1 ? "" : "s"}`);
+      if (hours) parts.push(`${hours} hora${hours === 1 ? "" : "s"}`);
+      if (!days && !hours) parts.push(`${minutes} min`);
+      return parts.join(" y ");
+    } catch {
+      return "";
+    }
+  };
 
   const getExpiryDateTime = () => {
     if (!formData.revealDate || !formData.revealTime) return null;
@@ -395,7 +444,13 @@ const RedeemEvent = () => {
             Crea tu evento
           </h1>
           <p className="text-muted-foreground text-center max-w-md">
-            {plan ? `Plan ${plan.label}` : "Configura tu evento"}
+            {plan ? (
+              <span className={`inline-flex items-center justify-center rounded-full border px-3 py-1 text-xs font-semibold ${getPlanBadge()?.color ?? "border-border text-muted-foreground"}`}>
+                {getPlanBadge()?.label ?? plan.label}
+              </span>
+            ) : (
+              "Configura tu evento"
+            )}
           </p>
         </div>
 
@@ -410,6 +465,7 @@ const RedeemEvent = () => {
                       id="name"
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      placeholder="Por ejemplo: Boda de Ana y Fran."
                       required
                     />
                   </div>
@@ -587,7 +643,12 @@ const RedeemEvent = () => {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="uploadStartTime">Hora de inicio</Label>
+                        <Label htmlFor="uploadStartTime">
+                          Hora de inicio{" "}
+                          <span className="text-xs font-normal text-muted-foreground">
+                            ({timezoneOffsetLabel})
+                          </span>
+                        </Label>
                         <Input
                           id="uploadStartTime"
                           type="time"
@@ -621,7 +682,12 @@ const RedeemEvent = () => {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="uploadEndTime">Hora de fin</Label>
+                        <Label htmlFor="uploadEndTime">
+                          Hora de fin{" "}
+                          <span className="text-xs font-normal text-muted-foreground">
+                            ({timezoneOffsetLabel})
+                          </span>
+                        </Label>
                         <Input
                           id="uploadEndTime"
                           type="time"
@@ -664,7 +730,12 @@ const RedeemEvent = () => {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="revealTime">Hora del revelado</Label>
+                        <Label htmlFor="revealTime">
+                          Hora del revelado{" "}
+                          <span className="text-xs font-normal text-muted-foreground">
+                            ({timezoneOffsetLabel})
+                          </span>
+                        </Label>
                         <Input
                           id="revealTime"
                           type="time"
@@ -724,12 +795,23 @@ const RedeemEvent = () => {
                   <div className="space-y-4">
                     <Label className="text-base font-semibold">Confirma tu evento</Label>
                     <p className="text-xs text-muted-foreground">
-                      Revisa la información antes de crear el evento de pago.
+                      Revisa la información antes de crear el evento de pago. No te preocupes si te equivocas, después podrás editarlo en cualquier momento.
                     </p>
                     {plan ? (
                       <div className="rounded-lg border border-border bg-muted/40 p-4 text-sm">
-                        <p><strong>Plan:</strong> {plan.label}</p>
+                        <p><strong>Plan:</strong> {getPlanBadge()?.label ?? plan.label}</p>
+                        <p><strong>Nombre:</strong> {formData.name || "—"}</p>
+                        <p>
+                          <strong>Duración del evento:</strong>{" "}
+                          {formatDuration() || "—"}
+                        </p>
+                        <p><strong>Inicio:</strong> {formData.uploadStartDate} {formData.uploadStartTime}</p>
+                        <p><strong>Fin:</strong> {formData.uploadEndDate} {formData.uploadEndTime}</p>
+                        <p><strong>Fecha de revelado:</strong> {formData.revealDate} {formData.revealTime}</p>
+                        <p><strong>Idioma:</strong> {languageLabels[formData.language] ?? formData.language}</p>
+                        <p><strong>Zona horaria:</strong> {formData.timezone}</p>
                         <p><strong>Máximo de fotos:</strong> {plan.maxPhotos ?? "Sin límite"}</p>
+                        <p><strong>Descripción:</strong> {formData.description?.trim() ? formData.description : "—"}</p>
                         <p>
                           <strong>Caducidad:</strong>{" "}
                           {(() => {

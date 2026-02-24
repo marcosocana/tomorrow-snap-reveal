@@ -21,6 +21,7 @@ import { FilterType } from "@/lib/photoFilters";
 import logoDemo from "@/assets/Frame 626035.png";
 import defaultQrLogo from "@/assets/marca_revelao_qr_evento.png";
 import { useDemoI18n } from "@/lib/demoI18n";
+import { getTimezoneOffset } from "@/lib/countries";
 
 const generateHash = (): string => Math.random().toString(36).substring(2, 10);
 
@@ -69,6 +70,15 @@ const PublicDemoEventForm = () => {
   const todayStr = format(nowTz, "yyyy-MM-dd");
   const nowTimeStr = format(nowTz, "HH:mm");
   const startMinTimeStr = format(subHours(nowTz, 2), "HH:mm");
+  const formatTimezoneOffset = (timezone: string) => {
+    const offsetMinutes = getTimezoneOffset(timezone);
+    const sign = offsetMinutes >= 0 ? "+" : "-";
+    const absMinutes = Math.abs(offsetMinutes);
+    const hours = String(Math.floor(absMinutes / 60)).padStart(2, "0");
+    const minutes = String(absMinutes % 60).padStart(2, "0");
+    return `GMT${sign}${hours}:${minutes}`;
+  };
+  const timezoneOffsetLabel = formatTimezoneOffset(formData.timezone);
 
   const timeToMinutes = (value: string) => {
     const [h, m] = value.split(":").map(Number);
@@ -596,7 +606,12 @@ const PublicDemoEventForm = () => {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="uploadStartTime">{t("form.step1.startTime")}</Label>
+                        <Label htmlFor="uploadStartTime">
+                          {t("form.step1.startTime")}{" "}
+                          <span className="text-xs font-normal text-muted-foreground">
+                            ({timezoneOffsetLabel})
+                          </span>
+                        </Label>
                         <Input
                           id="uploadStartTime"
                           type="time"
@@ -639,7 +654,12 @@ const PublicDemoEventForm = () => {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="uploadEndTime">{t("form.step1.endTime")}</Label>
+                        <Label htmlFor="uploadEndTime">
+                          {t("form.step1.endTime")}{" "}
+                          <span className="text-xs font-normal text-muted-foreground">
+                            ({timezoneOffsetLabel})
+                          </span>
+                        </Label>
                         <Input
                           id="uploadEndTime"
                           type="time"
@@ -703,7 +723,12 @@ const PublicDemoEventForm = () => {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="revealTime">{t("form.step1.revealTime")}</Label>
+                        <Label htmlFor="revealTime">
+                          {t("form.step1.revealTime")}{" "}
+                          <span className="text-xs font-normal text-muted-foreground">
+                            ({timezoneOffsetLabel})
+                          </span>
+                        </Label>
                         <Input
                           id="revealTime"
                           type="time"

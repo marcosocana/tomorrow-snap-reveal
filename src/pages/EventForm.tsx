@@ -17,12 +17,20 @@ import FontSelect from "@/components/FontSelect";
 import FontSizeSelect, { FontSizeOption } from "@/components/FontSizeSelect";
 import EventPreview from "@/components/EventPreview";
 import { Language, getLanguageByCode } from "@/lib/translations";
-import { getCountryByCode } from "@/lib/countries";
+import { getCountryByCode, getTimezoneOffset } from "@/lib/countries";
 import { EventFontFamily, getEventFontFamily } from "@/lib/eventFonts";
-import { FilterType, FILTER_ORDER } from "@/lib/photoFilters";
+import { FilterType, FILTER_ORDER, getFilterClass, getGrainClass } from "@/lib/photoFilters";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@/components/ui/carousel";
 import { useAdminI18n } from "@/lib/adminI18n";
 import { QRCodeSVG } from "qrcode.react";
 import defaultQrLogo from "@/assets/marca_revelao_qr_evento.png";
+import weddingPreview from "@/assets/testimonial-wedding.jpg";
 
 // Background image - no size restrictions
 
@@ -124,6 +132,16 @@ const EventForm = () => {
   const { t, pathPrefix } = useAdminI18n();
   const isDemoEvent = formData.maxPhotos === "10";
   const eventUrl = eventId ? `https://acceso.revelao.cam/events/${formData.password}` : "";
+
+  const formatTimezoneOffset = (timezone: string) => {
+    const offsetMinutes = getTimezoneOffset(timezone);
+    const sign = offsetMinutes >= 0 ? "+" : "-";
+    const absMinutes = Math.abs(offsetMinutes);
+    const hours = String(Math.floor(absMinutes / 60)).padStart(2, "0");
+    const minutes = String(absMinutes % 60).padStart(2, "0");
+    return `GMT${sign}${hours}:${minutes}`;
+  };
+  const timezoneOffsetLabel = formatTimezoneOffset(formData.timezone);
 
   const getEventQrUrl = (id: string) =>
     localStorage.getItem(`event-qr-url-${id}`) ||
@@ -832,9 +850,11 @@ const EventForm = () => {
                 previewText={formData.name || t("form.namePreview")}
                 fontFamily={getEventFontFamily(formData.fontFamily)}
               />
-              <p className="text-xs text-muted-foreground">
-                {t("form.fontHint")}
-              </p>
+              {t("form.fontHint") ? (
+                <p className="text-xs text-muted-foreground">
+                  {t("form.fontHint")}
+                </p>
+              ) : null}
             </div>
 
             {(!isEditing || isSuperAdmin) && (
@@ -901,22 +921,43 @@ const EventForm = () => {
               <Label htmlFor="filterType">
                 {t("form.filterLabel")}
               </Label>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {FILTER_ORDER.map((filter) => (
-                  <button
-                    key={filter}
-                    type="button"
-                    onClick={() => setFormData({ ...formData, filterType: filter })}
-                    className={`px-3 py-2 text-sm rounded-md border transition-colors ${
-                      formData.filterType === filter
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "bg-muted border-border hover:bg-muted/80"
-                    }`}
-                  >
-                    {t(`form.filter.${filter}`)}
-                  </button>
-                ))}
-              </div>
+              <Carousel opts={{ align: "start" }} className="w-full">
+                <CarouselContent className="ml-0">
+                  {FILTER_ORDER.map((filter) => {
+                    const isActive = formData.filterType === filter;
+                    return (
+                      <CarouselItem key={filter} className="basis-[70%] sm:basis-1/3 md:basis-1/4 pl-0 pr-3">
+                        <button
+                          key={filter}
+                          type="button"
+                          onClick={() => setFormData({ ...formData, filterType: filter })}
+                          className="w-full text-left"
+                        >
+                          <div
+                            className={`relative overflow-hidden rounded-lg border ${
+                              isActive ? "border-primary ring-2 ring-primary/30" : "border-border"
+                            }`}
+                          >
+                            <img
+                              src={weddingPreview}
+                              alt={t(`form.filter.${filter}`)}
+                              className={`h-32 w-full object-cover ${getFilterClass(filter)}`}
+                            />
+                            {getGrainClass(filter) ? (
+                              <div className={`pointer-events-none absolute inset-0 ${getGrainClass(filter)}`} />
+                            ) : null}
+                          </div>
+                          <p className={`mt-2 text-xs ${isActive ? "text-primary font-semibold" : "text-muted-foreground"}`}>
+                            {t(`form.filter.${filter}`)}
+                          </p>
+                        </button>
+                      </CarouselItem>
+                    );
+                  })}
+                </CarouselContent>
+                <CarouselPrevious className="hidden sm:inline-flex" />
+                <CarouselNext className="hidden sm:inline-flex" />
+              </Carousel>
             </div>
 
             <div className="space-y-2">
@@ -1104,7 +1145,12 @@ const EventForm = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="uploadStartTime">{t("form.uploadStartTime")}</Label>
+                  <Label htmlFor="uploadStartTime">
+                    {t("form.uploadStartTime")}{" "}
+                    <span className="text-xs font-normal text-muted-foreground">
+                      ({timezoneOffsetLabel})
+                    </span>
+                  </Label>
                   <Input
                     id="uploadStartTime"
                     type="time"
@@ -1139,7 +1185,12 @@ const EventForm = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="uploadEndTime">{t("form.uploadEndTime")}</Label>
+                  <Label htmlFor="uploadEndTime">
+                    {t("form.uploadEndTime")}{" "}
+                    <span className="text-xs font-normal text-muted-foreground">
+                      ({timezoneOffsetLabel})
+                    </span>
+                  </Label>
                   <Input
                     id="uploadEndTime"
                     type="time"
@@ -1190,7 +1241,12 @@ const EventForm = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="revealTime">{t("form.revealTimeLabel")}</Label>
+                  <Label htmlFor="revealTime">
+                    {t("form.revealTimeLabel")}{" "}
+                    <span className="text-xs font-normal text-muted-foreground">
+                      ({timezoneOffsetLabel})
+                    </span>
+                  </Label>
                   <Input
                     id="revealTime"
                     type="time"
@@ -1241,7 +1297,12 @@ const EventForm = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="expiryTime">{t("form.expiryTimeLabel")}</Label>
+                    <Label htmlFor="expiryTime">
+                      {t("form.expiryTimeLabel")}{" "}
+                      <span className="text-xs font-normal text-muted-foreground">
+                        ({timezoneOffsetLabel})
+                      </span>
+                    </Label>
                   <Input
                     id="expiryTime"
                     type="time"
