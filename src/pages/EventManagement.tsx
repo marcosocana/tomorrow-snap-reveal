@@ -1164,7 +1164,7 @@ const EventManagement = () => {
           <div className="max-h-[calc(100dvh-80px)] sm:max-h-[80vh] overflow-y-auto pr-1">
             {pricingStep === "plans" ? (
               <>
-                <PricingPreview showHeader={false} mobileLayout="stack" />
+                <PricingPreview showHeader={false} mobileLayout="stack" hideDemo />
                 <div className="mt-6 space-y-3 text-sm text-muted-foreground text-center">
                   <p>
                     {t("events.pricingContactPrefix")}{" "}

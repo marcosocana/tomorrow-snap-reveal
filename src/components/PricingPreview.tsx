@@ -45,16 +45,19 @@ type PricingPreviewProps = {
   showHeader?: boolean;
   onSelectPlan?: (planId: string) => void;
   mobileLayout?: "carousel" | "stack";
+  hideDemo?: boolean;
 };
 
 export const PricingPreview = ({
   showHeader = true,
   onSelectPlan,
   mobileLayout = "carousel",
+  hideDemo = false,
 }: PricingPreviewProps) => {
   const { t, pathPrefix } = useAdminI18n();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const visiblePlans = hideDemo ? plans.filter((plan) => plan.planId !== "demo") : plans;
   const planFeatures: Record<string, string[]> = {
     demo: [
       t("pricing.plan.demo.feature.photos"),
@@ -218,7 +221,7 @@ export const PricingPreview = ({
         <div className="md:hidden">
           <Carousel opts={{ align: "start" }} className="w-full">
             <CarouselContent className="ml-0">
-              {plans.map((plan) => (
+              {visiblePlans.map((plan) => (
                 <CarouselItem key={plan.planId} className="basis-[85%] sm:basis-1/2 pl-0 pr-4">
                   {renderPlanCard(plan)}
                 </CarouselItem>
@@ -230,12 +233,12 @@ export const PricingPreview = ({
         </div>
       ) : (
         <div className="md:hidden space-y-4">
-          {plans.map((plan) => renderPlanCard(plan))}
+          {visiblePlans.map((plan) => renderPlanCard(plan))}
         </div>
       )}
 
       <div className="hidden md:grid md:grid-cols-2 xl:grid-cols-4 gap-6">
-        {plans.map((plan) => renderPlanCard(plan))}
+        {visiblePlans.map((plan) => renderPlanCard(plan))}
       </div>
 
       {showHeader && (
