@@ -762,10 +762,7 @@ const RedeemEvent = () => {
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="uploadEndTime">
-                          Hora de fin{" "}
-                          <span className="text-xs font-normal text-muted-foreground">
-                            ({timezoneOffsetLabel})
-                          </span>
+                          Hora de fin
                         </Label>
                         <Input
                           id="uploadEndTime"
@@ -810,10 +807,7 @@ const RedeemEvent = () => {
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="revealTime">
-                          Hora del revelado{" "}
-                          <span className="text-xs font-normal text-muted-foreground">
-                            ({timezoneOffsetLabel})
-                          </span>
+                          Hora del revelado
                         </Label>
                         <Input
                           id="revealTime"

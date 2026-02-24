@@ -1217,10 +1217,7 @@ const EventForm = () => {
 
                 <div className="space-y-2">
                   <Label htmlFor="uploadEndTime">
-                    {t("form.uploadEndTime")}{" "}
-                    <span className="text-xs font-normal text-muted-foreground">
-                      ({timezoneOffsetLabel})
-                    </span>
+                    {t("form.uploadEndTime")}
                   </Label>
                   <Input
                     id="uploadEndTime"
@@ -1273,10 +1270,7 @@ const EventForm = () => {
 
                 <div className="space-y-2">
                   <Label htmlFor="revealTime">
-                    {t("form.revealTimeLabel")}{" "}
-                    <span className="text-xs font-normal text-muted-foreground">
-                      ({timezoneOffsetLabel})
-                    </span>
+                    {t("form.revealTimeLabel")}
                   </Label>
                   <Input
                     id="revealTime"
@@ -1329,10 +1323,7 @@ const EventForm = () => {
 
                   <div className="space-y-2">
                     <Label htmlFor="expiryTime">
-                      {t("form.expiryTimeLabel")}{" "}
-                      <span className="text-xs font-normal text-muted-foreground">
-                        ({timezoneOffsetLabel})
-                      </span>
+                      {t("form.expiryTimeLabel")}
                     </Label>
                   <Input
                     id="expiryTime"
