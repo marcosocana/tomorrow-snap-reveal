@@ -146,38 +146,6 @@ const CreateFolderDialog = ({
 
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label>{t("folder.customImageLabel")}</Label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) handleImageUpload(file, "custom");
-                    }}
-                    disabled={uploadingImage === "custom"}
-                    className="flex-1"
-                  />
-                  {customImageUrl && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setCustomImageUrl("")}
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  )}
-                </div>
-                {customImageUrl && (
-                  <img
-                    src={customImageUrl}
-                    alt="Custom preview"
-                    className="max-w-[120px] max-h-[60px] object-contain rounded border"
-                  />
-                )}
-              </div>
-
-              <div className="space-y-2">
                 <Label>{t("folder.backgroundImageLabel")}</Label>
                 <div className="flex items-center gap-2">
                   <Input
@@ -205,6 +173,38 @@ const CreateFolderDialog = ({
                     src={backgroundImageUrl}
                     alt="Background preview"
                     className="max-w-[200px] max-h-[100px] object-contain rounded border"
+                  />
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label>{t("folder.customImageLabel")}</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleImageUpload(file, "custom");
+                    }}
+                    disabled={uploadingImage === "custom"}
+                    className="flex-1"
+                  />
+                  {customImageUrl && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setCustomImageUrl("")}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  )}
+                </div>
+                {customImageUrl && (
+                  <img
+                    src={customImageUrl}
+                    alt="Custom preview"
+                    className="max-w-[120px] max-h-[60px] object-contain rounded border"
                   />
                 )}
               </div>

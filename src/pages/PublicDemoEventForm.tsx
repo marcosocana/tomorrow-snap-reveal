@@ -11,15 +11,23 @@ import { useToast } from "@/hooks/use-toast";
 import { addDays, format, subHours } from "date-fns";
 import { fromZonedTime, formatInTimeZone, toZonedTime } from "date-fns-tz";
 import { QRCodeSVG } from "qrcode.react";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@/components/ui/carousel";
 import CountrySelect from "@/components/CountrySelect";
 import LanguageSelect from "@/components/LanguageSelect";
 import FontSelect from "@/components/FontSelect";
 import EventPreview from "@/components/EventPreview";
 import { Language } from "@/lib/translations";
 import { EventFontFamily } from "@/lib/eventFonts";
-import { FilterType } from "@/lib/photoFilters";
+import { FilterType, FILTER_ORDER, getFilterClass, getGrainClass } from "@/lib/photoFilters";
 import logoDemo from "@/assets/Frame 626035.png";
 import defaultQrLogo from "@/assets/marca_revelao_qr_evento.png";
+import weddingPreview from "@/assets/testimonial-wedding.jpg";
 import { useDemoI18n } from "@/lib/demoI18n";
 import { getTimezoneOffset } from "@/lib/countries";
 
@@ -555,6 +563,80 @@ const PublicDemoEventForm = () => {
                         }
                       }}
                     />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>{t("form.filterLabel")}</Label>
+                    <div className="md:hidden">
+                      <Carousel opts={{ align: "start" }} className="w-full">
+                        <CarouselContent className="ml-0">
+                          {FILTER_ORDER.map((filter) => {
+                            const isActive = formData.filterType === filter;
+                            return (
+                              <CarouselItem key={filter} className="basis-[70%] sm:basis-1/3 pl-0 pr-3">
+                                <button
+                                  type="button"
+                                  onClick={() => setFormData({ ...formData, filterType: filter })}
+                                  className="w-full text-left"
+                                >
+                                  <div
+                                    className={`relative overflow-hidden rounded-lg border ${
+                                      isActive ? "border-primary ring-2 ring-primary/30" : "border-border"
+                                    }`}
+                                  >
+                                    <img
+                                      src={weddingPreview}
+                                      alt={t(`form.filter.${filter}`)}
+                                      className={`h-32 w-full object-cover ${getFilterClass(filter)}`}
+                                    />
+                                    {getGrainClass(filter) ? (
+                                      <div className={`pointer-events-none absolute inset-0 ${getGrainClass(filter)}`} />
+                                    ) : null}
+                                  </div>
+                                  <p className={`mt-2 text-xs ${isActive ? "text-primary font-semibold" : "text-muted-foreground"}`}>
+                                    {t(`form.filter.${filter}`)}
+                                  </p>
+                                </button>
+                              </CarouselItem>
+                            );
+                          })}
+                        </CarouselContent>
+                        <CarouselPrevious className="hidden sm:inline-flex" />
+                        <CarouselNext className="hidden sm:inline-flex" />
+                      </Carousel>
+                    </div>
+
+                    <div className="hidden md:grid grid-cols-4 gap-4">
+                      {FILTER_ORDER.map((filter) => {
+                        const isActive = formData.filterType === filter;
+                        return (
+                          <button
+                            key={filter}
+                            type="button"
+                            onClick={() => setFormData({ ...formData, filterType: filter })}
+                            className="w-full text-left"
+                          >
+                            <div
+                              className={`relative overflow-hidden rounded-lg border ${
+                                isActive ? "border-primary ring-2 ring-primary/30" : "border-border"
+                              }`}
+                            >
+                              <img
+                                src={weddingPreview}
+                                alt={t(`form.filter.${filter}`)}
+                                className={`h-32 w-full object-cover ${getFilterClass(filter)}`}
+                              />
+                              {getGrainClass(filter) ? (
+                                <div className={`pointer-events-none absolute inset-0 ${getGrainClass(filter)}`} />
+                              ) : null}
+                            </div>
+                            <p className={`mt-2 text-xs ${isActive ? "text-primary font-semibold" : "text-muted-foreground"}`}>
+                              {t(`form.filter.${filter}`)}
+                            </p>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
 
 

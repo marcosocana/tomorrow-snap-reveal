@@ -921,99 +921,77 @@ const EventForm = () => {
               <Label htmlFor="filterType">
                 {t("form.filterLabel")}
               </Label>
-              <Carousel opts={{ align: "start" }} className="w-full">
-                <CarouselContent className="ml-0">
-                  {FILTER_ORDER.map((filter) => {
-                    const isActive = formData.filterType === filter;
-                    return (
-                      <CarouselItem key={filter} className="basis-[70%] sm:basis-1/3 md:basis-1/4 pl-0 pr-3">
-                        <button
-                          key={filter}
-                          type="button"
-                          onClick={() => setFormData({ ...formData, filterType: filter })}
-                          className="w-full text-left"
-                        >
-                          <div
-                            className={`relative overflow-hidden rounded-lg border ${
-                              isActive ? "border-primary ring-2 ring-primary/30" : "border-border"
-                            }`}
+              <div className="md:hidden">
+                <Carousel opts={{ align: "start" }} className="w-full">
+                  <CarouselContent className="ml-0">
+                    {FILTER_ORDER.map((filter) => {
+                      const isActive = formData.filterType === filter;
+                      return (
+                        <CarouselItem key={filter} className="basis-[70%] sm:basis-1/3 pl-0 pr-3">
+                          <button
+                            key={filter}
+                            type="button"
+                            onClick={() => setFormData({ ...formData, filterType: filter })}
+                            className="w-full text-left"
                           >
-                            <img
-                              src={weddingPreview}
-                              alt={t(`form.filter.${filter}`)}
-                              className={`h-32 w-full object-cover ${getFilterClass(filter)}`}
-                            />
-                            {getGrainClass(filter) ? (
-                              <div className={`pointer-events-none absolute inset-0 ${getGrainClass(filter)}`} />
-                            ) : null}
-                          </div>
-                          <p className={`mt-2 text-xs ${isActive ? "text-primary font-semibold" : "text-muted-foreground"}`}>
-                            {t(`form.filter.${filter}`)}
-                          </p>
-                        </button>
-                      </CarouselItem>
-                    );
-                  })}
-                </CarouselContent>
-                <CarouselPrevious className="hidden sm:inline-flex" />
-                <CarouselNext className="hidden sm:inline-flex" />
-              </Carousel>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="customImage">
-                {t("form.customImageLabel")}
-              </Label>
-              <div className="text-xs text-muted-foreground mb-2">
-                {t("form.customImageHint")}
+                            <div
+                              className={`relative overflow-hidden rounded-lg border ${
+                                isActive ? "border-primary ring-2 ring-primary/30" : "border-border"
+                              }`}
+                            >
+                              <img
+                                src={weddingPreview}
+                                alt={t(`form.filter.${filter}`)}
+                                className={`h-32 w-full object-cover ${getFilterClass(filter)}`}
+                              />
+                              {getGrainClass(filter) ? (
+                                <div className={`pointer-events-none absolute inset-0 ${getGrainClass(filter)}`} />
+                              ) : null}
+                            </div>
+                            <p className={`mt-2 text-xs ${isActive ? "text-primary font-semibold" : "text-muted-foreground"}`}>
+                              {t(`form.filter.${filter}`)}
+                            </p>
+                          </button>
+                        </CarouselItem>
+                      );
+                    })}
+                  </CarouselContent>
+                  <CarouselPrevious className="hidden sm:inline-flex" />
+                  <CarouselNext className="hidden sm:inline-flex" />
+                </Carousel>
               </div>
-              {formData.customImageUrl && !formData.customImage && (
-                <div className="mb-2 relative inline-block">
-                  <img 
-                    src={formData.customImageUrl} 
-                    alt="Preview"
-                    className="max-w-[240px] max-h-[100px] object-contain border border-border rounded"
-                  />
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="icon"
-                    className="absolute -top-2 -right-2 h-6 w-6"
-                    onClick={() => setFormData({ ...formData, customImageUrl: "", customImage: null })}
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
-                </div>
-              )}
-              {formData.customImage && (
-                <div className="mb-2 relative inline-block">
-                  <img 
-                    src={URL.createObjectURL(formData.customImage)} 
-                    alt="Preview"
-                    className="max-w-[240px] max-h-[100px] object-contain border border-border rounded"
-                  />
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="icon"
-                    className="absolute -top-2 -right-2 h-6 w-6"
-                    onClick={() => setFormData({ ...formData, customImage: null })}
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
-                </div>
-              )}
-              <Input
-                id="customImage"
-                type="file"
-                accept="image/*"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) {
-                    setFormData({ ...formData, customImage: file });
-                  }
-                }}
-              />
+
+              <div className="hidden md:grid grid-cols-4 gap-4">
+                {FILTER_ORDER.map((filter) => {
+                  const isActive = formData.filterType === filter;
+                  return (
+                    <button
+                      key={filter}
+                      type="button"
+                      onClick={() => setFormData({ ...formData, filterType: filter })}
+                      className="w-full text-left"
+                    >
+                      <div
+                        className={`relative overflow-hidden rounded-lg border ${
+                          isActive ? "border-primary ring-2 ring-primary/30" : "border-border"
+                        }`}
+                      >
+                        <img
+                          src={weddingPreview}
+                          alt={t(`form.filter.${filter}`)}
+                          className={`h-32 w-full object-cover ${getFilterClass(filter)}`}
+                        />
+                        {getGrainClass(filter) ? (
+                          <div className={`pointer-events-none absolute inset-0 ${getGrainClass(filter)}`} />
+                        ) : null}
+                      </div>
+                      <p className={`mt-2 text-xs ${isActive ? "text-primary font-semibold" : "text-muted-foreground"}`}>
+                        {t(`form.filter.${filter}`)}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -1067,6 +1045,62 @@ const EventForm = () => {
                   const file = e.target.files?.[0];
                   if (file) {
                     setFormData({ ...formData, backgroundImage: file });
+                  }
+                }}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="customImage">
+                {t("form.customImageLabel")}
+              </Label>
+              <div className="text-xs text-muted-foreground mb-2">
+                {t("form.customImageHint")}
+              </div>
+              {formData.customImageUrl && !formData.customImage && (
+                <div className="mb-2 relative inline-block">
+                  <img 
+                    src={formData.customImageUrl} 
+                    alt="Preview"
+                    className="max-w-[240px] max-h-[100px] object-contain border border-border rounded"
+                  />
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="icon"
+                    className="absolute -top-2 -right-2 h-6 w-6"
+                    onClick={() => setFormData({ ...formData, customImageUrl: "", customImage: null })}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              )}
+              {formData.customImage && (
+                <div className="mb-2 relative inline-block">
+                  <img 
+                    src={URL.createObjectURL(formData.customImage)} 
+                    alt="Preview"
+                    className="max-w-[240px] max-h-[100px] object-contain border border-border rounded"
+                  />
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="icon"
+                    className="absolute -top-2 -right-2 h-6 w-6"
+                    onClick={() => setFormData({ ...formData, customImage: null })}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              )}
+              <Input
+                id="customImage"
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    setFormData({ ...formData, customImage: file });
                   }
                 }}
               />

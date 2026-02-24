@@ -123,7 +123,7 @@ serve(async (req) => {
       demoNote:
         "Recuerda que este es un evento de prueba con un máximo de 10 fotos. Si quieres crear un evento real, puedes contratar un plan de pago desde {price}. Hazlo fácilmente desde el botón “Gestionar mi evento”.",
       paidTitle: "Evento de pago",
-      paidText: "Gracias por confiar en Revelao. Si necesitas ayuda, responde a este email.",
+      paidText: "Gracias por confiar en Revelao.",
       plan: "Plan",
     },
     en: {
