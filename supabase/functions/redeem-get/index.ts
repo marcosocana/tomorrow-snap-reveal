@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-import { getPlanById } from "../_shared/planConfig.ts";
+import { getPlanById, type PlanConfig, type PlanId } from "../_shared/planConfig.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -57,13 +57,13 @@ serve(async (req) => {
 
   let plan = getPlanById(data.plan_id);
   if (!plan) {
-    const fallbackPlans: Record<string, { id: string; label: string; maxPhotos: number | null; stripePriceIdEnv: string }> = {
+    const fallbackPlans: Record<string, PlanConfig> = {
       demo: { id: "demo", label: "Demo", maxPhotos: 10, stripePriceIdEnv: "STRIPE_PRICE_DEMO" },
       small: { id: "small", label: "Start", maxPhotos: 200, stripePriceIdEnv: "STRIPE_PRICE_SMALL" },
       medium: { id: "medium", label: "Plus", maxPhotos: 1200, stripePriceIdEnv: "STRIPE_PRICE_MEDIUM" },
       large: { id: "large", label: "Plus", maxPhotos: 1200, stripePriceIdEnv: "STRIPE_PRICE_LARGE" },
       xxl: { id: "xxl", label: "Pro", maxPhotos: null, stripePriceIdEnv: "STRIPE_PRICE_XXL" },
-      xl: { id: "xxl", label: "Pro", maxPhotos: null, stripePriceIdEnv: "STRIPE_PRICE_XXL" },
+      xl: { id: "xxl" as PlanId, label: "Pro", maxPhotos: null, stripePriceIdEnv: "STRIPE_PRICE_XXL" },
     };
     plan = fallbackPlans[data.plan_id ?? ""] ?? null;
   }
