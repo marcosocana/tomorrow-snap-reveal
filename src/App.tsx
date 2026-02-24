@@ -50,9 +50,10 @@ const ScrollToTop = () => {
       document.body.scrollTop = 0;
     };
     forceScrollTop();
-    requestAnimationFrame(forceScrollTop);
+    requestAnimationFrame(() => requestAnimationFrame(forceScrollTop));
     setTimeout(forceScrollTop, 0);
     setTimeout(forceScrollTop, 50);
+    setTimeout(forceScrollTop, 150);
   }, [pathname, search, hash]);
 
   return null;
