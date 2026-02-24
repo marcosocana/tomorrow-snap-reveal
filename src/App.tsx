@@ -41,11 +41,13 @@ const RESET_KEYS = [
 ];
 
 const ScrollToTop = () => {
-  const { pathname } = useLocation();
+  const { pathname, search, hash } = useLocation();
 
   useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [pathname]);
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  }, [pathname, search, hash]);
 
   return null;
 };
