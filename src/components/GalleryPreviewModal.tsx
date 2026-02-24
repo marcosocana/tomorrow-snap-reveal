@@ -342,29 +342,30 @@ export const GalleryPreviewModal = ({
                 <span className="text-sm font-normal text-muted-foreground">
                   {t("gallery.photosCount", { count: totalPhotos })}
                 </span>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="icon" className="ml-1" aria-label={t("gallery.sortChronological")}>
+                      <ArrowUpDown className="w-4 h-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem 
+                      onClick={() => handleSortChange("chronological")}
+                      className={sortBy === "chronological" ? "bg-accent" : ""}
+                    >
+                      {t("gallery.sortOptionChronological")}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
+                      onClick={() => handleSortChange("most_liked")}
+                      className={sortBy === "most_liked" ? "bg-accent" : ""}
+                    >
+                      <Heart className="w-4 h-4 mr-2" />
+                      {t("gallery.sortOptionMostLiked")}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="icon" className="ml-2" aria-label={t("gallery.sortChronological")}>
-                    <ArrowUpDown className="w-4 h-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem 
-                    onClick={() => handleSortChange("chronological")}
-                    className={sortBy === "chronological" ? "bg-accent" : ""}
-                  >
-                    {t("gallery.sortOptionChronological")}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem 
-                    onClick={() => handleSortChange("most_liked")}
-                    className={sortBy === "most_liked" ? "bg-accent" : ""}
-                  >
-                    <Heart className="w-4 h-4 mr-2" />
-                    {t("gallery.sortOptionMostLiked")}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <span />
             </DialogTitle>
           </DialogHeader>
 
