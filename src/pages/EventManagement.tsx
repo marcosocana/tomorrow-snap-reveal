@@ -752,13 +752,11 @@ const EventManagement = () => {
   return (
     <div className="min-h-screen bg-background p-4 md:p-6">
         <div className="max-w-6xl mx-auto space-y-4 md:space-y-6">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-2 sm:gap-4">
+          <div className="flex flex-col gap-4">
+            <div className="flex items-start justify-between w-full">
               <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
                 {isDemoMode ? t("events.titleDemo") : t("events.title")}
               </h1>
-            </div>
-            <div className="flex items-center justify-end w-full sm:hidden">
               <Button
                 variant="outline"
                 size="icon"
@@ -769,17 +767,7 @@ const EventManagement = () => {
                 <User className="w-4 h-4" />
               </Button>
             </div>
-
             <div className="flex gap-2 w-full sm:w-auto flex-wrap">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setAccountOpen(true)}
-                aria-label="Cuenta"
-                className="hidden sm:inline-flex rounded-full"
-              >
-                <User className="w-4 h-4" />
-              </Button>
               {!adminEventId && !isSuperAdmin && (
                 <Button
                   className="gap-2 flex-1 sm:flex-initial"
