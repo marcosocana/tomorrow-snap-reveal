@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, Plus, Edit, Copy, Download, Eye, LogOut, ArrowLeft } from "lucide-react";
+import { Calendar, Plus, Edit, Copy, Download, Eye, LogOut, ArrowLeft, User } from "lucide-react";
 import { format } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 import { getCountryByCode } from "@/lib/countries";
@@ -758,14 +758,8 @@ const EventManagement = () => {
               <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
                 {isDemoMode ? t("events.titleDemo") : t("events.title")}
               </h1>
-              {currentUserEmail ? (
-                <span className="text-sm text-muted-foreground hidden sm:inline">{currentUserEmail}</span>
-              ) : null}
             </div>
-            <div className="flex items-center justify-between w-full sm:hidden">
-              <span className="text-sm text-muted-foreground">
-                {currentUserEmail ? truncateEmail(currentUserEmail, 10) : "-"}
-              </span>
+            <div className="flex items-center justify-end w-full sm:hidden">
               <Button
                 variant="outline"
                 size="icon"
@@ -773,9 +767,7 @@ const EventManagement = () => {
                 aria-label="Cuenta"
                 className="rounded-full"
               >
-                <span className="text-sm font-semibold">
-                  {(currentUserEmail?.trim()?.[0] || "?").toUpperCase()}
-                </span>
+                <User className="w-4 h-4" />
               </Button>
             </div>
 
@@ -787,9 +779,7 @@ const EventManagement = () => {
                 aria-label="Cuenta"
                 className="hidden sm:inline-flex rounded-full"
               >
-                <span className="text-sm font-semibold">
-                  {(currentUserEmail?.trim()?.[0] || "?").toUpperCase()}
-                </span>
+                <User className="w-4 h-4" />
               </Button>
               {!adminEventId && !isSuperAdmin && (
                 <Button
