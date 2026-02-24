@@ -120,10 +120,9 @@ serve(async (req) => {
       manageText:
         "Para poder editar todos los detalles de tu evento, puedes acceder a {adminUrl} o haciendo click en el siguiente botón.",
       manageButton: "Gestionar mi evento",
-      demoNote:
-        "Recuerda que este es un evento de prueba con un máximo de 10 fotos. Si quieres crear un evento real, puedes contratar un plan de pago desde {price}. Hazlo fácilmente desde el botón “Gestionar mi evento”.",
+      demoNote: "Gracias por contar con Revelao.",
       paidTitle: "Evento de pago",
-      paidText: "Gracias por confiar en Revelao.",
+      paidText: "Gracias por contar con Revelao.",
       plan: "Plan",
     },
     en: {
@@ -149,10 +148,9 @@ serve(async (req) => {
       manageText:
         "To edit all the details of your event, you can access {adminUrl} or click the button below.",
       manageButton: "Manage my event",
-      demoNote:
-        "Remember this is a demo event with a maximum of 10 photos. If you want to create a real event, you can purchase a paid plan from {price}. You can do it easily from the “Manage my event” button.",
+      demoNote: "Thanks for choosing Revelao.",
       paidTitle: "Paid event",
-      paidText: "Thanks for choosing Revelao. If you need help, reply to this email.",
+      paidText: "Thanks for choosing Revelao.",
       plan: "Plan",
     },
     it: {
@@ -178,10 +176,9 @@ serve(async (req) => {
       manageText:
         "Per modificare tutti i dettagli del tuo evento, puoi accedere a {adminUrl} oppure fare clic sul pulsante qui sotto.",
       manageButton: "Gestisci il mio evento",
-      demoNote:
-        "Ricorda che questo è un evento demo con un massimo di 10 foto. Se vuoi creare un evento reale, puoi acquistare un piano a pagamento da {price}. Puoi farlo facilmente dal pulsante “Gestisci il mio evento”.",
+      demoNote: "Grazie per aver scelto Revelao.",
       paidTitle: "Evento a pagamento",
-      paidText: "Grazie per aver scelto Revelao. Se hai bisogno di aiuto, rispondi a questa email.",
+      paidText: "Grazie per aver scelto Revelao.",
       plan: "Piano",
     },
   }[emailLang];
