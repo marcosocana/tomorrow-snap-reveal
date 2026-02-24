@@ -587,12 +587,11 @@ const EventManagement = () => {
             </div>
           </button>
           <div className={`w-full text-center text-sm font-medium px-3 py-2 rounded-md ${statusInfo.bgColor} ${statusInfo.color}`}>
-            {t("events.statusLabel")}: {statusLabel}
+            {statusLabel}
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-[160px_1fr] gap-4 md:gap-6 items-start">
             {/* QR Code Section */}
             <div className="space-y-3 flex flex-col items-center lg:items-start">
-              <p className="text-sm font-medium text-foreground">{t("events.qrLabel")}</p>
               <div className="bg-white p-3 rounded-xl border border-border w-fit">
                 {qrStorageUrl ? (
                   <img
@@ -753,7 +752,7 @@ const EventManagement = () => {
   return (
     <div className="min-h-screen bg-background p-4 md:p-6">
         <div className="max-w-6xl mx-auto space-y-4 md:space-y-6">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2 sm:gap-4">
               <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
                 {isDemoMode ? t("events.titleDemo") : t("events.title")}
