@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect } from "react";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import Login from "./pages/Login";
 import Logout from "./pages/Logout";
@@ -43,7 +43,7 @@ const RESET_KEYS = [
 const ScrollToTop = () => {
   const { pathname, search, hash } = useLocation();
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const forceScrollTop = () => {
       window.scrollTo({ top: 0, left: 0, behavior: "auto" });
       document.documentElement.scrollTop = 0;
@@ -60,11 +60,23 @@ const ScrollToTop = () => {
 
 const App = () => {
   useEffect(() => {
+    if ("scrollRestoration" in window.history) {
+      window.history.scrollRestoration = "manual";
+    }
     const storedVersion = localStorage.getItem(APP_VERSION_KEY);
     if (storedVersion === APP_VERSION) return;
     RESET_KEYS.forEach((key) => localStorage.removeItem(key));
     localStorage.setItem(APP_VERSION_KEY, APP_VERSION);
     window.location.reload();
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.style.overflowX = "hidden";
+    document.body.style.overflowX = "hidden";
+    return () => {
+      document.documentElement.style.overflowX = "";
+      document.body.style.overflowX = "";
+    };
   }, []);
 
   return (
