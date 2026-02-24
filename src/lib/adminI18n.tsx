@@ -267,7 +267,7 @@ const translations: Record<AdminLanguage, Record<string, string>> = {
     "moveEvent.title": "Mover evento a...",
     "moveEvent.generalList": "Listado general",
 
-    "gallery.title": "Vista previa de galería",
+    "gallery.title": "Galeria",
     "gallery.photosCount": "({count} fotos)",
     "gallery.sortChronological": "Cronológico",
     "gallery.sortMostLiked": "Más likes",

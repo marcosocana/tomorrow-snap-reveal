@@ -359,6 +359,8 @@ const EventManagement = () => {
 
   const truncate = (value: string, max: number) =>
     value.length > max ? `${value.slice(0, max)}...` : value;
+  const truncateEmail = (value: string, max: number) =>
+    value.length > max ? `${value.slice(0, max)}...` : value;
 
   const handleAdminSort = (key: "name" | "type" | "created_at" | "email" | "photos") => {
     setAdminSort((prev) => ({
@@ -425,6 +427,10 @@ const EventManagement = () => {
       setSelectedEventIds(next);
     }
   }, [superAdminEvents, selectedEventIds]);
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
 
   const paginatedAdminEvents = useMemo(() => {
     const start = (adminPage - 1) * pageSize;
@@ -576,6 +582,31 @@ const EventManagement = () => {
               <Download className="w-4 h-4" />
               {t("events.downloadQrAction")}
             </Button>
+            <div className="space-y-2 pt-1 w-full sm:hidden">
+              <p className="text-sm font-medium text-foreground">Ver evento</p>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={eventUrl}
+                  readOnly
+                  className="flex-1 px-3 py-2 text-sm bg-muted rounded-md border border-border min-w-0"
+                />
+                <Button
+                  size="icon"
+                  variant="outline"
+                  onClick={() => handleCopyUrl(event.password_hash)}
+                >
+                  <Copy className="w-4 h-4" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="outline"
+                  onClick={() => window.open(eventUrl, "_blank", "noopener,noreferrer")}
+                >
+                  <Eye className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
             {/* Event Status Badge */}
             <div className={`text-center text-sm font-medium px-3 py-1.5 rounded-md ${statusInfo.bgColor} ${statusInfo.color}`}>
               {statusLabel}
@@ -639,7 +670,7 @@ const EventManagement = () => {
                   </p>
                 )}
               </div>
-              <div className="space-y-2 pt-1">
+              <div className="space-y-2 pt-1 hidden sm:block">
                 <p className="text-sm font-medium text-foreground">{t("events.accessLink")}</p>
                 <div className="flex items-center gap-2">
                   <input
@@ -722,14 +753,27 @@ const EventManagement = () => {
   return (
     <div className="min-h-screen bg-background p-4 md:p-6">
       <div className="max-w-6xl mx-auto space-y-4 md:space-y-6">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-center gap-2 sm:gap-4">
             <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
               {isDemoMode ? t("events.titleDemo") : t("events.title")}
             </h1>
             {currentUserEmail ? (
-              <span className="text-sm text-muted-foreground">{currentUserEmail}</span>
+              <span className="text-sm text-muted-foreground hidden sm:inline">{currentUserEmail}</span>
             ) : null}
+          </div>
+          <div className="flex items-center justify-between w-full sm:hidden">
+            <span className="text-sm text-muted-foreground">
+              {currentUserEmail ? truncateEmail(currentUserEmail, 10) : "-"}
+            </span>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handleLogout}
+              aria-label={t("events.logout")}
+            >
+              <LogOut className="w-4 h-4" />
+            </Button>
           </div>
 
           <div className="flex gap-2 w-full sm:w-auto flex-wrap">
@@ -738,6 +782,7 @@ const EventManagement = () => {
               size="icon"
               onClick={handleLogout}
               aria-label={t("events.logout")}
+              className="hidden sm:inline-flex"
             >
               <LogOut className="w-4 h-4" />
             </Button>

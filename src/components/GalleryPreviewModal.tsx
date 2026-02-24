@@ -345,9 +345,8 @@ export const GalleryPreviewModal = ({
               </div>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="ml-2">
-                    <ArrowUpDown className="w-4 h-4 mr-2" />
-                    {sortBy === "chronological" ? t("gallery.sortChronological") : t("gallery.sortMostLiked")}
+                  <Button variant="outline" size="icon" className="ml-2" aria-label={t("gallery.sortChronological")}>
+                    <ArrowUpDown className="w-4 h-4" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
@@ -371,7 +370,6 @@ export const GalleryPreviewModal = ({
 
           {/* Hero Header Preview */}
           <div className="relative h-32 rounded-lg overflow-hidden mb-4 flex-shrink-0">
-            <div className="absolute inset-0 bg-gradient-to-b from-primary/20 to-background" />
             <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-4">
               <h2 
                 className={`${fontSize} font-bold text-foreground leading-tight`}
