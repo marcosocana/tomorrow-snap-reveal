@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, Plus, Edit, Copy, Download, Eye, LogOut } from "lucide-react";
+import { Calendar, Plus, Edit, Copy, Download, Eye, LogOut, ArrowLeft } from "lucide-react";
 import { format } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 import { getCountryByCode } from "@/lib/countries";
@@ -60,6 +60,7 @@ const EventManagement = () => {
   const [adminEventId] = useState(() => localStorage.getItem("adminEventId"));
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
+  const [accountOpen, setAccountOpen] = useState(false);
   const [previewEvent, setPreviewEvent] = useState<Event | null>(null);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [pricingOpen, setPricingOpen] = useState(false);
@@ -247,6 +248,26 @@ const EventManagement = () => {
     }
   };
 
+  const handleDeleteAccount = async () => {
+    const confirmed = window.confirm("¿Seguro que quieres eliminar tu cuenta? Esta acción no se puede deshacer.");
+    if (!confirmed) return;
+    try {
+      const { error } = await supabase.functions.invoke("delete-account", { method: "POST" });
+      if (error) throw error;
+      await supabase.auth.signOut();
+      localStorage.removeItem("isDemoMode");
+      localStorage.removeItem("adminEventId");
+      navigate(`${pathPrefix}/admin-login`, { replace: true });
+    } catch (error) {
+      console.error("Error deleting account:", error);
+      toast({
+        title: t("form.errorTitle"),
+        description: "No se pudo eliminar la cuenta.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleRedeemSubmit = () => {
     const code = redeemCode.trim();
     if (code.length !== 16 && code.length !== 36) {
@@ -339,14 +360,6 @@ const EventManagement = () => {
       }
       return next;
     });
-  };
-
-  const getPlanBadge = (maxPhotos?: number | null) => {
-    if (maxPhotos === 10) return t("events.badge.demo");
-    if (maxPhotos === 50 || maxPhotos === 200) return t("events.badge.small");
-    if (maxPhotos === 300 || maxPhotos === 1200) return t("events.badge.medium");
-    if (maxPhotos === 500 || maxPhotos === 1000 || maxPhotos == null) return t("events.badge.xl");
-    return null;
   };
 
   const getPlanType = (maxPhotos?: number | null) => {
@@ -554,98 +567,88 @@ const EventManagement = () => {
     const qrStorageUrl = getEventQrUrl(event.id);
     const statusLabel = t(`events.status.${statusInfo.status}`);
 
-    const planBadge = getPlanBadge(event.max_photos);
     const planType = getPlanType(event.max_photos);
 
     return (
       <Card key={event.id} className="p-4 md:p-6">
-        <div className="grid grid-cols-1 lg:grid-cols-[160px_1fr] gap-4 md:gap-6 items-start">
-          {/* QR Code Section */}
-          <div className="space-y-3 flex flex-col items-center lg:items-start">
-            <div className="bg-white p-3 rounded-xl border border-border w-fit">
-              {qrStorageUrl ? (
-                <img
-                  src={qrStorageUrl}
-                  alt={t("events.qrAlt")}
-                  className="w-[120px] h-[120px]"
-                />
-              ) : (
-                <QRCodeSVG value={eventUrl} size={120} />
-              )}
+        <div className="space-y-4">
+          <button
+            type="button"
+            onClick={() => navigate(`${pathPrefix}/event-form/${event.id}`)}
+            className="w-full text-left"
+          >
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-lg md:text-xl font-semibold text-foreground">
+                {event.name}
+              </h3>
+              <span className={`text-xs font-semibold uppercase tracking-wide px-2 py-1 rounded-full border ${planType.color}`}>
+                {planType.label}
+              </span>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                handleDownloadQR(eventUrl, event.name, event.id)
-              }
-              className="w-full gap-2"
-            >
-              <Download className="w-4 h-4" />
-              {t("events.downloadQrAction")}
-            </Button>
-            <div className="space-y-2 pt-1 w-full sm:hidden">
-              <p className="text-sm font-medium text-foreground">Ver evento</p>
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={eventUrl}
-                  readOnly
-                  className="flex-1 px-3 py-2 text-sm bg-muted rounded-md border border-border min-w-0"
-                />
-                <Button
-                  size="icon"
-                  variant="outline"
-                  onClick={() => handleCopyUrl(event.password_hash)}
-                >
-                  <Copy className="w-4 h-4" />
-                </Button>
-                <Button
-                  size="icon"
-                  variant="outline"
-                  onClick={() => window.open(eventUrl, "_blank", "noopener,noreferrer")}
-                >
-                  <Eye className="w-4 h-4" />
-                </Button>
-              </div>
-            </div>
-            {/* Event Status Badge */}
-            <div className={`text-center text-sm font-medium px-3 py-1.5 rounded-md ${statusInfo.bgColor} ${statusInfo.color}`}>
-              {statusLabel}
-            </div>
+          </button>
+          <div className={`w-full text-center text-sm font-medium px-3 py-2 rounded-md ${statusInfo.bgColor} ${statusInfo.color}`}>
+            {t("events.statusLabel")}: {statusLabel}
           </div>
-
-          {/* Event Info */}
-          <div className="flex-1 space-y-4 w-full">
-            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <h3 className="text-lg md:text-xl font-semibold text-foreground">
-                  {event.name}
-                </h3>
-                {planBadge && (
-                  <span className={`text-xs font-semibold uppercase tracking-wide px-2 py-1 rounded-full border ${planType.color}`}>
-                    {planBadge}
-                  </span>
+          <div className="grid grid-cols-1 lg:grid-cols-[160px_1fr] gap-4 md:gap-6 items-start">
+            {/* QR Code Section */}
+            <div className="space-y-3 flex flex-col items-center lg:items-start">
+              <p className="text-sm font-medium text-foreground">{t("events.qrLabel")}</p>
+              <div className="bg-white p-3 rounded-xl border border-border w-fit">
+                {qrStorageUrl ? (
+                  <img
+                    src={qrStorageUrl}
+                    alt={t("events.qrAlt")}
+                    className="w-[120px] h-[120px]"
+                  />
+                ) : (
+                  <QRCodeSVG value={eventUrl} size={120} />
                 )}
               </div>
               <Button
                 variant="outline"
                 size="sm"
-                className="gap-1 w-full sm:w-auto"
-                onClick={() => navigate(`${pathPrefix}/event-form/${event.id}`)}
+                onClick={() =>
+                  handleDownloadQR(eventUrl, event.name, event.id)
+                }
+                className="w-full gap-2"
               >
-                <Edit className="w-4 h-4" />
-                <span>{t("events.edit")}</span>
+                <Download className="w-4 h-4" />
+                {t("events.downloadQrAction")}
               </Button>
+              <div className="space-y-2 pt-1 w-full sm:hidden">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={eventUrl}
+                    readOnly
+                    className="flex-1 px-3 py-2 text-sm bg-muted rounded-md border border-border min-w-0"
+                  />
+                  <Button
+                    size="icon"
+                    variant="outline"
+                    onClick={() => handleCopyUrl(event.password_hash)}
+                  >
+                    <Copy className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="outline"
+                    onClick={() => window.open(eventUrl, "_blank", "noopener,noreferrer")}
+                  >
+                    <Eye className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
             </div>
-            
-            <div className="space-y-3 text-sm text-muted-foreground">
+
+            {/* Event Info */}
+            <div className="flex-1 space-y-4 w-full text-sm text-muted-foreground">
               <p>
                 <span className="font-medium">{t("events.createdLabel")}:</span>{" "}
                 {format(new Date(event.created_at), "dd/MM/yyyy HH:mm", { locale: dateLocale })}
               </p>
               <div className="flex flex-wrap items-center gap-2">
-                <span className="font-medium">{t("events.photoCount")}:</span>{" "}
+                <span className="font-medium">Fotos:</span>{" "}
                 {photoCount}{event.max_photos ? ` / ${event.max_photos}` : ""}
                 <Button
                   variant="outline"
@@ -673,7 +676,6 @@ const EventManagement = () => {
                 )}
               </div>
               <div className="space-y-2 pt-1 hidden sm:block">
-                <p className="text-sm font-medium text-foreground">{t("events.accessLink")}</p>
                 <div className="flex items-center gap-2">
                   <input
                     type="text"
@@ -710,20 +712,16 @@ const EventManagement = () => {
                   return lang ? `${lang.flag} ${lang.name}` : event.language || "es";
                 })()}
               </p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1 w-full sm:w-auto"
+                onClick={() => navigate(`${pathPrefix}/event-form/${event.id}`)}
+              >
+                <Edit className="w-4 h-4" />
+                <span>{t("events.edit")}</span>
+              </Button>
             </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="hidden">
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1 w-full sm:w-auto"
-              onClick={() => navigate(`${pathPrefix}/event-form/${event.id}`)}
-            >
-              <Edit className="w-4 h-4" />
-              <span>{t("events.edit")}</span>
-            </Button>
           </div>
         </div>
       </Card>
@@ -754,54 +752,59 @@ const EventManagement = () => {
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-6">
-      <div className="max-w-6xl mx-auto space-y-4 md:space-y-6">
+        <div className="max-w-6xl mx-auto space-y-4 md:space-y-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-2 sm:gap-4">
-            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
-              {isDemoMode ? t("events.titleDemo") : t("events.title")}
-            </h1>
-            {currentUserEmail ? (
-              <span className="text-sm text-muted-foreground hidden sm:inline">{currentUserEmail}</span>
-            ) : null}
-          </div>
-          <div className="flex items-center justify-between w-full sm:hidden">
-            <span className="text-sm text-muted-foreground">
-              {currentUserEmail ? truncateEmail(currentUserEmail, 10) : "-"}
-            </span>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={handleLogout}
-              aria-label={t("events.logout")}
-            >
-              <LogOut className="w-4 h-4" />
-            </Button>
-          </div>
-
-          <div className="flex gap-2 w-full sm:w-auto flex-wrap">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={handleLogout}
-              aria-label={t("events.logout")}
-              className="hidden sm:inline-flex"
-            >
-              <LogOut className="w-4 h-4" />
-            </Button>
-            {!adminEventId && !isSuperAdmin && (
+            <div className="flex items-center gap-2 sm:gap-4">
+              <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
+                {isDemoMode ? t("events.titleDemo") : t("events.title")}
+              </h1>
+              {currentUserEmail ? (
+                <span className="text-sm text-muted-foreground hidden sm:inline">{currentUserEmail}</span>
+              ) : null}
+            </div>
+            <div className="flex items-center justify-between w-full sm:hidden">
+              <span className="text-sm text-muted-foreground">
+                {currentUserEmail ? truncateEmail(currentUserEmail, 10) : "-"}
+              </span>
               <Button
-                className="gap-2 flex-1 sm:flex-initial"
-                onClick={() => {
-                  setPricingStep("plans");
-                  setPricingOpen(true);
-                }}
+                variant="outline"
+                size="icon"
+                onClick={() => setAccountOpen(true)}
+                aria-label="Cuenta"
+                className="rounded-full"
               >
-                <Plus className="w-4 h-4" />
-                {t("events.new")}
+                <span className="text-sm font-semibold">
+                  {(currentUserEmail?.trim()?.[0] || "?").toUpperCase()}
+                </span>
               </Button>
-            )}
+            </div>
+
+            <div className="flex gap-2 w-full sm:w-auto flex-wrap">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setAccountOpen(true)}
+                aria-label="Cuenta"
+                className="hidden sm:inline-flex rounded-full"
+              >
+                <span className="text-sm font-semibold">
+                  {(currentUserEmail?.trim()?.[0] || "?").toUpperCase()}
+                </span>
+              </Button>
+              {!adminEventId && !isSuperAdmin && (
+                <Button
+                  className="gap-2 flex-1 sm:flex-initial"
+                  onClick={() => {
+                    setPricingStep("plans");
+                    setPricingOpen(true);
+                  }}
+                >
+                  <Plus className="w-4 h-4" />
+                  {t("events.new")}
+                </Button>
+              )}
+            </div>
           </div>
-        </div>
 
         {!isSuperAdmin && pendingRedeem ? (
           <Card className="p-5 border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-900/10">
@@ -1151,17 +1154,28 @@ const EventManagement = () => {
       />
 
       <Dialog open={pricingOpen} onOpenChange={setPricingOpen}>
-        <DialogContent className="max-w-5xl w-[95vw] sm:w-full">
-          <DialogHeader>
+        <DialogContent className="w-screen h-[100dvh] max-h-[100dvh] rounded-none p-4 sm:p-6 sm:rounded-lg sm:h-auto sm:max-h-[90vh] sm:w-full sm:max-w-5xl">
+          <div className="flex items-center gap-2 sm:hidden">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setPricingOpen(false)}
+              aria-label={t("events.redeemBack")}
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </Button>
+            <span className="text-sm font-medium text-foreground">{t("pricing.newEventTitle")}</span>
+          </div>
+          <DialogHeader className="hidden sm:block">
             <DialogTitle>{t("pricing.newEventTitle")}</DialogTitle>
             <p className="text-sm text-muted-foreground">
               {t("pricing.newEventSubtitle")}
             </p>
           </DialogHeader>
-          <div className="max-h-[80vh] overflow-y-auto pr-1">
+          <div className="max-h-[calc(100dvh-80px)] sm:max-h-[80vh] overflow-y-auto pr-1">
             {pricingStep === "plans" ? (
               <>
-                <PricingPreview showHeader={false} />
+                <PricingPreview showHeader={false} mobileLayout="stack" />
                 <div className="mt-6 space-y-3 text-sm text-muted-foreground text-center">
                   <p>
                     {t("events.pricingContactPrefix")}{" "}
@@ -1224,6 +1238,36 @@ const EventManagement = () => {
                 </div>
               </div>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={accountOpen} onOpenChange={setAccountOpen}>
+        <DialogContent className="max-w-sm w-[92vw] sm:w-full">
+          <DialogHeader>
+            <DialogTitle>Cuenta</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm">
+              {currentUserEmail || "-"}
+            </div>
+            <Button
+              className="w-full"
+              variant="outline"
+              onClick={() => {
+                setAccountOpen(false);
+                navigate(`${pathPrefix}/reset-password`);
+              }}
+            >
+              Reset contraseña
+            </Button>
+            <Button className="w-full" variant="outline" onClick={handleLogout}>
+              <LogOut className="w-4 h-4 mr-2" />
+              Cerrar sesión
+            </Button>
+            <Button className="w-full" variant="destructive" onClick={handleDeleteAccount}>
+              Eliminar cuenta
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

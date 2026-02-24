@@ -44,9 +44,14 @@ const plans = [
 type PricingPreviewProps = {
   showHeader?: boolean;
   onSelectPlan?: (planId: string) => void;
+  mobileLayout?: "carousel" | "stack";
 };
 
-export const PricingPreview = ({ showHeader = true, onSelectPlan }: PricingPreviewProps) => {
+export const PricingPreview = ({
+  showHeader = true,
+  onSelectPlan,
+  mobileLayout = "carousel",
+}: PricingPreviewProps) => {
   const { t, pathPrefix } = useAdminI18n();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -209,19 +214,25 @@ export const PricingPreview = ({ showHeader = true, onSelectPlan }: PricingPrevi
         </div>
       )}
 
-      <div className="md:hidden">
-        <Carousel opts={{ align: "start" }} className="w-full">
-          <CarouselContent className="ml-0">
-            {plans.map((plan) => (
-              <CarouselItem key={plan.planId} className="basis-[85%] sm:basis-1/2 pl-0 pr-4">
-                {renderPlanCard(plan)}
-              </CarouselItem>
-            ))}
-          </CarouselContent>
-          <CarouselPrevious className="hidden sm:inline-flex" />
-          <CarouselNext className="hidden sm:inline-flex" />
-        </Carousel>
-      </div>
+      {mobileLayout === "carousel" ? (
+        <div className="md:hidden">
+          <Carousel opts={{ align: "start" }} className="w-full">
+            <CarouselContent className="ml-0">
+              {plans.map((plan) => (
+                <CarouselItem key={plan.planId} className="basis-[85%] sm:basis-1/2 pl-0 pr-4">
+                  {renderPlanCard(plan)}
+                </CarouselItem>
+              ))}
+            </CarouselContent>
+            <CarouselPrevious className="hidden sm:inline-flex" />
+            <CarouselNext className="hidden sm:inline-flex" />
+          </Carousel>
+        </div>
+      ) : (
+        <div className="md:hidden space-y-4">
+          {plans.map((plan) => renderPlanCard(plan))}
+        </div>
+      )}
 
       <div className="hidden md:grid md:grid-cols-2 xl:grid-cols-4 gap-6">
         {plans.map((plan) => renderPlanCard(plan))}
