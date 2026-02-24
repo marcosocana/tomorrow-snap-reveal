@@ -21,14 +21,14 @@ const FONT_SIZE_OPTIONS: { value: FontSizeOption; label: string; description: st
 export const FontSizeSelect = ({ value, onChange, previewText = "Evento", fontFamily }: FontSizeSelectProps) => {
   return (
     <div className="space-y-3">
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         {FONT_SIZE_OPTIONS.map((option) => (
           <button
             key={option.value}
             type="button"
             onClick={() => onChange(option.value)}
             className={cn(
-              "flex-1 px-2 py-2 text-sm rounded-md border transition-colors",
+              "flex-1 min-w-[48px] px-2 py-2 text-xs sm:text-sm rounded-md border transition-colors",
               value === option.value
                 ? "bg-primary text-primary-foreground border-primary"
                 : "bg-muted border-border hover:bg-muted/80"
