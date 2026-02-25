@@ -923,7 +923,7 @@ const EventManagement = () => {
                     <th className="py-3 pr-4 font-medium cursor-pointer" onClick={() => handleAdminSort("email")}>
                       {t("events.table.email")}
                     </th>
-                    <th className="py-3 pr-4 font-medium">{t("events.table.phone")}</th>
+                    <th className="py-3 pr-4 font-medium">{t("events.statusLabel")}</th>
                     <th className="py-3 pr-4 font-medium cursor-pointer" onClick={() => handleAdminSort("photos")}>
                       {t("events.table.photos")}
                     </th>
@@ -934,6 +934,12 @@ const EventManagement = () => {
                   {paginatedAdminEvents.map((event, index) => {
                     const photoCount = eventPhotoCounts[event.id] || 0;
                     const maxPhotos = event.max_photos ?? "-";
+                    const statusInfo = getEventStatus(
+                      event.upload_start_time,
+                      event.upload_end_time,
+                      event.reveal_time,
+                      event.expiry_date
+                    );
                     return (
                       <tr key={event.id} className="border-b last:border-b-0">
                         <td className="py-3 pr-3">
@@ -965,16 +971,9 @@ const EventManagement = () => {
                         </td>
                         <td className="py-3 pr-4">
                           <span
-                            className={`inline-flex items-center gap-2 text-sm font-medium ${
-                              event.owner_phone ? "text-emerald-600" : "text-rose-500"
-                            }`}
+                            className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-semibold ${statusInfo.color} ${statusInfo.bgColor}`}
                           >
-                            <span
-                              className={`w-2 h-2 rounded-full ${
-                                event.owner_phone ? "bg-emerald-500" : "bg-rose-500"
-                              }`}
-                            />
-                            {event.owner_phone ? t("events.table.phoneYes") : t("events.table.phoneNo")}
+                            {t(`events.status.${statusInfo.status}`)}
                           </span>
                         </td>
                         <td className="py-3 pr-4">
