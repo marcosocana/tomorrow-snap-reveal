@@ -45,3 +45,13 @@ export const getPlanById = (planId: string | null | undefined): PlanConfig | nul
   if (planId === "xl") return PLANS.xxl;
   return (PLANS as Record<string, PlanConfig>)[planId] ?? null;
 };
+
+export const getPlanByPriceId = (priceId: string | null | undefined, livemode = true): PlanConfig | null => {
+  if (!priceId) return null;
+  const suffix = livemode ? "" : "_TEST";
+  return (
+    Object.values(PLANS).find(
+      (plan) => Deno.env.get(`${plan.stripePriceIdEnv}${suffix}`) === priceId,
+    ) ?? null
+  );
+};

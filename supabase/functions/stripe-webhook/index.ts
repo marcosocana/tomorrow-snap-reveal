@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-import { getPlanById, PLANS } from "../_shared/planConfig.ts";
+import { getPlanById, getPlanByPriceId } from "../_shared/planConfig.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -68,10 +68,6 @@ const generateRedeemToken = (length = 16) => {
   return token;
 };
 
-const getPlanByPriceId = (priceId: string | null | undefined) => {
-  if (!priceId) return null;
-  return Object.values(PLANS).find((plan) => Deno.env.get(plan.stripePriceIdEnv) === priceId) ?? null;
-};
 
 const fetchStripeJson = async (path: string) => {
   const response = await fetch(`https://api.stripe.com/v1/${path}`, {
@@ -148,7 +144,7 @@ serve(async (req) => {
   if (!plan) {
     const lineItems = await fetchStripeJson(`checkout/sessions/${session.id}/line_items?limit=1`);
     const priceId = lineItems?.data?.[0]?.price?.id ?? null;
-    plan = getPlanByPriceId(priceId);
+    plan = getPlanByPriceId(priceId, session.livemode);
   }
   if (!plan) {
     return json({ error: "Unknown plan" }, 400);
