@@ -1155,7 +1155,7 @@ const EventForm = () => {
 
             <div className="space-y-2">
               <Label className="text-base font-semibold">{t("form.uploadSection")}</Label>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="uploadStartDate">{t("form.uploadStartDate")}</Label>
                   <Input
@@ -1202,7 +1202,7 @@ const EventForm = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="uploadEndDate">{t("form.uploadEndDate")}</Label>
                   <Input
@@ -1255,7 +1255,7 @@ const EventForm = () => {
 
             <div className="space-y-2">
               <Label className="text-base font-semibold">{t("form.revealSection")}</Label>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="revealDate">{t("form.revealDateLabel")}</Label>
                   <Input
@@ -1311,7 +1311,7 @@ const EventForm = () => {
                 {t("form.expiryManualNote")}
               </div>
               <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="expiryDate">{t("form.expiryDateLabel")}</Label>
                   <Input
@@ -1371,7 +1371,7 @@ const EventForm = () => {
               
               <div className="space-y-2">
                 <Label>{t("form.galleryViewLabel")}</Label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() => setFormData({ ...formData, galleryViewMode: "normal" })}
@@ -1468,7 +1468,7 @@ const EventForm = () => {
                 <div className="ml-4 space-y-4 border-l-2 border-border pl-4">
                   <div className="space-y-2">
                     <Label>{t("form.legalTypeLabel")}</Label>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       <button
                         type="button"
                         onClick={() => setFormData({ ...formData, legalTextType: "default" })}
