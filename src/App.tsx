@@ -41,20 +41,12 @@ const RESET_KEYS = [
 ];
 
 const ScrollToTop = () => {
-  const { pathname, search, hash } = useLocation();
+  const { pathname, hash } = useLocation();
 
   useLayoutEffect(() => {
-    const forceScrollTop = () => {
-      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
-      document.documentElement.scrollTop = 0;
-      document.body.scrollTop = 0;
-    };
-    forceScrollTop();
-    requestAnimationFrame(() => requestAnimationFrame(forceScrollTop));
-    setTimeout(forceScrollTop, 0);
-    setTimeout(forceScrollTop, 50);
-    setTimeout(forceScrollTop, 150);
-  }, [pathname, search, hash]);
+    if (hash) return;
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [pathname, hash]);
 
   return null;
 };
