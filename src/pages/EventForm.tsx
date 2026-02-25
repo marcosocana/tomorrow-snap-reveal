@@ -515,6 +515,7 @@ const EventForm = () => {
           title: t("form.updateTitle"),
           description: t("form.updateDesc"),
         });
+        navigate(`${pathPrefix}/event-management`);
       } else if (isSuperAdmin && !isEditing) {
         const payload = {
           ownerEmail: ownerEmailInput.trim(),
@@ -1535,7 +1536,13 @@ const EventForm = () => {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => navigate(`${pathPrefix}/event-management`)}
+                onClick={() => {
+                  toast({
+                    title: t("form.cancel"),
+                    description: t("form.cancel"),
+                  });
+                  navigate(`${pathPrefix}/event-management`);
+                }}
                 className="w-full sm:w-auto"
               >
                 {t("form.cancel")}
