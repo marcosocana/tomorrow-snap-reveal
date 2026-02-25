@@ -45,7 +45,14 @@ const ScrollToTop = () => {
 
   useLayoutEffect(() => {
     if (hash) return;
-    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    const scrollTop = () => {
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    };
+    scrollTop();
+    requestAnimationFrame(scrollTop);
+    setTimeout(scrollTop, 0);
   }, [pathname, hash]);
 
   return null;
