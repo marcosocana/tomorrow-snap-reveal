@@ -61,13 +61,34 @@ const ScrollToTop = () => {
       return containers;
     };
 
+    const findScrollableParent = (el: HTMLElement | null) => {
+      let current: HTMLElement | null = el;
+      while (current && current !== document.body && current !== document.documentElement) {
+        const style = window.getComputedStyle(current);
+        const overflowY = style.overflowY;
+        if (
+          (overflowY === "auto" || overflowY === "scroll" || overflowY === "overlay") &&
+          current.scrollHeight > current.clientHeight + 1
+        ) {
+          return current;
+        }
+        current = current.parentElement;
+      }
+      return document.scrollingElement || document.documentElement;
+    };
+
     const scrollTop = () => {
+      const anchor = document.querySelector<HTMLElement>("[data-scroll-anchor]");
+      const anchorContainer = anchor ? findScrollableParent(anchor) : null;
+      if (anchorContainer) {
+        anchorContainer.scrollTop = 0;
+        anchorContainer.scrollLeft = 0;
+      }
       window.scrollTo({ top: 0, left: 0, behavior: "auto" });
       getContainers().forEach((el) => {
         if (el.scrollTop !== 0) el.scrollTop = 0;
         if (el.scrollLeft !== 0) el.scrollLeft = 0;
       });
-      const anchor = document.querySelector<HTMLElement>("[data-scroll-anchor]");
       if (anchor) {
         anchor.scrollIntoView({ block: "start", inline: "nearest" });
       }
