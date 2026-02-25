@@ -761,7 +761,7 @@ const EventManagement = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-6">
+    <div className="min-h-screen bg-background p-4 md:p-6" data-scroll-container>
         <div className="max-w-6xl mx-auto space-y-4 md:space-y-6">
           <div className="flex flex-col gap-4">
             <div className="flex items-start justify-between w-full">

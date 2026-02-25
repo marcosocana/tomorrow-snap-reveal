@@ -80,7 +80,10 @@ const AdminLogin = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-background">
+    <div
+      className="min-h-screen flex flex-col items-center justify-center p-6 bg-background"
+      data-scroll-container
+    >
       <div className="w-full max-w-md space-y-8 animate-fade-in">
         <div className="text-center space-y-6">
           <div className="flex justify-center">

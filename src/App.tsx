@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useEffect, useLayoutEffect } from "react";
+import { useEffect } from "react";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import Login from "./pages/Login";
 import Logout from "./pages/Logout";
@@ -43,24 +43,37 @@ const RESET_KEYS = [
 const ScrollToTop = () => {
   const { pathname, hash } = useLocation();
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     if (hash) return;
-    const scrollTop = () => {
+    const getContainers = () => {
+      const containers = new Set<HTMLElement>();
       const root = document.scrollingElement || document.documentElement;
-      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
-      root.scrollTop = 0;
-      document.body.scrollTop = 0;
-      document.documentElement.scrollTop = 0;
+      if (root) containers.add(root as HTMLElement);
+      if (document.documentElement) containers.add(document.documentElement);
+      if (document.body) containers.add(document.body);
+      const appRoot = document.getElementById("root");
+      if (appRoot) containers.add(appRoot);
       document
-        .querySelectorAll<HTMLElement>(".overflow-y-auto, .overflow-auto")
-        .forEach((el) => {
-          if (el.scrollHeight > el.clientHeight) el.scrollTop = 0;
-        });
+        .querySelectorAll<HTMLElement>(
+          "[data-scroll-container], .overflow-y-auto, .overflow-auto, main"
+        )
+        .forEach((el) => containers.add(el));
+      return containers;
     };
+
+    const scrollTop = () => {
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      getContainers().forEach((el) => {
+        if (el.scrollTop !== 0) el.scrollTop = 0;
+        if (el.scrollLeft !== 0) el.scrollLeft = 0;
+      });
+    };
+
     scrollTop();
-    requestAnimationFrame(scrollTop);
+    requestAnimationFrame(() => requestAnimationFrame(scrollTop));
     setTimeout(scrollTop, 0);
-    setTimeout(scrollTop, 50);
+    setTimeout(scrollTop, 100);
+    setTimeout(scrollTop, 300);
   }, [pathname, hash]);
 
   return null;
