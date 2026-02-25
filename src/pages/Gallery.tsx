@@ -128,9 +128,9 @@ const Gallery = () => {
             .from("event-photos")
             .createSignedUrl(photo.image_url, 3600, {
               transform: {
-                width: 400,
-                height: 400,
-                quality: 60
+                width: 560,
+                height: 560,
+                quality: 75
               }
             });
 
