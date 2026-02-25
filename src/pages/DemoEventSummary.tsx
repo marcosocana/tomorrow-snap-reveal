@@ -11,7 +11,6 @@ import { toZonedTime } from "date-fns-tz";
 const demoLogoUrl = "/assets/Frame%20626035-GjZMgkfV.png";
 import { PricingPreview } from "@/components/PricingPreview";
 import { useDemoI18n } from "@/lib/demoI18n";
-import { getEventShortUrl } from "@/lib/eventUrls";
 
 interface EventData {
   id: string;
@@ -44,7 +43,7 @@ const DemoEventSummary = () => {
     return <Navigate to={`${pathPrefix}/nuevoeventodemo`} replace />;
   }
 
-  const eventUrl = getEventShortUrl(event.password_hash);
+  const eventUrl = `https://acceso.revelao.cam/events/${event.password_hash}`;
   const adminUrl = `https://acceso.revelao.cam${pathPrefix}/admin-login`;
   const eventTz = event.timezone || "Europe/Madrid";
   const shouldShowPricing = /^\d{8}$/.test(event.password_hash);
@@ -65,7 +64,7 @@ const DemoEventSummary = () => {
       qrFromState ||
       storedQrUrl ||
       `https://quickchart.io/qr?size=220&margin=1&ecLevel=H&text=${encodeURIComponent(
-      getEventShortUrl(event.password_hash)
+      `https://acceso.revelao.cam/events/${event.password_hash}`
       )}`;
 
     try {

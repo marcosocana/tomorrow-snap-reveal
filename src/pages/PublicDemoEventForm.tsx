@@ -28,7 +28,6 @@ import { FilterType, FILTER_ORDER, getFilterClass, getGrainClass } from "@/lib/p
 import logoDemo from "@/assets/Frame 626035.png";
 import defaultQrLogo from "@/assets/marca_revelao_qr_evento.png";
 import weddingPreview from "@/assets/testimonial-wedding.jpg";
-import { getEventShortUrl } from "@/lib/eventUrls";
 import { useDemoI18n } from "@/lib/demoI18n";
 import { getTimezoneOffset } from "@/lib/countries";
 
@@ -426,7 +425,7 @@ const PublicDemoEventForm = () => {
       const newEvent = data?.event;
       if (!newEvent) throw new Error("No se pudo crear el evento");
 
-      const eventUrl = getEventShortUrl(newEvent.password_hash);
+      const eventUrl = `https://acceso.revelao.cam/events/${newEvent.password_hash}`;
       const qrUrl = await uploadQrImage(eventUrl, newEvent.id);
       if (qrUrl) {
         localStorage.setItem(`event-qr-url-${newEvent.id}`, qrUrl);

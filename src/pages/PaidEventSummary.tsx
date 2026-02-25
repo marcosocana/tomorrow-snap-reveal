@@ -9,7 +9,6 @@ import { format, differenceInMinutes } from "date-fns";
 import { es } from "date-fns/locale";
 import { toZonedTime } from "date-fns-tz";
 import logoRevelao from "@/assets/logo__revelao.png";
-import { getEventShortUrl } from "@/lib/eventUrls";
 
 interface EventData {
   id: string;
@@ -38,7 +37,7 @@ const PaidEventSummary = () => {
     return <Navigate to="/event-management" replace />;
   }
 
-  const eventUrl = getEventShortUrl(event.password_hash);
+  const eventUrl = `https://acceso.revelao.cam/events/${event.password_hash}`;
   const adminUrl = "https://acceso.revelao.cam";
   const eventTz = event.timezone || "Europe/Madrid";
   const storedQrUrl = event

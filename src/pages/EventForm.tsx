@@ -31,7 +31,6 @@ import { useAdminI18n } from "@/lib/adminI18n";
 import { QRCodeSVG } from "qrcode.react";
 import defaultQrLogo from "@/assets/marca_revelao_qr_evento.png";
 import weddingPreview from "@/assets/testimonial-wedding.jpg";
-import { getEventShortUrl } from "@/lib/eventUrls";
 
 // Background image - no size restrictions
 
@@ -132,7 +131,7 @@ const EventForm = () => {
   const { toast } = useToast();
   const { t, pathPrefix } = useAdminI18n();
   const isDemoEvent = formData.maxPhotos === "10";
-  const eventUrl = eventId ? getEventShortUrl(formData.password) : "";
+  const eventUrl = eventId ? `https://acceso.revelao.cam/events/${formData.password}` : "";
 
   const formatTimezoneOffset = (timezone: string) => {
     const offsetMinutes = getTimezoneOffset(timezone);
@@ -559,7 +558,7 @@ const EventForm = () => {
         }
 
         const createdEvent = created.event;
-        const eventUrl = getEventShortUrl(createdEvent.password_hash);
+        const eventUrl = `https://acceso.revelao.cam/events/${createdEvent.password_hash}`;
         const qrUrl = await uploadQrImage(eventUrl, createdEvent.id);
         if (qrUrl) {
           localStorage.setItem(`event-qr-url-${createdEvent.id}`, qrUrl);
@@ -620,7 +619,7 @@ const EventForm = () => {
         if (error) throw error;
 
         if (newEvent) {
-          const eventUrl = getEventShortUrl(newEvent.password_hash);
+          const eventUrl = `https://acceso.revelao.cam/events/${newEvent.password_hash}`;
           const qrUrl = await uploadQrImage(eventUrl, newEvent.id);
           if (qrUrl) {
             localStorage.setItem(`event-qr-url-${newEvent.id}`, qrUrl);

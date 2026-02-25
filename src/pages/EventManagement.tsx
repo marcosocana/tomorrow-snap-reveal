@@ -19,7 +19,6 @@ import FolderCard, { EventFolder } from "@/components/FolderCard";
 import SortableEventList from "@/components/SortableEventList";
 import { useAdminI18n } from "@/lib/adminI18n";
 import { PricingPreview } from "@/components/PricingPreview";
-import { getEventShortUrl } from "@/lib/eventUrls";
 
 interface Event {
   id: string;
@@ -497,7 +496,7 @@ const EventManagement = () => {
   };
 
   const handleCopyUrl = async (password: string) => {
-    const eventUrl = getEventShortUrl(password);
+    const eventUrl = `https://acceso.revelao.cam/events/${password}`;
     try {
       await navigator.clipboard.writeText(eventUrl);
       toast({
@@ -558,7 +557,7 @@ const EventManagement = () => {
   const renderEventCard = (event: Event) => {
     const effectiveEvent = getEffectiveEvent(event);
     const photoCount = eventPhotoCounts[event.id] || 0;
-    const eventUrl = getEventShortUrl(event.password_hash);
+    const eventUrl = `https://acceso.revelao.cam/events/${event.password_hash}`;
     const statusInfo = getEventStatus(
       event.upload_start_time,
       event.upload_end_time,
@@ -1290,7 +1289,7 @@ const EventManagement = () => {
               <Button
                 className="w-full"
                 onClick={() => {
-                  const url = getEventShortUrl(createdSummary.password_hash);
+                  const url = `https://acceso.revelao.cam/events/${createdSummary.password_hash}`;
                   navigator.clipboard.writeText(url);
                   toast({
                     title: t("events.copyUrl"),

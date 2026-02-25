@@ -29,7 +29,6 @@ import logoDemo from "@/assets/Frame 626035.png";
 import weddingPreview from "@/assets/testimonial-wedding.jpg";
 import { useAdminI18n } from "@/lib/adminI18n";
 import { getTimezoneOffset } from "@/lib/countries";
-import { getEventShortUrl } from "@/lib/eventUrls";
 
 const generateHash = (): string => Math.random().toString(36).substring(2, 10);
 
@@ -379,7 +378,7 @@ const RedeemEvent = () => {
       const newEvent = data?.event;
       if (!newEvent) throw new Error("No se pudo crear el evento");
 
-      const eventUrl = getEventShortUrl(newEvent.password_hash);
+      const eventUrl = `https://acceso.revelao.cam/events/${newEvent.password_hash}`;
       const qrUrl = await uploadQrImage(eventUrl, newEvent.id);
       if (qrUrl) {
         localStorage.setItem(`event-qr-url-${newEvent.id}`, qrUrl);
