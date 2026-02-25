@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Navigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -424,38 +424,9 @@ const Camera = () => {
   // Capture the magic text based on language
   const captureMagicText = language === "en" ? "Capture the magic!" : language === "it" ? "Cattura la magia!" : "¡Captura la magia!";
 
-  // Photos already revealed - show modal
+  // Photos already revealed - go straight to gallery
   if (hasRevealed) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-6">
-        <Dialog open={true}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle className="text-2xl text-center">
-                {t.camera.photosRevealed}
-              </DialogTitle>
-            </DialogHeader>
-            {customImageUrl && (
-              <div className="flex justify-center py-4">
-                <img 
-                  src={customImageUrl} 
-                  alt="Evento" 
-                  className="max-w-[240px] max-h-[100px] object-contain"
-                />
-              </div>
-            )}
-            <div className="flex justify-center pt-4">
-              <Button
-                onClick={() => navigate("/gallery")}
-                className="px-8"
-              >
-                {t.camera.seePhotos}
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-      </div>
-    );
+    return <Navigate to="/gallery" replace />;
   }
 
   // Event hasn't started yet
