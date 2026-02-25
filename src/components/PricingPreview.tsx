@@ -152,7 +152,7 @@ export const PricingPreview = ({
       className={[
         "relative rounded-3xl border bg-card p-6 shadow-sm h-full w-full max-w-[360px]",
         plan.featured
-          ? "border-[#f06a5f]/40 bg-[#f06a5f]/5 shadow-[0_20px_40px_-30px_rgba(240,106,95,0.35)]"
+          ? "border-[#f06a5f]/50 bg-[#f06a5f]/10 shadow-[0_20px_40px_-30px_rgba(240,106,95,0.35)]"
           : "border-border",
       ].join(" ")}
     >
@@ -194,11 +194,9 @@ export const PricingPreview = ({
           "w-full",
           plan.featured
             ? "bg-[#f06a5f] text-white hover:bg-[#e95f54]"
-            : plan.planId === "small" || plan.planId === "xxl"
-            ? "bg-black text-white hover:bg-black/90"
-            : "border-[#e5e7eb] text-foreground hover:bg-[#f9fafb]",
+            : "bg-[#f06a5f] text-white hover:bg-[#e95f54]",
         ].join(" ")}
-        variant={plan.featured || plan.planId === "small" || plan.planId === "xxl" ? "default" : "outline"}
+        variant="default"
         onClick={() => handleCheckout(plan.planId)}
       >
         {plan.ctaKey ? t(plan.ctaKey) : t("pricing.cta")}
