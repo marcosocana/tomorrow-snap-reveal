@@ -150,7 +150,7 @@ export const PricingPreview = ({
     <div
       key={plan.planId}
       className={[
-        "relative rounded-3xl border bg-card p-6 shadow-sm h-full",
+        "relative rounded-3xl border bg-card p-6 shadow-sm h-full w-full max-w-[360px]",
         plan.featured
           ? "border-[#f06a5f]/40 bg-[#f06a5f]/5 shadow-[0_20px_40px_-30px_rgba(240,106,95,0.35)]"
           : "border-border",
@@ -194,9 +194,11 @@ export const PricingPreview = ({
           "w-full",
           plan.featured
             ? "bg-[#f06a5f] text-white hover:bg-[#e95f54]"
+            : plan.planId === "small" || plan.planId === "xxl"
+            ? "bg-black text-white hover:bg-black/90"
             : "border-[#e5e7eb] text-foreground hover:bg-[#f9fafb]",
         ].join(" ")}
-        variant={plan.featured ? "default" : "outline"}
+        variant={plan.featured || plan.planId === "small" || plan.planId === "xxl" ? "default" : "outline"}
         onClick={() => handleCheckout(plan.planId)}
       >
         {plan.ctaKey ? t(plan.ctaKey) : t("pricing.cta")}
@@ -237,7 +239,7 @@ export const PricingPreview = ({
         </div>
       )}
 
-      <div className="hidden md:grid md:grid-cols-2 xl:grid-cols-4 gap-6">
+      <div className="hidden md:grid md:grid-cols-2 xl:grid-cols-3 gap-6 justify-items-center">
         {visiblePlans.map((plan) => renderPlanCard(plan))}
       </div>
 

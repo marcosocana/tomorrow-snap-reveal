@@ -1142,7 +1142,7 @@ const EventManagement = () => {
       />
 
       <Dialog open={pricingOpen} onOpenChange={setPricingOpen}>
-        <DialogContent className="w-screen h-[100dvh] max-h-[100dvh] rounded-none p-4 sm:p-6 sm:rounded-lg sm:h-auto sm:max-h-[90vh] sm:w-full sm:max-w-5xl">
+        <DialogContent className="w-screen h-[100dvh] max-h-[100dvh] rounded-none p-4 sm:p-6 sm:rounded-lg sm:h-auto sm:max-h-[90vh] sm:w-full sm:max-w-6xl">
           <div className="flex items-center gap-2 sm:hidden">
             <Button
               variant="ghost"
@@ -1163,7 +1163,9 @@ const EventManagement = () => {
           <div className="max-h-[calc(100dvh-80px)] sm:max-h-[80vh] overflow-y-auto pr-1">
             {pricingStep === "plans" ? (
               <>
-                <PricingPreview showHeader={false} mobileLayout="stack" hideDemo />
+                <div className="mx-auto w-full max-w-6xl">
+                  <PricingPreview showHeader={false} mobileLayout="stack" hideDemo />
+                </div>
                 <div className="mt-6 space-y-3 text-sm text-muted-foreground text-center">
                   <p>
                     {t("events.pricingContactPrefix")}{" "}
