@@ -737,7 +737,10 @@ const EventForm = () => {
           >
             <ArrowLeft className="w-5 h-5" />
           </Button>
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
+          <h1
+            className="text-2xl sm:text-3xl font-bold text-foreground"
+            data-scroll-anchor
+          >
             {isEditing ? t("form.title.edit") : t("form.title.new")}
           </h1>
           {isEditing && isDemoEvent && (

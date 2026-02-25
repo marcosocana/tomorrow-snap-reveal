@@ -765,7 +765,10 @@ const EventManagement = () => {
         <div className="max-w-6xl mx-auto space-y-4 md:space-y-6">
           <div className="flex flex-col gap-4">
             <div className="flex items-start justify-between w-full">
-              <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
+              <h1
+                className="text-2xl sm:text-3xl font-bold text-foreground"
+                data-scroll-anchor
+              >
                 {isDemoMode ? t("events.titleDemo") : t("events.title")}
               </h1>
               <Button

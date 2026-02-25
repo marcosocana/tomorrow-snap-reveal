@@ -67,6 +67,10 @@ const ScrollToTop = () => {
         if (el.scrollTop !== 0) el.scrollTop = 0;
         if (el.scrollLeft !== 0) el.scrollLeft = 0;
       });
+      const anchor = document.querySelector<HTMLElement>("[data-scroll-anchor]");
+      if (anchor) {
+        anchor.scrollIntoView({ block: "start", inline: "nearest" });
+      }
     };
 
     scrollTop();
