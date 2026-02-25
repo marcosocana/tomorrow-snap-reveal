@@ -31,6 +31,7 @@ import { useAdminI18n } from "@/lib/adminI18n";
 import { QRCodeSVG } from "qrcode.react";
 import defaultQrLogo from "@/assets/marca_revelao_qr_evento.png";
 import weddingPreview from "@/assets/testimonial-wedding.jpg";
+import { getEventShortUrl } from "@/lib/eventUrls";
 
 // Background image - no size restrictions
 
@@ -70,11 +71,11 @@ const EventForm = () => {
   const [ownerPhone, setOwnerPhone] = useState<string | null>(null);
   const [ownerEmailInput, setOwnerEmailInput] = useState("");
   const [planType, setPlanType] = useState<"demo" | "small" | "medium" | "xxl" | "custom">("demo");
-  // Generate a random 32-character hash for passwords
+  // Generate a random 8-character hash for passwords
   const generateHash = () => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     let hash = '';
-    for (let i = 0; i < 32; i++) {
+    for (let i = 0; i < 8; i++) {
       hash += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     return hash;
@@ -131,7 +132,7 @@ const EventForm = () => {
   const { toast } = useToast();
   const { t, pathPrefix } = useAdminI18n();
   const isDemoEvent = formData.maxPhotos === "10";
-  const eventUrl = eventId ? `https://acceso.revelao.cam/events/${formData.password}` : "";
+  const eventUrl = eventId ? getEventShortUrl(formData.password) : "";
 
   const formatTimezoneOffset = (timezone: string) => {
     const offsetMinutes = getTimezoneOffset(timezone);
@@ -558,7 +559,7 @@ const EventForm = () => {
         }
 
         const createdEvent = created.event;
-        const eventUrl = `https://acceso.revelao.cam/events/${createdEvent.password_hash}`;
+        const eventUrl = getEventShortUrl(createdEvent.password_hash);
         const qrUrl = await uploadQrImage(eventUrl, createdEvent.id);
         if (qrUrl) {
           localStorage.setItem(`event-qr-url-${createdEvent.id}`, qrUrl);
@@ -619,7 +620,7 @@ const EventForm = () => {
         if (error) throw error;
 
         if (newEvent) {
-          const eventUrl = `https://acceso.revelao.cam/events/${newEvent.password_hash}`;
+          const eventUrl = getEventShortUrl(newEvent.password_hash);
           const qrUrl = await uploadQrImage(eventUrl, newEvent.id);
           if (qrUrl) {
             localStorage.setItem(`event-qr-url-${newEvent.id}`, qrUrl);

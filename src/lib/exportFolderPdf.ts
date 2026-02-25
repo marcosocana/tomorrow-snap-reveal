@@ -1,5 +1,6 @@
 import jsPDF from "jspdf";
 import { getEventStatus } from "@/lib/eventStatus";
+import { getEventShortUrl } from "@/lib/eventUrls";
 
 interface ExportEvent {
   id: string;
@@ -180,7 +181,7 @@ export async function exportFolderToPdf(
       yPosition = margin;
     }
 
-    const eventUrl = `https://acceso.revelao.cam/events/${event.password_hash}`;
+    const eventUrl = getEventShortUrl(event.password_hash);
     const statusInfo = getEventStatus(
       event.upload_start_time,
       event.upload_end_time,

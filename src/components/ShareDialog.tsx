@@ -11,6 +11,7 @@ import { Share2, Copy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Language } from "@/lib/translations";
 import { supabase } from "@/integrations/supabase/client";
+import { getEventShortUrl } from "@/lib/eventUrls";
 
 interface ShareDialogProps {
   eventId?: string | null;
@@ -24,7 +25,7 @@ interface ShareDialogProps {
 
 const ShareDialog = ({ eventId, eventPassword, eventName, open, onOpenChange, isRevealed = false, language = "es" }: ShareDialogProps) => {
   const { toast } = useToast();
-  const eventUrl = `https://acceso.revelao.cam/events/${eventPassword}`;
+  const eventUrl = getEventShortUrl(eventPassword);
   const qrUrl = eventId
     ? localStorage.getItem(`event-qr-url-${eventId}`) ||
       supabase.storage
