@@ -580,9 +580,9 @@ const PublicDemoEventForm = () => {
                                   className="w-full text-left"
                                 >
                                   <div
-                                    className={`relative overflow-hidden rounded-lg border ${
-                                      isActive ? "border-primary ring-2 ring-primary/30" : "border-border"
-                                    }`}
+                                className={`relative overflow-hidden rounded-lg border ${
+                                  isActive ? "border-red-500 ring-2 ring-red-400/50" : "border-border"
+                                }`}
                                   >
                                     <img
                                       src={weddingPreview}
@@ -593,9 +593,9 @@ const PublicDemoEventForm = () => {
                                       <div className={`pointer-events-none absolute inset-0 ${getGrainClass(filter)}`} />
                                     ) : null}
                                   </div>
-                                  <p className={`mt-2 text-xs ${isActive ? "text-primary font-semibold" : "text-muted-foreground"}`}>
-                                    {t(`form.filter.${filter}`)}
-                                  </p>
+                              <p className={`mt-2 text-xs ${isActive ? "text-red-600 font-semibold" : "text-muted-foreground"}`}>
+                                {t(`form.filter.${filter}`)}
+                              </p>
                                 </button>
                               </CarouselItem>
                             );
@@ -617,9 +617,9 @@ const PublicDemoEventForm = () => {
                             className="w-full text-left"
                           >
                             <div
-                              className={`relative overflow-hidden rounded-lg border ${
-                                isActive ? "border-primary ring-2 ring-primary/30" : "border-border"
-                              }`}
+                          className={`relative overflow-hidden rounded-lg border ${
+                            isActive ? "border-red-500 ring-2 ring-red-400/50" : "border-border"
+                          }`}
                             >
                               <img
                                 src={weddingPreview}
@@ -630,9 +630,9 @@ const PublicDemoEventForm = () => {
                                 <div className={`pointer-events-none absolute inset-0 ${getGrainClass(filter)}`} />
                               ) : null}
                             </div>
-                            <p className={`mt-2 text-xs ${isActive ? "text-primary font-semibold" : "text-muted-foreground"}`}>
-                              {t(`form.filter.${filter}`)}
-                            </p>
+                          <p className={`mt-2 text-xs ${isActive ? "text-red-600 font-semibold" : "text-muted-foreground"}`}>
+                            {t(`form.filter.${filter}`)}
+                          </p>
                           </button>
                         );
                       })}
