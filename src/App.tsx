@@ -46,13 +46,21 @@ const ScrollToTop = () => {
   useLayoutEffect(() => {
     if (hash) return;
     const scrollTop = () => {
+      const root = document.scrollingElement || document.documentElement;
       window.scrollTo({ top: 0, left: 0, behavior: "auto" });
-      document.documentElement.scrollTop = 0;
+      root.scrollTop = 0;
       document.body.scrollTop = 0;
+      document.documentElement.scrollTop = 0;
+      document
+        .querySelectorAll<HTMLElement>(".overflow-y-auto, .overflow-auto")
+        .forEach((el) => {
+          if (el.scrollHeight > el.clientHeight) el.scrollTop = 0;
+        });
     };
     scrollTop();
     requestAnimationFrame(scrollTop);
     setTimeout(scrollTop, 0);
+    setTimeout(scrollTop, 50);
   }, [pathname, hash]);
 
   return null;
