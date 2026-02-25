@@ -113,10 +113,10 @@ export const PricingPreview = ({
     }
 
     const testUrlMap: Record<string, string | undefined> = {
-      small: import.meta.env.VITE_STRIPE_CHECKOUT_URL_SMALL,
-      medium: import.meta.env.VITE_STRIPE_CHECKOUT_URL_MEDIUM,
+      small: import.meta.env.VITE_STRIPE_CHECKOUT_URL_SMALL ?? "https://buy.stripe.com/dRmdR2fCVbTMgIv0nl3ks06",
+      medium: import.meta.env.VITE_STRIPE_CHECKOUT_URL_MEDIUM ?? "https://buy.stripe.com/00w9AM3UdaPIfEr4DB3ks05",
       large: import.meta.env.VITE_STRIPE_CHECKOUT_URL_LARGE,
-      xxl: import.meta.env.VITE_STRIPE_CHECKOUT_URL_XXL,
+      xxl: import.meta.env.VITE_STRIPE_CHECKOUT_URL_XXL ?? "https://buy.stripe.com/7sY3co8at3ngfErc633ks04",
     };
     const testUrl = testUrlMap[planId];
     if (testUrl) {
