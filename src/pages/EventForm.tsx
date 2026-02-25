@@ -69,6 +69,7 @@ const EventForm = () => {
   const [ownerEmail, setOwnerEmail] = useState<string | null>(null);
   const [ownerPhone, setOwnerPhone] = useState<string | null>(null);
   const [ownerEmailInput, setOwnerEmailInput] = useState("");
+  const [qrPreview, setQrPreview] = useState<{ src?: string; value: string } | null>(null);
   const [planType, setPlanType] = useState<"demo" | "small" | "medium" | "xxl" | "custom">("demo");
   // Generate a random 8-character hash for passwords
   const generateHash = () => {
@@ -1572,15 +1573,32 @@ const EventForm = () => {
               {isEditing && eventId && (
                 <Card className="p-4 mb-4">
                   <div className="flex justify-center">
-                    {getEventQrUrl(eventId) ? (
-                      <img
-                        src={getEventQrUrl(eventId)}
-                        alt="QR"
-                        className="w-[160px] h-[160px]"
-                      />
-                    ) : (
-                      <QRCodeSVG value={eventUrl} size={160} />
-                    )}
+                    {(() => {
+                      const qrUrl = getEventQrUrl(eventId);
+                      return (
+                        <div
+                          className="cursor-pointer"
+                          onClick={() => setQrPreview({ src: qrUrl || undefined, value: eventUrl })}
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              setQrPreview({ src: qrUrl || undefined, value: eventUrl });
+                            }
+                          }}
+                        >
+                          {qrUrl ? (
+                            <img
+                              src={qrUrl}
+                              alt="QR"
+                              className="w-[160px] h-[160px]"
+                            />
+                          ) : (
+                            <QRCodeSVG value={eventUrl} size={160} />
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                   <Button
                     variant="outline"
@@ -1628,15 +1646,32 @@ const EventForm = () => {
           <div className="lg:hidden">
             <Card className="p-4">
               <div className="flex justify-center">
-                {getEventQrUrl(eventId) ? (
-                  <img
-                    src={getEventQrUrl(eventId)}
-                    alt="QR"
-                    className="w-[160px] h-[160px]"
-                  />
-                ) : (
-                  <QRCodeSVG value={eventUrl} size={160} />
-                )}
+                {(() => {
+                  const qrUrl = getEventQrUrl(eventId);
+                  return (
+                    <div
+                      className="cursor-pointer"
+                      onClick={() => setQrPreview({ src: qrUrl || undefined, value: eventUrl })}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          setQrPreview({ src: qrUrl || undefined, value: eventUrl });
+                        }
+                      }}
+                    >
+                      {qrUrl ? (
+                        <img
+                          src={qrUrl}
+                          alt="QR"
+                          className="w-[160px] h-[160px]"
+                        />
+                      ) : (
+                        <QRCodeSVG value={eventUrl} size={160} />
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
               <Button
                 variant="outline"
@@ -1658,6 +1693,39 @@ const EventForm = () => {
           </div>
         )}
       </div>
+
+      {qrPreview && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
+          onClick={() => setQrPreview(null)}
+        >
+          <button
+            type="button"
+            className="absolute top-4 right-4 text-white text-3xl leading-none"
+            aria-label="Cerrar"
+            onClick={() => setQrPreview(null)}
+          >
+            ×
+          </button>
+          <div
+            className="bg-white rounded-xl p-3"
+            style={{ width: "min(90vw, 90vh)", height: "min(90vw, 90vh)" }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            {qrPreview.src ? (
+              <img
+                src={qrPreview.src}
+                alt="QR"
+                className="w-full h-full object-contain"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center">
+                <QRCodeSVG value={qrPreview.value} size={1024} level="H" includeMargin />
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

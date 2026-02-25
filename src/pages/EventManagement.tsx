@@ -78,6 +78,7 @@ const EventManagement = () => {
     key: "created_at",
     direction: "desc",
   });
+  const [qrPreview, setQrPreview] = useState<{ src?: string; value: string } | null>(null);
   const [adminPage, setAdminPage] = useState(1);
   const [adminPageSize, setAdminPageSize] = useState<number | "all">(30);
   // pageSize computed after superAdminEvents below
@@ -592,7 +593,17 @@ const EventManagement = () => {
           <div className="grid grid-cols-1 lg:grid-cols-[160px_1fr] gap-4 md:gap-6 items-start">
             {/* QR Code Section */}
             <div className="space-y-3 flex flex-col items-center lg:items-start">
-              <div className="bg-white p-3 rounded-xl border border-border w-fit">
+              <div
+                className="bg-white p-3 rounded-xl border border-border w-fit cursor-pointer"
+                onClick={() => setQrPreview({ src: qrStorageUrl || undefined, value: eventUrl })}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    setQrPreview({ src: qrStorageUrl || undefined, value: eventUrl });
+                  }
+                }}
+              >
                 {qrStorageUrl ? (
                   <img
                     src={qrStorageUrl}
@@ -1303,6 +1314,39 @@ const EventManagement = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {qrPreview && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
+          onClick={() => setQrPreview(null)}
+        >
+          <button
+            type="button"
+            className="absolute top-4 right-4 text-white text-3xl leading-none"
+            aria-label="Cerrar"
+            onClick={() => setQrPreview(null)}
+          >
+            ×
+          </button>
+          <div
+            className="bg-white rounded-xl p-3"
+            style={{ width: "min(90vw, 90vh)", height: "min(90vw, 90vh)" }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            {qrPreview.src ? (
+              <img
+                src={qrPreview.src}
+                alt={t("events.qrAlt")}
+                className="w-full h-full object-contain"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center">
+                <QRCodeSVG value={qrPreview.value} size={1024} level="H" includeMargin />
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
     </div>
   );
