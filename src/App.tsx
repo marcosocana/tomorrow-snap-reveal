@@ -61,29 +61,29 @@ const ScrollToTop = () => {
       return containers;
     };
 
-    const findScrollableParent = (el: HTMLElement | null) => {
+    const isScrollable = (el: HTMLElement) => {
+      const style = window.getComputedStyle(el);
+      const overflowY = style.overflowY;
+      return (
+        (overflowY === "auto" || overflowY === "scroll" || overflowY === "overlay") &&
+        el.scrollHeight > el.clientHeight + 1
+      );
+    };
+
+    const resetScrollableAncestors = (el: HTMLElement | null) => {
       let current: HTMLElement | null = el;
       while (current && current !== document.body && current !== document.documentElement) {
-        const style = window.getComputedStyle(current);
-        const overflowY = style.overflowY;
-        if (
-          (overflowY === "auto" || overflowY === "scroll" || overflowY === "overlay") &&
-          current.scrollHeight > current.clientHeight + 1
-        ) {
-          return current;
+        if (isScrollable(current)) {
+          current.scrollTop = 0;
+          current.scrollLeft = 0;
         }
         current = current.parentElement;
       }
-      return document.scrollingElement || document.documentElement;
     };
 
     const scrollTop = () => {
       const anchor = document.querySelector<HTMLElement>("[data-scroll-anchor]");
-      const anchorContainer = anchor ? findScrollableParent(anchor) : null;
-      if (anchorContainer) {
-        anchorContainer.scrollTop = 0;
-        anchorContainer.scrollLeft = 0;
-      }
+      if (anchor) resetScrollableAncestors(anchor);
       window.scrollTo({ top: 0, left: 0, behavior: "auto" });
       getContainers().forEach((el) => {
         if (el.scrollTop !== 0) el.scrollTop = 0;
