@@ -688,7 +688,7 @@ const EventForm = () => {
 
   const getExpiryDays = () => {
     if (planType === "custom") return null;
-    if (formData.maxPhotos === "10" || isDemoMode || planType === "demo") return 10;
+    if (formData.maxPhotos === "10" || isDemoMode || planType === "demo") return 90;
     if (formData.maxPhotos === "200") return 20;
     if (formData.maxPhotos === "1200") return 60;
     return 90;
