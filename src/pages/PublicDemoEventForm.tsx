@@ -26,7 +26,7 @@ import { Language } from "@/lib/translations";
 import { EventFontFamily } from "@/lib/eventFonts";
 import { FilterType, FILTER_ORDER, getFilterClass, getGrainClass } from "@/lib/photoFilters";
 import logoDemo from "@/assets/Frame 626035.png";
-import defaultQrLogo from "@/assets/marca_revelao_qr_evento.png";
+import defaultQrLogo from "@/assets/Frame 626035.png";
 import weddingPreview from "@/assets/testimonial-wedding.jpg";
 import { useDemoI18n } from "@/lib/demoI18n";
 import { getTimezoneOffset } from "@/lib/countries";
@@ -117,6 +117,22 @@ const PublicDemoEventForm = () => {
     startMode === "now" ? format(nowTz, "yyyy-MM-dd") : formData.uploadStartDate;
   const getEffectiveStartTime = () =>
     startMode === "now" ? format(nowTz, "HH:mm") : formData.uploadStartTime;
+  const isStep1Complete = () => {
+    const hasName = formData.name.trim().length > 0;
+    const hasBackground = Boolean(formData.backgroundImage || formData.backgroundImageUrl);
+    const hasStart = startMode === "now"
+      ? true
+      : Boolean(formData.uploadStartDate && formData.uploadStartTime);
+    const hasEnd = Boolean(formData.uploadEndDate && formData.uploadEndTime);
+    const hasReveal = Boolean(formData.revealDate && formData.revealTime);
+    return hasName && hasBackground && hasStart && hasEnd && hasReveal;
+  };
+  const isStep2Complete = () => {
+    const hasEmail = formData.contactEmail.trim().length > 0;
+    const hasPassword = formData.contactPassword.trim().length > 0;
+    const hasConfirm = formData.contactPasswordConfirm.trim().length > 0;
+    return hasEmail && hasPassword && hasConfirm;
+  };
 
   const getStartTimeMin = () =>
     getEffectiveStartDate() === todayStr ? startMinTimeStr : undefined;
@@ -254,7 +270,12 @@ const PublicDemoEventForm = () => {
 
   const handleStepAdvance = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name.trim()) {
+    if (!isStep1Complete()) {
+      toast({
+        title: t("form.errorTitle"),
+        description: "Completa los campos obligatorios antes de continuar.",
+        variant: "destructive",
+      });
       return;
     }
     if (!validateEventDates()) {
@@ -503,7 +524,10 @@ const PublicDemoEventForm = () => {
               {currentStep === 1 && (
                 <>
                   <div className="space-y-2">
-                    <Label htmlFor="name">{t("form.step1.eventName")}</Label>
+                    <Label htmlFor="name">
+                      {t("form.step1.eventName")}
+                      <span className="text-red-500">*</span>
+                    </Label>
                     <Input
                       id="name"
                       value={formData.name}
@@ -534,7 +558,10 @@ const PublicDemoEventForm = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="backgroundImage">{t("form.step1.background")}</Label>
+                    <Label htmlFor="backgroundImage">
+                      {t("form.step1.background")}
+                      <span className="text-red-500"> *</span>
+                    </Label>
                     <div className="text-xs text-muted-foreground mb-2 space-y-1">
                       <p>{t("form.step1.backgroundHelp")}</p>
                     </div>
@@ -693,7 +720,7 @@ const PublicDemoEventForm = () => {
                         onClick={() => setStartMode("now")}
                         className={`flex-1 rounded-md border px-4 py-2 text-sm font-medium transition-colors ${
                           startMode === "now"
-                            ? "border-foreground bg-foreground text-background"
+                            ? "border-red-500 text-red-600"
                             : "border-border bg-background text-foreground"
                         }`}
                       >
@@ -704,7 +731,7 @@ const PublicDemoEventForm = () => {
                         onClick={() => setStartMode("schedule")}
                         className={`flex-1 rounded-md border px-4 py-2 text-sm font-medium transition-colors ${
                           startMode === "schedule"
-                            ? "border-foreground bg-foreground text-background"
+                            ? "border-red-500 text-red-600"
                             : "border-border bg-background text-foreground"
                         }`}
                       >
@@ -714,7 +741,10 @@ const PublicDemoEventForm = () => {
                     {startMode === "schedule" ? (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label htmlFor="uploadStartDate">{t("form.step1.startDate")}</Label>
+                          <Label htmlFor="uploadStartDate">
+                            {t("form.step1.startDate")}
+                            <span className="text-red-500"> *</span>
+                          </Label>
                           <Input
                             id="uploadStartDate"
                             type="date"
@@ -738,6 +768,7 @@ const PublicDemoEventForm = () => {
                         <div className="space-y-2">
                           <Label htmlFor="uploadStartTime">
                             {t("form.step1.startTime")}
+                            <span className="text-red-500"> *</span>
                           </Label>
                           <Input
                             id="uploadStartTime"
@@ -764,7 +795,10 @@ const PublicDemoEventForm = () => {
                   <div className="space-y-2">
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="uploadEndDate">{t("form.step1.endDate")}</Label>
+                        <Label htmlFor="uploadEndDate">
+                          {t("form.step1.endDate")}
+                          <span className="text-red-500"> *</span>
+                        </Label>
                         <Input
                           id="uploadEndDate"
                           type="date"
@@ -788,6 +822,7 @@ const PublicDemoEventForm = () => {
                       <div className="space-y-2">
                         <Label htmlFor="uploadEndTime">
                           {t("form.step1.endTime")}
+                          <span className="text-red-500"> *</span>
                         </Label>
                         <Input
                           id="uploadEndTime"
@@ -830,7 +865,10 @@ const PublicDemoEventForm = () => {
                     </p>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="revealDate">{t("form.step1.revealDate")}</Label>
+                        <Label htmlFor="revealDate">
+                          {t("form.step1.revealDate")}
+                          <span className="text-red-500"> *</span>
+                        </Label>
                         <Input
                           id="revealDate"
                           type="date"
@@ -854,6 +892,7 @@ const PublicDemoEventForm = () => {
                       <div className="space-y-2">
                         <Label htmlFor="revealTime">
                           {t("form.step1.revealTime")}
+                          <span className="text-red-500"> *</span>
                         </Label>
                         <Input
                           id="revealTime"
@@ -897,7 +936,10 @@ const PublicDemoEventForm = () => {
                     </p>
 
                     <div className="space-y-2">
-                      <Label htmlFor="contactEmail">{t("form.step2.email")}</Label>
+                      <Label htmlFor="contactEmail">
+                        {t("form.step2.email")}
+                        <span className="text-red-500"> *</span>
+                      </Label>
                       <Input
                         id="contactEmail"
                         type="email"
@@ -909,7 +951,10 @@ const PublicDemoEventForm = () => {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="contactPassword">{t("form.step2.password")}</Label>
+                      <Label htmlFor="contactPassword">
+                        {t("form.step2.password")}
+                        <span className="text-red-500"> *</span>
+                      </Label>
                       <Input
                         id="contactPassword"
                         type="password"
@@ -922,7 +967,10 @@ const PublicDemoEventForm = () => {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="contactPasswordConfirm">{t("form.step2.passwordConfirm")}</Label>
+                      <Label htmlFor="contactPasswordConfirm">
+                        {t("form.step2.passwordConfirm")}
+                        <span className="text-red-500"> *</span>
+                      </Label>
                       <Input
                         id="contactPasswordConfirm"
                         type="password"
@@ -957,7 +1005,9 @@ const PublicDemoEventForm = () => {
                 <Button
                   type="submit"
                   className="flex-1"
-                  disabled={currentStep === 1 ? !formData.name.trim() || uploadingImage : isSubmitting || uploadingImage}
+                  disabled={currentStep === 1
+                    ? !isStep1Complete() || uploadingImage
+                    : !isStep2Complete() || isSubmitting || uploadingImage}
                 >
                   {currentStep === 1
                     ? t("form.actions.next")

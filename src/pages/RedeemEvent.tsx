@@ -271,13 +271,26 @@ const RedeemEvent = () => {
 
   const handleStepAdvance = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name.trim()) {
+    if (!isStep1Complete()) {
+      toast({
+        title: "Faltan campos obligatorios",
+        description: "Completa los campos obligatorios antes de continuar.",
+        variant: "destructive",
+      });
       return;
     }
     setCurrentStep(2);
   };
 
   const handleStepBack = () => setCurrentStep(1);
+
+  const isStep1Complete = () => {
+    const hasName = formData.name.trim().length > 0;
+    const hasStart = Boolean(formData.uploadStartDate && formData.uploadStartTime);
+    const hasEnd = Boolean(formData.uploadEndDate && formData.uploadEndTime);
+    const hasReveal = Boolean(formData.revealDate && formData.revealTime);
+    return hasName && hasStart && hasEnd && hasReveal;
+  };
 
   const handleImageUpload = async (file: File): Promise<string | null> => {
     try {
@@ -468,7 +481,9 @@ const RedeemEvent = () => {
               {currentStep === 1 && (
                 <>
                   <div className="space-y-2">
-                    <Label htmlFor="name">Nombre del evento *</Label>
+                    <Label htmlFor="name">
+                      Nombre del evento<span className="text-red-500">*</span>
+                    </Label>
                     <Input
                       id="name"
                       value={formData.name}
@@ -703,7 +718,9 @@ const RedeemEvent = () => {
                     <Label className="text-base font-semibold">Duración del evento</Label>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="uploadStartDate">Fecha de inicio</Label>
+                        <Label htmlFor="uploadStartDate">
+                          Fecha de inicio<span className="text-red-500"> *</span>
+                        </Label>
                         <Input
                           id="uploadStartDate"
                           type="date"
@@ -726,7 +743,7 @@ const RedeemEvent = () => {
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="uploadStartTime">
-                          Hora de inicio
+                          Hora de inicio<span className="text-red-500"> *</span>
                         </Label>
                         <Input
                           id="uploadStartTime"
@@ -751,7 +768,9 @@ const RedeemEvent = () => {
                   <div className="space-y-2">
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="uploadEndDate">Fecha fin</Label>
+                        <Label htmlFor="uploadEndDate">
+                          Fecha fin<span className="text-red-500"> *</span>
+                        </Label>
                         <Input
                           id="uploadEndDate"
                           type="date"
@@ -762,7 +781,7 @@ const RedeemEvent = () => {
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="uploadEndTime">
-                          Hora de fin
+                          Hora de fin<span className="text-red-500"> *</span>
                         </Label>
                         <Input
                           id="uploadEndTime"
@@ -796,7 +815,9 @@ const RedeemEvent = () => {
                     <Label className="text-base font-semibold">Revelado</Label>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="revealDate">Fecha del revelado</Label>
+                        <Label htmlFor="revealDate">
+                          Fecha del revelado<span className="text-red-500"> *</span>
+                        </Label>
                         <Input
                           id="revealDate"
                           type="date"
@@ -807,7 +828,7 @@ const RedeemEvent = () => {
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="revealTime">
-                          Hora del revelado
+                          Hora del revelado<span className="text-red-500"> *</span>
                         </Label>
                         <Input
                           id="revealTime"
@@ -916,7 +937,9 @@ const RedeemEvent = () => {
                 <Button
                   type="submit"
                   className="flex-1"
-                  disabled={currentStep === 1 ? !formData.name.trim() || uploadingImage : isSubmitting || uploadingImage}
+                  disabled={currentStep === 1
+                    ? !isStep1Complete() || uploadingImage
+                    : isSubmitting || uploadingImage}
                 >
                   {currentStep === 1
                     ? "Siguiente"
