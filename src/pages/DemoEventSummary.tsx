@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { enUS, es, it } from "date-fns/locale";
 import { toZonedTime } from "date-fns-tz";
-const demoLogoUrl = "/assets/Frame%20626035-GjZMgkfV.png";
+import demoLogoUrl from "@/assets/Frame 626035.png";
 import { PricingPreview } from "@/components/PricingPreview";
 import { useDemoI18n } from "@/lib/demoI18n";
 

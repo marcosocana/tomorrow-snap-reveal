@@ -71,6 +71,7 @@ const PublicDemoEventForm = () => {
       description: "",
     };
   });
+  const [startMode, setStartMode] = useState<"now" | "schedule">("now");
   const navigate = useNavigate();
   const { toast } = useToast();
   const now = new Date();
@@ -112,22 +113,31 @@ const PublicDemoEventForm = () => {
     return timeToMinutes(value) < timeToMinutes(min) ? min : value;
   };
 
+  const getEffectiveStartDate = () =>
+    startMode === "now" ? format(nowTz, "yyyy-MM-dd") : formData.uploadStartDate;
+  const getEffectiveStartTime = () =>
+    startMode === "now" ? format(nowTz, "HH:mm") : formData.uploadStartTime;
+
   const getStartTimeMin = () =>
-    formData.uploadStartDate === todayStr ? startMinTimeStr : undefined;
+    getEffectiveStartDate() === todayStr ? startMinTimeStr : undefined;
 
   const getEndTimeMin = (overrideDate?: string) => {
     const date = overrideDate ?? formData.uploadEndDate;
+    const startDate = getEffectiveStartDate();
+    const startTime = getEffectiveStartTime();
     return maxTime(
       date === todayStr ? nowTimeStr : undefined,
-      date === formData.uploadStartDate ? formData.uploadStartTime : undefined
+      date === startDate ? startTime : undefined
     );
   };
 
   const getRevealTimeMin = (overrideDate?: string) => {
     const date = overrideDate ?? formData.revealDate;
+    const startDate = getEffectiveStartDate();
+    const startTime = getEffectiveStartTime();
     return maxTime(
       date === todayStr ? nowTimeStr : undefined,
-      date === formData.uploadStartDate ? formData.uploadStartTime : undefined,
+      date === startDate ? startTime : undefined,
       date === formData.uploadEndDate ? formData.uploadEndTime : undefined
     );
   };
@@ -136,13 +146,15 @@ const PublicDemoEventForm = () => {
     try {
       const eventTz = formData.timezone;
       const now = new Date();
-      const startUtc = fromZonedTime(`${formData.uploadStartDate}T${formData.uploadStartTime}:00`, eventTz);
+      const startDate = getEffectiveStartDate();
+      const startTime = getEffectiveStartTime();
+      const startUtc = fromZonedTime(`${startDate}T${startTime}:00`, eventTz);
       const endUtc = fromZonedTime(`${formData.uploadEndDate}T${formData.uploadEndTime}:00`, eventTz);
       const revealUtc = fromZonedTime(`${formData.revealDate}T${formData.revealTime}:00`, eventTz);
 
       const nowTz = toZonedTime(now, eventTz);
       const minStart = subHours(nowTz, 2);
-      if (formData.uploadStartDate < format(nowTz, "yyyy-MM-dd")) return false;
+      if (startDate < format(nowTz, "yyyy-MM-dd")) return false;
       if (startUtc < minStart) return false;
       if (endUtc < now || endUtc < startUtc) return false;
       if (revealUtc < now || revealUtc < endUtc) return false;
@@ -338,12 +350,22 @@ const PublicDemoEventForm = () => {
       });
       return;
     }
+    if (!formData.backgroundImage && !formData.backgroundImageUrl) {
+      toast({
+        title: t("form.errors.invalidDateTitle"),
+        description: "La fotografía de fondo es obligatoria.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setIsSubmitting(true);
 
     try {
       const eventTz = formData.timezone;
-      const uploadStartDateTime = fromZonedTime(`${formData.uploadStartDate}T${formData.uploadStartTime}:00`, eventTz);
+      const effectiveStartDate = getEffectiveStartDate();
+      const effectiveStartTime = getEffectiveStartTime();
+      const uploadStartDateTime = fromZonedTime(`${effectiveStartDate}T${effectiveStartTime}:00`, eventTz);
       const uploadEndDateTime = fromZonedTime(`${formData.uploadEndDate}T${formData.uploadEndTime}:00`, eventTz);
       const revealDateTime = fromZonedTime(`${formData.revealDate}T${formData.revealTime}:00`, eventTz);
 
@@ -556,6 +578,7 @@ const PublicDemoEventForm = () => {
                       id="backgroundImage"
                       type="file"
                       accept="image/*"
+                      required={!formData.backgroundImageUrl}
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) {
@@ -664,48 +687,78 @@ const PublicDemoEventForm = () => {
                     <p className="text-xs text-muted-foreground">
                       {t("form.step1.durationHelp")}
                     </p>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="uploadStartDate">{t("form.step1.startDate")}</Label>
-                        <Input
-                          id="uploadStartDate"
-                          type="date"
-                          value={formData.uploadStartDate}
-                          min={todayStr}
-                          onChange={(e) => {
-                            const nextDate = e.target.value;
-                            const nextStartTime = clampTime(
-                              formData.uploadStartTime,
-                              nextDate === todayStr ? startMinTimeStr : undefined
-                            );
-                            setFormData({
-                              ...formData,
-                              uploadStartDate: nextDate,
-                              uploadStartTime: nextStartTime,
-                            });
-                          }}
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="uploadStartTime">
-                          {t("form.step1.startTime")}
-                        </Label>
-                        <Input
-                          id="uploadStartTime"
-                          type="time"
-                          value={formData.uploadStartTime}
-                          min={getStartTimeMin()}
-                          onChange={(e) =>
-                            setFormData({
-                              ...formData,
-                              uploadStartTime: clampTime(e.target.value, getStartTimeMin()),
-                            })
-                          }
-                          required
-                        />
-                      </div>
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setStartMode("now")}
+                        className={`flex-1 rounded-md border px-4 py-2 text-sm font-medium transition-colors ${
+                          startMode === "now"
+                            ? "border-foreground bg-foreground text-background"
+                            : "border-border bg-background text-foreground"
+                        }`}
+                      >
+                        Ahora
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setStartMode("schedule")}
+                        className={`flex-1 rounded-md border px-4 py-2 text-sm font-medium transition-colors ${
+                          startMode === "schedule"
+                            ? "border-foreground bg-foreground text-background"
+                            : "border-border bg-background text-foreground"
+                        }`}
+                      >
+                        Programar inicio
+                      </button>
                     </div>
+                    {startMode === "schedule" ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="uploadStartDate">{t("form.step1.startDate")}</Label>
+                          <Input
+                            id="uploadStartDate"
+                            type="date"
+                            value={formData.uploadStartDate}
+                            min={todayStr}
+                            onChange={(e) => {
+                              const nextDate = e.target.value;
+                              const nextStartTime = clampTime(
+                                formData.uploadStartTime,
+                                nextDate === todayStr ? startMinTimeStr : undefined
+                              );
+                              setFormData({
+                                ...formData,
+                                uploadStartDate: nextDate,
+                                uploadStartTime: nextStartTime,
+                              });
+                            }}
+                            required
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="uploadStartTime">
+                            {t("form.step1.startTime")}
+                          </Label>
+                          <Input
+                            id="uploadStartTime"
+                            type="time"
+                            value={formData.uploadStartTime}
+                            min={getStartTimeMin()}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                uploadStartTime: clampTime(e.target.value, getStartTimeMin()),
+                              })
+                            }
+                            required
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        Se iniciará ahora ({format(nowTz, "dd/MM/yyyy HH:mm")} {timezoneOffsetLabel}).
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -716,7 +769,7 @@ const PublicDemoEventForm = () => {
                           id="uploadEndDate"
                           type="date"
                           value={formData.uploadEndDate}
-                          min={maxDate(todayStr, formData.uploadStartDate)}
+                          min={maxDate(todayStr, getEffectiveStartDate())}
                           onChange={(e) => {
                             const nextDate = e.target.value;
                             const nextEndTime = clampTime(
