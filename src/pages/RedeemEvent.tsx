@@ -274,7 +274,7 @@ const RedeemEvent = () => {
     if (!isStep1Complete()) {
       toast({
         title: "Faltan campos obligatorios",
-        description: "Completa los campos obligatorios antes de continuar.",
+        description: "Complétalos para poder continuar",
         variant: "destructive",
       });
       return;
@@ -936,10 +936,25 @@ const RedeemEvent = () => {
                 )}
                 <Button
                   type="submit"
-                  className="flex-1"
-                  disabled={currentStep === 1
+                  className={`flex-1 ${
+                    (currentStep === 1
+                      ? !isStep1Complete() || uploadingImage
+                      : isSubmitting || uploadingImage)
+                      ? "opacity-50 cursor-not-allowed"
+                      : ""
+                  }`}
+                  aria-disabled={currentStep === 1
                     ? !isStep1Complete() || uploadingImage
                     : isSubmitting || uploadingImage}
+                  onClick={() => {
+                    if (currentStep === 1 && !isStep1Complete()) {
+                      toast({
+                        title: "Faltan campos obligatorios",
+                        description: "Complétalos para poder continuar",
+                        variant: "destructive",
+                      });
+                    }
+                  }}
                 >
                   {currentStep === 1
                     ? "Siguiente"

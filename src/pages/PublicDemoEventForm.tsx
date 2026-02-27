@@ -272,8 +272,8 @@ const PublicDemoEventForm = () => {
     e.preventDefault();
     if (!isStep1Complete()) {
       toast({
-        title: t("form.errorTitle"),
-        description: "Completa los campos obligatorios antes de continuar.",
+        title: "Faltan campos obligatorios",
+        description: "Complétalos para poder continuar",
         variant: "destructive",
       });
       return;
@@ -290,6 +290,23 @@ const PublicDemoEventForm = () => {
   };
 
   const handleStepBack = () => setCurrentStep(1);
+
+  const handleNextClick = () => {
+    if (currentStep === 1 && !isStep1Complete()) {
+      toast({
+        title: "Faltan campos obligatorios",
+        description: "Complétalos para poder continuar",
+        variant: "destructive",
+      });
+    }
+    if (currentStep === 2 && !isStep2Complete()) {
+      toast({
+        title: "Faltan campos obligatorios",
+        description: "Complétalos para poder continuar",
+        variant: "destructive",
+      });
+    }
+  };
 
   const handleImageUpload = async (file: File): Promise<string | null> => {
     try {
@@ -1004,10 +1021,17 @@ const PublicDemoEventForm = () => {
                 )}
                 <Button
                   type="submit"
-                  className="flex-1"
-                  disabled={currentStep === 1
+                  className={`flex-1 ${
+                    (currentStep === 1
+                      ? !isStep1Complete() || uploadingImage
+                      : !isStep2Complete() || isSubmitting || uploadingImage)
+                      ? "opacity-50 cursor-not-allowed"
+                      : ""
+                  }`}
+                  aria-disabled={currentStep === 1
                     ? !isStep1Complete() || uploadingImage
                     : !isStep2Complete() || isSubmitting || uploadingImage}
+                  onClick={handleNextClick}
                 >
                   {currentStep === 1
                     ? t("form.actions.next")
