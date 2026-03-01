@@ -649,7 +649,9 @@ const PublicDemoEventForm = () => {
                                 >
                                   <div
                                 className={`relative overflow-hidden rounded-lg border ${
-                                  isActive ? "border-red-500 ring-2 ring-red-400/50" : "border-border"
+                                  isActive
+                                    ? "border-[hsl(var(--revelao-red))] ring-2 ring-[hsl(var(--revelao-red)/0.5)]"
+                                    : "border-border"
                                 }`}
                                   >
                                     <img
@@ -661,7 +663,7 @@ const PublicDemoEventForm = () => {
                                       <div className={`pointer-events-none absolute inset-0 ${getGrainClass(filter)}`} />
                                     ) : null}
                                   </div>
-                              <p className={`mt-2 text-xs ${isActive ? "text-red-600 font-semibold" : "text-muted-foreground"}`}>
+                              <p className={`mt-2 text-xs ${isActive ? "text-[hsl(var(--revelao-red))] font-semibold" : "text-muted-foreground"}`}>
                                 {t(`form.filter.${filter}`)}
                               </p>
                                 </button>
@@ -686,7 +688,9 @@ const PublicDemoEventForm = () => {
                           >
                             <div
                           className={`relative overflow-hidden rounded-lg border ${
-                            isActive ? "border-red-500 ring-2 ring-red-400/50" : "border-border"
+                            isActive
+                              ? "border-[hsl(var(--revelao-red))] ring-2 ring-[hsl(var(--revelao-red)/0.5)]"
+                              : "border-border"
                           }`}
                             >
                               <img
@@ -698,7 +702,7 @@ const PublicDemoEventForm = () => {
                                 <div className={`pointer-events-none absolute inset-0 ${getGrainClass(filter)}`} />
                               ) : null}
                             </div>
-                          <p className={`mt-2 text-xs ${isActive ? "text-red-600 font-semibold" : "text-muted-foreground"}`}>
+                          <p className={`mt-2 text-xs ${isActive ? "text-[hsl(var(--revelao-red))] font-semibold" : "text-muted-foreground"}`}>
                             {t(`form.filter.${filter}`)}
                           </p>
                           </button>
@@ -742,7 +746,7 @@ const PublicDemoEventForm = () => {
                         onClick={() => setStartMode("now")}
                         className={`flex-1 rounded-md border px-4 py-2 text-sm font-medium transition-colors ${
                           startMode === "now"
-                            ? "border-red-500 text-red-600"
+                            ? "border-[hsl(var(--revelao-red))] text-[hsl(var(--revelao-red))]"
                             : "border-border bg-background text-foreground"
                         }`}
                       >
@@ -753,7 +757,7 @@ const PublicDemoEventForm = () => {
                         onClick={() => setStartMode("schedule")}
                         className={`flex-1 rounded-md border px-4 py-2 text-sm font-medium transition-colors ${
                           startMode === "schedule"
-                            ? "border-red-500 text-red-600"
+                            ? "border-[hsl(var(--revelao-red))] text-[hsl(var(--revelao-red))]"
                             : "border-border bg-background text-foreground"
                         }`}
                       >

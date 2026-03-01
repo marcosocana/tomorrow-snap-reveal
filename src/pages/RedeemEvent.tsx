@@ -638,7 +638,9 @@ const RedeemEvent = () => {
                                 >
                                   <div
                                 className={`relative overflow-hidden rounded-lg border ${
-                                  isActive ? "border-red-500 ring-2 ring-red-400/50" : "border-border"
+                                  isActive
+                                    ? "border-[hsl(var(--revelao-red))] ring-2 ring-[hsl(var(--revelao-red)/0.5)]"
+                                    : "border-border"
                                 }`}
                                   >
                                     <img
@@ -650,7 +652,7 @@ const RedeemEvent = () => {
                                       <div className={`pointer-events-none absolute inset-0 ${getGrainClass(filter)}`} />
                                     ) : null}
                                   </div>
-                              <p className={`mt-2 text-xs ${isActive ? "text-red-600 font-semibold" : "text-muted-foreground"}`}>
+                              <p className={`mt-2 text-xs ${isActive ? "text-[hsl(var(--revelao-red))] font-semibold" : "text-muted-foreground"}`}>
                                 {t(`form.filter.${filter}`)}
                               </p>
                                 </button>
@@ -675,7 +677,9 @@ const RedeemEvent = () => {
                           >
                             <div
                           className={`relative overflow-hidden rounded-lg border ${
-                            isActive ? "border-red-500 ring-2 ring-red-400/50" : "border-border"
+                            isActive
+                              ? "border-[hsl(var(--revelao-red))] ring-2 ring-[hsl(var(--revelao-red)/0.5)]"
+                              : "border-border"
                           }`}
                             >
                               <img
@@ -687,7 +691,7 @@ const RedeemEvent = () => {
                                 <div className={`pointer-events-none absolute inset-0 ${getGrainClass(filter)}`} />
                               ) : null}
                             </div>
-                          <p className={`mt-2 text-xs ${isActive ? "text-red-600 font-semibold" : "text-muted-foreground"}`}>
+                          <p className={`mt-2 text-xs ${isActive ? "text-[hsl(var(--revelao-red))] font-semibold" : "text-muted-foreground"}`}>
                             {t(`form.filter.${filter}`)}
                           </p>
                           </button>
