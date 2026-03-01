@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { DateTimeField } from "@/components/DateTimeField";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
@@ -716,82 +717,67 @@ const RedeemEvent = () => {
 
                   <div className="space-y-2">
                     <Label className="text-base font-semibold">Duración del evento</Label>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="uploadStartDate">
+                    <DateTimeField
+                      dateId="uploadStartDate"
+                      timeId="uploadStartTime"
+                      dateLabel={
+                        <>
                           Fecha de inicio<span className="text-red-500"> *</span>
-                        </Label>
-                        <Input
-                          id="uploadStartDate"
-                          type="date"
-                          value={formData.uploadStartDate}
-                          min={todayStr}
-                          onChange={(e) => {
-                            const nextDate = e.target.value;
-                            const nextStartTime = clampTime(
-                              formData.uploadStartTime,
-                              nextDate === todayStr ? startMinTimeStr : undefined
-                            );
-                            setFormData({
-                              ...formData,
-                              uploadStartDate: nextDate,
-                              uploadStartTime: nextStartTime,
-                            });
-                          }}
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="uploadStartTime">
+                        </>
+                      }
+                      timeLabel={
+                        <>
                           Hora de inicio<span className="text-red-500"> *</span>
-                        </Label>
-                        <Input
-                          id="uploadStartTime"
-                          type="time"
-                          value={formData.uploadStartTime}
-                          onChange={(e) =>
-                            setFormData({
-                              ...formData,
-                              uploadStartTime: clampTime(
-                                e.target.value,
-                                formData.uploadStartDate === todayStr ? startMinTimeStr : undefined
-                              ),
-                            })
-                          }
-                          min={formData.uploadStartDate === todayStr ? startMinTimeStr : undefined}
-                          required
-                        />
-                      </div>
-                    </div>
+                        </>
+                      }
+                      dateValue={formData.uploadStartDate}
+                      timeValue={formData.uploadStartTime}
+                      dateMin={todayStr}
+                      timeMin={formData.uploadStartDate === todayStr ? startMinTimeStr : undefined}
+                      required
+                      onDateChange={(nextDate) => {
+                        const nextStartTime = clampTime(
+                          formData.uploadStartTime,
+                          nextDate === todayStr ? startMinTimeStr : undefined
+                        );
+                        setFormData({
+                          ...formData,
+                          uploadStartDate: nextDate,
+                          uploadStartTime: nextStartTime,
+                        });
+                      }}
+                      onTimeChange={(nextTime) =>
+                        setFormData({
+                          ...formData,
+                          uploadStartTime: clampTime(
+                            nextTime,
+                            formData.uploadStartDate === todayStr ? startMinTimeStr : undefined
+                          ),
+                        })
+                      }
+                    />
                   </div>
 
                   <div className="space-y-2">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="uploadEndDate">
+                    <DateTimeField
+                      dateId="uploadEndDate"
+                      timeId="uploadEndTime"
+                      dateLabel={
+                        <>
                           Fecha fin<span className="text-red-500"> *</span>
-                        </Label>
-                        <Input
-                          id="uploadEndDate"
-                          type="date"
-                          value={formData.uploadEndDate}
-                          onChange={(e) => setFormData({ ...formData, uploadEndDate: e.target.value })}
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="uploadEndTime">
+                        </>
+                      }
+                      timeLabel={
+                        <>
                           Hora de fin<span className="text-red-500"> *</span>
-                        </Label>
-                        <Input
-                          id="uploadEndTime"
-                          type="time"
-                          value={formData.uploadEndTime}
-                          onChange={(e) => setFormData({ ...formData, uploadEndTime: e.target.value })}
-                          required
-                        />
-                      </div>
-                    </div>
+                        </>
+                      }
+                      dateValue={formData.uploadEndDate}
+                      timeValue={formData.uploadEndTime}
+                      required
+                      onDateChange={(nextDate) => setFormData({ ...formData, uploadEndDate: nextDate })}
+                      onTimeChange={(nextTime) => setFormData({ ...formData, uploadEndTime: nextTime })}
+                    />
                     {formData.countryCode !== "ES" && formData.uploadStartDate && formData.uploadEndDate && (
                       <p className="text-xs text-muted-foreground">
                         En España: {(() => {
@@ -813,32 +799,25 @@ const RedeemEvent = () => {
 
                   <div className="space-y-2">
                     <Label className="text-base font-semibold">Revelado</Label>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="revealDate">
+                    <DateTimeField
+                      dateId="revealDate"
+                      timeId="revealTime"
+                      dateLabel={
+                        <>
                           Fecha del revelado<span className="text-red-500"> *</span>
-                        </Label>
-                        <Input
-                          id="revealDate"
-                          type="date"
-                          value={formData.revealDate}
-                          onChange={(e) => setFormData({ ...formData, revealDate: e.target.value })}
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="revealTime">
+                        </>
+                      }
+                      timeLabel={
+                        <>
                           Hora del revelado<span className="text-red-500"> *</span>
-                        </Label>
-                        <Input
-                          id="revealTime"
-                          type="time"
-                          value={formData.revealTime}
-                          onChange={(e) => setFormData({ ...formData, revealTime: e.target.value })}
-                          required
-                        />
-                      </div>
-                    </div>
+                        </>
+                      }
+                      dateValue={formData.revealDate}
+                      timeValue={formData.revealTime}
+                      required
+                      onDateChange={(nextDate) => setFormData({ ...formData, revealDate: nextDate })}
+                      onTimeChange={(nextTime) => setFormData({ ...formData, revealTime: nextTime })}
+                    />
                     {formData.countryCode !== "ES" && formData.revealDate && (
                       <p className="text-xs text-muted-foreground">
                         En España: {(() => {
