@@ -152,7 +152,7 @@ export const PricingPreview = ({
       className={[
         "relative rounded-3xl border bg-card p-6 shadow-sm h-full w-full max-w-[360px]",
         plan.featured
-          ? "border-[#f06a5f]/60 bg-[#f06a5f]/12 shadow-[0_24px_60px_-28px_rgba(240,106,95,0.45)]"
+          ? "border-[#f06a5f]/60 bg-[#fef2f2] shadow-[0_24px_60px_-28px_rgba(240,106,95,0.45)]"
           : "border-border",
       ].join(" ")}
     >
