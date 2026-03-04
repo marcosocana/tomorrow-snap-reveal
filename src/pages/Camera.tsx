@@ -166,6 +166,11 @@ const Camera = () => {
         .eq("id", eventId)
         .single();
       if (data && !error) {
+        const rawMaxVideos = Number((data as any).max_videos);
+        const rawVideoDuration = Number((data as any).max_video_duration);
+        const rawMaxAudios = Number((data as any).max_audios);
+        const rawAudioDuration = Number((data as any).max_audio_duration);
+
         setRevealTime(data.reveal_time);
         setUploadStartTime(data.upload_start_time || "");
         setUploadEndTime(data.upload_end_time || "");
@@ -178,11 +183,11 @@ const Camera = () => {
         setShowLegalText((data as any).show_legal_text === true);
         setLegalTextType((data as any).legal_text_type || "default");
         setAllowVideoRecording((data as any).allow_video_recording === true);
-        setMaxVideos((data as any).max_videos ?? null);
-        setVideoDurationSeconds((data as any).max_video_duration ?? 15);
+        setMaxVideos(Number.isFinite(rawMaxVideos) && rawMaxVideos > 0 ? rawMaxVideos : null);
+        setVideoDurationSeconds(Number.isFinite(rawVideoDuration) && rawVideoDuration > 0 ? rawVideoDuration : 15);
         setAllowAudioRecording((data as any).allow_audio_recording === true);
-        setMaxAudios((data as any).max_audios ?? null);
-        setAudioDurationSeconds((data as any).max_audio_duration ?? 30);
+        setMaxAudios(Number.isFinite(rawMaxAudios) && rawMaxAudios > 0 ? rawMaxAudios : null);
+        setAudioDurationSeconds(Number.isFinite(rawAudioDuration) && rawAudioDuration > 0 ? rawAudioDuration : 30);
         
         // Check if max photos limit reached
         if (data.max_photos) {
@@ -483,6 +488,9 @@ const Camera = () => {
       mediaStreamRef.current.getTracks().forEach((track) => track.stop());
       mediaStreamRef.current = null;
     }
+    if (recordingVideoRef.current) {
+      recordingVideoRef.current.srcObject = null;
+    }
     mediaRecorderRef.current = null;
   };
 
@@ -590,6 +598,24 @@ const Camera = () => {
       videoDurationSeconds,
     ]
   );
+
+  useEffect(() => {
+    if (recordingMode !== "video" || recordingBlob || !mediaStreamRef.current || !recordingVideoRef.current) {
+      return;
+    }
+
+    const videoElement = recordingVideoRef.current;
+    if (videoElement.srcObject !== mediaStreamRef.current) {
+      videoElement.srcObject = mediaStreamRef.current;
+    }
+
+    const playAttempt = videoElement.play();
+    if (playAttempt && typeof playAttempt.catch === "function") {
+      playAttempt.catch((error) => {
+        console.error("Unable to autoplay video preview:", error);
+      });
+    }
+  }, [recordingMode, recordingBlob]);
 
   useEffect(() => {
     if (!queuedRecordingMode || !eventConfigReady) return;
