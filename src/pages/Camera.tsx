@@ -250,22 +250,16 @@ const Camera = () => {
       }
       const hours = Math.floor(distance / (1000 * 60 * 60));
       const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((distance % (1000 * 60)) / 1000);
-
-      const dateLabel = getDateLabel(uploadEndTime);
-      const formattedTime = formatLocalDate(uploadEndTime, "HH:mm");
-      
       setCountdown(
-        t.camera.countdownUpload
-          .replace("{date}", dateLabel)
-          .replace("{time}", formattedTime)
-          .replace("{hours}", String(hours))
-          .replace("{minutes}", String(minutes))
-          .replace("{seconds}", String(seconds))
+        language === "en"
+          ? `Only ${hours} hours and ${minutes} minutes left until the event ends!`
+          : language === "it"
+          ? `Mancano solo ${hours} ore e ${minutes} minuti alla fine dell'evento!`
+          : `¡Solo quedan ${hours} horas y ${minutes} minutos para que el evento se termine!`
       );
     }, 1000);
     return () => clearInterval(interval);
-  }, [uploadEndTime, t, timezone]);
+  }, [uploadEndTime, t, timezone, language]);
 
   const loadMediaCounts = async () => {
     if (!eventId) return;
@@ -957,10 +951,10 @@ const Camera = () => {
     const revealDateLabel = revealTime ? getDateLabel(revealTime) : "";
     const revealTimeFormatted = revealTime ? formatLocalDate(revealTime, "HH:mm") : "";
     const revealInfoText = language === "en" 
-      ? `${revealDateLabel.charAt(0).toUpperCase() + revealDateLabel.slice(1)} at ${revealTimeFormatted} all images will be revealed in this same space 📸✨`
+      ? `${revealDateLabel.charAt(0).toUpperCase() + revealDateLabel.slice(1)} at ${revealTimeFormatted} everything will be revealed in this same space 📸✨`
       : language === "it"
-      ? `${revealDateLabel.charAt(0).toUpperCase() + revealDateLabel.slice(1)} alle ${revealTimeFormatted} tutte le immagini saranno rivelate in questo stesso spazio 📸✨`
-      : `${revealDateLabel.charAt(0).toUpperCase() + revealDateLabel.slice(1)} a las ${revealTimeFormatted} todas las imágenes serán reveladas en este mismo espacio 📸✨`;
+      ? `${revealDateLabel.charAt(0).toUpperCase() + revealDateLabel.slice(1)} alle ${revealTimeFormatted} tutto sarà rivelato in questo stesso spazio 📸✨`
+      : `${revealDateLabel.charAt(0).toUpperCase() + revealDateLabel.slice(1)} a las ${revealTimeFormatted} todo será revelado en este mismo espacio 📸✨`;
 
     return (
       <div className="min-h-screen bg-background flex flex-col">
@@ -1119,10 +1113,10 @@ const Camera = () => {
   const revealDateLabel = revealTime ? getDateLabel(revealTime) : "";
   const revealTimeFormatted = revealTime ? formatLocalDate(revealTime, "HH:mm") : "";
   const revealInfoText = language === "en" 
-    ? `${revealDateLabel.charAt(0).toUpperCase() + revealDateLabel.slice(1)} at ${revealTimeFormatted} all images will be revealed in this same space 📸✨`
+    ? `${revealDateLabel.charAt(0).toUpperCase() + revealDateLabel.slice(1)} at ${revealTimeFormatted} everything will be revealed in this same space 📸✨`
     : language === "it"
-    ? `${revealDateLabel.charAt(0).toUpperCase() + revealDateLabel.slice(1)} alle ${revealTimeFormatted} tutte le immagini saranno rivelate in questo stesso spazio 📸✨`
-    : `${revealDateLabel.charAt(0).toUpperCase() + revealDateLabel.slice(1)} a las ${revealTimeFormatted} todas las imágenes serán reveladas en este mismo espacio 📸✨`;
+    ? `${revealDateLabel.charAt(0).toUpperCase() + revealDateLabel.slice(1)} alle ${revealTimeFormatted} tutto sarà rivelato in questo stesso spazio 📸✨`
+    : `${revealDateLabel.charAt(0).toUpperCase() + revealDateLabel.slice(1)} a las ${revealTimeFormatted} todo será revelado en este mismo espacio 📸✨`;
 
   const photosUploadedText = language === "en" 
     ? `${photoCount} photos uploaded`
@@ -1305,10 +1299,12 @@ const Camera = () => {
               {eventDescription && (
                 <p className="text-muted-foreground text-base md:text-lg max-w-xl mx-auto mb-2 whitespace-pre-line">{eventDescription}</p>
               )}
-              <p className="text-sm text-muted-foreground flex items-center justify-center gap-1">
-                <Image className="w-4 h-4" />
-                {photosUploadedText}
-              </p>
+              {showOnlyPhotoAction && (
+                <p className="text-sm text-muted-foreground flex items-center justify-center gap-1">
+                  <Image className="w-4 h-4" />
+                  {photosUploadedText}
+                </p>
+              )}
               <p className="text-xs text-muted-foreground mt-1">
                 {mediaCountsText}
               </p>
@@ -1326,10 +1322,12 @@ const Camera = () => {
               >
                 {eventName}
               </h1>
-              <p className="text-sm text-muted-foreground flex items-center gap-1">
-                <Image className="w-4 h-4" />
-                {photosUploadedText}
-              </p>
+              {showOnlyPhotoAction && (
+                <p className="text-sm text-muted-foreground flex items-center gap-1">
+                  <Image className="w-4 h-4" />
+                  {photosUploadedText}
+                </p>
+              )}
               <p className="text-xs text-muted-foreground mt-1">
                 {mediaCountsText}
               </p>
@@ -1395,6 +1393,9 @@ const Camera = () => {
                 <video
                   src={recordingPreviewUrl || ""}
                   controls
+                  autoPlay
+                  muted
+                  playsInline
                   className="w-full rounded-2xl bg-black"
                 />
               ) : (
@@ -1415,18 +1416,18 @@ const Camera = () => {
               )}
               <div className="flex gap-3">
                 <Button
-                  className="flex-1"
-                  onClick={handleUseRecording}
-                  disabled={isUploadingMedia}
-                >
-                  {language === "en" ? "Use" : language === "it" ? "Usa" : "Usar"}
-                </Button>
-                <Button
                   variant="outline"
                   className="flex-1"
                   onClick={handleDiscardRecording}
                 >
                   {language === "en" ? "Discard" : language === "it" ? "Scarta" : "Descartar"}
+                </Button>
+                <Button
+                  className="flex-1"
+                  onClick={handleUseRecording}
+                  disabled={isUploadingMedia}
+                >
+                  {language === "en" ? "Upload" : language === "it" ? "Carica" : "Subir"}
                 </Button>
               </div>
             </div>
