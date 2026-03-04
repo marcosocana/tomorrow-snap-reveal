@@ -1127,6 +1127,14 @@ const Gallery = () => {
     }
   };
 
+  const handleExitToAccess = () => {
+    localStorage.removeItem("eventId");
+    localStorage.removeItem("eventName");
+    localStorage.removeItem("eventLanguage");
+    localStorage.removeItem("eventTimezone");
+    window.location.href = "https://acceso.revelao.cam";
+  };
+
   // Translated texts
   const loadingPhotosText = language === "en" ? "Loading photos..." : language === "it" ? "Caricamento foto..." : "Cargando fotos...";
   const noPhotosYetText = language === "en" ? "No photos yet" : language === "it" ? "Nessuna foto ancora" : "Aún no hay fotos";
@@ -1230,7 +1238,7 @@ const Gallery = () => {
               <Button
                 variant="secondary"
                 size="icon"
-                onClick={handleLogout}
+                onClick={handleExitToAccess}
                 className="bg-black/45 text-white backdrop-blur-sm hover:bg-black/60"
                 aria-label={exitText}
               >
@@ -1241,20 +1249,20 @@ const Gallery = () => {
               <Button
                 variant="secondary"
                 size="icon"
-                onClick={() => setShowShareDialog(true)}
-                className="bg-black/45 text-white backdrop-blur-sm hover:bg-black/60"
-                aria-label={shareText}
-              >
-                <Share2 className="w-5 h-5" />
-              </Button>
-              <Button
-                variant="secondary"
-                size="icon"
                 onClick={() => handleDownloadAll(false)}
                 className="bg-black/45 text-white backdrop-blur-sm hover:bg-black/60"
                 aria-label={downloadAllText}
               >
                 <Download className="w-5 h-5" />
+              </Button>
+              <Button
+                variant="secondary"
+                size="icon"
+                onClick={() => setShowShareDialog(true)}
+                className="bg-black/45 text-white backdrop-blur-sm hover:bg-black/60"
+                aria-label={shareText}
+              >
+                <Share2 className="w-5 h-5" />
               </Button>
             </div>
             {isModernHeader && (
@@ -1314,7 +1322,7 @@ const Gallery = () => {
               <Button
                 variant="secondary"
                 size="icon"
-                onClick={handleLogout}
+                onClick={handleExitToAccess}
                 className="bg-black/45 text-white backdrop-blur-sm hover:bg-black/60"
                 aria-label={exitText}
               >
@@ -1324,20 +1332,20 @@ const Gallery = () => {
                 <Button
                   variant="secondary"
                   size="icon"
-                  onClick={() => setShowShareDialog(true)}
-                  className="bg-black/45 text-white backdrop-blur-sm hover:bg-black/60"
-                  aria-label={shareText}
-                >
-                  <Share2 className="w-5 h-5" />
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="icon"
                   onClick={() => handleDownloadAll(false)}
                   className="bg-black/45 text-white backdrop-blur-sm hover:bg-black/60"
                   aria-label={downloadAllText}
                 >
                   <Download className="w-5 h-5" />
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  onClick={() => setShowShareDialog(true)}
+                  className="bg-black/45 text-white backdrop-blur-sm hover:bg-black/60"
+                  aria-label={shareText}
+                >
+                  <Share2 className="w-5 h-5" />
                 </Button>
               </div>
             </div>

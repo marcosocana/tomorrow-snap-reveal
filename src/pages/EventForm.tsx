@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Globe, Trash2 } from "lucide-react";
-import { addDays, format, subHours } from "date-fns";
+import { addDays, format } from "date-fns";
 import { toZonedTime, fromZonedTime, formatInTimeZone } from "date-fns-tz";
 import CountrySelect from "@/components/CountrySelect";
 import LanguageSelect from "@/components/LanguageSelect";
@@ -447,22 +447,6 @@ const EventForm = () => {
         return;
       }
 
-      if (!isEditing) {
-        const nowTz = toZonedTime(new Date(), formData.timezone);
-        const todayStr = format(nowTz, "yyyy-MM-dd");
-        const minStart = subHours(nowTz, 2);
-        const startUtc = fromZonedTime(`${formData.uploadStartDate}T${formData.uploadStartTime}:00`, formData.timezone);
-        if (formData.uploadStartDate < todayStr || startUtc < minStart) {
-          toast({
-            title: t("form.errorTitle"),
-            description: "La fecha de inicio no puede ser anterior a hoy y la hora no puede ser anterior a 2 horas.",
-            variant: "destructive",
-          });
-          setIsSubmitting(false);
-          return;
-        }
-      }
-
       const planToMaxPhotos: Record<string, string> = {
         demo: "10",
         small: "200",
@@ -732,15 +716,6 @@ const EventForm = () => {
       prev.customImageUrl ? prev : { ...prev, customImageUrl: defaultQrLogo }
     );
   }, [isSuperAdmin, isEditing]);
-
-  const nowTz = toZonedTime(new Date(), formData.timezone);
-  const todayStr = format(nowTz, "yyyy-MM-dd");
-  const startMinTimeStr = format(subHours(nowTz, 2), "HH:mm");
-
-  const clampTime = (value: string, min?: string) => {
-    if (!min) return value;
-    return value < min ? min : value;
-  };
 
   const getExpiryDays = () => {
     if (planType === "custom") return null;
@@ -1229,19 +1204,9 @@ const EventForm = () => {
                     id="uploadStartDate"
                     type="date"
                     value={formData.uploadStartDate}
-                    onChange={(e) => {
-                      const nextDate = e.target.value;
-                      const nextStartTime = clampTime(
-                        formData.uploadStartTime,
-                        nextDate === todayStr ? startMinTimeStr : undefined
-                      );
-                      setFormData({
-                        ...formData,
-                        uploadStartDate: nextDate,
-                        uploadStartTime: nextStartTime,
-                      });
-                    }}
-                    min={todayStr}
+                    onChange={(e) =>
+                      setFormData({ ...formData, uploadStartDate: e.target.value })
+                    }
                     required
                   />
                 </div>
@@ -1257,13 +1222,9 @@ const EventForm = () => {
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        uploadStartTime: clampTime(
-                          e.target.value,
-                          formData.uploadStartDate === todayStr ? startMinTimeStr : undefined
-                        ),
+                        uploadStartTime: e.target.value,
                       })
                     }
-                    min={formData.uploadStartDate === todayStr ? startMinTimeStr : undefined}
                     required
                   />
                 </div>

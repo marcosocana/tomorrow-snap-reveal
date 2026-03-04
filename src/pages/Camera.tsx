@@ -1528,21 +1528,14 @@ const Camera = () => {
               <button
                 type="button"
                 onClick={startMediaRecording}
-                className="relative flex h-20 w-20 items-center justify-center rounded-full border-4 border-destructive bg-destructive/80 text-white shadow-lg transition hover:scale-105"
+                className="relative flex h-20 w-20 items-center justify-center rounded-full border-2 border-white/80 bg-black/20 text-white shadow-lg transition hover:scale-105"
+                aria-label={isRecordingMedia ? "Stop recording" : "Start recording"}
               >
-                <span className="text-lg font-semibold">
-                  {isRecordingMedia
-                    ? language === "en"
-                      ? "Stop"
-                      : language === "it"
-                      ? "Stop"
-                      : "Parar"
-                    : language === "en"
-                    ? "Rec"
-                    : language === "it"
-                    ? "Rec"
-                    : "Rec"}
-                </span>
+                <span
+                  className={`block bg-destructive transition-all duration-200 ease-in-out ${
+                    isRecordingMedia ? "h-8 w-8 rounded-md" : "h-11 w-11 rounded-full"
+                  }`}
+                />
               </button>
 
               <div className="space-y-1 text-center text-xs text-white/80">
@@ -1561,13 +1554,15 @@ const Camera = () => {
                       : "Listo para grabar"}
                   </p>
                 )}
-                <p>
-                  {language === "en"
-                    ? `Max ${recordingMode === "video" ? videoDurationSeconds : audioDurationSeconds}s`
-                    : language === "it"
-                    ? `Max ${recordingMode === "video" ? videoDurationSeconds : audioDurationSeconds}s`
-                    : `Máx. ${recordingMode === "video" ? videoDurationSeconds : audioDurationSeconds}s`}
-                </p>
+                {recordingMode !== "video" && (
+                  <p>
+                    {language === "en"
+                      ? `Max ${audioDurationSeconds}s`
+                      : language === "it"
+                      ? `Max ${audioDurationSeconds}s`
+                      : `Máx. ${audioDurationSeconds}s`}
+                  </p>
+                )}
               </div>
               {recordingError && (
                 <p className="text-xs text-destructive">{recordingError}</p>
