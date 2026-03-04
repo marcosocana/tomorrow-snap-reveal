@@ -133,7 +133,7 @@ serve(async (req) => {
         max_photos: maxPhotos,
         allow_video_recording: allowVideoRecording,
         max_videos: allowVideoRecording ? (maxVideos ?? 0) : 0,
-        max_video_duration: 30,
+        max_video_duration: 15,
         allow_audio_recording: allowAudioRecording,
         max_audios: allowAudioRecording ? (maxAudios ?? 0) : 0,
         max_audio_duration: 30,

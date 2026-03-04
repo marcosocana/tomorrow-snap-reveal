@@ -195,7 +195,7 @@ serve(async (req) => {
         allow_photo_deletion: true,
         allow_video_recording: true,
         max_videos: 3,
-        max_video_duration: 30,
+        max_video_duration: 15,
         allow_audio_recording: true,
         max_audios: 6,
         max_audio_duration: 30,

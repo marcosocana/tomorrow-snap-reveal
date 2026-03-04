@@ -882,7 +882,7 @@ const EventForm = () => {
                         maxPhotos: limits.maxPhotos,
                         allowVideoRecording: limits.allowVideoRecording,
                         maxVideos: limits.maxVideos,
-                        maxVideoDuration: "30",
+                        maxVideoDuration: "15",
                         allowAudioRecording: limits.allowAudioRecording,
                         maxAudios: limits.maxAudios,
                         maxAudioDuration: "30",
@@ -1001,7 +1001,7 @@ const EventForm = () => {
                   disabled={!isSuperAdmin || planType !== "custom"}
                   className={!isSuperAdmin || planType !== "custom" ? "bg-muted cursor-not-allowed" : ""}
                 />
-              {!isSuperAdmin && (
+              {((!isSuperAdmin) || (isEditing && isDemoEvent)) && (
                 <p className="text-xs text-muted-foreground">
                   {t("form.maxPhotosFixedDemo")}
                 </p>
@@ -1108,6 +1108,17 @@ const EventForm = () => {
                     alt={t("form.preview")}
                     className="w-full max-w-[320px] aspect-video object-cover border border-border rounded"
                   />
+                  {isEditing && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="absolute bottom-2 left-2"
+                      onClick={() => window.open(formData.backgroundImageUrl, "_blank", "noopener,noreferrer")}
+                    >
+                      {t("events.preview")}
+                    </Button>
+                  )}
                   <Button
                     type="button"
                     variant="destructive"
@@ -1164,6 +1175,17 @@ const EventForm = () => {
                     alt="Preview"
                     className="max-w-[240px] max-h-[100px] object-contain border border-border rounded"
                   />
+                  {isEditing && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="absolute bottom-2 left-2"
+                      onClick={() => window.open(formData.customImageUrl, "_blank", "noopener,noreferrer")}
+                    >
+                      {t("events.preview")}
+                    </Button>
+                  )}
                   <Button
                     type="button"
                     variant="destructive"
@@ -1615,7 +1637,7 @@ const EventForm = () => {
               </div>
             )}
 
-            {isSuperAdmin && (
+            {isSuperAdmin && !isDemoEvent && (
               <div className="mt-4 space-y-4 border-t border-border pt-4">
                 <div>
                   <Label className="text-base font-semibold">{t("form.mediaSection")}</Label>
@@ -1748,18 +1770,23 @@ const EventForm = () => {
               </div>
             )}
 
-            {isEditing && (formData.allowVideoRecording || formData.allowAudioRecording) && (
+            {isEditing && !isDemoEvent && (
               <div className="mt-4 rounded-lg border border-border bg-muted/40 p-4">
                 <p className="text-sm font-semibold text-foreground">Incluido en el plan</p>
                 <p className="mt-1 text-sm text-muted-foreground">
+                  Fotos:{" "}
+                  <span className="font-medium text-foreground">
+                    {formData.maxPhotos || "Ilimitadas"}
+                  </span>
+                  {" · "}
                   Vídeos:{" "}
                   <span className="font-medium text-foreground">
-                    {formData.allowVideoRecording ? (formData.maxVideos || "0") : "No incluido"}
+                    {formData.allowVideoRecording ? (formData.maxVideos || "Ilimitados") : "No incluido"}
                   </span>
                   {" · "}
                   Audios:{" "}
                   <span className="font-medium text-foreground">
-                    {formData.allowAudioRecording ? (formData.maxAudios || "0") : "No incluido"}
+                    {formData.allowAudioRecording ? (formData.maxAudios || "Ilimitados") : "No incluido"}
                   </span>
                 </p>
               </div>
