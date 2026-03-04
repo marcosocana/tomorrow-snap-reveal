@@ -870,7 +870,7 @@ const Camera = () => {
   const isModernHeader = headerStyle === "modern";
   const demoBanner = isDemoEvent ? (
     <div className="fixed top-0 left-0 right-0 z-40 bg-[#f06a5f] py-2 text-center text-xs font-semibold tracking-wide text-white">
-      <span>Eveto de prueba. </span>
+      <span>Evento de prueba. </span>
       <button
         type="button"
         className="underline underline-offset-2"

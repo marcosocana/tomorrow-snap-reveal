@@ -87,12 +87,10 @@ const MediaUsageTag = ({
         <Camera className="w-3.5 h-3.5" />
         {photoCount}/{photoLimit}
       </span>
-      <span className="text-foreground/60">,</span>
       <span className="inline-flex items-center gap-1">
         <Video className="w-3.5 h-3.5" />
         {videoCount}/{videoLimit}
       </span>
-      <span className="text-foreground/60">,</span>
       <span className="inline-flex items-center gap-1">
         <Mic className="w-3.5 h-3.5" />
         {audioCount}/{audioLimit}
