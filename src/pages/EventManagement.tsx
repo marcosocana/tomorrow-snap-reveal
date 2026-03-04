@@ -672,8 +672,14 @@ const EventManagement = () => {
                 {format(new Date(event.created_at), "dd/MM/yyyy HH:mm", { locale: dateLocale })}
               </p>
               <div className="flex flex-wrap items-center gap-2">
-                <span className="font-medium">Fotos / Vídeos / Audios:</span>{" "}
-                {photoCount} / {videoCount} / {audioCount}
+                <span className="font-medium">Fotos / Vídeos / Audios:</span>
+                <Button
+                  variant="ghost"
+                  className="h-auto px-0 py-0 text-sm font-normal text-muted-foreground hover:bg-transparent hover:text-foreground"
+                  onClick={() => setPreviewEvent(effectiveEvent)}
+                >
+                  {photoCount} / {videoCount} / {audioCount}
+                </Button>
                 <Button
                   variant="outline"
                   size="sm"
