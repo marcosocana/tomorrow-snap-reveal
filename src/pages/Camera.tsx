@@ -59,6 +59,7 @@ const Camera = () => {
   const [allowAudioRecording, setAllowAudioRecording] = useState(false);
   const [maxAudios, setMaxAudios] = useState<number | null>(null);
   const [audioDurationSeconds, setAudioDurationSeconds] = useState(30);
+  const [maxPhotos, setMaxPhotos] = useState<number | null>(null);
   const [headerStyle, setHeaderStyle] = useState<"gradient" | "modern">("modern");
   const [recordingMode, setRecordingMode] = useState<"video" | "audio" | null>(null);
   const [isRecordingMedia, setIsRecordingMedia] = useState(false);
@@ -175,6 +176,7 @@ const Camera = () => {
         setRevealTime(data.reveal_time);
         setUploadStartTime(data.upload_start_time || "");
         setUploadEndTime(data.upload_end_time || "");
+        setMaxPhotos(data.max_photos ?? null);
         setEventPassword(data.password_hash || "");
         setCustomImageUrl(data.custom_image_url || "");
         setBackgroundImageUrl(data.background_image_url || "");
@@ -191,18 +193,6 @@ const Camera = () => {
         setAudioDurationSeconds(Number.isFinite(rawAudioDuration) && rawAudioDuration > 0 ? rawAudioDuration : 30);
         setHeaderStyle(((data as any).header_style || "modern") as "gradient" | "modern");
         
-        // Check if max photos limit reached
-        if (data.max_photos) {
-          const { count } = await supabase
-            .from("photos")
-            .select("*", { count: "exact", head: true })
-            .eq("event_id", eventId);
-          
-          if (count && count >= data.max_photos) {
-            // Treat as event ended
-            setUploadEndTime(new Date().toISOString());
-          }
-        }
       }
     } finally {
       setEventConfigReady(true);
@@ -333,6 +323,15 @@ const Camera = () => {
   };
 
   const handleTakePhoto = () => {
+    if (maxPhotos !== null && photoCount >= maxPhotos) {
+      toast({
+        title: t.camera.limitReached,
+        description: t.camera.limitReachedDesc,
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Check if upload period is valid
     const now = new Date();
     const startTime = uploadStartTime ? new Date(uploadStartTime) : null;
@@ -787,8 +786,10 @@ const Camera = () => {
   const startTime = uploadStartTime ? new Date(uploadStartTime) : null;
   const endTime = uploadEndTime ? new Date(uploadEndTime) : null;
   const reveal = revealTime ? new Date(revealTime) : null;
+  const isPhotoOnlyConfigured = !allowVideoRecording && !allowAudioRecording;
+  const photoLimitReached = maxPhotos !== null && photoCount >= maxPhotos;
   const hasNotStarted = startTime && now < startTime;
-  const hasEnded = endTime && now > endTime;
+  const hasEnded = (endTime && now > endTime) || (isPhotoOnlyConfigured && photoLimitReached);
   const hasRevealed = reveal && now >= reveal;
 
   // Capture the magic text based on language
@@ -1167,12 +1168,16 @@ const Camera = () => {
   const isButtonDisabled = isUploading || rateLimitCooldown > 0;
   const videoLimitReached = allowVideoRecording && maxVideos !== null && videoCount >= maxVideos;
   const audioLimitReached = allowAudioRecording && maxAudios !== null && audioCount >= maxAudios;
+  const showPhotoAction = !photoLimitReached;
+  const showVideoAction = allowVideoRecording && !videoLimitReached;
+  const showAudioAction = allowAudioRecording && !audioLimitReached;
+  const visibleActionCount = Number(showPhotoAction) + Number(showVideoAction) + Number(showAudioAction);
   const mediaButtonDisabled = isRecordingMedia || isUploadingMedia;
   const recordVideoText = "Vídeo";
   const recordAudioText = "Audio";
   const photoActionText = "Foto";
   const actionQuestionText = "¿Que quieres hacer?";
-  const showOnlyPhotoAction = !allowVideoRecording && !allowAudioRecording;
+  const showOnlyPhotoAction = isPhotoOnlyConfigured;
   const cameraContentClass = backgroundImageUrl
     ? "flex-1 px-6 pb-6 flex flex-col"
     : "flex-1 pt-16 pb-6 px-6 flex flex-col";
@@ -1181,49 +1186,57 @@ const Camera = () => {
       <h2 className="mt-2 text-xl md:text-2xl font-semibold text-foreground">{actionQuestionText}</h2>
       {showOnlyPhotoAction ? (
         <div className="w-full flex justify-center">
-          <Button
-            onClick={handleTakePhoto}
-            disabled={isButtonDisabled}
-            className="bg-black hover:bg-black/90 text-white h-12 px-8 text-base rounded-xl"
-          >
-            Hacer foto
-          </Button>
+          {showPhotoAction && (
+            <Button
+              onClick={handleTakePhoto}
+              disabled={isButtonDisabled}
+              className="bg-black hover:bg-black/90 text-white h-12 px-8 text-base rounded-xl"
+            >
+              Hacer foto
+            </Button>
+          )}
         </div>
       ) : (
-        <div className="grid w-full grid-cols-3 gap-3">
-          <button
-            type="button"
-            onClick={handleTakePhoto}
-            disabled={isButtonDisabled}
-            className="flex h-36 w-full flex-col items-center justify-center gap-2 rounded-3xl border border-border bg-card p-4 text-sm font-semibold text-foreground transition hover:border-primary focus-visible:ring focus-visible:ring-primary/60 disabled:cursor-not-allowed disabled:border-border disabled:bg-muted/60 disabled:text-muted-foreground"
-          >
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black text-white">
-              <Image className="w-6 h-6" />
-            </div>
-            <span>{photoActionText}</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => openRecordingSession("video")}
-            disabled={!allowVideoRecording || videoLimitReached || mediaButtonDisabled}
-            className="flex h-36 w-full flex-col items-center justify-center gap-2 rounded-3xl border border-border bg-card p-4 text-sm font-semibold text-foreground transition hover:border-primary focus-visible:ring focus-visible:ring-primary/60 disabled:cursor-not-allowed disabled:border-border disabled:bg-muted/60 disabled:text-muted-foreground"
-          >
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black text-white">
-              <Video className="w-6 h-6" />
-            </div>
-            <span>{recordVideoText}</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => openRecordingSession("audio")}
-            disabled={!allowAudioRecording || audioLimitReached || mediaButtonDisabled}
-            className="flex h-36 w-full flex-col items-center justify-center gap-2 rounded-3xl border border-border bg-card p-4 text-sm font-semibold text-foreground transition hover:border-primary focus-visible:ring focus-visible:ring-primary/60 disabled:cursor-not-allowed disabled:border-border disabled:bg-muted/60 disabled:text-muted-foreground"
-          >
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black text-white">
-              <Mic className="w-6 h-6" />
-            </div>
-            <span>{recordAudioText}</span>
-          </button>
+        <div className={`grid w-full gap-3 ${visibleActionCount === 1 ? "grid-cols-1 max-w-sm mx-auto" : visibleActionCount === 2 ? "grid-cols-2 max-w-2xl mx-auto" : "grid-cols-3"}`}>
+          {showPhotoAction && (
+            <button
+              type="button"
+              onClick={handleTakePhoto}
+              disabled={isButtonDisabled}
+              className="flex h-36 w-full flex-col items-center justify-center gap-2 rounded-3xl border border-border bg-card p-4 text-sm font-semibold text-foreground transition hover:border-primary focus-visible:ring focus-visible:ring-primary/60 disabled:cursor-not-allowed disabled:border-border disabled:bg-muted/60 disabled:text-muted-foreground"
+            >
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black text-white">
+                <Image className="w-6 h-6" />
+              </div>
+              <span>{photoActionText}</span>
+            </button>
+          )}
+          {showVideoAction && (
+            <button
+              type="button"
+              onClick={() => openRecordingSession("video")}
+              disabled={mediaButtonDisabled}
+              className="flex h-36 w-full flex-col items-center justify-center gap-2 rounded-3xl border border-border bg-card p-4 text-sm font-semibold text-foreground transition hover:border-primary focus-visible:ring focus-visible:ring-primary/60 disabled:cursor-not-allowed disabled:border-border disabled:bg-muted/60 disabled:text-muted-foreground"
+            >
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black text-white">
+                <Video className="w-6 h-6" />
+              </div>
+              <span>{recordVideoText}</span>
+            </button>
+          )}
+          {showAudioAction && (
+            <button
+              type="button"
+              onClick={() => openRecordingSession("audio")}
+              disabled={mediaButtonDisabled}
+              className="flex h-36 w-full flex-col items-center justify-center gap-2 rounded-3xl border border-border bg-card p-4 text-sm font-semibold text-foreground transition hover:border-primary focus-visible:ring focus-visible:ring-primary/60 disabled:cursor-not-allowed disabled:border-border disabled:bg-muted/60 disabled:text-muted-foreground"
+            >
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black text-white">
+                <Mic className="w-6 h-6" />
+              </div>
+              <span>{recordAudioText}</span>
+            </button>
+          )}
         </div>
       )}
       {failedUpload && !isUploading && (
