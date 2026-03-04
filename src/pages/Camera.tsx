@@ -1265,6 +1265,7 @@ const Camera = () => {
 
   const retryText = language === "en" ? "Retry" : language === "it" ? "Riprova" : "Reintentar";
   const isButtonDisabled = isUploading || rateLimitCooldown > 0;
+  const photoActionText = "Foto";
   const photoButtonText = rateLimitCooldown > 0
     ? language === "en"
       ? `Wait ${rateLimitCooldown}s`
@@ -1286,7 +1287,6 @@ const Camera = () => {
   const mediaButtonDisabled = isRecordingMedia || isUploadingMedia;
   const recordVideoText = "Vídeo";
   const recordAudioText = "Audio";
-  const photoActionText = "Foto";
   const actionQuestionText = "¿Que quieres hacer?";
   const showOnlyPhotoAction = isPhotoOnlyConfigured;
   const audioWaveBars = 28;
