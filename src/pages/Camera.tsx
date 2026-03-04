@@ -1098,8 +1098,6 @@ const Camera = () => {
     ? `${revealDateLabel.charAt(0).toUpperCase() + revealDateLabel.slice(1)} alle ${revealTimeFormatted} tutte le immagini saranno rivelate in questo stesso spazio 📸✨`
     : `${revealDateLabel.charAt(0).toUpperCase() + revealDateLabel.slice(1)} a las ${revealTimeFormatted} todas las imágenes serán reveladas en este mismo espacio 📸✨`;
 
-  const uploadButtonText = language === "en" ? "Take photo" : language === "it" ? "Scatta foto" : "Hacer foto";
-  const uploadingText = language === "en" ? "Uploading..." : language === "it" ? "Caricamento..." : "Subiendo...";
   const photosUploadedText = language === "en" 
     ? `${photoCount} photos uploaded`
     : language === "it"
@@ -1110,153 +1108,69 @@ const Camera = () => {
     : language === "it"
     ? `📷 ${photoCount} foto / 📹 ${videoCount} video / 🔈 ${audioCount} audio`
     : `📷 ${photoCount} fotos / 📹 ${videoCount} vídeos / 🔈 ${audioCount} audios`;
-  const cooldownText = language === "en" ? `Wait ${rateLimitCooldown}s` : language === "it" ? `Attendi ${rateLimitCooldown}s` : `Espera ${rateLimitCooldown}s`;
   const retryText = language === "en" ? "Retry" : language === "it" ? "Riprova" : "Reintentar";
   const isButtonDisabled = isUploading || rateLimitCooldown > 0;
-  const buttonLabel = rateLimitCooldown > 0 ? cooldownText : isUploading ? uploadingText : uploadButtonText;
   const videoLimitReached = allowVideoRecording && maxVideos !== null && videoCount >= maxVideos;
   const audioLimitReached = allowAudioRecording && maxAudios !== null && audioCount >= maxAudios;
   const mediaButtonDisabled = isRecordingMedia || isUploadingMedia;
-  const recordVideoText = language === "en" ? "Record video" : language === "it" ? "Registra video" : "Grabar vídeo";
-  const recordAudioText = language === "en" ? "Record audio" : language === "it" ? "Registra audio" : "Grabar audio";
-  const cameraPhotoTitle =
-    language === "en"
-      ? "Capture the moment"
-      : language === "it"
-      ? "Cattura il momento"
-      : "Captura el momento";
-  const cameraPhotoSubtitle =
-    language === "en"
-      ? `${photoCount} photos ready`
-      : language === "it"
-      ? `${photoCount} foto pronte`
-      : `${photoCount} fotos listas`;
-  const videoActionTitle =
-    language === "en"
-      ? "Share a short clip"
-      : language === "it"
-      ? "Condividi un breve video"
-      : "Comparte un clip corto";
-  const audioActionTitle =
-    language === "en"
-      ? "Leave an audio memory"
-      : language === "it"
-      ? "Lascia un ricordo audio"
-      : "Deja una nota de audio";
-  const cameraVideoSubtitle =
-    language === "en"
-      ? `${videoCount} videos ready`
-      : language === "it"
-      ? `${videoCount} video pronti`
-      : `${videoCount} vídeos listos`;
-  const cameraVideoMaxLabel =
-    language === "en"
-      ? `Max ${videoDurationSeconds}s per clip`
-      : language === "it"
-      ? `Max ${videoDurationSeconds}s per clip`
-      : `Máx. ${videoDurationSeconds}s por clip`;
-  const cameraAudioSubtitle =
-    language === "en"
-      ? `${audioCount} audio notes ready`
-      : language === "it"
-      ? `${audioCount} note audio pronte`
-      : `${audioCount} notas de audio listas`;
-  const cameraAudioMaxLabel =
-    language === "en"
-      ? `Max ${audioDurationSeconds}s per note`
-      : language === "it"
-      ? `Max ${audioDurationSeconds}s per nota`
-      : `Máx. ${audioDurationSeconds}s por nota`;
-  const cameraVideoLimitText =
-    language === "en"
-      ? "Video limit reached"
-      : language === "it"
-      ? "Limite video raggiunto"
-      : "Límite de vídeo alcanzado";
-  const cameraAudioLimitText =
-    language === "en"
-      ? "Audio limit reached"
-      : language === "it"
-      ? "Limite audio raggiunto"
-      : "Límite de audio alcanzado";
-  const cameraVideoDisabledText =
-    language === "en"
-      ? "Video recording disabled"
-      : language === "it"
-      ? "Registrazione video disabilitata"
-      : "Grabación de vídeo deshabilitada";
-  const cameraAudioDisabledText =
-    language === "en"
-      ? "Audio recording disabled"
-      : language === "it"
-      ? "Registrazione audio disabilitata"
-      : "Grabación de audio deshabilitada";
+  const recordVideoText = "Vídeo";
+  const recordAudioText = "Audio";
+  const photoActionText = "Foto";
+  const actionQuestionText = "¿Que quieres hacer?";
+  const showOnlyPhotoAction = !allowVideoRecording && !allowAudioRecording;
   const cameraContentClass = backgroundImageUrl
     ? "flex-1 px-6 pb-6 flex flex-col"
     : "flex-1 pt-16 pb-6 px-6 flex flex-col";
   const cameraActionButtons = (
     <div className="flex flex-col items-center gap-4 w-full max-w-4xl mx-auto text-center">
-      <div className="grid w-full grid-cols-3 gap-3">
-        <button
-          type="button"
-          onClick={handleTakePhoto}
-          disabled={isButtonDisabled}
-          className="flex flex-col items-center justify-center gap-2 rounded-3xl border border-border bg-card p-4 text-sm font-semibold text-foreground transition hover:border-primary focus-visible:ring focus-visible:ring-primary/60 disabled:cursor-not-allowed disabled:border-border disabled:bg-muted/60 disabled:text-muted-foreground"
-        >
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-            <Image className="w-6 h-6" />
-          </div>
-          <span>{cameraPhotoTitle}</span>
-          <span className="text-xs text-muted-foreground">{cameraPhotoSubtitle}</span>
-          <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
-            {language === "en" ? `${photoCount} photos` : language === "it" ? `${photoCount} foto` : `${photoCount} fotos`}
-          </span>
-        </button>
-        <button
-          type="button"
-          onClick={() => openRecordingSession("video")}
-          disabled={!allowVideoRecording || videoLimitReached || mediaButtonDisabled}
-          className={`flex flex-col items-center justify-center gap-2 rounded-3xl border p-4 text-sm font-semibold transition focus-visible:ring focus-visible:ring-primary/60 ${allowVideoRecording && !videoLimitReached && !mediaButtonDisabled ? "border-primary bg-primary/10 text-primary" : "border-border bg-muted text-muted-foreground disabled:cursor-not-allowed"}`}
-        >
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-500/10 text-blue-500">
-            <Video className="w-6 h-6" />
-          </div>
-          <span>{recordVideoText}</span>
-          <span className="text-xs text-muted-foreground">{cameraVideoSubtitle}</span>
-          <span className="text-[10px] text-muted-foreground">
-            {videoLimitReached
-              ? cameraVideoLimitText
-              : maxVideos !== null
-              ? `${videoCount}/${maxVideos}`
-              : `${videoCount}`}
-          </span>
-          <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
-            {cameraVideoMaxLabel}
-          </span>
-        </button>
-        <button
-          type="button"
-          onClick={() => openRecordingSession("audio")}
-          disabled={!allowAudioRecording || audioLimitReached || mediaButtonDisabled}
-          className={`flex flex-col items-center justify-center gap-2 rounded-3xl border p-4 text-sm font-semibold transition focus-visible:ring focus-visible:ring-primary/60 ${allowAudioRecording && !audioLimitReached && !mediaButtonDisabled ? "border-amber-500 bg-amber-500/10 text-amber-500" : "border-border bg-muted text-muted-foreground disabled:cursor-not-allowed"}`}
-        >
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-500/10 text-amber-500">
-            <Mic className="w-6 h-6" />
-          </div>
-          <span>{recordAudioText}</span>
-          <span className="text-xs text-muted-foreground">{cameraAudioSubtitle}</span>
-          <span className="text-[10px] text-muted-foreground">
-            {audioLimitReached
-              ? cameraAudioLimitText
-              : maxAudios !== null
-              ? `${audioCount}/${maxAudios}`
-              : `${audioCount}`}
-          </span>
-          <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
-            {cameraAudioMaxLabel}
-          </span>
-        </button>
-      </div>
+      <h2 className="text-xl md:text-2xl font-semibold text-foreground">{actionQuestionText}</h2>
+      {showOnlyPhotoAction ? (
+        <div className="w-full flex justify-center">
+          <Button
+            onClick={handleTakePhoto}
+            disabled={isButtonDisabled}
+            className="bg-black hover:bg-black/90 text-white h-12 px-8 text-base rounded-xl"
+          >
+            Hacer foto
+          </Button>
+        </div>
+      ) : (
+        <div className="grid w-full grid-cols-3 gap-3">
+          <button
+            type="button"
+            onClick={handleTakePhoto}
+            disabled={isButtonDisabled}
+            className="flex flex-col items-center justify-center gap-2 rounded-3xl border border-border bg-card p-4 text-sm font-semibold text-foreground transition hover:border-primary focus-visible:ring focus-visible:ring-primary/60 disabled:cursor-not-allowed disabled:border-border disabled:bg-muted/60 disabled:text-muted-foreground"
+          >
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <Image className="w-6 h-6" />
+            </div>
+            <span>{photoActionText}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => openRecordingSession("video")}
+            disabled={!allowVideoRecording || videoLimitReached || mediaButtonDisabled}
+            className={`flex flex-col items-center justify-center gap-2 rounded-3xl border p-4 text-sm font-semibold transition focus-visible:ring focus-visible:ring-primary/60 ${allowVideoRecording && !videoLimitReached && !mediaButtonDisabled ? "border-primary bg-primary/10 text-primary" : "border-border bg-muted text-muted-foreground disabled:cursor-not-allowed"}`}
+          >
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-500/10 text-blue-500">
+              <Video className="w-6 h-6" />
+            </div>
+            <span>{recordVideoText}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => openRecordingSession("audio")}
+            disabled={!allowAudioRecording || audioLimitReached || mediaButtonDisabled}
+            className={`flex flex-col items-center justify-center gap-2 rounded-3xl border p-4 text-sm font-semibold transition focus-visible:ring focus-visible:ring-primary/60 ${allowAudioRecording && !audioLimitReached && !mediaButtonDisabled ? "border-amber-500 bg-amber-500/10 text-amber-500" : "border-border bg-muted text-muted-foreground disabled:cursor-not-allowed"}`}
+          >
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-500/10 text-amber-500">
+              <Mic className="w-6 h-6" />
+            </div>
+            <span>{recordAudioText}</span>
+          </button>
+        </div>
+      )}
       {failedUpload && !isUploading && (
         <div className="flex justify-center w-full">
           <Button
