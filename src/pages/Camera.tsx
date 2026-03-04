@@ -71,6 +71,7 @@ const Camera = () => {
   const recordedChunksRef = useRef<Blob[]>([]);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
+  const hasRequestedMediaPermissionsRef = useRef(false);
   const recordingVideoRef = useRef<HTMLVideoElement>(null);
   const countdownIntervalRef = useRef<number | null>(null);
   const recordingStartRef = useRef<number>(0);
@@ -555,12 +556,52 @@ const Camera = () => {
       }
 
       try {
-        teardownRecordingControls();
-        const constraints =
-          mode === "video"
-            ? { video: { facingMode: "environment" }, audio: true }
-            : { audio: true };
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        stopMediaRecorder();
+        resetRecordingState();
+
+        const hasAudioTrack = (stream: MediaStream) =>
+          stream.getAudioTracks().some((track) => track.readyState === "live");
+        const hasVideoTrack = (stream: MediaStream) =>
+          stream.getVideoTracks().some((track) => track.readyState === "live");
+
+        let stream = mediaStreamRef.current;
+        const streamIsValidForMode =
+          !!stream &&
+          (mode === "video"
+            ? hasAudioTrack(stream) && hasVideoTrack(stream)
+            : hasAudioTrack(stream));
+
+        if (!streamIsValidForMode) {
+          cleanupMediaStream();
+
+          // Ask camera + microphone together the first time, so permissions are requested once.
+          if (!hasRequestedMediaPermissionsRef.current) {
+            try {
+              stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: "environment" },
+                audio: true,
+              });
+            } catch (initialPermissionError) {
+              if (mode === "audio") {
+                stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+              } else {
+                throw initialPermissionError;
+              }
+            }
+            hasRequestedMediaPermissionsRef.current = true;
+          } else {
+            stream = await navigator.mediaDevices.getUserMedia(
+              mode === "video"
+                ? { video: { facingMode: "environment" }, audio: true }
+                : { audio: true }
+            );
+          }
+        }
+
+        if (!stream) {
+          throw new Error("No media stream available");
+        }
+
         mediaStreamRef.current = stream;
         if (mode === "video" && recordingVideoRef.current) {
           recordingVideoRef.current.srcObject = stream;
@@ -751,8 +792,21 @@ const Camera = () => {
           ? "Tu vídeo se guardó y aparecerá cuando se revele la galería."
           : "Tu nota de audio se guardó y aparecerá cuando se revele la galería.";
 
+      const title =
+        language === "en"
+          ? mode === "video"
+            ? "Video uploaded successfully"
+            : "Audio uploaded successfully"
+          : language === "it"
+          ? mode === "video"
+            ? "Video caricato con successo"
+            : "Audio caricato con successo"
+          : mode === "video"
+          ? "Vídeo subido con éxito"
+          : "Audio subido con éxito";
+
       toast({
-        title: t.camera.uploadSuccess,
+        title,
         description,
       });
       await loadMediaCounts();

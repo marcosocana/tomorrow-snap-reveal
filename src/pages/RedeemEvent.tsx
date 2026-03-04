@@ -37,6 +37,8 @@ type RedeemPlan = {
   id: string;
   label: string;
   maxPhotos: number | null;
+  maxVideos?: number | null;
+  maxAudios?: number | null;
 };
 
 const languageLabels: Record<string, string> = {
@@ -866,6 +868,8 @@ const RedeemEvent = () => {
                         <p><strong>Idioma:</strong> {languageLabels[formData.language] ?? formData.language}</p>
                         <p><strong>Zona horaria:</strong> {formData.timezone}</p>
                         <p><strong>Máximo de fotos:</strong> {plan.maxPhotos ?? "Sin límite"}</p>
+                        <p><strong>Máximo de vídeos:</strong> {plan.maxVideos ?? "Sin límite"}</p>
+                        <p><strong>Máximo de audios:</strong> {plan.maxAudios ?? "Sin límite"}</p>
                         <p><strong>Descripción:</strong> {formData.description?.trim() ? formData.description : "—"}</p>
                         <p>
                           <strong>Caducidad:</strong>{" "}

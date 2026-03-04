@@ -80,7 +80,14 @@ serve(async (req) => {
       pending: {
         token: purchase.redeem_token,
         plan: plan
-          ? { id: plan.id, label: plan.label, maxPhotos: plan.maxPhotos, stripePriceIdEnv: plan.stripePriceIdEnv }
+          ? {
+              id: plan.id,
+              label: plan.label,
+              maxPhotos: plan.maxPhotos,
+              maxVideos: plan.maxVideos,
+              maxAudios: plan.maxAudios,
+              stripePriceIdEnv: plan.stripePriceIdEnv,
+            }
           : null,
         expiresAt: purchase.redeem_token_expires_at ?? null,
       },

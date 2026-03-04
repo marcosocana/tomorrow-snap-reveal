@@ -58,12 +58,12 @@ serve(async (req) => {
   let plan = getPlanById(data.plan_id);
   if (!plan) {
     const fallbackPlans: Record<string, PlanConfig> = {
-      demo: { id: "demo", label: "Demo", maxPhotos: 10, stripePriceIdEnv: "STRIPE_PRICE_DEMO" },
-      small: { id: "small", label: "Start", maxPhotos: 200, stripePriceIdEnv: "STRIPE_PRICE_SMALL" },
-      medium: { id: "medium", label: "Plus", maxPhotos: 1200, stripePriceIdEnv: "STRIPE_PRICE_MEDIUM" },
-      large: { id: "large", label: "Plus", maxPhotos: 1200, stripePriceIdEnv: "STRIPE_PRICE_LARGE" },
-      xxl: { id: "xxl", label: "Pro", maxPhotos: null, stripePriceIdEnv: "STRIPE_PRICE_XXL" },
-      xl: { id: "xxl" as PlanId, label: "Pro", maxPhotos: null, stripePriceIdEnv: "STRIPE_PRICE_XXL" },
+      demo: { id: "demo", label: "Demo", maxPhotos: 10, maxVideos: 3, maxAudios: 6, stripePriceIdEnv: "STRIPE_PRICE_DEMO" },
+      small: { id: "small", label: "Start", maxPhotos: 200, maxVideos: 30, maxAudios: 60, stripePriceIdEnv: "STRIPE_PRICE_SMALL" },
+      medium: { id: "medium", label: "Plus", maxPhotos: 1200, maxVideos: 90, maxAudios: 200, stripePriceIdEnv: "STRIPE_PRICE_MEDIUM" },
+      large: { id: "large", label: "Plus", maxPhotos: 1200, maxVideos: 90, maxAudios: 200, stripePriceIdEnv: "STRIPE_PRICE_LARGE" },
+      xxl: { id: "xxl", label: "Pro", maxPhotos: null, maxVideos: null, maxAudios: null, stripePriceIdEnv: "STRIPE_PRICE_XXL" },
+      xl: { id: "xxl" as PlanId, label: "Pro", maxPhotos: null, maxVideos: null, maxAudios: null, stripePriceIdEnv: "STRIPE_PRICE_XXL" },
     };
     plan = fallbackPlans[data.plan_id ?? ""] ?? null;
   }

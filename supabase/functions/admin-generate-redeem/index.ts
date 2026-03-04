@@ -64,7 +64,14 @@ serve(async (req) => {
   const planId = payload?.planId as string | undefined;
   let plan = getPlanById(planId);
   if (!plan && planId === "demo") {
-    plan = { id: "demo", label: "Demo", maxPhotos: 10, stripePriceIdEnv: "STRIPE_PRICE_DEMO" };
+    plan = {
+      id: "demo",
+      label: "Demo",
+      maxPhotos: 10,
+      maxVideos: 3,
+      maxAudios: 6,
+      stripePriceIdEnv: "STRIPE_PRICE_DEMO",
+    };
   }
   if (!plan) {
     return json({ error: "INVALID_PLAN" }, 400);

@@ -106,6 +106,10 @@ serve(async (req) => {
     }
 
     const maxPhotos = plan.maxPhotos;
+    const maxVideos = plan.maxVideos;
+    const maxAudios = plan.maxAudios;
+    const allowVideoRecording = maxVideos !== 0;
+    const allowAudioRecording = maxAudios !== 0;
 
     const revealBase = new Date(event.reveal_time);
     const expiryDate = new Date(revealBase);
@@ -127,6 +131,12 @@ serve(async (req) => {
         upload_end_time: event.upload_end_time,
         reveal_time: event.reveal_time,
         max_photos: maxPhotos,
+        allow_video_recording: allowVideoRecording,
+        max_videos: allowVideoRecording ? (maxVideos ?? 0) : 0,
+        max_video_duration: 30,
+        allow_audio_recording: allowAudioRecording,
+        max_audios: allowAudioRecording ? (maxAudios ?? 0) : 0,
+        max_audio_duration: 30,
         custom_image_url: event.custom_image_url ?? null,
         background_image_url: event.background_image_url ?? null,
         filter_type: event.filter_type ?? "none",
@@ -135,7 +145,11 @@ serve(async (req) => {
         is_demo: false,
         type: "paid",
         plan_id: plan.id,
-        limits_json: { max_photos: maxPhotos },
+        limits_json: {
+          max_photos: maxPhotos,
+          max_videos: maxVideos,
+          max_audios: maxAudios,
+        },
         country_code: event.country_code ?? "ES",
         timezone: event.timezone ?? "Europe/Madrid",
         language: event.language ?? "es",

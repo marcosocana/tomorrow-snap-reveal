@@ -4,6 +4,8 @@ export type PlanConfig = {
   id: PlanId;
   label: string;
   maxPhotos: number | null;
+  maxVideos: number | null;
+  maxAudios: number | null;
   stripePriceIdEnv: string;
 };
 
@@ -12,30 +14,40 @@ export const PLANS: Record<PlanId, PlanConfig> = {
     id: "demo",
     label: "Demo",
     maxPhotos: 10,
+    maxVideos: 3,
+    maxAudios: 6,
     stripePriceIdEnv: "STRIPE_PRICE_DEMO",
   },
   small: {
     id: "small",
     label: "Start",
     maxPhotos: 200,
+    maxVideos: 30,
+    maxAudios: 60,
     stripePriceIdEnv: "STRIPE_PRICE_SMALL",
   },
   medium: {
     id: "medium",
     label: "Plus",
     maxPhotos: 1200,
+    maxVideos: 90,
+    maxAudios: 200,
     stripePriceIdEnv: "STRIPE_PRICE_MEDIUM",
   },
   large: {
     id: "large",
     label: "Plus",
     maxPhotos: 1200,
+    maxVideos: 90,
+    maxAudios: 200,
     stripePriceIdEnv: "STRIPE_PRICE_LARGE",
   },
   xxl: {
     id: "xxl",
     label: "Pro",
     maxPhotos: null,
+    maxVideos: null,
+    maxAudios: null,
     stripePriceIdEnv: "STRIPE_PRICE_XXL",
   },
 };

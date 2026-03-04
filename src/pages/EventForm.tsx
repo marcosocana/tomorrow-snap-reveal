@@ -64,6 +64,47 @@ interface Event {
 }
 
 type HeaderStyle = "gradient" | "modern";
+type PlanType = "demo" | "small" | "medium" | "xxl" | "custom";
+
+const PLAN_LIMITS: Record<
+  Exclude<PlanType, "custom">,
+  {
+    maxPhotos: string;
+    allowVideoRecording: boolean;
+    maxVideos: string;
+    allowAudioRecording: boolean;
+    maxAudios: string;
+  }
+> = {
+  demo: {
+    maxPhotos: "10",
+    allowVideoRecording: true,
+    maxVideos: "3",
+    allowAudioRecording: true,
+    maxAudios: "6",
+  },
+  small: {
+    maxPhotos: "200",
+    allowVideoRecording: true,
+    maxVideos: "30",
+    allowAudioRecording: true,
+    maxAudios: "60",
+  },
+  medium: {
+    maxPhotos: "1200",
+    allowVideoRecording: true,
+    maxVideos: "90",
+    allowAudioRecording: true,
+    maxAudios: "200",
+  },
+  xxl: {
+    maxPhotos: "",
+    allowVideoRecording: true,
+    maxVideos: "",
+    allowAudioRecording: true,
+    maxAudios: "",
+  },
+};
 
 const EventForm = () => {
   const { eventId } = useParams<{ eventId?: string }>();
@@ -79,7 +120,7 @@ const EventForm = () => {
   const [ownerPhone, setOwnerPhone] = useState<string | null>(null);
   const [ownerEmailInput, setOwnerEmailInput] = useState("");
   const [qrPreview, setQrPreview] = useState<{ src?: string; value: string } | null>(null);
-  const [planType, setPlanType] = useState<"demo" | "small" | "medium" | "xxl" | "custom">("demo");
+  const [planType, setPlanType] = useState<PlanType>("demo");
   // Generate a random 8-character hash for passwords
   const generateHash = () => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -447,17 +488,24 @@ const EventForm = () => {
         return;
       }
 
-      const planToMaxPhotos: Record<string, string> = {
-        demo: "10",
-        small: "200",
-        medium: "1200",
-        large: "1200",
-        xxl: "",
-      };
-      const resolvedMaxPhotos =
+      const selectedPlanLimits =
         isSuperAdmin && !isEditing && planType !== "custom"
-          ? planToMaxPhotos[planType]
-          : formData.maxPhotos;
+          ? PLAN_LIMITS[planType]
+          : null;
+      const resolvedMaxPhotos =
+        selectedPlanLimits?.maxPhotos ?? formData.maxPhotos;
+      const effectiveAllowVideoRecording = selectedPlanLimits
+        ? selectedPlanLimits.allowVideoRecording
+        : formData.allowVideoRecording;
+      const effectiveAllowAudioRecording = selectedPlanLimits
+        ? selectedPlanLimits.allowAudioRecording
+        : formData.allowAudioRecording;
+      const effectiveMaxVideos = selectedPlanLimits
+        ? selectedPlanLimits.maxVideos
+        : formData.maxVideos;
+      const effectiveMaxAudios = selectedPlanLimits
+        ? selectedPlanLimits.maxAudios
+        : formData.maxAudios;
       const parseOptionalPositiveInt = (value: string) => {
         const parsed = Number.parseInt(value, 10);
         return Number.isNaN(parsed) || parsed <= 0 ? null : parsed;
@@ -466,13 +514,13 @@ const EventForm = () => {
         const parsed = Number.parseInt(value, 10);
         return Number.isNaN(parsed) || parsed <= 0 ? fallback : parsed;
       };
-      const resolvedMaxVideos = parseOptionalPositiveInt(formData.maxVideos);
+      const resolvedMaxVideos = parseOptionalPositiveInt(effectiveMaxVideos);
       const resolvedVideoDuration = parseDuration(formData.maxVideoDuration, 15);
-      const resolvedMaxAudios = parseOptionalPositiveInt(formData.maxAudios);
+      const resolvedMaxAudios = parseOptionalPositiveInt(effectiveMaxAudios);
       const resolvedAudioDuration = parseDuration(formData.maxAudioDuration, 30);
       // Backward-compatible with environments where max_videos/max_audios are NOT NULL.
-      const maxVideosValue = formData.allowVideoRecording ? (resolvedMaxVideos ?? 0) : 0;
-      const maxAudiosValue = formData.allowAudioRecording ? (resolvedMaxAudios ?? 0) : 0;
+      const maxVideosValue = effectiveAllowVideoRecording ? (resolvedMaxVideos ?? 0) : 0;
+      const maxAudiosValue = effectiveAllowAudioRecording ? (resolvedMaxAudios ?? 0) : 0;
       const eventTz = formData.timezone;
       const uploadStartDateTime = fromZonedTime(`${formData.uploadStartDate}T${formData.uploadStartTime}:00`, eventTz);
       const uploadEndDateTime = fromZonedTime(`${formData.uploadEndDate}T${formData.uploadEndTime}:00`, eventTz);
@@ -528,10 +576,10 @@ const EventForm = () => {
             custom_privacy_text: formData.legalTextType === 'custom' ? (formData.customPrivacyText || null) : null,
             gallery_view_mode: formData.galleryViewMode,
             like_counting_enabled: formData.likeCountingEnabled,
-            allow_video_recording: formData.allowVideoRecording,
+            allow_video_recording: effectiveAllowVideoRecording,
             max_videos: maxVideosValue,
             max_video_duration: resolvedVideoDuration,
-            allow_audio_recording: formData.allowAudioRecording,
+            allow_audio_recording: effectiveAllowAudioRecording,
             max_audios: maxAudiosValue,
             max_audio_duration: resolvedAudioDuration,
             header_style: formData.headerStyle,
@@ -575,10 +623,10 @@ const EventForm = () => {
             custom_privacy_text: formData.legalTextType === 'custom' ? (formData.customPrivacyText || null) : null,
             gallery_view_mode: formData.galleryViewMode,
             like_counting_enabled: formData.likeCountingEnabled,
-            allow_video_recording: formData.allowVideoRecording,
+            allow_video_recording: effectiveAllowVideoRecording,
             max_videos: maxVideosValue,
             max_video_duration: resolvedVideoDuration,
-            allow_audio_recording: formData.allowAudioRecording,
+            allow_audio_recording: effectiveAllowAudioRecording,
             max_audios: maxAudiosValue,
             max_audio_duration: resolvedAudioDuration,
             header_style: formData.headerStyle,
@@ -652,10 +700,10 @@ const EventForm = () => {
           custom_privacy_text: formData.legalTextType === 'custom' ? (formData.customPrivacyText || null) : null,
           gallery_view_mode: formData.galleryViewMode,
           like_counting_enabled: formData.likeCountingEnabled,
-          allow_video_recording: formData.allowVideoRecording,
+          allow_video_recording: effectiveAllowVideoRecording,
           max_videos: maxVideosValue,
           max_video_duration: resolvedVideoDuration,
-          allow_audio_recording: formData.allowAudioRecording,
+          allow_audio_recording: effectiveAllowAudioRecording,
           max_audios: maxAudiosValue,
           max_audio_duration: resolvedAudioDuration,
           header_style: formData.headerStyle,
@@ -827,22 +875,28 @@ const EventForm = () => {
                   onChange={(e) => {
                     const value = e.target.value as typeof planType;
                     setPlanType(value);
-                    const planToMaxPhotos: Record<string, string> = {
-                      demo: "10",
-                      small: "200",
-                      medium: "1200",
-                      xxl: "",
-                      custom: "",
-                    };
                     if (value !== "custom") {
+                      const limits = PLAN_LIMITS[value];
                       setFormData((prev) => ({
                         ...prev,
-                        maxPhotos: planToMaxPhotos[value],
+                        maxPhotos: limits.maxPhotos,
+                        allowVideoRecording: limits.allowVideoRecording,
+                        maxVideos: limits.maxVideos,
+                        maxVideoDuration: "30",
+                        allowAudioRecording: limits.allowAudioRecording,
+                        maxAudios: limits.maxAudios,
+                        maxAudioDuration: "30",
                       }));
                     } else {
                       setFormData((prev) => ({
                         ...prev,
                         maxPhotos: "",
+                        allowVideoRecording: false,
+                        maxVideos: "",
+                        maxVideoDuration: "15",
+                        allowAudioRecording: false,
+                        maxAudios: "",
+                        maxAudioDuration: "30",
                         expiryDate: "",
                         expiryTime: "",
                       }));
