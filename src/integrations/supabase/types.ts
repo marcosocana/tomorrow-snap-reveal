@@ -14,6 +14,35 @@ export type Database = {
   }
   public: {
     Tables: {
+      audio_likes: {
+        Row: {
+          audio_id: string
+          created_at: string
+          device_id: string | null
+          id: string
+        }
+        Insert: {
+          audio_id: string
+          created_at?: string
+          device_id?: string | null
+          id?: string
+        }
+        Update: {
+          audio_id?: string
+          created_at?: string
+          device_id?: string | null
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audio_likes_audio_id_fkey"
+            columns: ["audio_id"]
+            isOneToOne: false
+            referencedRelation: "audios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audios: {
         Row: {
           audio_url: string
@@ -139,10 +168,10 @@ export type Database = {
           expiry_redirect_url: string | null
           filter_type: string
           folder_id: string | null
-          header_style: string
           font_family: string
           font_size: string
           gallery_view_mode: string
+          header_style: string
           id: string
           is_demo: boolean
           language: string
@@ -183,10 +212,10 @@ export type Database = {
           expiry_redirect_url?: string | null
           filter_type?: string
           folder_id?: string | null
-          header_style?: string
           font_family?: string
           font_size?: string
           gallery_view_mode?: string
+          header_style?: string
           id?: string
           is_demo?: boolean
           language?: string
@@ -227,10 +256,10 @@ export type Database = {
           expiry_redirect_url?: string | null
           filter_type?: string
           folder_id?: string | null
-          header_style?: string
           font_family?: string
           font_size?: string
           gallery_view_mode?: string
+          header_style?: string
           id?: string
           is_demo?: boolean
           language?: string
@@ -426,6 +455,35 @@ export type Database = {
             columns: ["id"]
             isOneToOne: true
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      video_likes: {
+        Row: {
+          created_at: string
+          device_id: string | null
+          id: string
+          video_id: string
+        }
+        Insert: {
+          created_at?: string
+          device_id?: string | null
+          id?: string
+          video_id: string
+        }
+        Update: {
+          created_at?: string
+          device_id?: string | null
+          id?: string
+          video_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_likes_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "videos"
             referencedColumns: ["id"]
           },
         ]
