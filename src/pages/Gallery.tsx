@@ -116,6 +116,7 @@ const Gallery = () => {
   const [allowPhotoSharing, setAllowPhotoSharing] = useState<boolean>(true);
   const [galleryViewMode, setGalleryViewMode] = useState<"normal" | "grid">("normal");
   const [isDesktopView, setIsDesktopView] = useState(false);
+  const [hasManualViewSelection, setHasManualViewSelection] = useState(false);
   const [likeCountingEnabled, setLikeCountingEnabled] = useState<boolean>(false);
   const [allowVideoRecording, setAllowVideoRecording] = useState(false);
   const [allowAudioRecording, setAllowAudioRecording] = useState(false);
@@ -507,8 +508,6 @@ const Gallery = () => {
         setAllowAudioRecording((data as any).allow_audio_recording === true);
         setHeaderStyle(((data as any).header_style || "modern") as "gradient" | "modern");
         setIsDemoEvent((data as any).is_demo === true);
-        // Revealed gallery must start in normal mode. User can switch to grid manually.
-        setGalleryViewMode("normal");
         setLikeCountingEnabled((data as any).like_counting_enabled === true);
         
         // Check if event is expired
@@ -578,6 +577,17 @@ const Gallery = () => {
     mediaQuery.addListener(updateDesktopMode);
     return () => mediaQuery.removeListener(updateDesktopMode);
   }, []);
+
+  useEffect(() => {
+    if (hasManualViewSelection) return;
+    if (isDesktopView) {
+      setGalleryViewMode("grid");
+      return;
+    }
+
+    const totalMediaCount = totalPhotos + totalVideos + totalAudios;
+    setGalleryViewMode(totalMediaCount > 30 ? "grid" : "normal");
+  }, [totalPhotos, totalVideos, totalAudios, isDesktopView, hasManualViewSelection]);
 
   // Infinite scroll observer
   useEffect(() => {
@@ -1425,12 +1435,15 @@ const Gallery = () => {
           {!isDesktopView && (
             <div className="mb-4">
               <div className="mx-auto flex w-full max-w-2xl rounded-2xl bg-muted p-1">
-            {(["normal", "grid"] as const).map((mode) => {
+            {(galleryViewMode === "grid" ? (["grid", "normal"] as const) : (["normal", "grid"] as const)).map((mode) => {
               return (
                 <button
                   key={mode}
                   type="button"
-                  onClick={() => setGalleryViewMode(mode)}
+                  onClick={() => {
+                    setHasManualViewSelection(true);
+                    setGalleryViewMode(mode);
+                  }}
                   className={`flex flex-1 items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold transition ${
                     galleryViewMode === mode
                       ? "bg-background text-foreground shadow-sm"
@@ -1465,7 +1478,7 @@ const Gallery = () => {
             </div>
           ) : effectiveGalleryViewMode === "grid" ? (
             <div className="px-0">
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-2 bg-white">
+              <div className="grid grid-cols-3 gap-2 bg-white">
                 {mixedMedia.map((item) => (
                   <button
                     key={`${item.type}-${item.id}`}
