@@ -1803,6 +1803,9 @@ const EventForm = () => {
                   }
                   filterType={formData.filterType}
                   language={formData.language}
+                  allowVideoRecording={formData.allowVideoRecording}
+                  allowAudioRecording={formData.allowAudioRecording}
+                  headerStyle={formData.headerStyle}
                 />
               </Card>
             </div>

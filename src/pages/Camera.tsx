@@ -805,7 +805,13 @@ const Camera = () => {
   // Capture the magic text based on language
   const captureMagicText = language === "en" ? "Capture the magic!" : language === "it" ? "Cattura la magia!" : "¡Captura la magia!";
   const isModernHeader = headerStyle === "modern";
-  const mediaCountsHeaderText = language === "en"
+  const mediaCountsHeaderText = isPhotoOnlyConfigured
+    ? language === "en"
+      ? `📷 ${photoCount} photos`
+      : language === "it"
+      ? `📷 ${photoCount} foto`
+      : `📷 ${photoCount} fotos`
+    : language === "en"
     ? `📷 ${photoCount} photos / 📹 ${videoCount} videos / 🔈 ${audioCount} audios`
     : language === "it"
     ? `📷 ${photoCount} foto / 📹 ${videoCount} video / 🔈 ${audioCount} audio`

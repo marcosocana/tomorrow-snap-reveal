@@ -971,6 +971,9 @@ const RedeemEvent = () => {
                   }
                   filterType={formData.filterType}
                   language={formData.language}
+                  allowVideoRecording={false}
+                  allowAudioRecording={false}
+                  headerStyle="modern"
                 />
               </Card>
             </div>

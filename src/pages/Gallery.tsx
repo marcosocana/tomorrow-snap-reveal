@@ -1163,13 +1163,13 @@ const Gallery = () => {
       : `📷 ${totalPhotos} fotos / 📹 ${totalVideos} vídeos / 🔈 ${totalAudios} audios`;
   const videosLabel = language === "en" ? "Videos" : language === "it" ? "Video" : "Vídeos";
   const audioLabel = language === "en" ? "Audio notes" : language === "it" ? "Note audio" : "Notas de audio";
-  const hasOnlyPhotos = totalVideos === 0 && totalAudios === 0;
-  const revealedTitleText = hasOnlyPhotos
+  const isPhotoOnlyConfigured = !allowVideoRecording && !allowAudioRecording;
+  const revealedTitleText = isPhotoOnlyConfigured
     ? language === "en"
       ? `✨ ${totalPhotos} photos have been revealed`
       : language === "it"
       ? `✨ Sono state rivelate ${totalPhotos} foto`
-      : `✨ Se han revelado ${totalPhotos} fotos`
+      : `✨ Ya se han revelado ${totalPhotos} fotos`
     : language === "en"
     ? "✨ Event media has been revealed"
     : language === "it"
@@ -1286,7 +1286,9 @@ const Gallery = () => {
                   </div>
                 )}
                 <p className="text-sm text-white/90 tracking-wide">{revealedTitleText}</p>
-                <p className="text-sm text-white/90 mt-1">{mediaStatsText}</p>
+                {!isPhotoOnlyConfigured && (
+                  <p className="text-sm text-white/90 mt-1">{mediaStatsText}</p>
+                )}
               </div>
             )}
           </div>
@@ -1311,7 +1313,9 @@ const Gallery = () => {
                 </div>
               )}
               <p className="text-sm text-muted-foreground tracking-wide">{revealedTitleText}</p>
-              <p className="text-sm text-muted-foreground mt-1">{mediaStatsText}</p>
+              {!isPhotoOnlyConfigured && (
+                <p className="text-sm text-muted-foreground mt-1">{mediaStatsText}</p>
+              )}
             </div>
           )}
         </header>

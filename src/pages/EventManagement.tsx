@@ -383,6 +383,12 @@ const EventManagement = () => {
     value.length > max ? `${value.slice(0, max)}...` : value;
   const truncateEmail = (value: string, max: number) =>
     value.length > max ? `${value.slice(0, max)}...` : value;
+  const getMediaCounts = (event: Event) => {
+    const photos = eventPhotoCounts[event.id] ?? event.photo_count ?? 0;
+    const videos = event.video_count ?? 0;
+    const audios = event.audio_count ?? 0;
+    return { photos, videos, audios };
+  };
 
   const handleAdminSort = (key: "name" | "type" | "created_at" | "email" | "photos") => {
     setAdminSort((prev) => ({
@@ -565,7 +571,7 @@ const EventManagement = () => {
 
   const renderEventCard = (event: Event) => {
     const effectiveEvent = getEffectiveEvent(event);
-    const photoCount = eventPhotoCounts[event.id] || 0;
+    const { photos: photoCount, videos: videoCount, audios: audioCount } = getMediaCounts(event);
     const eventUrl = `https://acceso.revelao.cam/events/${event.password_hash}`;
     const statusInfo = getEventStatus(
       event.upload_start_time,
@@ -666,8 +672,8 @@ const EventManagement = () => {
                 {format(new Date(event.created_at), "dd/MM/yyyy HH:mm", { locale: dateLocale })}
               </p>
               <div className="flex flex-wrap items-center gap-2">
-                <span className="font-medium">Fotos:</span>{" "}
-                {photoCount}{event.max_photos ? ` / ${event.max_photos}` : ""}
+                <span className="font-medium">Fotos / Vídeos / Audios:</span>{" "}
+                {photoCount} / {videoCount} / {audioCount}
                 <Button
                   variant="outline"
                   size="sm"
@@ -943,7 +949,7 @@ const EventManagement = () => {
                 </thead>
                 <tbody>
                   {paginatedAdminEvents.map((event, index) => {
-                    const photoCount = eventPhotoCounts[event.id] || 0;
+                    const { photos: photoCount, videos: videoCount, audios: audioCount } = getMediaCounts(event);
                     const maxPhotos = event.max_photos ?? "-";
                     const statusInfo = getEventStatus(
                       event.upload_start_time,
@@ -993,7 +999,7 @@ const EventManagement = () => {
                             className="px-0 text-primary hover:text-primary"
                             onClick={() => setPreviewEvent(event)}
                           >
-                            {photoCount}/{maxPhotos}
+                            {photoCount}/{maxPhotos} · {videoCount} · {audioCount}
                           </Button>
                         </td>
                         <td className="py-3">
