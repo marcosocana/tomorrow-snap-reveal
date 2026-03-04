@@ -244,10 +244,16 @@ const Camera = () => {
       const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
       setCountdown(
         language === "en"
-          ? `Only ${hours} hours and ${minutes} minutes left until the event ends!`
+          ? hours > 0
+            ? `Only ${hours} hours and ${minutes} minutes left until the event ends!`
+            : `Only ${minutes} minutes left until the event ends!`
           : language === "it"
-          ? `Mancano solo ${hours} ore e ${minutes} minuti alla fine dell'evento!`
-          : `¡Solo quedan ${hours} horas y ${minutes} minutos para que el evento se termine!`
+          ? hours > 0
+            ? `Mancano solo ${hours} ore e ${minutes} minuti alla fine dell'evento!`
+            : `Mancano solo ${minutes} minuti alla fine dell'evento!`
+          : hours > 0
+          ? `¡Solo quedan ${hours} horas y ${minutes} minutos para que el evento se termine!`
+          : `¡Solo quedan ${minutes} minutos para que el evento se termine!`
       );
     }, 1000);
     return () => clearInterval(interval);
@@ -788,8 +794,12 @@ const Camera = () => {
   const reveal = revealTime ? new Date(revealTime) : null;
   const isPhotoOnlyConfigured = !allowVideoRecording && !allowAudioRecording;
   const photoLimitReached = maxPhotos !== null && photoCount >= maxPhotos;
+  const videoLimitReached = allowVideoRecording && maxVideos !== null && videoCount >= maxVideos;
+  const audioLimitReached = allowAudioRecording && maxAudios !== null && audioCount >= maxAudios;
+  const allMediaTypesConfigured = allowVideoRecording && allowAudioRecording;
+  const allMediaLimitsReached = allMediaTypesConfigured && photoLimitReached && videoLimitReached && audioLimitReached;
   const hasNotStarted = startTime && now < startTime;
-  const hasEnded = (endTime && now > endTime) || (isPhotoOnlyConfigured && photoLimitReached);
+  const hasEnded = (endTime && now > endTime) || (isPhotoOnlyConfigured && photoLimitReached) || allMediaLimitsReached;
   const hasRevealed = reveal && now >= reveal;
 
   // Capture the magic text based on language
@@ -822,7 +832,7 @@ const Camera = () => {
                 />
                 <div className={`absolute inset-0 ${isModernHeader ? "bg-black/65" : "bg-gradient-to-b from-transparent via-transparent to-background"}`} />
                 
-                <div className="absolute top-4 right-4 z-10">
+                <div className="absolute top-4 left-4 z-10">
                   <Button
                     variant="secondary"
                     size="icon"
@@ -832,6 +842,28 @@ const Camera = () => {
                     <LogOut className="w-5 h-5" />
                   </Button>
                 </div>
+                {eventPassword && (
+                  <>
+                    <div className="absolute top-4 right-4 z-10">
+                      <Button
+                        variant="secondary"
+                        size="icon"
+                        onClick={() => setShowShareDialog(true)}
+                        className={isModernHeader ? "bg-black/45 text-white backdrop-blur-sm hover:bg-black/60" : "bg-background/80 backdrop-blur-sm hover:bg-background"}
+                      >
+                        <Share2 className="w-5 h-5" />
+                      </Button>
+                    </div>
+                    <ShareDialog
+                      eventId={eventId}
+                      eventPassword={eventPassword}
+                      eventName={eventName || ""}
+                      open={showShareDialog}
+                      onOpenChange={setShowShareDialog}
+                      language={language}
+                    />
+                  </>
+                )}
                 {isModernHeader && (
                   <div className="absolute inset-x-0 bottom-0 z-10 px-6 pb-6 text-left">
                     <h1
@@ -911,7 +943,6 @@ const Camera = () => {
         ) : (
           <>
             <header className="fixed top-0 left-0 right-0 z-50 p-4 flex justify-between items-center bg-card border-b border-border">
-              <h1 className="text-xl font-bold text-foreground">{eventName}</h1>
               <Button
                 variant="ghost"
                 size="icon"
@@ -920,6 +951,29 @@ const Camera = () => {
               >
                 <LogOut className="w-5 h-5" />
               </Button>
+              <h1 className="flex-1 px-3 text-xl font-bold text-foreground truncate">{eventName}</h1>
+              <div className="flex items-center gap-2">
+                {eventPassword && (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setShowShareDialog(true)}
+                      className="text-muted-foreground hover:text-foreground"
+                    >
+                      <Share2 className="w-5 h-5" />
+                    </Button>
+                    <ShareDialog
+                      eventId={eventId}
+                      eventPassword={eventPassword}
+                      eventName={eventName || ""}
+                      open={showShareDialog}
+                      onOpenChange={setShowShareDialog}
+                      language={language}
+                    />
+                  </>
+                )}
+              </div>
             </header>
             
             <div className="flex-1 pt-16 pb-6 px-6 flex flex-col">
@@ -995,7 +1049,7 @@ const Camera = () => {
                 />
                 <div className={`absolute inset-0 ${isModernHeader ? "bg-black/65" : "bg-gradient-to-b from-transparent via-transparent to-background"}`} />
                 
-                <div className="absolute top-4 right-4 z-10">
+                <div className="absolute top-4 left-4 z-10">
                   <Button
                     variant="secondary"
                     size="icon"
@@ -1005,6 +1059,28 @@ const Camera = () => {
                     <LogOut className="w-5 h-5" />
                   </Button>
                 </div>
+                {eventPassword && (
+                  <>
+                    <div className="absolute top-4 right-4 z-10">
+                      <Button
+                        variant="secondary"
+                        size="icon"
+                        onClick={() => setShowShareDialog(true)}
+                        className={isModernHeader ? "bg-black/45 text-white backdrop-blur-sm hover:bg-black/60" : "bg-background/80 backdrop-blur-sm hover:bg-background"}
+                      >
+                        <Share2 className="w-5 h-5" />
+                      </Button>
+                    </div>
+                    <ShareDialog
+                      eventId={eventId}
+                      eventPassword={eventPassword}
+                      eventName={eventName || ""}
+                      open={showShareDialog}
+                      onOpenChange={setShowShareDialog}
+                      language={language}
+                    />
+                  </>
+                )}
                 {isModernHeader && (
                   <div className="absolute inset-x-0 bottom-0 z-10 px-6 pb-6 text-left">
                     <h1
@@ -1084,12 +1160,6 @@ const Camera = () => {
         ) : (
           <>
             <header className="fixed top-0 left-0 right-0 z-50 p-4 flex justify-between items-center bg-card border-b border-border">
-              <h1 
-                className="text-xl font-bold text-foreground"
-                style={{ fontFamily: getEventFontFamily(eventFontFamily) }}
-              >
-                {eventName}
-              </h1>
               <Button
                 variant="ghost"
                 size="icon"
@@ -1098,6 +1168,34 @@ const Camera = () => {
               >
                 <LogOut className="w-5 h-5" />
               </Button>
+              <h1 
+                className="flex-1 px-3 text-xl font-bold text-foreground truncate"
+                style={{ fontFamily: getEventFontFamily(eventFontFamily) }}
+              >
+                {eventName}
+              </h1>
+              <div className="flex items-center gap-2">
+                {eventPassword && (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setShowShareDialog(true)}
+                      className="text-muted-foreground hover:text-foreground"
+                    >
+                      <Share2 className="w-5 h-5" />
+                    </Button>
+                    <ShareDialog
+                      eventId={eventId}
+                      eventPassword={eventPassword}
+                      eventName={eventName || ""}
+                      open={showShareDialog}
+                      onOpenChange={setShowShareDialog}
+                      language={language}
+                    />
+                  </>
+                )}
+              </div>
             </header>
             
             <div className="flex-1 pt-16 pb-6 px-6 flex flex-col">
@@ -1166,8 +1264,6 @@ const Camera = () => {
     : `Ya hay ${photoCount} fotos subidas`;
   const retryText = language === "en" ? "Retry" : language === "it" ? "Riprova" : "Reintentar";
   const isButtonDisabled = isUploading || rateLimitCooldown > 0;
-  const videoLimitReached = allowVideoRecording && maxVideos !== null && videoCount >= maxVideos;
-  const audioLimitReached = allowAudioRecording && maxAudios !== null && audioCount >= maxAudios;
   const showPhotoAction = !photoLimitReached;
   const showVideoAction = allowVideoRecording && !videoLimitReached;
   const showAudioAction = allowAudioRecording && !audioLimitReached;
@@ -1305,6 +1401,16 @@ const Camera = () => {
               />
               <div className={`absolute inset-0 ${isModernHeader ? "bg-black/65" : "bg-gradient-to-b from-transparent via-transparent to-background"}`} />
               
+              <div className="absolute top-4 left-4 z-10">
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  onClick={handleLogout}
+                  className={isModernHeader ? "bg-black/45 text-white backdrop-blur-sm hover:bg-black/60" : "bg-background/80 backdrop-blur-sm hover:bg-background"}
+                >
+                  <LogOut className="w-5 h-5" />
+                </Button>
+              </div>
               <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
                 {eventPassword && (
                   <>
@@ -1326,14 +1432,6 @@ const Camera = () => {
                     />
                   </>
                 )}
-                <Button
-                  variant="secondary"
-                  size="icon"
-                  onClick={handleLogout}
-                  className={isModernHeader ? "bg-black/45 text-white backdrop-blur-sm hover:bg-black/60" : "bg-background/80 backdrop-blur-sm hover:bg-background"}
-                >
-                  <LogOut className="w-5 h-5" />
-                </Button>
               </div>
               {isModernHeader && (
                 <div className="absolute inset-x-0 bottom-0 z-10 px-6 pb-6 text-left">
@@ -1382,7 +1480,15 @@ const Camera = () => {
       ) : (
         <>
           <header className="fixed top-0 left-0 right-0 z-50 p-4 flex justify-between items-center bg-card border-b border-border">
-            <div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleLogout}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <LogOut className="w-5 h-5" />
+            </Button>
+            <div className="flex-1 px-3">
               <h1 
                 className="text-xl font-bold text-foreground"
                 style={{ fontFamily: getEventFontFamily(eventFontFamily) }}
@@ -1420,14 +1526,6 @@ const Camera = () => {
                   />
                 </>
               )}
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleLogout}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <LogOut className="w-5 h-5" />
-              </Button>
             </div>
           </header>
           {renderCameraBody}
