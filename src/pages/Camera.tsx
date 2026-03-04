@@ -825,7 +825,7 @@ const Camera = () => {
   // Event hasn't started yet
   if (hasNotStarted) {
     return (
-      <div className="min-h-[100dvh] bg-background flex flex-col">
+      <div className="min-h-[100svh] bg-background flex flex-col">
         {backgroundImageUrl ? (
           <>
             {/* Hero Header with Background Image */}
@@ -1042,7 +1042,7 @@ const Camera = () => {
       : `${revealDateLabel.charAt(0).toUpperCase() + revealDateLabel.slice(1)} a las ${revealTimeFormatted} todo será revelado en este mismo espacio 📸✨`;
 
     return (
-      <div className="min-h-[100dvh] bg-background flex flex-col">
+      <div className="min-h-[100svh] bg-background flex flex-col">
         {backgroundImageUrl ? (
           <>
             {/* Hero Header with Background Image */}
@@ -1400,7 +1400,7 @@ const Camera = () => {
   );
 
   return (
-    <div className="min-h-[100dvh] bg-background flex flex-col">
+    <div className="min-h-[100svh] bg-background flex flex-col">
       {backgroundImageUrl ? (
         <>
           {/* Hero Header with Background Image */}

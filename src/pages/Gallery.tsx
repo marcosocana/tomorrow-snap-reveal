@@ -1192,7 +1192,7 @@ const Gallery = () => {
     const viewPhotosButtonText = language === "en" ? "View photos" : language === "it" ? "Vedi foto" : "Ver fotografías";
 
     return (
-      <div className="min-h-[100dvh] bg-background flex flex-col items-center justify-center p-4">
+      <div className="min-h-[100svh] bg-background flex flex-col items-center justify-center p-4">
         <div className="flex-1 flex flex-col items-center justify-center max-w-md w-full text-center space-y-6">
           <h1 
             className="text-2xl font-bold text-foreground"
@@ -1226,7 +1226,7 @@ const Gallery = () => {
   }
 
   return (
-    <div className="min-h-[100dvh] bg-background">
+    <div className="min-h-[100svh] bg-background">
       {/* Hero Header with Background Image */}
       {eventBackgroundImage ? (
         <header className="relative w-full">
@@ -1430,7 +1430,7 @@ const Gallery = () => {
             </div>
           ) : galleryViewMode === "grid" ? (
             <div className="px-0">
-              <div className="grid grid-cols-3 gap-2 bg-white">
+              <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 bg-white">
                 {mixedMedia.map((item) => (
                   <button
                     key={`${item.type}-${item.id}`}
@@ -1474,7 +1474,7 @@ const Gallery = () => {
                   <button
                     type="button"
                     onClick={() => handleMediaClick(item)}
-                    className="group relative block w-full aspect-[4/5] overflow-hidden rounded-2xl outline-none focus-visible:ring focus-visible:ring-primary/60"
+                    className="group relative block w-full aspect-[4/5] md:aspect-[3/4] lg:aspect-[5/7] overflow-hidden rounded-2xl outline-none focus-visible:ring focus-visible:ring-primary/60"
                   >
                     {renderMediaPreview(item, "list")}
                     {item.type === "video" || item.type === "audio" ? (
