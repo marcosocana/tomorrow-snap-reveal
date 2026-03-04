@@ -1253,7 +1253,7 @@ const EventManagement = () => {
                         </td>
                         <td className="py-3 pr-4">
                           <span
-                            className={`inline-flex items-center justify-center w-9 h-6 rounded-full border text-xs font-semibold ${getPlanType(event.max_photos).color}`}
+                            className={`inline-flex items-center justify-center min-w-[3.25rem] h-6 rounded-full border px-2 text-xs font-semibold whitespace-nowrap ${getPlanType(event.max_photos).color}`}
                           >
                             {getPlanType(event.max_photos).label}
                           </span>

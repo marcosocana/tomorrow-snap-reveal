@@ -29,6 +29,47 @@ const getDateLocale = (language: Language) => {
   }
 };
 
+const getSupportedRecordingMimeType = (mode: "video" | "audio"): string | null => {
+  if (typeof MediaRecorder === "undefined" || typeof MediaRecorder.isTypeSupported !== "function") {
+    return null;
+  }
+
+  const candidates =
+    mode === "video"
+      ? [
+          "video/mp4;codecs=h264,aac",
+          "video/mp4",
+          "video/webm;codecs=vp8,opus",
+          "video/webm;codecs=vp9,opus",
+          "video/webm",
+        ]
+      : [
+          "audio/mp4;codecs=mp4a.40.2",
+          "audio/mp4",
+          "audio/webm;codecs=opus",
+          "audio/webm",
+          "audio/ogg;codecs=opus",
+        ];
+
+  for (const mimeType of candidates) {
+    if (MediaRecorder.isTypeSupported(mimeType)) {
+      return mimeType;
+    }
+  }
+  return null;
+};
+
+const getExtensionForMimeType = (mimeType: string | null | undefined, mode: "video" | "audio") => {
+  const mime = (mimeType || "").toLowerCase();
+  if (mime.includes("mp4")) {
+    return mode === "audio" ? "m4a" : "mp4";
+  }
+  if (mime.includes("ogg")) return "ogg";
+  if (mime.includes("webm")) return "webm";
+  if (mime.includes("mpeg")) return "mp3";
+  return mode === "audio" ? "webm" : "webm";
+};
+
 const Camera = () => {
   const [photoCount, setPhotoCount] = useState(0);
   const [videoCount, setVideoCount] = useState(0);
@@ -78,6 +119,7 @@ const Camera = () => {
   const recordingVideoRef = useRef<HTMLVideoElement>(null);
   const countdownIntervalRef = useRef<number | null>(null);
   const recordingStartRef = useRef<number>(0);
+  const recordingMimeTypeRef = useRef<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
   const eventId = localStorage.getItem("eventId");
@@ -516,6 +558,7 @@ const Camera = () => {
     setRecordingCountdown(0);
     setRecordingError(null);
     recordedChunksRef.current = [];
+    recordingMimeTypeRef.current = null;
   };
 
   const teardownRecordingControls = () => {
@@ -688,13 +731,13 @@ const Camera = () => {
     }
 
     try {
-      const preferredType =
-        recordingMode === "video" ? "video/webm;codecs=vp8,opus" : "audio/webm;codecs=opus";
+      const preferredType = getSupportedRecordingMimeType(recordingMode);
       const options: MediaRecorderOptions = {};
-      if (MediaRecorder.isTypeSupported(preferredType)) {
+      if (preferredType) {
         options.mimeType = preferredType;
       }
       const recorder = new MediaRecorder(mediaStreamRef.current, options);
+      recordingMimeTypeRef.current = recorder.mimeType || options.mimeType || preferredType || null;
       recordedChunksRef.current = [];
 
       recorder.ondataavailable = (event) => {
@@ -710,7 +753,10 @@ const Camera = () => {
         );
         setRecordingDuration(durationSeconds);
         const blob = new Blob(recordedChunksRef.current, {
-          type: options.mimeType || (recordingMode === "video" ? "video/webm" : "audio/webm"),
+          type:
+            recordingMimeTypeRef.current ||
+            options.mimeType ||
+            (recordingMode === "video" ? "video/webm" : "audio/webm"),
         });
         setRecordingBlob(blob);
         if (recordingPreviewUrl) {
@@ -755,19 +801,27 @@ const Camera = () => {
     if (!recordingBlob || !recordingMode) return;
     const durationSeconds =
       recordingDuration || (recordingMode === "video" ? videoDurationSeconds : audioDurationSeconds);
-    await uploadMediaFile(recordingBlob, recordingMode, durationSeconds);
+    await uploadMediaFile(recordingBlob, recordingMode, durationSeconds, recordingMimeTypeRef.current);
     closeRecordingOverlay();
   };
 
-  const uploadMediaFile = async (blob: Blob, mode: "video" | "audio", duration: number) => {
+  const uploadMediaFile = async (
+    blob: Blob,
+    mode: "video" | "audio",
+    duration: number,
+    mimeType?: string | null
+  ) => {
     if (!eventId) return;
     setIsUploadingMedia(true);
     try {
       const bucket = mode === "video" ? "event-videos" : "event-audios";
       const hash = generateHash();
-      const extension = mode === "video" ? "webm" : "webm";
+      const resolvedMimeType = mimeType || blob.type || null;
+      const extension = getExtensionForMimeType(resolvedMimeType, mode);
       const fileName = `${eventId}/${hash}_${Date.now()}.${extension}`;
-      const { error: uploadError } = await supabase.storage.from(bucket).upload(fileName, blob);
+      const { error: uploadError } = await supabase.storage.from(bucket).upload(fileName, blob, {
+        contentType: resolvedMimeType || undefined,
+      });
       if (uploadError) throw uploadError;
 
       let dbError = null;

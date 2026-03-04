@@ -1957,18 +1957,18 @@ const EventForm = () => {
                   </Button>
                   <Button
                     variant="outline"
-                    className="h-auto rounded-full px-3 py-1 text-xs font-medium text-foreground gap-2 w-full mt-2"
+                    className="h-auto rounded-full px-3 py-1 text-xs font-medium text-foreground gap-3 w-full mt-2 justify-center flex-nowrap"
                     onClick={() => setGalleryPreviewOpen(true)}
                   >
-                    <span className="inline-flex items-center gap-1">
+                    <span className="inline-flex items-center gap-1 whitespace-nowrap">
                       <Camera className="w-3.5 h-3.5" />
                       {mediaCounts.photos}/{mediaLimits.photos}
                     </span>
-                    <span className="inline-flex items-center gap-1">
+                    <span className="inline-flex items-center gap-1 whitespace-nowrap">
                       <Video className="w-3.5 h-3.5" />
                       {mediaCounts.videos}/{mediaLimits.videos}
                     </span>
-                    <span className="inline-flex items-center gap-1">
+                    <span className="inline-flex items-center gap-1 whitespace-nowrap">
                       <Mic className="w-3.5 h-3.5" />
                       {mediaCounts.audios}/{mediaLimits.audios}
                     </span>
@@ -2051,18 +2051,18 @@ const EventForm = () => {
               </Button>
               <Button
                 variant="outline"
-                className="h-auto rounded-full px-3 py-1 text-xs font-medium text-foreground gap-2 w-full mt-2"
+                className="h-auto rounded-full px-3 py-1 text-xs font-medium text-foreground gap-3 w-full mt-2 justify-center flex-nowrap"
                 onClick={() => setGalleryPreviewOpen(true)}
               >
-                <span className="inline-flex items-center gap-1">
+                <span className="inline-flex items-center gap-1 whitespace-nowrap">
                   <Camera className="w-3.5 h-3.5" />
                   {mediaCounts.photos}/{mediaLimits.photos}
                 </span>
-                <span className="inline-flex items-center gap-1">
+                <span className="inline-flex items-center gap-1 whitespace-nowrap">
                   <Video className="w-3.5 h-3.5" />
                   {mediaCounts.videos}/{mediaLimits.videos}
                 </span>
-                <span className="inline-flex items-center gap-1">
+                <span className="inline-flex items-center gap-1 whitespace-nowrap">
                   <Mic className="w-3.5 h-3.5" />
                   {mediaCounts.audios}/{mediaLimits.audios}
                 </span>
