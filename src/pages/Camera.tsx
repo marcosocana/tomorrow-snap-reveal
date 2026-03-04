@@ -1382,7 +1382,7 @@ const Camera = () => {
         </div>
       )}
       {showLegalText && (
-        <div className="flex-1 flex items-end justify-center pt-4 pb-2">
+        <div className="flex items-end justify-center pt-4 pb-2">
           <p className="text-xs text-muted-foreground text-center max-w-sm">
             Al hacer la foto aceptas los{" "}
             <Link to={legalTextType === "custom" ? `/terms?eventId=${eventId}` : "/terms"} className="underline hover:text-foreground">

@@ -1382,7 +1382,7 @@ const Gallery = () => {
         </header>
       )}
 
-      <main className={eventBackgroundImage ? "pt-4 pb-20" : "py-12 pt-36 pb-20"}>
+      <main className={eventBackgroundImage ? "pt-4 pb-6" : "py-12 pt-36 pb-6"}>
         <div className="max-w-7xl mx-auto px-6">
           <div className="mb-4">
             <div className="mx-auto flex w-full max-w-2xl rounded-2xl bg-muted p-1">
