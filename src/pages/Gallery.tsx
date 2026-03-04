@@ -471,6 +471,11 @@ const Gallery = () => {
               playsInline
               preload="metadata"
               className="w-full h-full object-cover bg-black"
+              onLoadedData={(event) => {
+                const target = event.currentTarget;
+                target.currentTime = 0.05;
+                target.pause();
+              }}
             />
           )}
         </div>
@@ -1460,16 +1465,16 @@ const Gallery = () => {
               </div>
             </div>
           ) : (
-            <div className="space-y-6 pb-6">
+            <div className="space-y-3 pb-3">
               {mixedMedia.map((item) => (
                 <div
                   key={`${item.type}-${item.id}`}
-                  className="relative overflow-hidden"
+                  className="relative overflow-hidden rounded-2xl"
                 >
                   <button
                     type="button"
                     onClick={() => handleMediaClick(item)}
-                    className="group relative block w-full overflow-hidden rounded-2xl outline-none focus-visible:ring focus-visible:ring-primary/60"
+                    className="group relative block w-full aspect-[4/5] overflow-hidden rounded-2xl outline-none focus-visible:ring focus-visible:ring-primary/60"
                   >
                     {renderMediaPreview(item, "list")}
                     {item.type === "video" || item.type === "audio" ? (
