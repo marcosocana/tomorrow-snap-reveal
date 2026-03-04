@@ -23,23 +23,6 @@ const FROM_EMAIL = Deno.env.get("FROM_EMAIL") ?? "";
 const LOGO_URL =
   Deno.env.get("LOGO_URL") ?? "https://acceso.revelao.cam/demo-logo.png";
 
-const toDataUri = async (url: string): Promise<string | null> => {
-  try {
-    if (!url) return null;
-    const response = await fetch(url);
-    if (!response.ok) return null;
-    const contentType = response.headers.get("content-type") || "image/png";
-    const bytes = new Uint8Array(await response.arrayBuffer());
-    let binary = "";
-    for (let i = 0; i < bytes.length; i += 1) {
-      binary += String.fromCharCode(bytes[i]);
-    }
-    return `data:${contentType};base64,${btoa(binary)}`;
-  } catch {
-    return null;
-  }
-};
-
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -90,8 +73,7 @@ serve(async (req) => {
     `https://quickchart.io/qr?size=220&margin=1&ecLevel=H&text=${encodeURIComponent(
       eventUrl
     )}`;
-  const inlineLogoDataUri = await toDataUri(LOGO_URL);
-  const logoSrc = inlineLogoDataUri || LOGO_URL;
+  const logoSrc = LOGO_URL;
 
   const formatDate = (value: string) => {
     try {
