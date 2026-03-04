@@ -1131,7 +1131,7 @@ const Gallery = () => {
               alt={eventName || "Event"}
               className="absolute inset-0 w-full h-full object-cover object-top"
             />
-            <div className={`absolute inset-0 ${isModernHeader ? "bg-black/45" : "bg-gradient-to-b from-transparent via-transparent to-background"}`} />
+            <div className={`absolute inset-0 ${isModernHeader ? "bg-black/65" : "bg-gradient-to-b from-transparent via-transparent to-background"}`} />
             
             {/* Menu Button - Top Right */}
             <div className="absolute top-4 right-4 z-10">
