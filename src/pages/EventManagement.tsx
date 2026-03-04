@@ -60,6 +60,67 @@ interface Event {
   limits_json?: any;
 }
 
+interface MediaUsageTagProps {
+  photoCount: number | string;
+  photoLimit: number | string;
+  videoCount: number | string;
+  videoLimit: number | string;
+  audioCount: number | string;
+  audioLimit: number | string;
+  onClick?: () => void;
+  className?: string;
+}
+
+const MediaUsageTag = ({
+  photoCount,
+  photoLimit,
+  videoCount,
+  videoLimit,
+  audioCount,
+  audioLimit,
+  onClick,
+  className = "",
+}: MediaUsageTagProps) => {
+  const content = (
+    <>
+      <span className="inline-flex items-center gap-1">
+        <Camera className="w-3.5 h-3.5" />
+        {photoCount}/{photoLimit}
+      </span>
+      <span className="text-foreground/60">,</span>
+      <span className="inline-flex items-center gap-1">
+        <Video className="w-3.5 h-3.5" />
+        {videoCount}/{videoLimit}
+      </span>
+      <span className="text-foreground/60">,</span>
+      <span className="inline-flex items-center gap-1">
+        <Mic className="w-3.5 h-3.5" />
+        {audioCount}/{audioLimit}
+      </span>
+    </>
+  );
+
+  if (onClick) {
+    return (
+      <Button
+        variant="outline"
+        className={`h-auto rounded-full px-3 py-1 text-xs font-medium text-foreground gap-2 ${className}`}
+        onClick={onClick}
+      >
+        {content}
+      </Button>
+    );
+  }
+
+  return (
+    <div
+      className={`inline-flex items-center rounded-full border border-border px-3 py-1 text-xs font-medium text-foreground gap-2 ${className}`}
+    >
+      {content}
+    </div>
+  );
+};
+
 const EventManagement = () => {
   const [events, setEvents] = useState<Event[]>([]);
   const [folders, setFolders] = useState<EventFolder[]>([]);
@@ -753,24 +814,16 @@ const EventManagement = () => {
                 <Download className="w-4 h-4" />
                 {t("events.downloadQrAction")}
               </Button>
-              <Button
-                variant="outline"
-                className="h-auto rounded-full px-3 py-1 text-xs font-medium text-foreground gap-2 w-full"
+              <MediaUsageTag
+                photoCount={photoCount}
+                photoLimit={photoLimit}
+                videoCount={videoCount}
+                videoLimit={videoLimit}
+                audioCount={audioCount}
+                audioLimit={audioLimit}
                 onClick={() => setPreviewEvent(effectiveEvent)}
-              >
-                <span className="inline-flex items-center gap-1">
-                  <Camera className="w-3.5 h-3.5" />
-                  {photoCount}/{photoLimit}
-                </span>
-                <span className="inline-flex items-center gap-1">
-                  <Video className="w-3.5 h-3.5" />
-                  {videoCount}/{videoLimit}
-                </span>
-                <span className="inline-flex items-center gap-1">
-                  <Mic className="w-3.5 h-3.5" />
-                  {audioCount}/{audioLimit}
-                </span>
-              </Button>
+                className="w-full"
+              />
               <div className="space-y-2 pt-1 w-full sm:hidden">
                 <div className="flex items-center gap-2">
                   <input
@@ -1135,24 +1188,15 @@ const EventManagement = () => {
                           </span>
                         </td>
                         <td className="py-3 pr-4">
-                          <Button
-                            variant="outline"
-                            className="h-auto rounded-full px-3 py-1 text-xs font-medium text-foreground gap-2"
+                          <MediaUsageTag
+                            photoCount={photoCount}
+                            photoLimit={photoLimit}
+                            videoCount={videoCount}
+                            videoLimit={videoLimit}
+                            audioCount={audioCount}
+                            audioLimit={audioLimit}
                             onClick={() => setPreviewEvent(event)}
-                          >
-                            <span className="inline-flex items-center gap-1">
-                              <Camera className="w-3.5 h-3.5" />
-                              {photoCount}/{photoLimit}
-                            </span>
-                            <span className="inline-flex items-center gap-1">
-                              <Video className="w-3.5 h-3.5" />
-                              {videoCount}/{videoLimit}
-                            </span>
-                            <span className="inline-flex items-center gap-1">
-                              <Mic className="w-3.5 h-3.5" />
-                              {audioCount}/{audioLimit}
-                            </span>
-                          </Button>
+                          />
                         </td>
                         <td className="py-3">
                           <Button
@@ -1445,20 +1489,14 @@ const EventManagement = () => {
                 <span className="font-medium">{t("events.table.email")}:</span>{" "}
                 {createdSummary.owner_email || "-"}
               </p>
-              <div className="inline-flex items-center rounded-full border border-border px-3 py-1 text-xs font-medium text-foreground gap-2">
-                <span className="inline-flex items-center gap-1">
-                  <Camera className="w-3.5 h-3.5" />
-                  0/{createdSummary.max_photos ?? "∞"}
-                </span>
-                <span className="inline-flex items-center gap-1">
-                  <Video className="w-3.5 h-3.5" />
-                  0/{createdSummary.max_videos ?? "∞"}
-                </span>
-                <span className="inline-flex items-center gap-1">
-                  <Mic className="w-3.5 h-3.5" />
-                  0/{createdSummary.max_audios ?? "∞"}
-                </span>
-              </div>
+              <MediaUsageTag
+                photoCount={0}
+                photoLimit={createdSummary.max_photos ?? "∞"}
+                videoCount={0}
+                videoLimit={createdSummary.max_videos ?? "∞"}
+                audioCount={0}
+                audioLimit={createdSummary.max_audios ?? "∞"}
+              />
               <p>
                 <span className="font-medium">{t("events.startLabel")}:</span>{" "}
                 {createdSummary.upload_start_time

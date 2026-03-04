@@ -11,6 +11,7 @@ import cameraIcon from "@/assets/camera.png";
 import prohibidoIcon from "@/assets/prohibido.png";
 import { compressImage } from "@/lib/imageCompression";
 import ShareDialog from "@/components/ShareDialog";
+import { PricingPreview } from "@/components/PricingPreview";
 import { getTranslations, getEventLanguage, getEventTimezone, getLocalDateInTimezone, Language } from "@/lib/translations";
 import { EventFontFamily, getEventFontFamily } from "@/lib/eventFonts";
 import {
@@ -48,6 +49,7 @@ const Camera = () => {
   const [revealCountdown, setRevealCountdown] = useState<string>("");
   const [startCountdown, setStartCountdown] = useState<string>("");
   const [showShareDialog, setShowShareDialog] = useState(false);
+  const [pricingOpen, setPricingOpen] = useState(false);
   const [rateLimitCooldown, setRateLimitCooldown] = useState(0);
   const [failedUpload, setFailedUpload] = useState<{ file: File } | null>(null);
   const uploadTimestampsRef = useRef<number[]>([]);
@@ -103,6 +105,12 @@ const Camera = () => {
     loadMediaCounts();
     window.scrollTo(0, 0);
   }, [eventId, navigate]);
+
+  useEffect(() => {
+    return () => {
+      cleanupMediaStream();
+    };
+  }, []);
 
   // Countdown to reveal time when event has ended
   useEffect(() => {
@@ -512,7 +520,6 @@ const Camera = () => {
 
   const teardownRecordingControls = () => {
     stopMediaRecorder();
-    cleanupMediaStream();
     resetRecordingState();
   };
 
@@ -862,8 +869,15 @@ const Camera = () => {
   const captureMagicText = language === "en" ? "Capture the magic!" : language === "it" ? "Cattura la magia!" : "¡Captura la magia!";
   const isModernHeader = headerStyle === "modern";
   const demoBanner = isDemoEvent ? (
-    <div className="fixed top-0 left-0 right-0 z-[60] bg-[#f06a5f] py-1.5 text-center text-xs font-semibold tracking-wide text-white">
-      Evento de prueba
+    <div className="fixed top-0 left-0 right-0 z-[60] bg-[#f06a5f] py-2 text-center text-xs font-semibold tracking-wide text-white">
+      <span>Eveto de prueba. </span>
+      <button
+        type="button"
+        className="underline underline-offset-2"
+        onClick={() => setPricingOpen(true)}
+      >
+        Ver planes de pago
+      </button>
     </div>
   ) : null;
   const mediaCountsHeaderText = isPhotoOnlyConfigured
@@ -888,7 +902,7 @@ const Camera = () => {
     return (
       <>
         {demoBanner}
-        <div className={`app-screen bg-background flex flex-col ${isDemoEvent ? "pt-8" : ""}`}>
+        <div className={`app-screen bg-background flex flex-col ${isDemoEvent ? "pt-10" : ""}`}>
         {backgroundImageUrl ? (
           <>
             {/* Hero Header with Background Image */}
@@ -1011,7 +1025,7 @@ const Camera = () => {
           </>
         ) : (
           <>
-            <header className={`fixed left-0 right-0 z-50 p-4 flex justify-between items-center bg-card border-b border-border ${isDemoEvent ? "top-8" : "top-0"}`}>
+            <header className={`fixed left-0 right-0 z-50 p-4 flex justify-between items-center bg-card border-b border-border ${isDemoEvent ? "top-10" : "top-0"}`}>
               <Button
                 variant="ghost"
                 size="icon"
@@ -1108,7 +1122,7 @@ const Camera = () => {
     return (
       <>
         {demoBanner}
-        <div className={`app-screen bg-background flex flex-col ${isDemoEvent ? "pt-8" : ""}`}>
+        <div className={`app-screen bg-background flex flex-col ${isDemoEvent ? "pt-10" : ""}`}>
         {backgroundImageUrl ? (
           <>
             {/* Hero Header with Background Image */}
@@ -1231,7 +1245,7 @@ const Camera = () => {
           </>
         ) : (
           <>
-            <header className={`fixed left-0 right-0 z-50 p-4 flex justify-between items-center bg-card border-b border-border ${isDemoEvent ? "top-8" : "top-0"}`}>
+            <header className={`fixed left-0 right-0 z-50 p-4 flex justify-between items-center bg-card border-b border-border ${isDemoEvent ? "top-10" : "top-0"}`}>
               <Button
                 variant="ghost"
                 size="icon"
@@ -1478,7 +1492,7 @@ const Camera = () => {
   return (
     <>
       {demoBanner}
-      <div className={`app-screen bg-background flex flex-col ${isDemoEvent ? "pt-8" : ""}`}>
+      <div className={`app-screen bg-background flex flex-col ${isDemoEvent ? "pt-10" : ""}`}>
       {backgroundImageUrl ? (
         <>
           {/* Hero Header with Background Image */}
@@ -1557,7 +1571,7 @@ const Camera = () => {
         </>
       ) : (
         <>
-          <header className={`fixed left-0 right-0 z-50 p-4 flex justify-between items-center bg-card border-b border-border ${isDemoEvent ? "top-8" : "top-0"}`}>
+          <header className={`fixed left-0 right-0 z-50 p-4 flex justify-between items-center bg-card border-b border-border ${isDemoEvent ? "top-10" : "top-0"}`}>
             <Button
               variant="ghost"
               size="icon"
@@ -1769,6 +1783,18 @@ const Camera = () => {
         onChange={handleFileChange}
         className="hidden"
       />
+      <Dialog open={pricingOpen} onOpenChange={setPricingOpen}>
+        <DialogContent className="w-screen h-[100dvh] max-h-[100dvh] rounded-none p-4 sm:p-6 sm:rounded-lg sm:h-auto sm:max-h-[90vh] sm:w-full sm:max-w-6xl">
+          <DialogHeader>
+            <DialogTitle>Elige tu plan</DialogTitle>
+          </DialogHeader>
+          <div className="max-h-[calc(100dvh-80px)] sm:max-h-[80vh] overflow-y-auto pr-1">
+            <div className="mx-auto w-full max-w-6xl">
+              <PricingPreview showHeader={false} mobileLayout="stack" hideDemo />
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
       </div>
     </>
   );

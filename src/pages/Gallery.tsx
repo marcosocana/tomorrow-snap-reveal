@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { LogOut, Film, Trash2, Download, Share2, Play, Image, Mic, Video, LayoutGrid, LayoutList } from "lucide-react";
 import StoriesViewer from "@/components/StoriesViewer";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,6 +19,7 @@ import JSZip from "jszip";
 import heartOutline from "@/assets/heart-outline.svg";
 import heartFilled from "@/assets/heart-filled.svg";
 import ShareDialog from "@/components/ShareDialog";
+import { PricingPreview } from "@/components/PricingPreview";
 import { FilterType, getFilterClass, getGrainClass, applyFilterToCanvas } from "@/lib/photoFilters";
 import { getTranslations, getEventLanguage, getEventTimezone, getLocalDateInTimezone, Language } from "@/lib/translations";
 import { EventFontFamily, getEventFontFamily } from "@/lib/eventFonts";
@@ -100,6 +101,7 @@ const Gallery = () => {
   const [eventPassword, setEventPassword] = useState<string>("");
   const [filterType, setFilterType] = useState<FilterType>("vintage");
   const [showShareDialog, setShowShareDialog] = useState(false);
+  const [pricingOpen, setPricingOpen] = useState(false);
   const [eventCustomImage, setEventCustomImage] = useState<string | null>(null);
   const [eventDescription, setEventDescription] = useState<string | null>(null);
   const [eventBackgroundImage, setEventBackgroundImage] = useState<string | null>(null);
@@ -1194,8 +1196,15 @@ const Gallery = () => {
     : "✨ Ya se ha revelado el contenido del evento";
   const isModernHeader = headerStyle === "modern";
   const demoBanner = isDemoEvent ? (
-    <div className="fixed top-0 left-0 right-0 z-[60] bg-[#f06a5f] py-1.5 text-center text-xs font-semibold tracking-wide text-white">
-      Evento de prueba
+    <div className="fixed top-0 left-0 right-0 z-[60] bg-[#f06a5f] py-2 text-center text-xs font-semibold tracking-wide text-white">
+      <span>Eveto de prueba. </span>
+      <button
+        type="button"
+        className="underline underline-offset-2"
+        onClick={() => setPricingOpen(true)}
+      >
+        Ver planes de pago
+      </button>
     </div>
   ) : null;
 
@@ -1211,7 +1220,7 @@ const Gallery = () => {
     return (
       <>
         {demoBanner}
-        <div className={`app-screen bg-background flex flex-col items-center justify-center p-4 ${isDemoEvent ? "pt-8" : ""}`}>
+        <div className={`app-screen bg-background flex flex-col items-center justify-center p-4 ${isDemoEvent ? "pt-10" : ""}`}>
         <div className="flex-1 flex flex-col items-center justify-center max-w-md w-full text-center space-y-6">
           <h1 
             className="text-2xl font-bold text-foreground"
@@ -1250,7 +1259,7 @@ const Gallery = () => {
   return (
     <>
       {demoBanner}
-      <div className={`app-screen bg-background ${isDemoEvent ? "pt-8" : ""}`}>
+      <div className={`app-screen bg-background ${isDemoEvent ? "pt-10" : ""}`}>
       {/* Hero Header with Background Image */}
       {eventBackgroundImage ? (
         <header className="relative w-full">
@@ -1349,7 +1358,7 @@ const Gallery = () => {
           )}
         </header>
       ) : (
-        <header className={`fixed left-0 right-0 z-50 border-b border-border bg-card ${isDemoEvent ? "top-8" : "top-0"}`}>
+        <header className={`fixed left-0 right-0 z-50 border-b border-border bg-card ${isDemoEvent ? "top-10" : "top-0"}`}>
           <div className="max-w-7xl mx-auto px-6 py-6">
             <div className="mb-4 flex items-center justify-between">
               <Button
@@ -1733,6 +1742,18 @@ const Gallery = () => {
           onLikeMedia={handleLikeMedia}
         />
       )}
+      <Dialog open={pricingOpen} onOpenChange={setPricingOpen}>
+        <DialogContent className="w-screen h-[100dvh] max-h-[100dvh] rounded-none p-4 sm:p-6 sm:rounded-lg sm:h-auto sm:max-h-[90vh] sm:w-full sm:max-w-6xl">
+          <DialogHeader>
+            <DialogTitle>Elige tu plan</DialogTitle>
+          </DialogHeader>
+          <div className="max-h-[calc(100dvh-80px)] sm:max-h-[80vh] overflow-y-auto pr-1">
+            <div className="mx-auto w-full max-w-6xl">
+              <PricingPreview showHeader={false} mobileLayout="stack" hideDemo />
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
       </div>
     </>
   );
