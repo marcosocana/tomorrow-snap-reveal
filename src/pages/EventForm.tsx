@@ -665,6 +665,8 @@ const EventForm = () => {
               upload_end_time: createdEvent.upload_end_time,
               reveal_time: createdEvent.reveal_time,
               max_photos: createdEvent.max_photos,
+              max_videos: createdEvent.max_videos,
+              max_audios: createdEvent.max_audios,
               owner_email: createdEvent.owner_email || ownerEmailInput.trim(),
             },
           },

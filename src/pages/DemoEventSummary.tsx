@@ -22,6 +22,8 @@ interface EventData {
   upload_end_time: string;
   timezone: string;
   max_photos: number;
+  max_videos?: number | null;
+  max_audios?: number | null;
 }
 
 const DemoEventSummary = () => {
@@ -47,6 +49,9 @@ const DemoEventSummary = () => {
   const adminUrl = `https://acceso.revelao.cam${pathPrefix}/admin-login`;
   const eventTz = event.timezone || "Europe/Madrid";
   const shouldShowPricing = /^\d{8}$/.test(event.password_hash);
+  const demoPhotos = event.max_photos ?? 10;
+  const demoVideos = event.max_videos ?? 3;
+  const demoAudios = event.max_audios ?? 6;
   const storedQrUrl = event
     ? localStorage.getItem(`event-qr-url-${event.id}`) ||
       supabase.storage
@@ -167,7 +172,7 @@ const DemoEventSummary = () => {
           <div className="text-center">
             <h2 className="text-2xl font-bold text-foreground">{event.name}</h2>
             <p className="text-muted-foreground mt-1">
-              {t("summary.demoLabel", { count: event.max_photos })}
+              {t("summary.demoLabel", { photos: demoPhotos, videos: demoVideos, audios: demoAudios })}
             </p>
           </div>
 

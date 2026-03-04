@@ -528,6 +528,9 @@ const PublicDemoEventForm = () => {
           <p className="text-muted-foreground text-center max-w-md">
             {t("form.subtitle")}
           </p>
+          <p className="text-sm font-medium text-[hsl(var(--revelao-red))] text-center">
+            {t("form.demoLimits")}
+          </p>
         </div>
 
         <div className="grid lg:grid-cols-[1fr,280px] gap-6">

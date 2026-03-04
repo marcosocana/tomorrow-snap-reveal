@@ -102,6 +102,8 @@ const EventManagement = () => {
     upload_end_time: string | null;
     reveal_time: string;
     max_photos: number | null;
+    max_videos?: number | null;
+    max_audios?: number | null;
     owner_email: string | null;
   } | null>(null);
   
@@ -679,15 +681,6 @@ const EventManagement = () => {
                   onClick={() => setPreviewEvent(effectiveEvent)}
                 >
                   {photoCount} / {videoCount} / {audioCount}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPreviewEvent(effectiveEvent)}
-                  className="h-6 px-2 text-xs gap-1"
-                >
-                  <Eye className="w-3 h-3" />
-                  {t("events.preview")}
                 </Button>
               </div>
               <div className="space-y-1">
@@ -1310,8 +1303,8 @@ const EventManagement = () => {
                 {createdSummary.owner_email || "-"}
               </p>
               <p>
-                <span className="font-medium">{t("events.table.photos")}:</span>{" "}
-                {createdSummary.max_photos ?? "-"}
+                <span className="font-medium">F / V / A:</span>{" "}
+                {(createdSummary.max_photos ?? "-")} / {(createdSummary.max_videos ?? "-")} / {(createdSummary.max_audios ?? "-")}
               </p>
               <p>
                 <span className="font-medium">{t("events.startLabel")}:</span>{" "}
