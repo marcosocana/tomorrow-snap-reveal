@@ -1196,7 +1196,7 @@ const Gallery = () => {
     : "✨ Ya se ha revelado el contenido del evento";
   const isModernHeader = headerStyle === "modern";
   const demoBanner = isDemoEvent ? (
-    <div className="fixed top-0 left-0 right-0 z-[60] bg-[#f06a5f] py-2 text-center text-xs font-semibold tracking-wide text-white">
+    <div className="fixed top-0 left-0 right-0 z-40 bg-[#f06a5f] py-2 text-center text-xs font-semibold tracking-wide text-white">
       <span>Eveto de prueba. </span>
       <button
         type="button"
@@ -1220,7 +1220,7 @@ const Gallery = () => {
     return (
       <>
         {demoBanner}
-        <div className={`app-screen bg-background flex flex-col items-center justify-center p-4 ${isDemoEvent ? "pt-10" : ""}`}>
+        <div className={`app-screen bg-background flex flex-col items-center justify-center p-4 ${isDemoEvent ? "pt-8" : ""}`}>
         <div className="flex-1 flex flex-col items-center justify-center max-w-md w-full text-center space-y-6">
           <h1 
             className="text-2xl font-bold text-foreground"
@@ -1259,7 +1259,7 @@ const Gallery = () => {
   return (
     <>
       {demoBanner}
-      <div className={`app-screen bg-background ${isDemoEvent ? "pt-10" : ""}`}>
+      <div className={`app-screen bg-background ${isDemoEvent ? "pt-8" : ""}`}>
       {/* Hero Header with Background Image */}
       {eventBackgroundImage ? (
         <header className="relative w-full">
@@ -1358,7 +1358,7 @@ const Gallery = () => {
           )}
         </header>
       ) : (
-        <header className={`fixed left-0 right-0 z-50 border-b border-border bg-card ${isDemoEvent ? "top-10" : "top-0"}`}>
+        <header className={`fixed left-0 right-0 z-50 border-b border-border bg-card ${isDemoEvent ? "top-8" : "top-0"}`}>
           <div className="max-w-7xl mx-auto px-6 py-6">
             <div className="mb-4 flex items-center justify-between">
               <Button
