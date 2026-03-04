@@ -61,6 +61,7 @@ const Camera = () => {
   const [audioDurationSeconds, setAudioDurationSeconds] = useState(30);
   const [maxPhotos, setMaxPhotos] = useState<number | null>(null);
   const [headerStyle, setHeaderStyle] = useState<"gradient" | "modern">("modern");
+  const [isDemoEvent, setIsDemoEvent] = useState(false);
   const [recordingMode, setRecordingMode] = useState<"video" | "audio" | null>(null);
   const [isRecordingMedia, setIsRecordingMedia] = useState(false);
   const [recordingCountdown, setRecordingCountdown] = useState(0);
@@ -165,7 +166,7 @@ const Camera = () => {
     try {
       const { data, error } = await supabase
         .from("events")
-        .select("reveal_time, upload_start_time, upload_end_time, password_hash, max_photos, custom_image_url, background_image_url, description, font_family, font_size, show_legal_text, legal_text_type, allow_video_recording, max_videos, max_video_duration, allow_audio_recording, max_audios, max_audio_duration, header_style")
+        .select("reveal_time, upload_start_time, upload_end_time, password_hash, max_photos, custom_image_url, background_image_url, description, font_family, font_size, show_legal_text, legal_text_type, allow_video_recording, max_videos, max_video_duration, allow_audio_recording, max_audios, max_audio_duration, header_style, is_demo")
         .eq("id", eventId)
         .single();
       if (data && !error) {
@@ -193,6 +194,7 @@ const Camera = () => {
         setMaxAudios(Number.isFinite(rawMaxAudios) && rawMaxAudios > 0 ? rawMaxAudios : null);
         setAudioDurationSeconds(Number.isFinite(rawAudioDuration) && rawAudioDuration > 0 ? rawAudioDuration : 30);
         setHeaderStyle(((data as any).header_style || "modern") as "gradient" | "modern");
+        setIsDemoEvent((data as any).is_demo === true);
         
       }
     } finally {
@@ -859,6 +861,11 @@ const Camera = () => {
   // Capture the magic text based on language
   const captureMagicText = language === "en" ? "Capture the magic!" : language === "it" ? "Cattura la magia!" : "¡Captura la magia!";
   const isModernHeader = headerStyle === "modern";
+  const demoBanner = isDemoEvent ? (
+    <div className="fixed top-0 left-0 right-0 z-[60] bg-[#f06a5f] py-1.5 text-center text-xs font-semibold tracking-wide text-white">
+      Evento de prueba
+    </div>
+  ) : null;
   const mediaCountsHeaderText = isPhotoOnlyConfigured
     ? language === "en"
       ? `📷 ${photoCount} photos`
@@ -879,7 +886,9 @@ const Camera = () => {
   // Event hasn't started yet
   if (hasNotStarted) {
     return (
-      <div className="app-screen bg-background flex flex-col">
+      <>
+        {demoBanner}
+        <div className={`app-screen bg-background flex flex-col ${isDemoEvent ? "pt-8" : ""}`}>
         {backgroundImageUrl ? (
           <>
             {/* Hero Header with Background Image */}
@@ -1002,7 +1011,7 @@ const Camera = () => {
           </>
         ) : (
           <>
-            <header className="fixed top-0 left-0 right-0 z-50 p-4 flex justify-between items-center bg-card border-b border-border">
+            <header className={`fixed left-0 right-0 z-50 p-4 flex justify-between items-center bg-card border-b border-border ${isDemoEvent ? "top-8" : "top-0"}`}>
               <Button
                 variant="ghost"
                 size="icon"
@@ -1082,7 +1091,8 @@ const Camera = () => {
             </div>
           </>
         )}
-      </div>
+        </div>
+      </>
     );
   }
 
@@ -1096,7 +1106,9 @@ const Camera = () => {
       : `${revealDateLabel.charAt(0).toUpperCase() + revealDateLabel.slice(1)} a las ${revealTimeFormatted} todo será revelado en este mismo espacio 📸✨`;
 
     return (
-      <div className="app-screen bg-background flex flex-col">
+      <>
+        {demoBanner}
+        <div className={`app-screen bg-background flex flex-col ${isDemoEvent ? "pt-8" : ""}`}>
         {backgroundImageUrl ? (
           <>
             {/* Hero Header with Background Image */}
@@ -1219,7 +1231,7 @@ const Camera = () => {
           </>
         ) : (
           <>
-            <header className="fixed top-0 left-0 right-0 z-50 p-4 flex justify-between items-center bg-card border-b border-border">
+            <header className={`fixed left-0 right-0 z-50 p-4 flex justify-between items-center bg-card border-b border-border ${isDemoEvent ? "top-8" : "top-0"}`}>
               <Button
                 variant="ghost"
                 size="icon"
@@ -1304,7 +1316,8 @@ const Camera = () => {
             </div>
           </>
         )}
-      </div>
+        </div>
+      </>
     );
   }
 
@@ -1463,7 +1476,9 @@ const Camera = () => {
   );
 
   return (
-    <div className="app-screen bg-background flex flex-col">
+    <>
+      {demoBanner}
+      <div className={`app-screen bg-background flex flex-col ${isDemoEvent ? "pt-8" : ""}`}>
       {backgroundImageUrl ? (
         <>
           {/* Hero Header with Background Image */}
@@ -1542,7 +1557,7 @@ const Camera = () => {
         </>
       ) : (
         <>
-          <header className="fixed top-0 left-0 right-0 z-50 p-4 flex justify-between items-center bg-card border-b border-border">
+          <header className={`fixed left-0 right-0 z-50 p-4 flex justify-between items-center bg-card border-b border-border ${isDemoEvent ? "top-8" : "top-0"}`}>
             <Button
               variant="ghost"
               size="icon"
@@ -1754,7 +1769,8 @@ const Camera = () => {
         onChange={handleFileChange}
         className="hidden"
       />
-    </div>
+      </div>
+    </>
   );
 };
 

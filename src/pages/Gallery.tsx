@@ -118,6 +118,7 @@ const Gallery = () => {
   const [allowVideoRecording, setAllowVideoRecording] = useState(false);
   const [allowAudioRecording, setAllowAudioRecording] = useState(false);
   const [headerStyle, setHeaderStyle] = useState<"gradient" | "modern">("modern");
+  const [isDemoEvent, setIsDemoEvent] = useState(false);
 
   // Get translations and timezone
   const language = getEventLanguage();
@@ -487,7 +488,7 @@ const Gallery = () => {
     const loadEventData = async () => {
       const { data } = await supabase
         .from("events")
-      .select("password_hash, filter_type, custom_image_url, description, background_image_url, expiry_date, expiry_redirect_url, font_family, font_size, allow_photo_deletion, allow_photo_sharing, like_counting_enabled, allow_video_recording, allow_audio_recording, header_style")
+      .select("password_hash, filter_type, custom_image_url, description, background_image_url, expiry_date, expiry_redirect_url, font_family, font_size, allow_photo_deletion, allow_photo_sharing, like_counting_enabled, allow_video_recording, allow_audio_recording, header_style, is_demo")
         .eq("id", eventId)
         .maybeSingle();
       if (data) {
@@ -503,6 +504,7 @@ const Gallery = () => {
         setAllowVideoRecording((data as any).allow_video_recording === true);
         setAllowAudioRecording((data as any).allow_audio_recording === true);
         setHeaderStyle(((data as any).header_style || "modern") as "gradient" | "modern");
+        setIsDemoEvent((data as any).is_demo === true);
         // Revealed gallery must start in normal mode. User can switch to grid manually.
         setGalleryViewMode("normal");
         setLikeCountingEnabled((data as any).like_counting_enabled === true);
@@ -1191,6 +1193,11 @@ const Gallery = () => {
     ? "✨ I contenuti dell'evento sono stati rivelati"
     : "✨ Ya se ha revelado el contenido del evento";
   const isModernHeader = headerStyle === "modern";
+  const demoBanner = isDemoEvent ? (
+    <div className="fixed top-0 left-0 right-0 z-[60] bg-[#f06a5f] py-1.5 text-center text-xs font-semibold tracking-wide text-white">
+      Evento de prueba
+    </div>
+  ) : null;
 
   // Expired event screen
   if (isExpired) {
@@ -1202,7 +1209,9 @@ const Gallery = () => {
     const viewPhotosButtonText = language === "en" ? "View photos" : language === "it" ? "Vedi foto" : "Ver fotografías";
 
     return (
-      <div className="app-screen bg-background flex flex-col items-center justify-center p-4">
+      <>
+        {demoBanner}
+        <div className={`app-screen bg-background flex flex-col items-center justify-center p-4 ${isDemoEvent ? "pt-8" : ""}`}>
         <div className="flex-1 flex flex-col items-center justify-center max-w-md w-full text-center space-y-6">
           <h1 
             className="text-2xl font-bold text-foreground"
@@ -1231,14 +1240,17 @@ const Gallery = () => {
             </div>
           )}
         </div>
-      </div>
+        </div>
+      </>
     );
   }
 
   const effectiveGalleryViewMode = isDesktopView ? "grid" : galleryViewMode;
 
   return (
-    <div className="app-screen bg-background">
+    <>
+      {demoBanner}
+      <div className={`app-screen bg-background ${isDemoEvent ? "pt-8" : ""}`}>
       {/* Hero Header with Background Image */}
       {eventBackgroundImage ? (
         <header className="relative w-full">
@@ -1337,7 +1349,7 @@ const Gallery = () => {
           )}
         </header>
       ) : (
-        <header className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-card">
+        <header className={`fixed left-0 right-0 z-50 border-b border-border bg-card ${isDemoEvent ? "top-8" : "top-0"}`}>
           <div className="max-w-7xl mx-auto px-6 py-6">
             <div className="mb-4 flex items-center justify-between">
               <Button
@@ -1721,7 +1733,8 @@ const Gallery = () => {
           onLikeMedia={handleLikeMedia}
         />
       )}
-    </div>
+      </div>
+    </>
   );
 };
 

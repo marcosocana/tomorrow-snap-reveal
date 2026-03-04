@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, Plus, Edit, Copy, Download, Eye, LogOut, ArrowLeft, User } from "lucide-react";
+import { Calendar, Plus, Edit, Copy, Download, Eye, LogOut, ArrowLeft, User, Lock } from "lucide-react";
 import { format } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 import { getCountryByCode } from "@/lib/countries";
@@ -57,6 +57,7 @@ interface Event {
   allow_audio_recording?: boolean;
   max_audios?: number | null;
   max_audio_duration?: number | null;
+  limits_json?: any;
 }
 
 const EventManagement = () => {
@@ -483,9 +484,35 @@ const EventManagement = () => {
     });
   };
 
+  const getDeletionLockPin = (event: Event): string | null => {
+    const raw = event.limits_json;
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+    const pin = (raw as Record<string, unknown>).deletion_lock_pin;
+    return typeof pin === "string" && pin.trim().length > 0 ? pin.trim() : null;
+  };
+
+  const isEventDeletionLocked = (event: Event) => !!getDeletionLockPin(event);
+
   const handleDeleteSelection = async () => {
     const ids = Array.from(selectedEventIds);
     if (ids.length === 0) return;
+    const selectedEvents = superAdminEvents.filter((event) => ids.includes(event.id));
+    const lockedEvents = selectedEvents.filter((event) => isEventDeletionLocked(event));
+
+    for (const event of lockedEvents) {
+      const expectedPin = getDeletionLockPin(event);
+      if (!expectedPin) continue;
+      const enteredPin = window.prompt(`El evento "${event.name}" está bloqueado. Introduce PIN para eliminarlo:`);
+      if (!enteredPin || enteredPin.trim() !== expectedPin) {
+        toast({
+          title: "PIN incorrecto",
+          description: "No se pudo eliminar porque el PIN de bloqueo no coincide.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     const confirmed = window.confirm(`¿Eliminar ${ids.length} evento(s) seleccionados?`);
     if (!confirmed) return;
 
@@ -507,6 +534,49 @@ const EventManagement = () => {
       toast({
         title: t("events.deleteError"),
         description: t("events.deleteError"),
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleLockSelection = async () => {
+    const ids = Array.from(selectedEventIds);
+    if (ids.length === 0) return;
+    const pin = window.prompt("Introduce un PIN para bloquear los eventos seleccionados:");
+    if (!pin || !pin.trim()) return;
+    const normalizedPin = pin.trim();
+    const selectedEvents = superAdminEvents.filter((event) => ids.includes(event.id));
+
+    try {
+      for (const event of selectedEvents) {
+        const currentLimits =
+          event.limits_json && typeof event.limits_json === "object" && !Array.isArray(event.limits_json)
+            ? (event.limits_json as Record<string, unknown>)
+            : {};
+
+        const { error } = await supabase
+          .from("events")
+          .update({
+            limits_json: {
+              ...currentLimits,
+              deletion_lock_pin: normalizedPin,
+            },
+          })
+          .eq("id", event.id);
+
+        if (error) throw error;
+      }
+
+      await loadData();
+      toast({
+        title: "Eventos bloqueados",
+        description: `Se aplicó el PIN a ${selectedEvents.length} evento(s).`,
+      });
+    } catch (error) {
+      console.error("Error locking selected events:", error);
+      toast({
+        title: "No se pudo bloquear",
+        description: "Hubo un problema al guardar el PIN de bloqueo.",
         variant: "destructive",
       });
     }
@@ -927,13 +997,24 @@ const EventManagement = () => {
                 <p className="text-xs text-muted-foreground">
                   {selectedEventIds.size} seleccionados
                 </p>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={handleDeleteSelection}
-                >
-                  Eliminar selección
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1"
+                    onClick={handleLockSelection}
+                  >
+                    <Lock className="w-4 h-4" />
+                    Bloquear
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={handleDeleteSelection}
+                  >
+                    Eliminar selección
+                  </Button>
+                </div>
               </div>
             ) : null}
             <div className="overflow-x-auto">
@@ -986,7 +1067,14 @@ const EventManagement = () => {
                         <td className="py-3 pr-4 text-muted-foreground">
                           {(adminPage - 1) * pageSize + index + 1}
                         </td>
-                        <td className="py-3 pr-4 font-medium">{truncate(event.name, 26)}</td>
+                        <td className="py-3 pr-4 font-medium">
+                          <span className="inline-flex items-center gap-1.5">
+                            {isEventDeletionLocked(event) ? (
+                              <Lock className="w-3.5 h-3.5 text-foreground/80" />
+                            ) : null}
+                            <span>{truncate(event.name, 26)}</span>
+                          </span>
+                        </td>
                         <td className="py-3 pr-4">
                           <span
                             className={`inline-flex items-center justify-center w-9 h-6 rounded-full border text-xs font-semibold ${getPlanType(event.max_photos).color}`}
