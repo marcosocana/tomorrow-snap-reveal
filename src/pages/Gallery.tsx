@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { LogOut, Film, Trash2, Download, MoreVertical, Share2, Play, LayoutGrid, LayoutList, Image, Mic, Video } from "lucide-react";
+import { LogOut, Film, Trash2, Download, MoreVertical, Share2, Play, Image, Mic, Video } from "lucide-react";
 import StoriesViewer from "@/components/StoriesViewer";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import {
@@ -86,6 +86,7 @@ const Gallery = () => {
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(0);
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
+  const [selectedMedia, setSelectedMedia] = useState<MixedMediaItem | null>(null);
   
   const observerTarget = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -301,29 +302,35 @@ const Gallery = () => {
 
   const handleMediaClick = useCallback(
     (item: MixedMediaItem) => {
-      if (item.type !== "photo") return;
-      const photo = photoLookup.get(item.id);
-      if (photo) {
-        setSelectedPhoto(photo);
+      if (item.type === "photo") {
+        const photo = photoLookup.get(item.id);
+        if (photo) {
+          setSelectedPhoto(photo);
+        }
+        return;
       }
+      setSelectedMedia(item);
     },
     [photoLookup]
   );
 
-  const getMediaTypeLabel = (type: MixedMediaType) => {
-    if (type === "photo") {
-      return language === "en" ? "Photo" : language === "it" ? "Foto" : "Foto";
-    }
-    if (type === "video") {
-      return language === "en" ? "Video" : language === "it" ? "Video" : "Vídeo";
-    }
-    return language === "en" ? "Audio" : language === "it" ? "Audio" : "Audio";
-  };
-
-  const renderMediaIcon = (type: MixedMediaType) => {
-    if (type === "video") return <Video className="w-4 h-4" />;
-    if (type === "audio") return <Mic className="w-4 h-4" />;
-    return <Image className="w-4 h-4" />;
+  const renderAudioWaveform = (compact: boolean) => {
+    const bars = compact ? 10 : 22;
+    return (
+      <div className="absolute inset-0 flex items-center justify-center gap-1 px-4">
+        {Array.from({ length: bars }).map((_, index) => {
+          const height = 20 + ((index * 13) % 38);
+          return (
+            <span
+              // eslint-disable-next-line react/no-array-index-key
+              key={index}
+              className="w-1 rounded-full bg-red-500/90"
+              style={{ height: `${height}px` }}
+            />
+          );
+        })}
+      </div>
+    );
   };
 
   const renderMediaPreview = (item: MixedMediaItem, view: "grid" | "list") => {
@@ -342,32 +349,21 @@ const Gallery = () => {
     }
     if (item.type === "video") {
       return (
-        <video
-          src={item.signedUrl || ""}
-          muted
-          playsInline
-          autoPlay={view === "grid"}
-          loop={view === "grid"}
-          controls={view === "list"}
-          className="w-full h-full object-cover bg-black"
-        />
+        <div className="relative h-full w-full bg-black">
+          <video
+            src={item.signedUrl || ""}
+            muted
+            playsInline
+            autoPlay={view === "grid"}
+            loop={view === "grid"}
+            className="w-full h-full object-cover bg-black"
+          />
+        </div>
       );
     }
-    return view === "grid" ? (
-      <div className="flex h-full w-full flex-col items-center justify-center gap-1 bg-slate-900 text-white">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/20">
-          <Mic className="w-5 h-5 text-white" />
-        </div>
-        <p className="text-xs uppercase tracking-widest">
-          {language === "en" ? "Audio" : language === "it" ? "Audio" : "Audio"}
-        </p>
-      </div>
-    ) : (
-      <div className="flex h-full w-full flex-col justify-center gap-3 bg-muted/50 p-4">
-        <audio src={item.signedUrl || ""} controls className="w-full" />
-        <p className="text-xs text-muted-foreground">
-          {language === "en" ? "Audio note" : language === "it" ? "Nota audio" : "Nota de audio"}
-        </p>
+    return (
+      <div className="relative h-full w-full bg-red-950/90">
+        {renderAudioWaveform(view === "grid")}
       </div>
     );
   };
@@ -817,7 +813,6 @@ const Gallery = () => {
   };
 
   // Translated texts
-  const totalText = language === "en" ? "Total" : language === "it" ? "Totale" : "Total";
   const loadingPhotosText = language === "en" ? "Loading photos..." : language === "it" ? "Caricamento foto..." : "Cargando fotos...";
   const noPhotosYetText = language === "en" ? "No photos yet" : language === "it" ? "Nessuna foto ancora" : "Aún no hay fotos";
   const photosAppearText = language === "en" ? "Photos will appear here when the reveal time is reached" : language === "it" ? "Le foto appariranno qui quando sarà raggiunta l'ora di rivelazione" : "Las fotos aparecerán aquí cuando se alcance la hora de revelado";
@@ -1047,33 +1042,27 @@ const Gallery = () => {
       )}
 
       <main className={eventBackgroundImage ? "pt-4 pb-20" : "py-12 pt-36 pb-20"}>
-        <div className="max-w-7xl mx-auto px-6 mb-6">
-          <div className="rounded-3xl border border-border bg-card p-5 shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">{totalText}</p>
-              <p className="text-xs text-muted-foreground">{mediaStatsText}</p>
-            </div>
-          </div>
-        </div>
         <div className="max-w-7xl mx-auto px-6">
-          <div className="flex justify-end gap-2 mb-4">
+          <div className="mb-4">
+            <div className="mx-auto flex w-full max-w-2xl rounded-2xl bg-muted p-1">
             {(["normal", "grid"] as const).map((mode) => {
-              const Icon = mode === "grid" ? LayoutGrid : LayoutList;
               return (
                 <button
                   key={mode}
                   type="button"
                   onClick={() => setGalleryViewMode(mode)}
-                  className={`relative flex h-10 w-10 items-center justify-center rounded-full border transition ${galleryViewMode === mode ? "border-primary bg-primary/10 text-primary" : "border-border bg-muted text-muted-foreground"}`}
+                  className={`flex-1 rounded-xl px-4 py-2 text-sm font-semibold transition ${
+                    galleryViewMode === mode
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
                   aria-label={`${mode} view`}
                 >
-                  <Icon className="w-5 h-5" />
-                  {galleryViewMode === mode && (
-                    <span className="absolute -bottom-1 left-1/2 h-1 w-10 -translate-x-1/2 rounded-full bg-destructive" />
-                  )}
+                  {mode === "normal" ? "Normal" : "Grid"}
                 </button>
               );
             })}
+            </div>
           </div>
         </div>
         <div className={galleryViewMode === "grid" ? "w-full" : "max-w-7xl mx-auto px-6"}>
@@ -1104,15 +1093,13 @@ const Gallery = () => {
                     className="group relative aspect-square cursor-pointer overflow-hidden bg-muted outline-none focus-visible:ring focus-visible:ring-primary/60"
                   >
                     {renderMediaPreview(item, "grid")}
-                    <div className="absolute inset-x-0 bottom-0 flex flex-col gap-1 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-2 py-1 text-white text-[10px]">
-                      <span className="flex items-center gap-1 text-[11px] uppercase tracking-widest">
-                        {renderMediaIcon(item.type)}
-                        {getMediaTypeLabel(item.type)}
+                    {item.type === "video" || item.type === "audio" ? (
+                      <span className="absolute inset-0 flex items-center justify-center">
+                        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-black/55 text-white">
+                          <Play className="h-5 w-5 fill-white" />
+                        </span>
                       </span>
-                      <span className="text-[9px] uppercase tracking-[0.4em]">
-                        {formatLocalDate(item.captured_at, "dd/MM/yyyy")}
-                      </span>
-                    </div>
+                    ) : null}
                   </button>
                 ))}
               </div>
@@ -1120,34 +1107,25 @@ const Gallery = () => {
           ) : (
             <div className="space-y-6 pb-6">
               {mixedMedia.map((item) => (
-                <article
+                <div
                   key={`${item.type}-${item.id}`}
-                  className="rounded-3xl border border-border bg-card p-4 shadow-sm space-y-4"
+                  className="relative overflow-hidden"
                 >
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                      <span className="rounded-full bg-muted px-2 py-1 text-xs uppercase tracking-wide text-muted-foreground">
-                        {getMediaTypeLabel(item.type)}
-                      </span>
-                      {renderMediaIcon(item.type)}
-                    </div>
-                    <span className="text-xs text-muted-foreground">
-                      {formatLocalDate(item.captured_at, "dd/MM/yyyy HH:mm")}
-                    </span>
-                  </div>
-                  <div className="rounded-2xl border border-border bg-muted overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => handleMediaClick(item)}
+                    className="group relative block w-full overflow-hidden rounded-2xl outline-none focus-visible:ring focus-visible:ring-primary/60"
+                  >
                     {renderMediaPreview(item, "list")}
-                  </div>
-                  {item.duration_seconds && (
-                    <p className="text-xs text-muted-foreground">
-                      {language === "en"
-                        ? `Duration: ${item.duration_seconds}s`
-                        : language === "it"
-                        ? `Durata: ${item.duration_seconds}s`
-                        : `Duración: ${item.duration_seconds}s`}
-                    </p>
-                  )}
-                </article>
+                    {item.type === "video" || item.type === "audio" ? (
+                      <span className="absolute inset-0 flex items-center justify-center">
+                        <span className="flex h-14 w-14 items-center justify-center rounded-full bg-black/55 text-white transition group-hover:scale-105">
+                          <Play className="h-6 w-6 fill-white" />
+                        </span>
+                      </span>
+                    ) : null}
+                  </button>
+                </div>
               ))}
             </div>
           )}
@@ -1235,9 +1213,6 @@ const Gallery = () => {
                 </button>
               </div>
               <div className="bg-muted/50 rounded-lg p-4 space-y-3">
-                <p className="text-foreground text-sm uppercase tracking-wider">
-                  {formatLocalDate(selectedPhoto.captured_at, "dd MMM yyyy - HH:mm")}
-                </p>
                 <div className="flex gap-2">
                   {filterType !== 'none' ? (
                     <DropdownMenu>
@@ -1293,6 +1268,32 @@ const Gallery = () => {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Media Detail Modal (Video/Audio) */}
+      <Dialog open={!!selectedMedia} onOpenChange={() => setSelectedMedia(null)}>
+        <DialogContent className="max-w-4xl p-6 bg-card">
+          {selectedMedia ? (
+            <div className="space-y-4">
+              {selectedMedia.type === "video" ? (
+                <video
+                  src={selectedMedia.signedUrl || ""}
+                  controls
+                  autoPlay
+                  playsInline
+                  className="w-full h-auto max-h-[70vh] rounded-lg bg-black object-contain"
+                />
+              ) : (
+                <div className="space-y-3">
+                  <div className="relative h-44 w-full overflow-hidden rounded-lg bg-red-950/90">
+                    {renderAudioWaveform(false)}
+                  </div>
+                  <audio src={selectedMedia.signedUrl || ""} controls autoPlay className="w-full" />
+                </div>
+              )}
+            </div>
+          ) : null}
         </DialogContent>
       </Dialog>
 
