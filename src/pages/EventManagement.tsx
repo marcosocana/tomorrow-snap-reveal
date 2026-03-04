@@ -698,6 +698,12 @@ const EventManagement = () => {
                     {formatInTimeZone(new Date(event.upload_end_time), event.timezone || "Europe/Madrid", "dd/MM/yyyy HH:mm", { locale: dateLocale })}
                   </p>
                 )}
+                {event.reveal_time && (
+                  <p>
+                    <span className="font-medium">{t("events.revealDate")}:</span>{" "}
+                    {formatInTimeZone(new Date(event.reveal_time), event.timezone || "Europe/Madrid", "dd/MM/yyyy HH:mm", { locale: dateLocale })}
+                  </p>
+                )}
               </div>
               <div className="space-y-2 pt-1 hidden sm:block">
                 <div className="flex items-center gap-2">
