@@ -14,6 +14,41 @@ export type Database = {
   }
   public: {
     Tables: {
+      audios: {
+        Row: {
+          audio_url: string
+          captured_at: string
+          duration_seconds: number | null
+          event_id: string
+          id: string
+          metadata: Json | null
+        }
+        Insert: {
+          audio_url: string
+          captured_at?: string
+          duration_seconds?: number | null
+          event_id: string
+          id?: string
+          metadata?: Json | null
+        }
+        Update: {
+          audio_url?: string
+          captured_at?: string
+          duration_seconds?: number | null
+          event_id?: string
+          id?: string
+          metadata?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audios_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       blog_posts: {
         Row: {
           content_html: string
@@ -89,8 +124,10 @@ export type Database = {
       events: {
         Row: {
           admin_password: string | null
+          allow_audio_recording: boolean
           allow_photo_deletion: boolean
           allow_photo_sharing: boolean
+          allow_video_recording: boolean
           background_image_url: string | null
           country_code: string
           created_at: string
@@ -111,7 +148,11 @@ export type Database = {
           legal_text_type: string
           like_counting_enabled: boolean
           limits_json: Json | null
+          max_audio_duration: number
+          max_audios: number
           max_photos: number | null
+          max_video_duration: number
+          max_videos: number
           name: string
           owner_id: string | null
           password_hash: string
@@ -126,8 +167,10 @@ export type Database = {
         }
         Insert: {
           admin_password?: string | null
+          allow_audio_recording?: boolean
           allow_photo_deletion?: boolean
           allow_photo_sharing?: boolean
+          allow_video_recording?: boolean
           background_image_url?: string | null
           country_code?: string
           created_at?: string
@@ -148,7 +191,11 @@ export type Database = {
           legal_text_type?: string
           like_counting_enabled?: boolean
           limits_json?: Json | null
+          max_audio_duration?: number
+          max_audios?: number
           max_photos?: number | null
+          max_video_duration?: number
+          max_videos?: number
           name: string
           owner_id?: string | null
           password_hash: string
@@ -163,8 +210,10 @@ export type Database = {
         }
         Update: {
           admin_password?: string | null
+          allow_audio_recording?: boolean
           allow_photo_deletion?: boolean
           allow_photo_sharing?: boolean
+          allow_video_recording?: boolean
           background_image_url?: string | null
           country_code?: string
           created_at?: string
@@ -185,7 +234,11 @@ export type Database = {
           legal_text_type?: string
           like_counting_enabled?: boolean
           limits_json?: Json | null
+          max_audio_duration?: number
+          max_audios?: number
           max_photos?: number | null
+          max_video_duration?: number
+          max_videos?: number
           name?: string
           owner_id?: string | null
           password_hash?: string
@@ -370,6 +423,44 @@ export type Database = {
             columns: ["id"]
             isOneToOne: true
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      videos: {
+        Row: {
+          captured_at: string
+          duration_seconds: number | null
+          event_id: string
+          id: string
+          metadata: Json | null
+          thumbnail_url: string | null
+          video_url: string
+        }
+        Insert: {
+          captured_at?: string
+          duration_seconds?: number | null
+          event_id: string
+          id?: string
+          metadata?: Json | null
+          thumbnail_url?: string | null
+          video_url: string
+        }
+        Update: {
+          captured_at?: string
+          duration_seconds?: number | null
+          event_id?: string
+          id?: string
+          metadata?: Json | null
+          thumbnail_url?: string | null
+          video_url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "videos_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
             referencedColumns: ["id"]
           },
         ]
