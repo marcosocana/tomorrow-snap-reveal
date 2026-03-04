@@ -377,7 +377,6 @@ export const EventPreview = ({
 
       <div className="px-2.5 pt-2 pb-1">
         <p className="text-[8px] font-semibold text-foreground">{previewTexts.revealedInfo}</p>
-        <p className="text-[8px] text-muted-foreground">{previewTexts.mediaCounts}</p>
       </div>
 
       <div className="px-2.5 pb-2">

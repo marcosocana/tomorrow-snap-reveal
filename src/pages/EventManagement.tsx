@@ -682,6 +682,15 @@ const EventManagement = () => {
                 >
                   {photoCount} / {videoCount} / {audioCount}
                 </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPreviewEvent(effectiveEvent)}
+                  className="h-6 px-2 text-xs gap-1"
+                >
+                  <Eye className="w-3 h-3" />
+                  {t("events.preview")}
+                </Button>
               </div>
               <div className="space-y-1">
                 <p className="font-medium text-foreground">{t("events.durationLabel")}:</p>

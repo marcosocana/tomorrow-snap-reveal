@@ -16,6 +16,7 @@ import LanguageSelect from "@/components/LanguageSelect";
 import FontSelect from "@/components/FontSelect";
 import FontSizeSelect, { FontSizeOption } from "@/components/FontSizeSelect";
 import EventPreview from "@/components/EventPreview";
+import GalleryPreviewModal from "@/components/GalleryPreviewModal";
 import { Language, getLanguageByCode } from "@/lib/translations";
 import { getCountryByCode, getTimezoneOffset } from "@/lib/countries";
 import { EventFontFamily, getEventFontFamily } from "@/lib/eventFonts";
@@ -120,6 +121,7 @@ const EventForm = () => {
   const [ownerPhone, setOwnerPhone] = useState<string | null>(null);
   const [ownerEmailInput, setOwnerEmailInput] = useState("");
   const [qrPreview, setQrPreview] = useState<{ src?: string; value: string } | null>(null);
+  const [galleryPreviewOpen, setGalleryPreviewOpen] = useState(false);
   const [planType, setPlanType] = useState<PlanType>("demo");
   // Generate a random 8-character hash for passwords
   const generateHash = () => {
@@ -1110,17 +1112,6 @@ const EventForm = () => {
                     alt={t("form.preview")}
                     className="w-full max-w-[320px] aspect-video object-cover border border-border rounded"
                   />
-                  {isEditing && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="absolute bottom-2 left-2"
-                      onClick={() => window.open(formData.backgroundImageUrl, "_blank", "noopener,noreferrer")}
-                    >
-                      {t("events.preview")}
-                    </Button>
-                  )}
                   <Button
                     type="button"
                     variant="destructive"
@@ -1177,17 +1168,6 @@ const EventForm = () => {
                     alt="Preview"
                     className="max-w-[240px] max-h-[100px] object-contain border border-border rounded"
                   />
-                  {isEditing && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="absolute bottom-2 left-2"
-                      onClick={() => window.open(formData.customImageUrl, "_blank", "noopener,noreferrer")}
-                    >
-                      {t("events.preview")}
-                    </Button>
-                  )}
                   <Button
                     type="button"
                     variant="destructive"
@@ -1831,8 +1811,16 @@ const EventForm = () => {
               </Button>
             </div>
 
-            {isEditing && (
-              <div className="pt-4 text-sm text-muted-foreground" />
+            {isEditing && eventId && (
+              <div className="pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setGalleryPreviewOpen(true)}
+                >
+                  Previsualización
+                </Button>
+              </div>
             )}
           </form>
           </Card>
@@ -1998,6 +1986,30 @@ const EventForm = () => {
             )}
           </div>
         </div>
+      )}
+
+      {isEditing && eventId && (
+        <GalleryPreviewModal
+          open={galleryPreviewOpen}
+          onOpenChange={setGalleryPreviewOpen}
+          eventId={eventId}
+          eventName={formData.name}
+          eventDescription={formData.description}
+          backgroundImageUrl={
+            formData.backgroundImage
+              ? URL.createObjectURL(formData.backgroundImage)
+              : formData.backgroundImageUrl || undefined
+          }
+          customImageUrl={
+            formData.customImage
+              ? URL.createObjectURL(formData.customImage)
+              : formData.customImageUrl || undefined
+          }
+          fontFamily={formData.fontFamily}
+          fontSize={formData.fontSize}
+          filterType={formData.filterType}
+          allowPhotoSharing={formData.allowPhotoSharing}
+        />
       )}
     </div>
   );

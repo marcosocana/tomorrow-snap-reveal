@@ -505,7 +505,7 @@ export const GalleryPreviewModal = ({
               <div className="flex items-center gap-2">
                 <span>{t("gallery.title")}</span>
                 <span className="text-sm font-normal text-muted-foreground">
-                  {t("gallery.photosCount", { count: totalPhotos })} / {totalVideos} videos / {totalAudios} audios
+                  {totalPhotos} fotos / {totalVideos} vídeos / {totalAudios} audios
                 </span>
                 {activeTab === "photos" && (
                   <DropdownMenu>

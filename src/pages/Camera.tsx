@@ -1682,11 +1682,14 @@ const Camera = () => {
                 <div className="flex flex-col items-center gap-3">
                   {isRecordingMedia && (
                     <div className="w-full max-w-[320px] rounded-2xl border border-destructive/40 bg-destructive/10 px-3 py-3">
-                      <div className="flex h-10 items-center gap-1">
+                      <div
+                        className="grid h-10 w-full items-center gap-1"
+                        style={{ gridTemplateColumns: `repeat(${audioWaveBars}, minmax(0, 1fr))` }}
+                      >
                         {Array.from({ length: audioWaveBars }).map((_, index) => (
                           <span
                             key={index}
-                            className={`block w-[2px] rounded-full transition-colors duration-300 ${
+                            className={`block w-full rounded-full transition-colors duration-300 ${
                               index < activeAudioWaveBars ? "bg-destructive animate-pulse" : "bg-destructive/30"
                             }`}
                             style={{ height: `${12 + ((index * 11) % 20)}px` }}
@@ -1732,15 +1735,6 @@ const Camera = () => {
                       : language === "it"
                       ? "Pronto per registrare"
                       : "Listo para grabar"}
-                  </p>
-                )}
-                {recordingMode !== "video" && (
-                  <p>
-                    {language === "en"
-                      ? `Max ${audioDurationSeconds}s`
-                      : language === "it"
-                      ? `Max ${audioDurationSeconds}s`
-                      : `Máx. ${audioDurationSeconds}s`}
                   </p>
                 )}
               </div>
