@@ -771,6 +771,10 @@ const Gallery = () => {
   const enjoyText = language === "en" ? "Enjoy them" : language === "it" ? "Goditele" : "Disfrútalas";
   const playStoriesText = language === "en" ? "Play stories" : language === "it" ? "Riproduci stories" : "Reproducir stories";
   const enlargedPhotoText = language === "en" ? "Enlarged photo" : language === "it" ? "Foto ingrandita" : "Foto ampliada";
+  const photoCount = totalPhotos;
+  const videoCount = totalVideos;
+  const audioCount = totalAudios;
+
   const mediaStatsText =
     language === "en"
       ? `📷 ${totalPhotos} photos / 📹 ${totalVideos} videos / 🔈 ${totalAudios} audios`
