@@ -118,6 +118,7 @@ const Gallery = () => {
   const [likeCountingEnabled, setLikeCountingEnabled] = useState<boolean>(false);
   const [allowVideoRecording, setAllowVideoRecording] = useState(false);
   const [allowAudioRecording, setAllowAudioRecording] = useState(false);
+  const [headerStyle, setHeaderStyle] = useState<"gradient" | "modern">("modern");
 
   // Get translations and timezone
   const language = getEventLanguage();
@@ -418,7 +419,7 @@ const Gallery = () => {
     const loadEventData = async () => {
       const { data } = await supabase
         .from("events")
-      .select("password_hash, filter_type, custom_image_url, description, background_image_url, expiry_date, expiry_redirect_url, font_family, font_size, allow_photo_deletion, allow_photo_sharing, like_counting_enabled, allow_video_recording, allow_audio_recording")
+      .select("password_hash, filter_type, custom_image_url, description, background_image_url, expiry_date, expiry_redirect_url, font_family, font_size, allow_photo_deletion, allow_photo_sharing, like_counting_enabled, allow_video_recording, allow_audio_recording, header_style")
         .eq("id", eventId)
         .maybeSingle();
       if (data) {
@@ -433,6 +434,7 @@ const Gallery = () => {
         setAllowPhotoSharing((data as any).allow_photo_sharing !== false);
         setAllowVideoRecording((data as any).allow_video_recording === true);
         setAllowAudioRecording((data as any).allow_audio_recording === true);
+        setHeaderStyle(((data as any).header_style || "modern") as "gradient" | "modern");
         // Revealed gallery must start in normal mode. User can switch to grid manually.
         setGalleryViewMode("normal");
         setLikeCountingEnabled((data as any).like_counting_enabled === true);
@@ -1072,6 +1074,7 @@ const Gallery = () => {
     : language === "it"
     ? "✨ I contenuti dell'evento sono stati rivelati"
     : "✨ Ya se ha revelado el contenido del evento";
+  const isModernHeader = headerStyle === "modern";
 
   // Expired event screen
   if (isExpired) {
@@ -1128,14 +1131,17 @@ const Gallery = () => {
               alt={eventName || "Event"}
               className="absolute inset-0 w-full h-full object-cover object-top"
             />
-            {/* Gradient Overlay */}
-            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-background" />
+            <div className={`absolute inset-0 ${isModernHeader ? "bg-black/45" : "bg-gradient-to-b from-transparent via-transparent to-background"}`} />
             
             {/* Menu Button - Top Right */}
             <div className="absolute top-4 right-4 z-10">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="secondary" size="icon" className="bg-background/80 backdrop-blur-sm hover:bg-background">
+                  <Button
+                    variant="secondary"
+                    size="icon"
+                    className={isModernHeader ? "bg-black/45 text-white backdrop-blur-sm hover:bg-black/60" : "bg-background/80 backdrop-blur-sm hover:bg-background"}
+                  >
                     <MoreVertical className="w-5 h-5" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -1167,34 +1173,55 @@ const Gallery = () => {
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
-          </div>
-          
-          {/* Event Info - Overlapping the gradient */}
-          <div className="relative -mt-20 px-6 pb-0 text-center">
-            <h1 
-              className="text-3xl md:text-4xl font-bold tracking-tight text-foreground mb-2"
-              style={{ fontFamily: getEventFontFamily(eventFontFamily) }}
-            >
-              {eventName}
-            </h1>
-            {eventDescription && (
-              <p className="text-muted-foreground text-base md:text-lg max-w-xl mx-auto mb-2 whitespace-pre-line">{eventDescription}</p>
-            )}
-            {/* Custom image below description */}
-            {eventCustomImage && (
-              <div className="flex justify-center py-3">
-                <img 
-                  src={eventCustomImage} 
-                  alt={eventName || "Event"} 
-                  className="max-w-[200px] max-h-[80px] object-contain"
-                />
+            {isModernHeader && (
+              <div className="absolute inset-x-0 bottom-0 z-10 px-6 pb-6 text-left">
+                <h1
+                  className="text-3xl md:text-4xl font-bold tracking-tight text-white mb-2"
+                  style={{ fontFamily: getEventFontFamily(eventFontFamily) }}
+                >
+                  {eventName}
+                </h1>
+                {eventDescription && (
+                  <p className="text-white/90 text-base md:text-lg max-w-xl mb-2 whitespace-pre-line">{eventDescription}</p>
+                )}
+                {eventCustomImage && (
+                  <div className="flex py-2">
+                    <img
+                      src={eventCustomImage}
+                      alt={eventName || "Event"}
+                      className="max-w-[180px] max-h-[72px] object-contain"
+                    />
+                  </div>
+                )}
+                <p className="text-sm text-white/90 tracking-wide">{revealedTitleText}</p>
+                <p className="text-sm text-white/90 mt-1">{mediaStatsText}</p>
               </div>
             )}
-            <p className="text-sm text-muted-foreground tracking-wide">{revealedTitleText}</p>
-            <p className="text-sm text-muted-foreground mt-1">
-              {mediaStatsText}
-            </p>
           </div>
+          {!isModernHeader && (
+            <div className="relative -mt-20 px-6 pb-6 text-center">
+              <h1
+                className={`${eventFontSize} md:text-4xl font-bold tracking-tight text-foreground mb-2`}
+                style={{ fontFamily: getEventFontFamily(eventFontFamily) }}
+              >
+                {eventName}
+              </h1>
+              {eventDescription && (
+                <p className="text-muted-foreground text-base md:text-lg max-w-xl mx-auto mb-2 whitespace-pre-line">{eventDescription}</p>
+              )}
+              {eventCustomImage && (
+                <div className="flex justify-center py-2">
+                  <img
+                    src={eventCustomImage}
+                    alt={eventName || "Event"}
+                    className="max-w-[180px] max-h-[72px] object-contain"
+                  />
+                </div>
+              )}
+              <p className="text-sm text-muted-foreground tracking-wide">{revealedTitleText}</p>
+              <p className="text-sm text-muted-foreground mt-1">{mediaStatsText}</p>
+            </div>
+          )}
         </header>
       ) : (
         <header className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-card">

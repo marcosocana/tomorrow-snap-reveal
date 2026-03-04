@@ -59,6 +59,7 @@ const Camera = () => {
   const [allowAudioRecording, setAllowAudioRecording] = useState(false);
   const [maxAudios, setMaxAudios] = useState<number | null>(null);
   const [audioDurationSeconds, setAudioDurationSeconds] = useState(30);
+  const [headerStyle, setHeaderStyle] = useState<"gradient" | "modern">("modern");
   const [recordingMode, setRecordingMode] = useState<"video" | "audio" | null>(null);
   const [isRecordingMedia, setIsRecordingMedia] = useState(false);
   const [recordingCountdown, setRecordingCountdown] = useState(0);
@@ -162,7 +163,7 @@ const Camera = () => {
     try {
       const { data, error } = await supabase
         .from("events")
-        .select("reveal_time, upload_start_time, upload_end_time, password_hash, max_photos, custom_image_url, background_image_url, description, font_family, font_size, show_legal_text, legal_text_type, allow_video_recording, max_videos, max_video_duration, allow_audio_recording, max_audios, max_audio_duration")
+        .select("reveal_time, upload_start_time, upload_end_time, password_hash, max_photos, custom_image_url, background_image_url, description, font_family, font_size, show_legal_text, legal_text_type, allow_video_recording, max_videos, max_video_duration, allow_audio_recording, max_audios, max_audio_duration, header_style")
         .eq("id", eventId)
         .single();
       if (data && !error) {
@@ -188,6 +189,7 @@ const Camera = () => {
         setAllowAudioRecording((data as any).allow_audio_recording === true);
         setMaxAudios(Number.isFinite(rawMaxAudios) && rawMaxAudios > 0 ? rawMaxAudios : null);
         setAudioDurationSeconds(Number.isFinite(rawAudioDuration) && rawAudioDuration > 0 ? rawAudioDuration : 30);
+        setHeaderStyle(((data as any).header_style || "modern") as "gradient" | "modern");
         
         // Check if max photos limit reached
         if (data.max_photos) {
@@ -791,6 +793,11 @@ const Camera = () => {
 
   // Capture the magic text based on language
   const captureMagicText = language === "en" ? "Capture the magic!" : language === "it" ? "Cattura la magia!" : "¡Captura la magia!";
+  const mediaCountsHeaderText = language === "en"
+    ? `📷 ${photoCount} photos / 📹 ${videoCount} videos / 🔈 ${audioCount} audios`
+    : language === "it"
+    ? `📷 ${photoCount} foto / 📹 ${videoCount} video / 🔈 ${audioCount} audio`
+    : `📷 ${photoCount} fotos / 📹 ${videoCount} vídeos / 🔈 ${audioCount} audios`;
 
   // Photos already revealed - go straight to gallery
   if (hasRevealed) {
@@ -811,31 +818,47 @@ const Camera = () => {
                   alt={eventName || "Event"}
                   className="absolute inset-0 w-full h-full object-cover object-top"
                 />
-                <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-background" />
+                <div className={`absolute inset-0 ${isModernHeader ? "bg-black/45" : "bg-gradient-to-b from-transparent via-transparent to-background"}`} />
                 
                 <div className="absolute top-4 right-4 z-10">
                   <Button
                     variant="secondary"
                     size="icon"
                     onClick={handleLogout}
-                    className="bg-background/80 backdrop-blur-sm hover:bg-background"
+                    className={isModernHeader ? "bg-black/45 text-white backdrop-blur-sm hover:bg-black/60" : "bg-background/80 backdrop-blur-sm hover:bg-background"}
                   >
                     <LogOut className="w-5 h-5" />
                   </Button>
                 </div>
-              </div>
-              
-              <div className="relative -mt-20 px-6 pb-6 text-center">
-                <h1 
-                  className={`${eventFontSize} md:text-4xl font-bold tracking-tight text-foreground mb-2`}
-                  style={{ fontFamily: getEventFontFamily(eventFontFamily) }}
-                >
-                  {eventName}
-                </h1>
-                {eventDescription && (
-                  <p className="text-muted-foreground text-base md:text-lg max-w-xl mx-auto mb-2 whitespace-pre-line">{eventDescription}</p>
+                {isModernHeader && (
+                  <div className="absolute inset-x-0 bottom-0 z-10 px-6 pb-6 text-left">
+                    <h1
+                      className={`${eventFontSize} md:text-4xl font-bold tracking-tight text-white mb-2`}
+                      style={{ fontFamily: getEventFontFamily(eventFontFamily) }}
+                    >
+                      {eventName}
+                    </h1>
+                    {eventDescription && (
+                      <p className="text-white/90 text-base md:text-lg max-w-xl mb-2 whitespace-pre-line">{eventDescription}</p>
+                    )}
+                    <p className="text-sm text-white/90 mt-1">{mediaCountsHeaderText}</p>
+                  </div>
                 )}
               </div>
+              
+              {!isModernHeader && (
+                <div className="relative -mt-20 px-6 pb-6 text-center">
+                  <h1
+                    className={`${eventFontSize} md:text-4xl font-bold tracking-tight text-foreground mb-2`}
+                    style={{ fontFamily: getEventFontFamily(eventFontFamily) }}
+                  >
+                    {eventName}
+                  </h1>
+                  {eventDescription && (
+                    <p className="text-muted-foreground text-base md:text-lg max-w-xl mx-auto mb-2 whitespace-pre-line">{eventDescription}</p>
+                  )}
+                </div>
+              )}
             </header>
             
             <div className="flex-1 px-6 pb-6 flex flex-col">
@@ -968,31 +991,47 @@ const Camera = () => {
                   alt={eventName || "Event"}
                   className="absolute inset-0 w-full h-full object-cover object-top"
                 />
-                <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-background" />
+                <div className={`absolute inset-0 ${isModernHeader ? "bg-black/45" : "bg-gradient-to-b from-transparent via-transparent to-background"}`} />
                 
                 <div className="absolute top-4 right-4 z-10">
                   <Button
                     variant="secondary"
                     size="icon"
                     onClick={handleLogout}
-                    className="bg-background/80 backdrop-blur-sm hover:bg-background"
+                    className={isModernHeader ? "bg-black/45 text-white backdrop-blur-sm hover:bg-black/60" : "bg-background/80 backdrop-blur-sm hover:bg-background"}
                   >
                     <LogOut className="w-5 h-5" />
                   </Button>
                 </div>
-              </div>
-              
-              <div className="relative -mt-20 px-6 pb-6 text-center">
-                <h1 
-                  className={`${eventFontSize} md:text-4xl font-bold tracking-tight text-foreground mb-2`}
-                  style={{ fontFamily: getEventFontFamily(eventFontFamily) }}
-                >
-                  {eventName}
-                </h1>
-                {eventDescription && (
-                  <p className="text-muted-foreground text-base md:text-lg max-w-xl mx-auto mb-2 whitespace-pre-line">{eventDescription}</p>
+                {isModernHeader && (
+                  <div className="absolute inset-x-0 bottom-0 z-10 px-6 pb-6 text-left">
+                    <h1
+                      className={`${eventFontSize} md:text-4xl font-bold tracking-tight text-white mb-2`}
+                      style={{ fontFamily: getEventFontFamily(eventFontFamily) }}
+                    >
+                      {eventName}
+                    </h1>
+                    {eventDescription && (
+                      <p className="text-white/90 text-base md:text-lg max-w-xl mb-2 whitespace-pre-line">{eventDescription}</p>
+                    )}
+                    <p className="text-sm text-white/90 mt-1">{mediaCountsHeaderText}</p>
+                  </div>
                 )}
               </div>
+              
+              {!isModernHeader && (
+                <div className="relative -mt-20 px-6 pb-6 text-center">
+                  <h1
+                    className={`${eventFontSize} md:text-4xl font-bold tracking-tight text-foreground mb-2`}
+                    style={{ fontFamily: getEventFontFamily(eventFontFamily) }}
+                  >
+                    {eventName}
+                  </h1>
+                  {eventDescription && (
+                    <p className="text-muted-foreground text-base md:text-lg max-w-xl mx-auto mb-2 whitespace-pre-line">{eventDescription}</p>
+                  )}
+                </div>
+              )}
             </header>
             
             <div className="flex-1 px-6 pb-6 flex flex-col">
@@ -1123,11 +1162,6 @@ const Camera = () => {
     : language === "it"
     ? `${photoCount} foto caricate`
     : `Ya hay ${photoCount} fotos subidas`;
-  const mediaCountsText = language === "en"
-    ? `📷 ${photoCount} photos / 📹 ${videoCount} videos / 🔈 ${audioCount} audios`
-    : language === "it"
-    ? `📷 ${photoCount} foto / 📹 ${videoCount} video / 🔈 ${audioCount} audio`
-    : `📷 ${photoCount} fotos / 📹 ${videoCount} vídeos / 🔈 ${audioCount} audios`;
   const retryText = language === "en" ? "Retry" : language === "it" ? "Riprova" : "Reintentar";
   const isButtonDisabled = isUploading || rateLimitCooldown > 0;
   const videoLimitReached = allowVideoRecording && maxVideos !== null && videoCount >= maxVideos;
@@ -1138,6 +1172,7 @@ const Camera = () => {
   const photoActionText = "Foto";
   const actionQuestionText = "¿Que quieres hacer?";
   const showOnlyPhotoAction = !allowVideoRecording && !allowAudioRecording;
+  const isModernHeader = headerStyle === "modern";
   const cameraContentClass = backgroundImageUrl
     ? "flex-1 px-6 pb-6 flex flex-col"
     : "flex-1 pt-16 pb-6 px-6 flex flex-col";
@@ -1255,7 +1290,7 @@ const Camera = () => {
                 alt={eventName || "Event"}
                 className="absolute inset-0 w-full h-full object-cover object-top"
               />
-              <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-background" />
+              <div className={`absolute inset-0 ${isModernHeader ? "bg-black/45" : "bg-gradient-to-b from-transparent via-transparent to-background"}`} />
               
               <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
                 {eventPassword && (
@@ -1264,7 +1299,7 @@ const Camera = () => {
                       variant="secondary"
                       size="icon"
                       onClick={() => setShowShareDialog(true)}
-                      className="bg-background/80 backdrop-blur-sm hover:bg-background"
+                      className={isModernHeader ? "bg-black/45 text-white backdrop-blur-sm hover:bg-black/60" : "bg-background/80 backdrop-blur-sm hover:bg-background"}
                     >
                       <Share2 className="w-5 h-5" />
                     </Button>
@@ -1282,33 +1317,52 @@ const Camera = () => {
                   variant="secondary"
                   size="icon"
                   onClick={handleLogout}
-                  className="bg-background/80 backdrop-blur-sm hover:bg-background"
+                  className={isModernHeader ? "bg-black/45 text-white backdrop-blur-sm hover:bg-black/60" : "bg-background/80 backdrop-blur-sm hover:bg-background"}
                 >
                   <LogOut className="w-5 h-5" />
                 </Button>
               </div>
-            </div>
-            
-            <div className="relative -mt-20 px-6 pb-6 text-center">
-              <h1 
-                className={`${eventFontSize} md:text-4xl font-bold tracking-tight text-foreground mb-2`}
-                style={{ fontFamily: getEventFontFamily(eventFontFamily) }}
-              >
-                {eventName}
-              </h1>
-              {eventDescription && (
-                <p className="text-muted-foreground text-base md:text-lg max-w-xl mx-auto mb-2 whitespace-pre-line">{eventDescription}</p>
+              {isModernHeader && (
+                <div className="absolute inset-x-0 bottom-0 z-10 px-6 pb-6 text-left">
+                  <h1
+                    className={`${eventFontSize} md:text-4xl font-bold tracking-tight text-white mb-2`}
+                    style={{ fontFamily: getEventFontFamily(eventFontFamily) }}
+                  >
+                    {eventName}
+                  </h1>
+                  {eventDescription && (
+                    <p className="text-white/90 text-base md:text-lg max-w-xl mb-2 whitespace-pre-line">{eventDescription}</p>
+                  )}
+                  {showOnlyPhotoAction && (
+                    <p className="text-sm text-white/90 flex items-center gap-1">
+                      <Image className="w-4 h-4" />
+                      {photosUploadedText}
+                    </p>
+                  )}
+                  <p className="text-sm text-white/90 mt-1">{mediaCountsHeaderText}</p>
+                </div>
               )}
-              {showOnlyPhotoAction && (
-                <p className="text-sm text-muted-foreground flex items-center justify-center gap-1">
-                  <Image className="w-4 h-4" />
-                  {photosUploadedText}
-                </p>
-              )}
-              <p className="text-xs text-muted-foreground mt-1">
-                {mediaCountsText}
-              </p>
             </div>
+            {!isModernHeader && (
+              <div className="relative -mt-20 px-6 pb-6 text-center">
+                <h1
+                  className={`${eventFontSize} md:text-4xl font-bold tracking-tight text-foreground mb-2`}
+                  style={{ fontFamily: getEventFontFamily(eventFontFamily) }}
+                >
+                  {eventName}
+                </h1>
+                {eventDescription && (
+                  <p className="text-muted-foreground text-base md:text-lg max-w-xl mx-auto mb-2 whitespace-pre-line">{eventDescription}</p>
+                )}
+                {showOnlyPhotoAction && (
+                  <p className="text-sm text-muted-foreground flex items-center justify-center gap-1">
+                    <Image className="w-4 h-4" />
+                    {photosUploadedText}
+                  </p>
+                )}
+                <p className="text-sm text-muted-foreground mt-1">{mediaCountsHeaderText}</p>
+              </div>
+            )}
           </header>
           {renderCameraBody}
         </>
@@ -1329,7 +1383,7 @@ const Camera = () => {
                 </p>
               )}
               <p className="text-xs text-muted-foreground mt-1">
-                {mediaCountsText}
+                {mediaCountsHeaderText}
               </p>
             </div>
             <div className="flex items-center gap-2">

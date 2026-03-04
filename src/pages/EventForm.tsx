@@ -60,7 +60,10 @@ interface Event {
   allow_audio_recording?: boolean;
   max_audios?: number | null;
   max_audio_duration?: number | null;
+  header_style?: string | null;
 }
+
+type HeaderStyle = "gradient" | "modern";
 
 const EventForm = () => {
   const { eventId } = useParams<{ eventId?: string }>();
@@ -138,6 +141,7 @@ const EventForm = () => {
       allowAudioRecording: false,
       maxAudios: "",
       maxAudioDuration: "30",
+      headerStyle: "modern" as HeaderStyle,
     };
   });
   const navigate = useNavigate();
@@ -275,6 +279,7 @@ const EventForm = () => {
         allowAudioRecording: (event as any).allow_audio_recording === true,
         maxAudios: event.max_audios ? String(event.max_audios) : "",
         maxAudioDuration: event.max_audio_duration ? String(event.max_audio_duration) : "30",
+        headerStyle: ((event as any).header_style || "modern") as HeaderStyle,
       });
 
       const resolvedPlanType =
@@ -542,6 +547,7 @@ const EventForm = () => {
             allow_audio_recording: formData.allowAudioRecording,
             max_audios: resolvedMaxAudios,
             max_audio_duration: resolvedAudioDuration,
+            header_style: formData.headerStyle,
           } as any)
           .eq("id", eventId);
 
@@ -588,6 +594,7 @@ const EventForm = () => {
             allow_audio_recording: formData.allowAudioRecording,
             max_audios: resolvedMaxAudios,
             max_audio_duration: resolvedAudioDuration,
+            header_style: formData.headerStyle,
           },
         };
 
@@ -664,6 +671,7 @@ const EventForm = () => {
           allow_audio_recording: formData.allowAudioRecording,
           max_audios: resolvedMaxAudios,
           max_audio_duration: resolvedAudioDuration,
+          header_style: formData.headerStyle,
         } as any).select().single();
 
         if (error) throw error;
@@ -1594,6 +1602,34 @@ const EventForm = () => {
                 <div>
                   <Label className="text-base font-semibold">{t("form.mediaSection")}</Label>
                   <p className="text-xs text-muted-foreground">{t("form.mediaSectionHint")}</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Cabecera en Camera/Gallery</Label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, headerStyle: "gradient" })}
+                      className={`px-3 py-2 text-sm rounded-md border transition-colors ${
+                        formData.headerStyle === "gradient"
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-muted border-border hover:bg-muted/80"
+                      }`}
+                    >
+                      Cabecera degradada
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, headerStyle: "modern" })}
+                      className={`px-3 py-2 text-sm rounded-md border transition-colors ${
+                        formData.headerStyle === "modern"
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-muted border-border hover:bg-muted/80"
+                      }`}
+                    >
+                      Cabecera moderna
+                    </button>
+                  </div>
                 </div>
 
                   <div className="space-y-3">

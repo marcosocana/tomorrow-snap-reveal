@@ -139,6 +139,7 @@ export type Database = {
           expiry_redirect_url: string | null
           filter_type: string
           folder_id: string | null
+          header_style: string
           font_family: string
           font_size: string
           gallery_view_mode: string
@@ -182,6 +183,7 @@ export type Database = {
           expiry_redirect_url?: string | null
           filter_type?: string
           folder_id?: string | null
+          header_style?: string
           font_family?: string
           font_size?: string
           gallery_view_mode?: string
@@ -225,6 +227,7 @@ export type Database = {
           expiry_redirect_url?: string | null
           filter_type?: string
           folder_id?: string | null
+          header_style?: string
           font_family?: string
           font_size?: string
           gallery_view_mode?: string

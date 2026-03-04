@@ -54,6 +54,7 @@ type AdminEventPayload = {
     allow_audio_recording?: boolean;
     max_audios?: number | null;
     max_audio_duration?: number;
+    header_style?: string | null;
   };
 };
 
@@ -169,6 +170,7 @@ serve(async (req) => {
         allow_audio_recording: event.allow_audio_recording ?? false,
         max_audios: event.max_audios ?? null,
         max_audio_duration: event.max_audio_duration ?? 30,
+        header_style: event.header_style ?? "modern",
         owner_id: existingUser.id,
       })
       .select()
