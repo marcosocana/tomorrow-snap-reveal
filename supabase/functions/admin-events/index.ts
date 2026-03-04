@@ -56,7 +56,7 @@ serve(async (req) => {
 
     const baseQuery = supabaseAdmin
       .from("events")
-      .select("id,name,password_hash,max_photos,upload_start_time,upload_end_time,reveal_time,created_at,owner_id")
+      .select("id,name,password_hash,max_photos,upload_start_time,upload_end_time,reveal_time,created_at,owner_id,allow_video_recording,max_videos,max_video_duration,allow_audio_recording,max_audios,max_audio_duration")
       .order("created_at", { ascending: false });
 
     const { data: events, error: eventsError } = eventId
@@ -74,7 +74,8 @@ serve(async (req) => {
     let emailsById: Record<string, string> = {};
     let phonesById: Record<string, string | null> = {};
     let photoCounts: Record<string, number> = {};
-
+    let videoCounts: Record<string, number> = {};
+    let audioCounts: Record<string, number> = {};
     if (ownerIds.length > 0) {
       const { data: usersData, error: usersError } =
         await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
@@ -97,18 +98,21 @@ serve(async (req) => {
 
     const eventIds = (events || []).map((e) => e.id);
     if (eventIds.length > 0) {
-      const { data: photos, error: photosError } = await supabaseAdmin
-        .from("photos")
-        .select("event_id")
-        .in("event_id", eventIds);
+      const [photosRes, videosRes, audiosRes] = await Promise.all([
+        supabaseAdmin.from("photos").select("event_id").in("event_id", eventIds),
+        supabaseAdmin.from("videos").select("event_id").in("event_id", eventIds),
+        supabaseAdmin.from("audios").select("event_id").in("event_id", eventIds),
+      ]);
 
-      if (!photosError && photos) {
-        photoCounts = photos.reduce<Record<string, number>>((acc, row: any) => {
-          const id = row.event_id as string;
-          acc[id] = (acc[id] || 0) + 1;
+      const countBy = (rows: any[] | null) =>
+        (rows || []).reduce<Record<string, number>>((acc, row: any) => {
+          acc[row.event_id] = (acc[row.event_id] || 0) + 1;
           return acc;
         }, {});
-      }
+
+      photoCounts = countBy(photosRes.data);
+      videoCounts = countBy(videosRes.data);
+      audioCounts = countBy(audiosRes.data);
     }
 
     const enriched = (events || []).map((event) => ({
@@ -116,6 +120,8 @@ serve(async (req) => {
       owner_email: event.owner_id ? emailsById[event.owner_id] ?? null : null,
       owner_phone: event.owner_id ? phonesById[event.owner_id] ?? null : null,
       photo_count: photoCounts[event.id] ?? 0,
+      video_count: videoCounts[event.id] ?? 0,
+      audio_count: audioCounts[event.id] ?? 0,
     }));
 
     return json({ events: enriched });
