@@ -545,32 +545,21 @@ const EventManagement = () => {
     const pin = window.prompt("Introduce un PIN para bloquear los eventos seleccionados:");
     if (!pin || !pin.trim()) return;
     const normalizedPin = pin.trim();
-    const selectedEvents = superAdminEvents.filter((event) => ids.includes(event.id));
 
     try {
-      for (const event of selectedEvents) {
-        const currentLimits =
-          event.limits_json && typeof event.limits_json === "object" && !Array.isArray(event.limits_json)
-            ? (event.limits_json as Record<string, unknown>)
-            : {};
-
-        const { error } = await supabase
-          .from("events")
-          .update({
-            limits_json: {
-              ...currentLimits,
-              deletion_lock_pin: normalizedPin,
-            },
-          })
-          .eq("id", event.id);
-
-        if (error) throw error;
-      }
+      const { error } = await supabase.functions.invoke("admin-lock-events", {
+        method: "POST",
+        body: {
+          eventIds: ids,
+          pin: normalizedPin,
+        },
+      });
+      if (error) throw error;
 
       await loadData();
       toast({
         title: "Eventos bloqueados",
-        description: `Se aplicó el PIN a ${selectedEvents.length} evento(s).`,
+        description: `Se aplicó el PIN a ${ids.length} evento(s).`,
       });
     } catch (error) {
       console.error("Error locking selected events:", error);

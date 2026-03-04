@@ -57,7 +57,7 @@ serve(async (req) => {
     const baseQuery = supabaseAdmin
       .from("events")
       .select(
-        "id,name,password_hash,max_photos,upload_start_time,upload_end_time,reveal_time,created_at,owner_id,allow_video_recording,max_videos,max_video_duration,allow_audio_recording,max_audios,max_audio_duration"
+        "id,name,password_hash,max_photos,upload_start_time,upload_end_time,reveal_time,created_at,owner_id,allow_video_recording,max_videos,max_video_duration,allow_audio_recording,max_audios,max_audio_duration,limits_json"
       )
       .order("created_at", { ascending: false });
 
