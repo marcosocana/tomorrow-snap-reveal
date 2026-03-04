@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate, Navigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -569,7 +569,7 @@ const Camera = () => {
             ? "Non possiamo accedere alla fotocamera o al microfono."
             : "No pudimos acceder a la cámara o al micrófono.";
         toast({
-          title: t("form.errorTitle"),
+          title: t.common.error,
           description,
           variant: "destructive",
         });
@@ -687,17 +687,28 @@ const Camera = () => {
     setIsUploadingMedia(true);
     try {
       const bucket = mode === "video" ? "event-videos" : "event-audios";
-      const table = mode === "video" ? "videos" : "audios";
       const hash = generateHash();
       const extension = mode === "video" ? "webm" : "webm";
       const fileName = `${eventId}/${hash}_${Date.now()}.${extension}`;
       const { error: uploadError } = await supabase.storage.from(bucket).upload(fileName, blob);
       if (uploadError) throw uploadError;
-      const { error: dbError } = await supabase.from(table).insert({
-        event_id: eventId,
-        [mode === "video" ? "video_url" : "audio_url"]: fileName,
-        duration_seconds: Math.max(1, Math.round(duration)),
-      });
+
+      let dbError = null;
+      if (mode === "video") {
+        const result = await supabase.from("videos").insert({
+          event_id: eventId,
+          video_url: fileName,
+          duration_seconds: Math.max(1, Math.round(duration)),
+        });
+        dbError = result.error;
+      } else {
+        const result = await supabase.from("audios").insert({
+          event_id: eventId,
+          audio_url: fileName,
+          duration_seconds: Math.max(1, Math.round(duration)),
+        });
+        dbError = result.error;
+      }
       if (dbError) throw dbError;
 
       const description =
