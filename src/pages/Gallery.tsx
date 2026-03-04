@@ -1192,7 +1192,7 @@ const Gallery = () => {
     const viewPhotosButtonText = language === "en" ? "View photos" : language === "it" ? "Vedi foto" : "Ver fotografías";
 
     return (
-      <div className="min-h-[100svh] bg-background flex flex-col items-center justify-center p-4">
+      <div className="app-screen bg-background flex flex-col items-center justify-center p-4">
         <div className="flex-1 flex flex-col items-center justify-center max-w-md w-full text-center space-y-6">
           <h1 
             className="text-2xl font-bold text-foreground"
@@ -1226,7 +1226,7 @@ const Gallery = () => {
   }
 
   return (
-    <div className="min-h-[100svh] bg-background">
+    <div className="app-screen bg-background">
       {/* Hero Header with Background Image */}
       {eventBackgroundImage ? (
         <header className="relative w-full">

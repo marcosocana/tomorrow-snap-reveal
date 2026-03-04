@@ -192,4 +192,9 @@ All colors MUST be HSL.
   .animate-scale-in {
     animation: scaleIn 0.3s ease-out;
   }
+
+  .app-screen {
+    min-height: 100svh;
+    min-height: var(--app-height, 100svh);
+  }
 }

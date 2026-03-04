@@ -125,6 +125,26 @@ const App = () => {
     };
   }, []);
 
+  useEffect(() => {
+    const updateAppHeight = () => {
+      const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+      document.documentElement.style.setProperty("--app-height", `${Math.round(viewportHeight)}px`);
+    };
+
+    updateAppHeight();
+    window.addEventListener("resize", updateAppHeight);
+    window.addEventListener("orientationchange", updateAppHeight);
+    window.visualViewport?.addEventListener("resize", updateAppHeight);
+    window.visualViewport?.addEventListener("scroll", updateAppHeight);
+
+    return () => {
+      window.removeEventListener("resize", updateAppHeight);
+      window.removeEventListener("orientationchange", updateAppHeight);
+      window.visualViewport?.removeEventListener("resize", updateAppHeight);
+      window.visualViewport?.removeEventListener("scroll", updateAppHeight);
+    };
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
