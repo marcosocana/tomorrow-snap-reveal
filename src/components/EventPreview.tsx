@@ -195,6 +195,7 @@ export const EventPreview = ({
 
   const fontStyle = getEventFontFamily(fontFamily);
   const isModernHeader = headerStyle === "modern";
+  const mediaCountText = previewTexts.mediaCounts;
 
   const previewFontSizeMap: Record<string, string> = {
     "text-xl": "text-sm",
