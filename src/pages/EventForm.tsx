@@ -225,6 +225,34 @@ const EventForm = () => {
       .from("event-photos")
       .getPublicUrl(`event-qr/qr-${id}.png`).data.publicUrl;
 
+  const loadEventMediaCounts = async (id: string) => {
+    try {
+      const [photosRes, videosRes, audiosRes] = await Promise.all([
+        supabase
+          .from("photos")
+          .select("id", { count: "exact", head: true })
+          .eq("event_id", id),
+        supabase
+          .from("videos")
+          .select("id", { count: "exact", head: true })
+          .eq("event_id", id),
+        supabase
+          .from("audios")
+          .select("id", { count: "exact", head: true })
+          .eq("event_id", id),
+      ]);
+
+      setMediaCounts({
+        photos: photosRes.error ? 0 : Number(photosRes.count ?? 0),
+        videos: videosRes.error ? 0 : Number(videosRes.count ?? 0),
+        audios: audiosRes.error ? 0 : Number(audiosRes.count ?? 0),
+      });
+    } catch (error) {
+      console.error("Error loading event media counts:", error);
+      setMediaCounts({ photos: 0, videos: 0, audios: 0 });
+    }
+  };
+
   const handleDownloadQR = async () => {
     if (!eventId) return;
     try {
@@ -340,11 +368,7 @@ const EventForm = () => {
         maxAudioDuration: event.max_audio_duration ? String(event.max_audio_duration) : "30",
         headerStyle: ((event as any).header_style || "modern") as HeaderStyle,
       });
-      setMediaCounts({
-        photos: Number((event as any).photo_count ?? 0),
-        videos: Number((event as any).video_count ?? 0),
-        audios: Number((event as any).audio_count ?? 0),
-      });
+      await loadEventMediaCounts(event.id);
 
       const resolvedPlanType =
         event.max_photos === 10 ? "demo" :
@@ -378,6 +402,11 @@ const EventForm = () => {
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!eventId || !galleryPreviewOpen) return;
+    loadEventMediaCounts(eventId);
+  }, [eventId, galleryPreviewOpen]);
 
   const handleImageUpload = async (file: File): Promise<string | null> => {
     try {
