@@ -331,21 +331,9 @@ const RedeemEvent = () => {
 
     try {
       const eventTz = formData.timezone;
-      const nowTz = toZonedTime(new Date(), eventTz);
-      const minStart = subHours(nowTz, 2);
       const uploadStartDateTime = fromZonedTime(`${formData.uploadStartDate}T${formData.uploadStartTime}:00`, eventTz);
       const uploadEndDateTime = fromZonedTime(`${formData.uploadEndDate}T${formData.uploadEndTime}:00`, eventTz);
       const revealDateTime = fromZonedTime(`${formData.revealDate}T${formData.revealTime}:00`, eventTz);
-
-      if (formData.uploadStartDate < format(nowTz, "yyyy-MM-dd") || uploadStartDateTime < minStart) {
-        toast({
-          title: "Error",
-          description: "La fecha de inicio no puede ser anterior a hoy y la hora no puede ser anterior a 2 horas.",
-          variant: "destructive",
-        });
-        setIsSubmitting(false);
-        return;
-      }
 
       let customImageUrl = formData.customImageUrl;
       if (formData.customImage) {
@@ -736,27 +724,17 @@ const RedeemEvent = () => {
                       }
                       dateValue={formData.uploadStartDate}
                       timeValue={formData.uploadStartTime}
-                      dateMin={todayStr}
-                      timeMin={formData.uploadStartDate === todayStr ? startMinTimeStr : undefined}
                       required
                       onDateChange={(nextDate) => {
-                        const nextStartTime = clampTime(
-                          formData.uploadStartTime,
-                          nextDate === todayStr ? startMinTimeStr : undefined
-                        );
                         setFormData({
                           ...formData,
                           uploadStartDate: nextDate,
-                          uploadStartTime: nextStartTime,
                         });
                       }}
                       onTimeChange={(nextTime) =>
                         setFormData({
                           ...formData,
-                          uploadStartTime: clampTime(
-                            nextTime,
-                            formData.uploadStartDate === todayStr ? startMinTimeStr : undefined
-                          ),
+                          uploadStartTime: nextTime,
                         })
                       }
                     />

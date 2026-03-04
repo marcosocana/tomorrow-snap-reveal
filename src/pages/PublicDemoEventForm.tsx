@@ -135,9 +135,6 @@ const PublicDemoEventForm = () => {
     return hasEmail && hasPassword && hasConfirm;
   };
 
-  const getStartTimeMin = () =>
-    getEffectiveStartDate() === todayStr ? startMinTimeStr : undefined;
-
   const getEndTimeMin = (overrideDate?: string) => {
     const date = overrideDate ?? formData.uploadEndDate;
     const startDate = getEffectiveStartDate();
@@ -170,9 +167,6 @@ const PublicDemoEventForm = () => {
       const revealUtc = fromZonedTime(`${formData.revealDate}T${formData.revealTime}:00`, eventTz);
 
       const nowTz = toZonedTime(now, eventTz);
-      const minStart = subHours(nowTz, 2);
-      if (startDate < format(nowTz, "yyyy-MM-dd")) return false;
-      if (startUtc < minStart) return false;
       if (endUtc < now || endUtc < startUtc) return false;
       if (revealUtc < now || revealUtc < endUtc) return false;
       return true;
@@ -782,24 +776,17 @@ const PublicDemoEventForm = () => {
                         }
                         dateValue={formData.uploadStartDate}
                         timeValue={formData.uploadStartTime}
-                        dateMin={todayStr}
-                        timeMin={getStartTimeMin()}
                         required
                         onDateChange={(nextDate) => {
-                          const nextStartTime = clampTime(
-                            formData.uploadStartTime,
-                            nextDate === todayStr ? startMinTimeStr : undefined
-                          );
                           setFormData({
                             ...formData,
                             uploadStartDate: nextDate,
-                            uploadStartTime: nextStartTime,
                           });
                         }}
                         onTimeChange={(nextTime) =>
                           setFormData({
                             ...formData,
-                            uploadStartTime: clampTime(nextTime, getStartTimeMin()),
+                            uploadStartTime: nextTime,
                           })
                         }
                       />

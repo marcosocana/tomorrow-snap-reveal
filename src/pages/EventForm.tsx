@@ -1693,6 +1693,23 @@ const EventForm = () => {
                   </div>
               </div>
             )}
+
+            {isEditing && (formData.allowVideoRecording || formData.allowAudioRecording) && (
+              <div className="mt-4 rounded-lg border border-border bg-muted/40 p-4">
+                <p className="text-sm font-semibold text-foreground">Incluido en el plan</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Vídeos:{" "}
+                  <span className="font-medium text-foreground">
+                    {formData.allowVideoRecording ? (formData.maxVideos || "0") : "No incluido"}
+                  </span>
+                  {" · "}
+                  Audios:{" "}
+                  <span className="font-medium text-foreground">
+                    {formData.allowAudioRecording ? (formData.maxAudios || "0") : "No incluido"}
+                  </span>
+                </p>
+              </div>
+            )}
           </div>
 
             <div className="flex flex-col sm:flex-row gap-3 pt-4">

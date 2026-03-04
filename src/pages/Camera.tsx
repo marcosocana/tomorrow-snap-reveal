@@ -1263,13 +1263,22 @@ const Camera = () => {
     ? `${revealDateLabel.charAt(0).toUpperCase() + revealDateLabel.slice(1)} alle ${revealTimeFormatted} tutto sarà rivelato in questo stesso spazio 📸✨`
     : `${revealDateLabel.charAt(0).toUpperCase() + revealDateLabel.slice(1)} a las ${revealTimeFormatted} todo será revelado en este mismo espacio 📸✨`;
 
-  const photosUploadedText = language === "en" 
-    ? `${photoCount} photos uploaded`
-    : language === "it"
-    ? `${photoCount} foto caricate`
-    : `Ya hay ${photoCount} fotos subidas`;
   const retryText = language === "en" ? "Retry" : language === "it" ? "Riprova" : "Reintentar";
   const isButtonDisabled = isUploading || rateLimitCooldown > 0;
+  const photoButtonText = rateLimitCooldown > 0
+    ? language === "en"
+      ? `Wait ${rateLimitCooldown}s`
+      : language === "it"
+      ? `Attendi ${rateLimitCooldown}s`
+      : `${rateLimitCooldown}s`
+    : "Hacer foto";
+  const photoOptionText = rateLimitCooldown > 0
+    ? language === "en"
+      ? `${rateLimitCooldown}s`
+      : language === "it"
+      ? `${rateLimitCooldown}s`
+      : `${rateLimitCooldown}s`
+    : photoActionText;
   const showPhotoAction = !photoLimitReached;
   const showVideoAction = allowVideoRecording && !videoLimitReached;
   const showAudioAction = allowAudioRecording && !audioLimitReached;
@@ -1300,7 +1309,7 @@ const Camera = () => {
               disabled={isButtonDisabled}
               className="bg-black hover:bg-black/90 text-white h-12 px-8 text-base rounded-xl"
             >
-              Hacer foto
+              {photoButtonText}
             </Button>
           )}
         </div>
@@ -1316,7 +1325,7 @@ const Camera = () => {
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black text-white">
                 <Image className="w-6 h-6" />
               </div>
-              <span>{photoActionText}</span>
+              <span>{photoOptionText}</span>
             </button>
           )}
           {showVideoAction && (
@@ -1456,12 +1465,6 @@ const Camera = () => {
                   {eventDescription && (
                     <p className="text-white/90 text-base md:text-lg max-w-xl mb-2 whitespace-pre-line">{eventDescription}</p>
                   )}
-                  {showOnlyPhotoAction && (
-                    <p className="text-sm text-white/90 flex items-center gap-1">
-                      <Image className="w-4 h-4" />
-                      {photosUploadedText}
-                    </p>
-                  )}
                   <p className="text-sm text-white/90 mt-1">{mediaCountsHeaderText}</p>
                 </div>
               )}
@@ -1476,12 +1479,6 @@ const Camera = () => {
                 </h1>
                 {eventDescription && (
                   <p className="text-muted-foreground text-base md:text-lg max-w-xl mx-auto mb-2 whitespace-pre-line">{eventDescription}</p>
-                )}
-                {showOnlyPhotoAction && (
-                  <p className="text-sm text-muted-foreground flex items-center justify-center gap-1">
-                    <Image className="w-4 h-4" />
-                    {photosUploadedText}
-                  </p>
                 )}
                 <p className="text-sm text-muted-foreground mt-1">{mediaCountsHeaderText}</p>
               </div>
@@ -1507,12 +1504,6 @@ const Camera = () => {
               >
                 {eventName}
               </h1>
-              {showOnlyPhotoAction && (
-                <p className="text-sm text-muted-foreground flex items-center gap-1">
-                  <Image className="w-4 h-4" />
-                  {photosUploadedText}
-                </p>
-              )}
               <p className="text-xs text-muted-foreground mt-1">
                 {mediaCountsHeaderText}
               </p>
