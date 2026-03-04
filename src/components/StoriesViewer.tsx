@@ -5,42 +5,47 @@ import heartFilled from "@/assets/heart-filled.svg";
 import { FilterType, getFilterClass, getGrainClass } from "@/lib/photoFilters";
 import { EventFontFamily, getEventFontFamily } from "@/lib/eventFonts";
 
-interface Photo {
+type StoryMediaType = "photo" | "video" | "audio";
+
+interface StoryItem {
   id: string;
+  type: StoryMediaType;
+  captured_at: string;
   thumbnailUrl?: string;
   fullQualityUrl?: string;
+  signedUrl?: string;
   likeCount?: number;
   hasLiked?: boolean;
 }
 
 interface StoriesViewerProps {
-  photos: Photo[];
+  items: StoryItem[];
   eventName: string;
   eventDescription: string | null;
   backgroundImage: string | null;
-  totalPhotos: number;
+  totalItems: number;
   filterType: FilterType;
   fontFamily?: EventFontFamily;
   language: "es" | "en" | "it";
   onClose: () => void;
-  onLikePhoto: (photoId: string) => void;
+  onLikeMedia: (item: StoryItem) => void;
 }
 
 const StoriesViewer = ({
-  photos,
+  items,
   eventName,
   eventDescription,
   backgroundImage,
-  totalPhotos,
+  totalItems,
   filterType,
   fontFamily = "system",
   language,
   onClose,
-  onLikePhoto,
+  onLikeMedia,
 }: StoriesViewerProps) => {
   // Index 0 = cover slide, 1+ = photos
   const [currentIndex, setCurrentIndex] = useState(0);
-  const totalSlides = photos.length + 1; // +1 for cover
+  const totalSlides = items.length + 1; // +1 for cover
 
   const handleClick = (e: React.MouseEvent) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -87,13 +92,13 @@ const StoriesViewer = ({
     };
   }, []);
 
-  const currentPhoto = currentIndex > 0 ? photos[currentIndex - 1] : null;
+  const currentItem = currentIndex > 0 ? items[currentIndex - 1] : null;
 
-  const photosText = language === "en" 
-    ? `${totalPhotos} photos` 
+  const itemsText = language === "en" 
+    ? `${totalItems} media` 
     : language === "it" 
-    ? `${totalPhotos} foto` 
-    : `${totalPhotos} fotos`;
+    ? `${totalItems} elementi` 
+    : `${totalItems} elementos`;
 
   return (
     <div className="fixed inset-0 z-50 bg-black">
@@ -155,38 +160,53 @@ const StoriesViewer = ({
                 </p>
               )}
               <p className="text-sm text-muted-foreground uppercase tracking-widest">
-                ✨ {photosText}
+                ✨ {itemsText}
               </p>
             </div>
           </div>
-        ) : currentPhoto ? (
-          // Photo slide
-          <div className={`relative w-full h-full flex items-center justify-center ${getGrainClass(filterType)}`}>
-            <img
-              src={currentPhoto.fullQualityUrl || currentPhoto.thumbnailUrl}
-              alt={language === "en" ? "Event photo" : language === "it" ? "Foto evento" : "Foto del evento"}
-              className={`max-w-full max-h-full object-contain ${getFilterClass(filterType)}`}
-            />
+        ) : currentItem ? (
+          <div className={`relative w-full h-full flex items-center justify-center ${currentItem.type === "photo" ? getGrainClass(filterType) : ""}`}>
+            {currentItem.type === "photo" ? (
+              <img
+                src={currentItem.fullQualityUrl || currentItem.thumbnailUrl}
+                alt={language === "en" ? "Event photo" : language === "it" ? "Foto evento" : "Foto del evento"}
+                className={`max-w-full max-h-full object-contain ${getFilterClass(filterType)}`}
+              />
+            ) : currentItem.type === "video" ? (
+              <video
+                src={currentItem.signedUrl || ""}
+                controls
+                autoPlay
+                playsInline
+                className="max-h-full max-w-full object-contain"
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center px-6">
+                <div className="w-full max-w-xl rounded-2xl bg-red-950/90 p-6">
+                  <audio src={currentItem.signedUrl || ""} controls autoPlay className="w-full" />
+                </div>
+              </div>
+            )}
             
             {/* Like button - bottom right */}
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                onLikePhoto(currentPhoto.id);
+                onLikeMedia(currentItem);
               }}
-              disabled={currentPhoto.hasLiked}
+              disabled={currentItem.hasLiked}
               className="absolute bottom-8 right-4 p-3 rounded-full bg-black/50 hover:bg-black/70 transition-colors disabled:opacity-50"
             >
               <img
-                src={currentPhoto.hasLiked ? heartFilled : heartOutline}
+                src={currentItem.hasLiked ? heartFilled : heartOutline}
                 alt="like"
                 className="w-8 h-8"
               />
             </button>
 
-            {/* Photo counter */}
+            {/* Item counter */}
             <div className="absolute bottom-8 left-4 px-3 py-1 rounded-full bg-black/50 text-white text-sm">
-              {currentIndex} / {photos.length}
+              {currentIndex} / {items.length}
             </div>
           </div>
         ) : null}

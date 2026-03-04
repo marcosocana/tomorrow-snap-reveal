@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { LogOut, Film, Trash2, Download, MoreVertical, Share2, Play, Image, Mic, Video } from "lucide-react";
+import { LogOut, Film, Trash2, Download, MoreVertical, Share2, Play, Image, Mic, Video, LayoutGrid, LayoutList } from "lucide-react";
 import StoriesViewer from "@/components/StoriesViewer";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import {
@@ -43,6 +43,8 @@ interface VideoItem {
   captured_at: string;
   duration_seconds?: number | null;
   signedUrl?: string;
+  likeCount?: number;
+  hasLiked?: boolean;
 }
 
 interface AudioItem {
@@ -51,6 +53,8 @@ interface AudioItem {
   captured_at: string;
   duration_seconds?: number | null;
   signedUrl?: string;
+  likeCount?: number;
+  hasLiked?: boolean;
 }
 
 type MixedMediaType = "photo" | "video" | "audio";
@@ -63,6 +67,8 @@ interface MixedMediaItem {
   thumbnailUrl?: string;
   fullQualityUrl?: string;
   signedUrl?: string;
+  likeCount?: number;
+  hasLiked?: boolean;
 }
 
 const PHOTOS_PER_PAGE = 12;
@@ -100,7 +106,7 @@ const Gallery = () => {
   const [eventDescription, setEventDescription] = useState<string | null>(null);
   const [eventBackgroundImage, setEventBackgroundImage] = useState<string | null>(null);
   const [showStories, setShowStories] = useState(false);
-  const [allPhotosForStories, setAllPhotosForStories] = useState<Photo[]>([]);
+  const [storyItems, setStoryItems] = useState<MixedMediaItem[]>([]);
   const [loadingStories, setLoadingStories] = useState(false);
   const [isExpired, setIsExpired] = useState(false);
   const [expiryRedirectUrl, setExpiryRedirectUrl] = useState<string | null>(null);
@@ -214,6 +220,18 @@ const Gallery = () => {
         .order("captured_at", { ascending: true });
       if (error) throw error;
 
+      const videoIds = (data || []).map((v) => v.id);
+      const { data: likesData } = await supabase
+        .from("video_likes" as any)
+        .select("video_id")
+        .in("video_id", videoIds);
+
+      const likeCounts = (likesData || []).reduce((acc: any, like: any) => {
+        acc[like.video_id] = (acc[like.video_id] || 0) + 1;
+        return acc;
+      }, {});
+      const likedVideos = JSON.parse(localStorage.getItem("likedVideos") || "[]");
+
       const enriched = await Promise.all(
         (data || []).map(async (video) => {
           const { data: signedData } = await supabase.storage
@@ -222,6 +240,8 @@ const Gallery = () => {
           return {
             ...video,
             signedUrl: signedData?.signedUrl || "",
+            likeCount: likeCounts[video.id] || 0,
+            hasLiked: likedVideos.includes(video.id),
           };
         })
       );
@@ -243,6 +263,18 @@ const Gallery = () => {
         .order("captured_at", { ascending: true });
       if (error) throw error;
 
+      const audioIds = (data || []).map((a) => a.id);
+      const { data: likesData } = await supabase
+        .from("audio_likes" as any)
+        .select("audio_id")
+        .in("audio_id", audioIds);
+
+      const likeCounts = (likesData || []).reduce((acc: any, like: any) => {
+        acc[like.audio_id] = (acc[like.audio_id] || 0) + 1;
+        return acc;
+      }, {});
+      const likedAudios = JSON.parse(localStorage.getItem("likedAudios") || "[]");
+
       const enriched = await Promise.all(
         (data || []).map(async (audio) => {
           const { data: signedData } = await supabase.storage
@@ -251,6 +283,8 @@ const Gallery = () => {
           return {
             ...audio,
             signedUrl: signedData?.signedUrl || "",
+            likeCount: likeCounts[audio.id] || 0,
+            hasLiked: likedAudios.includes(audio.id),
           };
         })
       );
@@ -271,6 +305,8 @@ const Gallery = () => {
         captured_at: photo.captured_at,
         thumbnailUrl: (photo as any).thumbnailUrl,
         fullQualityUrl: (photo as any).fullQualityUrl,
+        likeCount: photo.likeCount || 0,
+        hasLiked: !!photo.hasLiked,
       });
     });
     videos.forEach((video) => {
@@ -280,6 +316,8 @@ const Gallery = () => {
         captured_at: video.captured_at,
         duration_seconds: video.duration_seconds,
         signedUrl: video.signedUrl,
+        likeCount: video.likeCount || 0,
+        hasLiked: !!video.hasLiked,
       });
     });
     audios.forEach((audio) => {
@@ -289,6 +327,8 @@ const Gallery = () => {
         captured_at: audio.captured_at,
         duration_seconds: audio.duration_seconds,
         signedUrl: audio.signedUrl,
+        likeCount: audio.likeCount || 0,
+        hasLiked: !!audio.hasLiked,
       });
     });
     return items.sort((a, b) => new Date(a.captured_at).getTime() - new Date(b.captured_at).getTime());
@@ -556,21 +596,115 @@ const Gallery = () => {
     }
   };
 
+  const handleLikeVideo = async (videoId: string) => {
+    try {
+      const deviceId = getDeviceId();
+      const { data: existingLike } = await supabase
+        .from("video_likes" as any)
+        .select("id")
+        .eq("video_id", videoId)
+        .eq("device_id", deviceId)
+        .maybeSingle();
+      if (existingLike) return;
+
+      const { error } = await supabase
+        .from("video_likes" as any)
+        .insert({ video_id: videoId, device_id: deviceId });
+      if (error) throw error;
+
+      const likedVideos = JSON.parse(localStorage.getItem("likedVideos") || "[]");
+      if (!likedVideos.includes(videoId)) {
+        likedVideos.push(videoId);
+        localStorage.setItem("likedVideos", JSON.stringify(likedVideos));
+      }
+
+      setVideos((prev) =>
+        prev.map((v) => (v.id === videoId ? { ...v, likeCount: (v.likeCount || 0) + 1, hasLiked: true } : v))
+      );
+      setSelectedMedia((prev) =>
+        prev && prev.type === "video" && prev.id === videoId
+          ? { ...prev, likeCount: (prev.likeCount || 0) + 1, hasLiked: true }
+          : prev
+      );
+    } catch (error) {
+      console.error("Error liking video:", error);
+    }
+  };
+
+  const handleLikeAudio = async (audioId: string) => {
+    try {
+      const deviceId = getDeviceId();
+      const { data: existingLike } = await supabase
+        .from("audio_likes" as any)
+        .select("id")
+        .eq("audio_id", audioId)
+        .eq("device_id", deviceId)
+        .maybeSingle();
+      if (existingLike) return;
+
+      const { error } = await supabase
+        .from("audio_likes" as any)
+        .insert({ audio_id: audioId, device_id: deviceId });
+      if (error) throw error;
+
+      const likedAudios = JSON.parse(localStorage.getItem("likedAudios") || "[]");
+      if (!likedAudios.includes(audioId)) {
+        likedAudios.push(audioId);
+        localStorage.setItem("likedAudios", JSON.stringify(likedAudios));
+      }
+
+      setAudios((prev) =>
+        prev.map((a) => (a.id === audioId ? { ...a, likeCount: (a.likeCount || 0) + 1, hasLiked: true } : a))
+      );
+      setSelectedMedia((prev) =>
+        prev && prev.type === "audio" && prev.id === audioId
+          ? { ...prev, likeCount: (prev.likeCount || 0) + 1, hasLiked: true }
+          : prev
+      );
+    } catch (error) {
+      console.error("Error liking audio:", error);
+    }
+  };
+
+  const handleLikeMedia = (item: MixedMediaItem) => {
+    if (item.type === "photo") {
+      handleLikePhoto(item.id);
+      return;
+    }
+    if (item.type === "video") {
+      handleLikeVideo(item.id);
+      return;
+    }
+    handleLikeAudio(item.id);
+  };
+
   const handleOpenStories = async () => {
     if (!eventId) return;
     
     setLoadingStories(true);
     try {
-      // Fetch ALL photos for stories
-      const { data: allPhotos, error } = await supabase
+      const [{ data: allPhotos, error: photosError }, { data: allVideos, error: videosError }, { data: allAudios, error: audiosError }] = await Promise.all([
+        supabase
         .from("photos")
         .select("*")
         .eq("event_id", eventId)
-        .order("captured_at", { ascending: true });
+        .order("captured_at", { ascending: true }),
+        supabase
+          .from("videos")
+          .select("id,video_url,captured_at,duration_seconds")
+          .eq("event_id", eventId)
+          .order("captured_at", { ascending: true }),
+        supabase
+          .from("audios")
+          .select("id,audio_url,captured_at,duration_seconds")
+          .eq("event_id", eventId)
+          .order("captured_at", { ascending: true }),
+      ]);
 
-      if (error) throw error;
+      if (photosError) throw photosError;
+      if (videosError) throw videosError;
+      if (audiosError) throw audiosError;
 
-      // Get like counts for all photos
       const photoIds = (allPhotos || []).map(p => p.id);
       const { data: likesData } = await supabase
         .from("photo_likes")
@@ -584,8 +718,29 @@ const Gallery = () => {
 
       // Check which photos current user has liked
       const likedPhotos = JSON.parse(localStorage.getItem("likedPhotos") || "[]");
+      const likedVideos = JSON.parse(localStorage.getItem("likedVideos") || "[]");
+      const likedAudios = JSON.parse(localStorage.getItem("likedAudios") || "[]");
 
-      // Get signed URLs for all photos
+      const videoIds = (allVideos || []).map((v) => v.id);
+      const { data: videoLikesData } = await supabase
+        .from("video_likes" as any)
+        .select("video_id")
+        .in("video_id", videoIds);
+      const videoLikeCounts = (videoLikesData || []).reduce((acc: any, like: any) => {
+        acc[like.video_id] = (acc[like.video_id] || 0) + 1;
+        return acc;
+      }, {});
+
+      const audioIds = (allAudios || []).map((a) => a.id);
+      const { data: audioLikesData } = await supabase
+        .from("audio_likes" as any)
+        .select("audio_id")
+        .in("audio_id", audioIds);
+      const audioLikeCounts = (audioLikesData || []).reduce((acc: any, like: any) => {
+        acc[like.audio_id] = (acc[like.audio_id] || 0) + 1;
+        return acc;
+      }, {});
+
       const photosWithUrls = await Promise.all(
         (allPhotos || []).map(async (photo) => {
           const { data: fullQualityData } = await supabase.storage
@@ -597,17 +752,52 @@ const Gallery = () => {
             fullQualityUrl: fullQualityData?.signedUrl || "",
             likeCount: likeCounts[photo.id] || 0,
             hasLiked: likedPhotos.includes(photo.id),
+            type: "photo" as const,
           };
         })
       );
 
-      setAllPhotosForStories(photosWithUrls as Photo[]);
+      const videosWithUrls = await Promise.all(
+        (allVideos || []).map(async (video) => {
+          const { data: signedData } = await supabase.storage
+            .from("event-videos")
+            .createSignedUrl(video.video_url, 3600);
+          return {
+            ...video,
+            signedUrl: signedData?.signedUrl || "",
+            likeCount: videoLikeCounts[video.id] || 0,
+            hasLiked: likedVideos.includes(video.id),
+            type: "video" as const,
+          };
+        })
+      );
+
+      const audiosWithUrls = await Promise.all(
+        (allAudios || []).map(async (audio) => {
+          const { data: signedData } = await supabase.storage
+            .from("event-audios")
+            .createSignedUrl(audio.audio_url, 3600);
+          return {
+            ...audio,
+            signedUrl: signedData?.signedUrl || "",
+            likeCount: audioLikeCounts[audio.id] || 0,
+            hasLiked: likedAudios.includes(audio.id),
+            type: "audio" as const,
+          };
+        })
+      );
+
+      const mixedStories = [...photosWithUrls, ...videosWithUrls, ...audiosWithUrls].sort(
+        (a, b) => new Date(a.captured_at).getTime() - new Date(b.captured_at).getTime()
+      );
+
+      setStoryItems(mixedStories as MixedMediaItem[]);
       setShowStories(true);
     } catch (error) {
-      console.error("Error loading all photos for stories:", error);
+      console.error("Error loading stories media:", error);
       toast({
         title: t.common.error,
-        description: language === "en" ? "Error loading photos" : language === "it" ? "Errore nel caricamento delle foto" : "Error al cargar las fotos",
+        description: language === "en" ? "Error loading media" : language === "it" ? "Errore nel caricamento dei contenuti" : "Error al cargar el contenido",
         variant: "destructive",
       });
     } finally {
@@ -723,6 +913,36 @@ const Gallery = () => {
       // User cancelled share or error occurred
       if ((error as Error).name !== 'AbortError') {
         console.error("Error sharing photo:", error);
+      }
+    }
+  };
+
+  const handleShareMedia = async (signedUrl: string, type: MixedMediaType) => {
+    try {
+      const label = type === "photo" ? "photo" : type === "video" ? "video" : "audio";
+      const shareTitle = language === "en"
+        ? `${label} from ${eventName}`
+        : language === "it"
+        ? `${label} da ${eventName}`
+        : `${label} de ${eventName}`;
+      const shareText = language === "en"
+        ? `Check out this ${label} from ${eventName}!`
+        : language === "it"
+        ? `Guarda questo ${label} da ${eventName}!`
+        : `¡Mira este ${label} de ${eventName}!`;
+
+      if (navigator.share) {
+        await navigator.share({
+          title: shareTitle,
+          text: shareText,
+          url: signedUrl,
+        });
+      } else {
+        await navigator.clipboard.writeText(signedUrl);
+      }
+    } catch (error) {
+      if ((error as Error).name !== "AbortError") {
+        console.error("Error sharing media:", error);
       }
     }
   };
@@ -971,7 +1191,7 @@ const Gallery = () => {
               </div>
             )}
             <p className="text-sm text-muted-foreground tracking-wide">{revealedTitleText}</p>
-            <p className="text-xs text-muted-foreground mt-1">
+            <p className="text-sm text-muted-foreground mt-1">
               {mediaStatsText}
             </p>
           </div>
@@ -1000,7 +1220,7 @@ const Gallery = () => {
                 </div>
               )}
             <p className="text-sm text-muted-foreground mt-2 tracking-wide">{revealedTitleText}</p>
-            <p className="text-xs text-muted-foreground mt-1">
+            <p className="text-sm text-muted-foreground mt-1">
               {mediaStatsText}
             </p>
             </div>
@@ -1058,7 +1278,7 @@ const Gallery = () => {
                   }`}
                   aria-label={`${mode} view`}
                 >
-                  {mode === "normal" ? "Normal" : "Grid"}
+                  {mode === "normal" ? <LayoutList className="h-4 w-4" /> : <LayoutGrid className="h-4 w-4" />}
                 </button>
               );
             })}
@@ -1100,6 +1320,20 @@ const Gallery = () => {
                         </span>
                       </span>
                     ) : null}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleLikeMedia(item);
+                      }}
+                      disabled={item.hasLiked}
+                      className="absolute right-2 top-2 rounded-full bg-black/50 p-1.5 disabled:opacity-50"
+                    >
+                      <img src={item.hasLiked ? heartFilled : heartOutline} alt="like" className="h-4 w-4" />
+                    </button>
+                    <span className="absolute bottom-2 left-2 rounded-full bg-black/50 px-2 py-0.5 text-xs text-white">
+                      {item.likeCount || 0}
+                    </span>
                   </button>
                 ))}
               </div>
@@ -1124,6 +1358,20 @@ const Gallery = () => {
                         </span>
                       </span>
                     ) : null}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleLikeMedia(item);
+                      }}
+                      disabled={item.hasLiked}
+                      className="absolute right-3 top-3 rounded-full bg-black/50 p-2 disabled:opacity-50"
+                    >
+                      <img src={item.hasLiked ? heartFilled : heartOutline} alt="like" className="h-5 w-5" />
+                    </button>
+                    <span className="absolute bottom-3 left-3 rounded-full bg-black/50 px-2.5 py-1 text-xs text-white">
+                      {item.likeCount || 0}
+                    </span>
                   </button>
                 </div>
               ))}
@@ -1292,6 +1540,27 @@ const Gallery = () => {
                   <audio src={selectedMedia.signedUrl || ""} controls autoPlay className="w-full" />
                 </div>
               )}
+              <div className="flex gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => handleLikeMedia(selectedMedia)}
+                  disabled={selectedMedia.hasLiked}
+                  className="uppercase tracking-wide flex-1"
+                >
+                  <img src={selectedMedia.hasLiked ? heartFilled : heartOutline} alt="like" className="w-4 h-4 sm:mr-2" />
+                  <span className="hidden sm:inline">{selectedMedia.likeCount || 0}</span>
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => handleShareMedia(selectedMedia.signedUrl || "", selectedMedia.type)}
+                  className="uppercase tracking-wide flex-1"
+                >
+                  <Share2 className="w-4 h-4 sm:mr-2" />
+                  <span className="hidden sm:inline">{sharePhotoText}</span>
+                </Button>
+              </div>
             </div>
           ) : null}
         </DialogContent>
@@ -1300,16 +1569,16 @@ const Gallery = () => {
       {/* Stories Viewer */}
       {showStories && (
         <StoriesViewer
-          photos={allPhotosForStories}
+          items={storyItems}
           eventName={eventName || ""}
           eventDescription={eventDescription}
           backgroundImage={eventBackgroundImage}
-          totalPhotos={totalPhotos}
+          totalItems={storyItems.length}
           filterType={filterType}
           fontFamily={eventFontFamily}
           language={language}
           onClose={() => setShowStories(false)}
-          onLikePhoto={handleLikePhoto}
+          onLikeMedia={handleLikeMedia}
         />
       )}
     </div>
