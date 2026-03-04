@@ -470,6 +470,9 @@ const EventForm = () => {
       const resolvedVideoDuration = parseDuration(formData.maxVideoDuration, 15);
       const resolvedMaxAudios = parseOptionalPositiveInt(formData.maxAudios);
       const resolvedAudioDuration = parseDuration(formData.maxAudioDuration, 30);
+      // Backward-compatible with environments where max_videos/max_audios are NOT NULL.
+      const maxVideosValue = formData.allowVideoRecording ? (resolvedMaxVideos ?? 0) : 0;
+      const maxAudiosValue = formData.allowAudioRecording ? (resolvedMaxAudios ?? 0) : 0;
       const eventTz = formData.timezone;
       const uploadStartDateTime = fromZonedTime(`${formData.uploadStartDate}T${formData.uploadStartTime}:00`, eventTz);
       const uploadEndDateTime = fromZonedTime(`${formData.uploadEndDate}T${formData.uploadEndTime}:00`, eventTz);
@@ -526,10 +529,10 @@ const EventForm = () => {
             gallery_view_mode: formData.galleryViewMode,
             like_counting_enabled: formData.likeCountingEnabled,
             allow_video_recording: formData.allowVideoRecording,
-            max_videos: resolvedMaxVideos,
+            max_videos: maxVideosValue,
             max_video_duration: resolvedVideoDuration,
             allow_audio_recording: formData.allowAudioRecording,
-            max_audios: resolvedMaxAudios,
+            max_audios: maxAudiosValue,
             max_audio_duration: resolvedAudioDuration,
             header_style: formData.headerStyle,
           } as any)
@@ -573,10 +576,10 @@ const EventForm = () => {
             gallery_view_mode: formData.galleryViewMode,
             like_counting_enabled: formData.likeCountingEnabled,
             allow_video_recording: formData.allowVideoRecording,
-            max_videos: resolvedMaxVideos,
+            max_videos: maxVideosValue,
             max_video_duration: resolvedVideoDuration,
             allow_audio_recording: formData.allowAudioRecording,
-            max_audios: resolvedMaxAudios,
+            max_audios: maxAudiosValue,
             max_audio_duration: resolvedAudioDuration,
             header_style: formData.headerStyle,
           },
@@ -650,10 +653,10 @@ const EventForm = () => {
           gallery_view_mode: formData.galleryViewMode,
           like_counting_enabled: formData.likeCountingEnabled,
           allow_video_recording: formData.allowVideoRecording,
-          max_videos: resolvedMaxVideos,
+          max_videos: maxVideosValue,
           max_video_duration: resolvedVideoDuration,
           allow_audio_recording: formData.allowAudioRecording,
-          max_audios: resolvedMaxAudios,
+          max_audios: maxAudiosValue,
           max_audio_duration: resolvedAudioDuration,
           header_style: formData.headerStyle,
         } as any).select().single();
