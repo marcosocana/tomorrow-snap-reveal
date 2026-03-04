@@ -125,6 +125,9 @@ const EventManagement = () => {
   const [events, setEvents] = useState<Event[]>([]);
   const [folders, setFolders] = useState<EventFolder[]>([]);
   const [eventPhotoCounts, setEventPhotoCounts] = useState<Record<string, number>>({});
+  const [eventMediaCounts, setEventMediaCounts] = useState<
+    Record<string, { photos: number; videos: number; audios: number }>
+  >({});
   const [isLoading, setIsLoading] = useState(true);
   const [isDemoMode] = useState(() => localStorage.getItem("isDemoMode") === "true");
   const [adminEventId] = useState(() => localStorage.getItem("adminEventId"));
@@ -175,6 +178,93 @@ const EventManagement = () => {
   const location = useLocation();
   const { toast } = useToast();
   const { t, dateLocale, pathPrefix } = useAdminI18n();
+
+  const loadMediaCounts = async (eventsList: Event[]) => {
+    const eventIds = eventsList.map((event) => event.id).filter(Boolean);
+    if (eventIds.length === 0) {
+      setEventMediaCounts({});
+      setEventPhotoCounts({});
+      return;
+    }
+
+    const fallbackCounts: Record<string, { photos: number; videos: number; audios: number }> = {};
+    for (const event of eventsList) {
+      fallbackCounts[event.id] = {
+        photos: event.photo_count ?? 0,
+        videos: event.video_count ?? 0,
+        audios: event.audio_count ?? 0,
+      };
+    }
+    const baseCounts: Record<string, { photos: number; videos: number; audios: number }> = {};
+    for (const eventId of eventIds) {
+      baseCounts[eventId] = { photos: 0, videos: 0, audios: 0 };
+    }
+
+    const [photosRes, videosRes, audiosRes] = await Promise.all([
+      supabase.from("photos").select("event_id").in("event_id", eventIds),
+      supabase.from("videos").select("event_id").in("event_id", eventIds),
+      supabase.from("audios").select("event_id").in("event_id", eventIds),
+    ]);
+
+    if (!photosRes.error && photosRes.data) {
+      for (const item of photosRes.data as Array<{ event_id: string }>) {
+        const eventId = item.event_id;
+        if (!baseCounts[eventId]) {
+          baseCounts[eventId] = { photos: 0, videos: 0, audios: 0 };
+        }
+        baseCounts[eventId].photos += 1;
+      }
+    } else {
+      for (const [eventId, counts] of Object.entries(fallbackCounts)) {
+        if (!baseCounts[eventId]) {
+          baseCounts[eventId] = { photos: 0, videos: 0, audios: 0 };
+        }
+        baseCounts[eventId].photos = counts.photos;
+      }
+    }
+
+    if (!videosRes.error && videosRes.data) {
+      for (const item of videosRes.data as Array<{ event_id: string }>) {
+        const eventId = item.event_id;
+        if (!baseCounts[eventId]) {
+          baseCounts[eventId] = { photos: 0, videos: 0, audios: 0 };
+        }
+        baseCounts[eventId].videos += 1;
+      }
+    } else {
+      for (const [eventId, counts] of Object.entries(fallbackCounts)) {
+        if (!baseCounts[eventId]) {
+          baseCounts[eventId] = { photos: 0, videos: 0, audios: 0 };
+        }
+        baseCounts[eventId].videos = counts.videos;
+      }
+    }
+
+    if (!audiosRes.error && audiosRes.data) {
+      for (const item of audiosRes.data as Array<{ event_id: string }>) {
+        const eventId = item.event_id;
+        if (!baseCounts[eventId]) {
+          baseCounts[eventId] = { photos: 0, videos: 0, audios: 0 };
+        }
+        baseCounts[eventId].audios += 1;
+      }
+    } else {
+      for (const [eventId, counts] of Object.entries(fallbackCounts)) {
+        if (!baseCounts[eventId]) {
+          baseCounts[eventId] = { photos: 0, videos: 0, audios: 0 };
+        }
+        baseCounts[eventId].audios = counts.audios;
+      }
+    }
+
+    const photoCounts: Record<string, number> = {};
+    for (const [eventId, counts] of Object.entries(baseCounts)) {
+      photoCounts[eventId] = counts.photos;
+    }
+
+    setEventMediaCounts(baseCounts);
+    setEventPhotoCounts(photoCounts);
+  };
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -236,7 +326,10 @@ const EventManagement = () => {
         setEvents(eventData ? [eventData as Event] : []);
 
         if (eventData) {
-          setEventPhotoCounts({ [eventData.id]: (eventData as any).photo_count || 0 });
+          await loadMediaCounts([eventData as Event]);
+        } else {
+          setEventMediaCounts({});
+          setEventPhotoCounts({});
         }
     } else {
         const { data: { session } } = await supabase.auth.getSession();
@@ -289,13 +382,7 @@ const EventManagement = () => {
           setFolders([]);
         }
 
-        if (fetchedEvents?.length) {
-          const counts: Record<string, number> = {};
-          fetchedEvents.forEach((event) => {
-            counts[event.id] = event.photo_count || 0;
-          });
-          setEventPhotoCounts(counts);
-        }
+        await loadMediaCounts(fetchedEvents);
       }
     } catch (error) {
       console.error("Error loading data:", error);
@@ -448,9 +535,10 @@ const EventManagement = () => {
   const truncateEmail = (value: string, max: number) =>
     value.length > max ? `${value.slice(0, max)}...` : value;
   const getMediaCounts = (event: Event) => {
-    const photos = eventPhotoCounts[event.id] ?? event.photo_count ?? 0;
-    const videos = event.video_count ?? 0;
-    const audios = event.audio_count ?? 0;
+    const liveCounts = eventMediaCounts[event.id];
+    const photos = liveCounts?.photos ?? eventPhotoCounts[event.id] ?? event.photo_count ?? 0;
+    const videos = liveCounts?.videos ?? event.video_count ?? 0;
+    const audios = liveCounts?.audios ?? event.audio_count ?? 0;
     return { photos, videos, audios };
   };
 
@@ -504,7 +592,7 @@ const EventManagement = () => {
           case "email":
             return (event.owner_email || "").toLowerCase();
           case "photos":
-            return eventPhotoCounts[event.id] || 0;
+            return eventMediaCounts[event.id]?.photos ?? eventPhotoCounts[event.id] ?? 0;
           case "created_at":
           default:
             return event.created_at || "";
@@ -520,7 +608,7 @@ const EventManagement = () => {
       return 0;
     });
     return list;
-  }, [events, adminSearch, adminTypeFilter, adminPhoneFilter, adminSort, eventPhotoCounts]);
+  }, [events, adminSearch, adminTypeFilter, adminPhoneFilter, adminSort, eventPhotoCounts, eventMediaCounts]);
 
   const pageSize = adminPageSize === "all" ? superAdminEvents.length || 1 : adminPageSize;
 
