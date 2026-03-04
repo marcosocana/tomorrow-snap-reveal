@@ -1,9 +1,9 @@
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { LogOut, Film, Trash2, Download, MoreVertical, Share2, Play, LayoutGrid, LayoutList } from "lucide-react";
+import { LogOut, Film, Trash2, Download, MoreVertical, Share2, Play, LayoutGrid, LayoutList, Image, Mic, Video } from "lucide-react";
 import StoriesViewer from "@/components/StoriesViewer";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import {
@@ -53,6 +53,18 @@ interface AudioItem {
   signedUrl?: string;
 }
 
+type MixedMediaType = "photo" | "video" | "audio";
+
+interface MixedMediaItem {
+  id: string;
+  type: MixedMediaType;
+  captured_at: string;
+  duration_seconds?: number | null;
+  thumbnailUrl?: string;
+  fullQualityUrl?: string;
+  signedUrl?: string;
+}
+
 const PHOTOS_PER_PAGE = 12;
 
 const getDateLocale = (language: Language) => {
@@ -97,6 +109,12 @@ const Gallery = () => {
   const [allowPhotoSharing, setAllowPhotoSharing] = useState<boolean>(true);
   const [galleryViewMode, setGalleryViewMode] = useState<"normal" | "grid">("normal");
   const [likeCountingEnabled, setLikeCountingEnabled] = useState<boolean>(false);
+  const [allowVideoRecording, setAllowVideoRecording] = useState(false);
+  const [maxVideos, setMaxVideos] = useState<number | null>(null);
+  const [maxVideoDuration, setMaxVideoDuration] = useState(15);
+  const [allowAudioRecording, setAllowAudioRecording] = useState(false);
+  const [maxAudios, setMaxAudios] = useState<number | null>(null);
+  const [maxAudioDuration, setMaxAudioDuration] = useState(30);
 
   // Get translations and timezone
   const language = getEventLanguage();
@@ -231,7 +249,7 @@ const Gallery = () => {
       const enriched = await Promise.all(
         (data || []).map(async (audio) => {
           const { data: signedData } = await supabase.storage
-            .from("event-audio")
+            .from("event-audios")
             .createSignedUrl(audio.audio_url, 3600);
           return {
             ...audio,
@@ -247,6 +265,38 @@ const Gallery = () => {
     }
   }, [eventId]);
 
+  const mixedMedia = useMemo(() => {
+    const items: MixedMediaItem[] = [];
+    photos.forEach((photo) => {
+      items.push({
+        type: "photo",
+        id: photo.id,
+        captured_at: photo.captured_at,
+        thumbnailUrl: (photo as any).thumbnailUrl,
+        fullQualityUrl: (photo as any).fullQualityUrl,
+      });
+    });
+    videos.forEach((video) => {
+      items.push({
+        type: "video",
+        id: video.id,
+        captured_at: video.captured_at,
+        duration_seconds: video.duration_seconds,
+        signedUrl: video.signedUrl,
+      });
+    });
+    audios.forEach((audio) => {
+      items.push({
+        type: "audio",
+        id: audio.id,
+        captured_at: audio.captured_at,
+        duration_seconds: audio.duration_seconds,
+        signedUrl: audio.signedUrl,
+      });
+    });
+    return items.sort((a, b) => new Date(a.captured_at).getTime() - new Date(b.captured_at).getTime());
+  }, [audios, photos, videos]);
+
   useEffect(() => {
     if (!eventId) {
       navigate("/");
@@ -257,7 +307,7 @@ const Gallery = () => {
     const loadEventData = async () => {
       const { data } = await supabase
         .from("events")
-        .select("password_hash, filter_type, custom_image_url, description, background_image_url, expiry_date, expiry_redirect_url, font_family, font_size, allow_photo_deletion, allow_photo_sharing, gallery_view_mode, like_counting_enabled")
+      .select("password_hash, filter_type, custom_image_url, description, background_image_url, expiry_date, expiry_redirect_url, font_family, font_size, allow_photo_deletion, allow_photo_sharing, gallery_view_mode, like_counting_enabled, allow_video_recording, max_videos, max_video_duration, allow_audio_recording, max_audios, max_audio_duration")
         .eq("id", eventId)
         .maybeSingle();
       if (data) {
@@ -270,6 +320,12 @@ const Gallery = () => {
         setEventFontSize((data as any).font_size || "text-3xl");
         setAllowPhotoDeletion((data as any).allow_photo_deletion !== false);
         setAllowPhotoSharing((data as any).allow_photo_sharing !== false);
+        setAllowVideoRecording((data as any).allow_video_recording === true);
+        setMaxVideos((data as any).max_videos ?? null);
+        setMaxVideoDuration((data as any).max_video_duration ?? 15);
+        setAllowAudioRecording((data as any).allow_audio_recording === true);
+        setMaxAudios((data as any).max_audios ?? null);
+        setMaxAudioDuration((data as any).max_audio_duration ?? 30);
         setGalleryViewMode(((data as any).gallery_view_mode || "normal") as "normal" | "grid");
         setLikeCountingEnabled((data as any).like_counting_enabled === true);
         
@@ -430,6 +486,14 @@ const Gallery = () => {
     } catch (error) {
       console.error("Error liking photo:", error);
     }
+  };
+
+  const handleCameraAction = (mode: "photo" | "video" | "audio") => {
+    if (mode === "photo") {
+      navigate("/camera");
+      return;
+    }
+    navigate(`/camera?mode=${mode}`);
   };
 
   const handleOpenStories = async () => {
@@ -715,6 +779,98 @@ const Gallery = () => {
       : `📷 ${totalPhotos} fotos / 📹 ${totalVideos} vídeos / 🔈 ${totalAudios} audios`;
   const videosLabel = language === "en" ? "Videos" : language === "it" ? "Video" : "Vídeos";
   const audioLabel = language === "en" ? "Audio notes" : language === "it" ? "Note audio" : "Notas de audio";
+  const photoActionTitle =
+    language === "en"
+      ? "Capture the moment"
+      : language === "it"
+      ? "Cattura il momento"
+      : "Captura el momento";
+  const photoActionSubtext =
+    language === "en"
+      ? `${photoCount} photos ready`
+      : language === "it"
+      ? `${photoCount} foto pronte`
+      : `${photoCount} fotos listas`;
+  const photoActionCta =
+    language === "en"
+      ? "Open camera"
+      : language === "it"
+      ? "Apri la fotocamera"
+      : "Abrir cámara";
+  const videoActionTitle =
+    language === "en"
+      ? "Share a short clip"
+      : language === "it"
+      ? "Condividi un breve video"
+      : "Comparte un clip corto";
+  const videoActionSubtitle =
+    language === "en"
+      ? `${totalVideos} videos ready`
+      : language === "it"
+      ? `${totalVideos} video pronti`
+      : `${totalVideos} vídeos listos`;
+  const videoMaxLabel =
+    language === "en"
+      ? `Max ${maxVideoDuration}s per clip`
+      : language === "it"
+      ? `Max ${maxVideoDuration}s per clip`
+      : `Máx. ${maxVideoDuration}s por clip`;
+  const recordVideoButtonText =
+    language === "en"
+      ? "Record video"
+      : language === "it"
+      ? "Registra video"
+      : "Grabar vídeo";
+  const videoLimitReachedText =
+    language === "en"
+      ? "Video limit reached"
+      : language === "it"
+      ? "Limite video raggiunto"
+      : "Límite de vídeo alcanzado";
+  const audioActionTitle =
+    language === "en"
+      ? "Leave an audio memory"
+      : language === "it"
+      ? "Lascia un ricordo audio"
+      : "Deja una nota de audio";
+  const audioActionSubtitle =
+    language === "en"
+      ? `${totalAudios} audio notes ready`
+      : language === "it"
+      ? `${totalAudios} note audio pronte`
+      : `${totalAudios} notas de audio listas`;
+  const audioMaxLabel =
+    language === "en"
+      ? `Max ${maxAudioDuration}s per note`
+      : language === "it"
+      ? `Max ${maxAudioDuration}s per nota`
+      : `Máx. ${maxAudioDuration}s por nota`;
+  const recordAudioButtonText =
+    language === "en"
+      ? "Record audio"
+      : language === "it"
+      ? "Registra audio"
+      : "Grabar audio";
+  const audioLimitReachedText =
+    language === "en"
+      ? "Audio limit reached"
+      : language === "it"
+      ? "Limite audio raggiunto"
+      : "Límite de audio alcanzado";
+  const videoDisabledText =
+    language === "en"
+      ? "Video recording disabled"
+      : language === "it"
+      ? "Registrazione video disabilitata"
+      : "Grabación de vídeo deshabilitada";
+  const audioDisabledText =
+    language === "en"
+      ? "Audio recording disabled"
+      : language === "it"
+      ? "Registrazione audio disabilitata"
+      : "Grabación de audio deshabilitada";
+  const videoLimitReached = allowVideoRecording && maxVideos !== null && totalVideos >= maxVideos;
+  const audioLimitReached = allowAudioRecording && maxAudios !== null && totalAudios >= maxAudios;
 
   // Expired event screen
   if (isExpired) {
@@ -909,26 +1065,224 @@ const Gallery = () => {
       )}
 
       <main className={eventBackgroundImage ? "pt-4 pb-20" : "py-12 pt-36 pb-20"}>
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="flex justify-end gap-2 mb-4">
-            <button
-              type="button"
-              onClick={() => setGalleryViewMode("normal")}
-              className={`p-2 rounded-full border transition ${galleryViewMode === "normal" ? "border-primary bg-primary/10" : "border-border bg-muted"}`}
-              aria-label="Normal view"
-            >
-              <LayoutList className="w-5 h-5" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setGalleryViewMode("grid")}
-              className={`p-2 rounded-full border transition ${galleryViewMode === "grid" ? "border-primary bg-primary/10" : "border-border bg-muted"}`}
-              aria-label="Grid view"
-            >
-              <LayoutGrid className="w-5 h-5" />
-            </button>
+        <div className="max-w-7xl mx-auto px-6 mb-6">
+          <div className="rounded-3xl border border-border bg-card p-5 space-y-5 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">{totalText}</p>
+              <p className="text-xs text-muted-foreground">{mediaStatsText}</p>
+            </div>
+            <div className="grid gap-3 md:grid-cols-3">
+              <div className="rounded-3xl border border-border bg-background/80 p-4 space-y-3 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-2xl bg-primary/10 p-2 text-primary">
+                      <Image className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">{viewPhotosText}</p>
+                      <p className="text-sm font-semibold text-foreground">{photoActionTitle}</p>
+                    </div>
+                  </div>
+                  <span className="text-xs text-muted-foreground">{photoCount}</span>
+                </div>
+                <p className="text-xs text-muted-foreground">{photoActionSubtext}</p>
+                <Button
+                  onClick={() => handleCameraAction("photo")}
+                  className="w-full h-12 rounded-2xl bg-primary text-primary-foreground font-semibold"
+                >
+                  {photoActionCta}
+                </Button>
+              </div>
+              <div
+                className={`rounded-3xl border ${videoLimitReached ? "border-destructive" : "border-border"} bg-background/80 p-4 space-y-3 shadow-sm`}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-2xl bg-blue-500/10 p-2 text-blue-500">
+                      <Video className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">{videosLabel}</p>
+                      <p className="text-sm font-semibold text-foreground">{videoActionTitle}</p>
+                    </div>
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    {videoLimitReached
+                      ? videoLimitReachedText
+                      : maxVideos !== null
+                      ? `${totalVideos}/${maxVideos}`
+                      : `${totalVideos}`}
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground">{videoActionSubtitle}</p>
+                <p className="text-xs text-muted-foreground">{videoMaxLabel}</p>
+                <button
+                  type="button"
+                  onClick={() => handleCameraAction("video")}
+                  disabled={!allowVideoRecording || videoLimitReached}
+                  className={`w-full rounded-2xl border px-4 py-2 text-sm font-semibold transition ${allowVideoRecording && !videoLimitReached ? "border-primary bg-primary/10 text-primary hover:bg-primary/20" : "border-border bg-muted text-muted-foreground cursor-not-allowed"}`}
+                >
+                  {recordVideoButtonText}
+                </button>
+                {!allowVideoRecording && (
+                  <p className="text-xs text-destructive">{videoDisabledText}</p>
+                )}
+              </div>
+              <div
+                className={`rounded-3xl border ${audioLimitReached ? "border-destructive" : "border-border"} bg-background/80 p-4 space-y-3 shadow-sm`}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-2xl bg-amber-500/10 p-2 text-amber-500">
+                      <Mic className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">{audioLabel}</p>
+                      <p className="text-sm font-semibold text-foreground">{audioActionTitle}</p>
+                    </div>
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    {audioLimitReached
+                      ? audioLimitReachedText
+                      : maxAudios !== null
+                      ? `${totalAudios}/${maxAudios}`
+                      : `${totalAudios}`}
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground">{audioActionSubtitle}</p>
+                <p className="text-xs text-muted-foreground">{audioMaxLabel}</p>
+                <button
+                  type="button"
+                  onClick={() => handleCameraAction("audio")}
+                  disabled={!allowAudioRecording || audioLimitReached}
+                  className={`w-full rounded-2xl border px-4 py-2 text-sm font-semibold transition ${allowAudioRecording && !audioLimitReached ? "border-primary bg-primary/10 text-primary hover:bg-primary/20" : "border-border bg-muted text-muted-foreground cursor-not-allowed"}`}
+                >
+                  {recordAudioButtonText}
+                </button>
+                {!allowAudioRecording && (
+                  <p className="text-xs text-destructive">{audioDisabledText}</p>
+                )}
+              </div>
+            </div>
           </div>
         </div>
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="flex justify-end gap-2 mb-4">
+            {(["normal", "grid"] as const).map((mode) => {
+              const Icon = mode === "grid" ? LayoutGrid : LayoutList;
+              return (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setGalleryViewMode(mode)}
+                  className={`relative flex h-10 w-10 items-center justify-center rounded-full border transition ${galleryViewMode === mode ? "border-primary bg-primary/10 text-primary" : "border-border bg-muted text-muted-foreground"}`}
+                  aria-label={`${mode} view`}
+                >
+                  <Icon className="w-5 h-5" />
+                  {galleryViewMode === mode && (
+                    <span className="absolute -bottom-1 left-1/2 h-1 w-10 -translate-x-1/2 rounded-full bg-destructive" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        {mixedMedia.length > 0 && (
+          <section className="max-w-7xl mx-auto px-6 space-y-3 mb-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-foreground">
+                {language === "en" ? "Timeline" : language === "it" ? "Timeline" : "Línea de tiempo"}
+              </h2>
+              <span className="text-xs uppercase tracking-[0.4em] text-muted-foreground">
+                {language === "en"
+                  ? "Chronological"
+                  : language === "it"
+                  ? "Cronologica"
+                  : "Cronológico"}
+              </span>
+            </div>
+            <div className="space-y-3">
+              {mixedMedia.map((item) => {
+                const typeLabel =
+                  item.type === "photo"
+                    ? language === "en"
+                      ? "Photo"
+                      : language === "it"
+                      ? "Foto"
+                      : "Foto"
+                    : item.type === "video"
+                    ? language === "en"
+                      ? "Video"
+                      : language === "it"
+                      ? "Video"
+                      : "Vídeo"
+                    : language === "en"
+                    ? "Audio"
+                    : language === "it"
+                    ? "Audio"
+                    : "Audio";
+                const icon = item.type === "photo" ? (
+                  <Image className="w-4 h-4" />
+                ) : item.type === "video" ? (
+                  <Video className="w-4 h-4" />
+                ) : (
+                  <Mic className="w-4 h-4" />
+                );
+
+                return (
+                  <article
+                    key={`${item.type}-${item.id}`}
+                    className="rounded-3xl border border-border bg-card p-4 shadow-sm"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                        <span className="rounded-full bg-muted px-2 py-1 text-xs uppercase tracking-wide text-muted-foreground">
+                          {typeLabel}
+                        </span>
+                        {icon}
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {formatLocalDate(item.captured_at, "dd/MM/yyyy HH:mm")}
+                      </span>
+                    </div>
+                    <div className="mt-4 rounded-2xl border border-border bg-muted overflow-hidden">
+                      {item.type === "photo" ? (
+                        <img
+                          src={item.fullQualityUrl || item.thumbnailUrl || ""}
+                          alt={typeLabel}
+                          className="h-48 w-full object-cover"
+                        />
+                      ) : item.type === "video" ? (
+                        <video
+                          src={item.signedUrl || ""}
+                          controls
+                          className="h-48 w-full object-cover bg-black"
+                        />
+                      ) : (
+                        <div className="flex items-center justify-center p-4">
+                          <audio
+                            src={item.signedUrl || ""}
+                            controls
+                            className="w-full"
+                          />
+                        </div>
+                      )}
+                    </div>
+                    {item.duration_seconds && (
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        {language === "en"
+                          ? `Duration: ${item.duration_seconds}s`
+                          : language === "it"
+                          ? `Durata: ${item.duration_seconds}s`
+                          : `Duración: ${item.duration_seconds}s`}
+                      </p>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+        )}
         <div className={galleryViewMode === "grid" ? "w-full" : "max-w-7xl mx-auto px-6"}>
           {isLoading ? (
             <div className="flex items-center justify-center min-h-[50vh]">

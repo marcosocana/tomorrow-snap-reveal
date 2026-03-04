@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { useNavigate, Navigate } from "react-router-dom";
+import { useNavigate, Navigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -77,6 +77,12 @@ const Camera = () => {
   const eventId = localStorage.getItem("eventId");
   const eventName = localStorage.getItem("eventName");
   const [eventPassword, setEventPassword] = useState<string>("");
+  const [searchParams] = useSearchParams();
+  const [queuedRecordingMode, setQueuedRecordingMode] = useState<"video" | "audio" | null>(() => {
+    const initial = searchParams.get("mode");
+    return initial === "video" || initial === "audio" ? initial : null;
+  });
+  const [eventConfigReady, setEventConfigReady] = useState(false);
   
   // Get translations and timezone
   const language = getEventLanguage();
@@ -144,44 +150,67 @@ const Camera = () => {
     return () => clearInterval(interval);
   }, [uploadStartTime, t]);
 
+  useEffect(() => {
+    const mode = searchParams.get("mode");
+    if (mode === "video" || mode === "audio") {
+      setQueuedRecordingMode(mode);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (!queuedRecordingMode || !eventConfigReady) return;
+    if (queuedRecordingMode === "video" && allowVideoRecording) {
+      openRecordingSession("video");
+      setQueuedRecordingMode(null);
+    }
+    if (queuedRecordingMode === "audio" && allowAudioRecording) {
+      openRecordingSession("audio");
+      setQueuedRecordingMode(null);
+    }
+  }, [queuedRecordingMode, eventConfigReady, allowAudioRecording, allowVideoRecording, openRecordingSession]);
+
   const loadEventData = async () => {
     if (!eventId) return;
+    try {
       const { data, error } = await supabase
         .from("events")
-      .select("reveal_time, upload_start_time, upload_end_time, password_hash, max_photos, custom_image_url, background_image_url, description, font_family, font_size, show_legal_text, legal_text_type, allow_video_recording, max_videos, max_video_duration, allow_audio_recording, max_audios, max_audio_duration")
+        .select("reveal_time, upload_start_time, upload_end_time, password_hash, max_photos, custom_image_url, background_image_url, description, font_family, font_size, show_legal_text, legal_text_type, allow_video_recording, max_videos, max_video_duration, allow_audio_recording, max_audios, max_audio_duration")
         .eq("id", eventId)
         .single();
-    if (data && !error) {
-      setRevealTime(data.reveal_time);
-      setUploadStartTime(data.upload_start_time || "");
-      setUploadEndTime(data.upload_end_time || "");
-      setEventPassword(data.password_hash || "");
-      setCustomImageUrl(data.custom_image_url || "");
-      setBackgroundImageUrl(data.background_image_url || "");
-      setEventDescription(data.description || "");
-      setEventFontFamily(((data as any).font_family as EventFontFamily) || "system");
-      setEventFontSize((data as any).font_size || "text-3xl");
-      setShowLegalText((data as any).show_legal_text === true);
-      setLegalTextType((data as any).legal_text_type || "default");
-      setAllowVideoRecording((data as any).allow_video_recording === true);
-      setMaxVideos((data as any).max_videos ?? null);
-      setVideoDurationSeconds((data as any).max_video_duration ?? 15);
-      setAllowAudioRecording((data as any).allow_audio_recording === true);
-      setMaxAudios((data as any).max_audios ?? null);
-      setAudioDurationSeconds((data as any).max_audio_duration ?? 30);
-      
-      // Check if max photos limit reached
-      if (data.max_photos) {
-        const { count } = await supabase
-          .from("photos")
-          .select("*", { count: "exact", head: true })
-          .eq("event_id", eventId);
+      if (data && !error) {
+        setRevealTime(data.reveal_time);
+        setUploadStartTime(data.upload_start_time || "");
+        setUploadEndTime(data.upload_end_time || "");
+        setEventPassword(data.password_hash || "");
+        setCustomImageUrl(data.custom_image_url || "");
+        setBackgroundImageUrl(data.background_image_url || "");
+        setEventDescription(data.description || "");
+        setEventFontFamily(((data as any).font_family as EventFontFamily) || "system");
+        setEventFontSize((data as any).font_size || "text-3xl");
+        setShowLegalText((data as any).show_legal_text === true);
+        setLegalTextType((data as any).legal_text_type || "default");
+        setAllowVideoRecording((data as any).allow_video_recording === true);
+        setMaxVideos((data as any).max_videos ?? null);
+        setVideoDurationSeconds((data as any).max_video_duration ?? 15);
+        setAllowAudioRecording((data as any).allow_audio_recording === true);
+        setMaxAudios((data as any).max_audios ?? null);
+        setAudioDurationSeconds((data as any).max_audio_duration ?? 30);
         
-        if (count && count >= data.max_photos) {
-          // Treat as event ended
-          setUploadEndTime(new Date().toISOString());
+        // Check if max photos limit reached
+        if (data.max_photos) {
+          const { count } = await supabase
+            .from("photos")
+            .select("*", { count: "exact", head: true })
+            .eq("event_id", eventId);
+          
+          if (count && count >= data.max_photos) {
+            // Treat as event ended
+            setUploadEndTime(new Date().toISOString());
+          }
         }
       }
+    } finally {
+      setEventConfigReady(true);
     }
   };
 
@@ -496,67 +525,83 @@ const Camera = () => {
     resetRecordingState();
   };
 
-  const openRecordingSession = async (mode: "video" | "audio") => {
-    if (!eventId) return;
-    if (mode === "video") {
-      if (!allowVideoRecording) return;
-      if (maxVideos !== null && videoCount >= maxVideos) {
-        const title = language === "en" ? "Limit reached" : language === "it" ? "Limite raggiunto" : "Límite alcanzado";
-        const description =
-          language === "en"
-            ? "You've uploaded the maximum number of videos."
-            : language === "it"
-            ? "Hai raggiunto il numero massimo di video."
-            : "Ya alcanzaste el número máximo de vídeos.";
-        toast({ title, description, variant: "destructive" });
-        return;
+  const openRecordingSession = useCallback(
+    async (mode: "video" | "audio") => {
+      if (!eventId) return;
+      if (mode === "video") {
+        if (!allowVideoRecording) return;
+        if (maxVideos !== null && videoCount >= maxVideos) {
+          const title = language === "en" ? "Limit reached" : language === "it" ? "Limite raggiunto" : "Límite alcanzado";
+          const description =
+            language === "en"
+              ? "You've uploaded the maximum number of videos."
+              : language === "it"
+              ? "Hai raggiunto il numero massimo di video."
+              : "Ya alcanzaste el número máximo de vídeos.";
+          toast({ title, description, variant: "destructive" });
+          return;
+        }
       }
-    }
-    if (mode === "audio") {
-      if (!allowAudioRecording) return;
-      if (maxAudios !== null && audioCount >= maxAudios) {
-        const title = language === "en" ? "Limit reached" : language === "it" ? "Limite raggiunto" : "Límite alcanzado";
-        const description =
-          language === "en"
-            ? "You've uploaded the maximum number of audio notes."
-            : language === "it"
-            ? "Hai raggiunto il numero massimo di note audio."
-            : "Ya alcanzaste el número máximo de notas de audio.";
-        toast({ title, description, variant: "destructive" });
-        return;
+      if (mode === "audio") {
+        if (!allowAudioRecording) return;
+        if (maxAudios !== null && audioCount >= maxAudios) {
+          const title = language === "en" ? "Limit reached" : language === "it" ? "Limite raggiunto" : "Límite alcanzado";
+          const description =
+            language === "en"
+              ? "You've uploaded the maximum number of audio notes."
+              : language === "it"
+              ? "Hai raggiunto il numero massimo di note audio."
+              : "Ya alcanzaste el número máximo de notas de audio.";
+          toast({ title, description, variant: "destructive" });
+          return;
+        }
       }
-    }
 
-    try {
-      teardownRecordingControls();
-      const constraints =
-        mode === "video"
-          ? { video: { facingMode: "environment" }, audio: true }
-          : { audio: true };
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      mediaStreamRef.current = stream;
-      if (mode === "video" && recordingVideoRef.current) {
-        recordingVideoRef.current.srcObject = stream;
+      try {
+        teardownRecordingControls();
+        const constraints =
+          mode === "video"
+            ? { video: { facingMode: "environment" }, audio: true }
+            : { audio: true };
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        mediaStreamRef.current = stream;
+        if (mode === "video" && recordingVideoRef.current) {
+          recordingVideoRef.current.srcObject = stream;
+        }
+        setRecordingMode(mode);
+        setRecordingCountdown(mode === "video" ? videoDurationSeconds : audioDurationSeconds);
+        setRecordingDuration(0);
+        setRecordingError(null);
+      } catch (error) {
+        console.error("Error accessing media:", error);
+        const description =
+          language === "en"
+            ? "We couldn't access your camera or microphone."
+            : language === "it"
+            ? "Non possiamo accedere alla fotocamera o al microfono."
+            : "No pudimos acceder a la cámara o al micrófono.";
+        toast({
+          title: t("form.errorTitle"),
+          description,
+          variant: "destructive",
+        });
       }
-      setRecordingMode(mode);
-      setRecordingCountdown(mode === "video" ? videoDurationSeconds : audioDurationSeconds);
-      setRecordingDuration(0);
-      setRecordingError(null);
-    } catch (error) {
-      console.error("Error accessing media:", error);
-      const description =
-        language === "en"
-          ? "We couldn't access your camera or microphone."
-          : language === "it"
-          ? "Non possiamo accedere alla fotocamera o al microfono."
-          : "No pudimos acceder a la cámara o al micrófono.";
-      toast({
-        title: t("form.errorTitle"),
-        description,
-        variant: "destructive",
-      });
-    }
-  };
+    },
+    [
+      audioCount,
+      audioDurationSeconds,
+      allowAudioRecording,
+      allowVideoRecording,
+      eventId,
+      language,
+      maxAudios,
+      maxVideos,
+      t,
+      toast,
+      videoCount,
+      videoDurationSeconds,
+    ]
+  );
 
   const startMediaRecording = () => {
     if (!recordingMode || !mediaStreamRef.current) return;
@@ -641,7 +686,7 @@ const Camera = () => {
     if (!eventId) return;
     setIsUploadingMedia(true);
     try {
-      const bucket = mode === "video" ? "event-videos" : "event-audio";
+      const bucket = mode === "video" ? "event-videos" : "event-audios";
       const table = mode === "video" ? "videos" : "audios";
       const hash = generateHash();
       const extension = mode === "video" ? "webm" : "webm";
@@ -1063,6 +1108,226 @@ const Camera = () => {
   const mediaButtonDisabled = isRecordingMedia || isUploadingMedia;
   const recordVideoText = language === "en" ? "Record video" : language === "it" ? "Registra video" : "Grabar vídeo";
   const recordAudioText = language === "en" ? "Record audio" : language === "it" ? "Registra audio" : "Grabar audio";
+  const cameraPhotoTitle =
+    language === "en"
+      ? "Capture the moment"
+      : language === "it"
+      ? "Cattura il momento"
+      : "Captura el momento";
+  const cameraPhotoSubtitle =
+    language === "en"
+      ? `${photoCount} photos ready`
+      : language === "it"
+      ? `${photoCount} foto pronte`
+      : `${photoCount} fotos listas`;
+  const videoActionTitle =
+    language === "en"
+      ? "Share a short clip"
+      : language === "it"
+      ? "Condividi un breve video"
+      : "Comparte un clip corto";
+  const audioActionTitle =
+    language === "en"
+      ? "Leave an audio memory"
+      : language === "it"
+      ? "Lascia un ricordo audio"
+      : "Deja una nota de audio";
+  const cameraVideoSubtitle =
+    language === "en"
+      ? `${videoCount} videos ready`
+      : language === "it"
+      ? `${videoCount} video pronti`
+      : `${videoCount} vídeos listos`;
+  const cameraVideoMaxLabel =
+    language === "en"
+      ? `Max ${videoDurationSeconds}s per clip`
+      : language === "it"
+      ? `Max ${videoDurationSeconds}s per clip`
+      : `Máx. ${videoDurationSeconds}s por clip`;
+  const cameraAudioSubtitle =
+    language === "en"
+      ? `${audioCount} audio notes ready`
+      : language === "it"
+      ? `${audioCount} note audio pronte`
+      : `${audioCount} notas de audio listas`;
+  const cameraAudioMaxLabel =
+    language === "en"
+      ? `Max ${audioDurationSeconds}s per note`
+      : language === "it"
+      ? `Max ${audioDurationSeconds}s per nota`
+      : `Máx. ${audioDurationSeconds}s por nota`;
+  const cameraVideoLimitText =
+    language === "en"
+      ? "Video limit reached"
+      : language === "it"
+      ? "Limite video raggiunto"
+      : "Límite de vídeo alcanzado";
+  const cameraAudioLimitText =
+    language === "en"
+      ? "Audio limit reached"
+      : language === "it"
+      ? "Limite audio raggiunto"
+      : "Límite de audio alcanzado";
+  const cameraVideoDisabledText =
+    language === "en"
+      ? "Video recording disabled"
+      : language === "it"
+      ? "Registrazione video disabilitata"
+      : "Grabación de vídeo deshabilitada";
+  const cameraAudioDisabledText =
+    language === "en"
+      ? "Audio recording disabled"
+      : language === "it"
+      ? "Registrazione audio disabilitata"
+      : "Grabación de audio deshabilitada";
+  const cameraContentClass = backgroundImageUrl
+    ? "flex-1 px-6 pb-6 flex flex-col"
+    : "flex-1 pt-16 pb-6 px-6 flex flex-col";
+  const cameraActionGrid = (
+    <div className="space-y-6 text-center w-full max-w-4xl mx-auto">
+      <div className="grid gap-4 md:grid-cols-3">
+        <div className="rounded-3xl border border-border bg-card p-4 space-y-3 text-left shadow-lg">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="rounded-2xl bg-primary/10 p-2 text-primary">
+                <Image className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
+                  {viewPhotosText}
+                </p>
+                <p className="text-sm font-semibold text-foreground">{cameraPhotoTitle}</p>
+              </div>
+            </div>
+            <span className="text-xs text-muted-foreground">{photoCount}</span>
+          </div>
+          <p className="text-xs text-muted-foreground">{cameraPhotoSubtitle}</p>
+          <Button
+            onClick={handleTakePhoto}
+            disabled={isButtonDisabled}
+            className="w-full h-12 rounded-2xl bg-primary text-primary-foreground font-semibold"
+          >
+            {buttonLabel}
+          </Button>
+        </div>
+        <div className={`rounded-3xl border ${videoLimitReached ? "border-destructive" : "border-border"} bg-card p-4 space-y-3 text-left shadow-lg`}>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="rounded-2xl bg-blue-500/10 p-2 text-blue-500">
+                <Video className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">{recordVideoText}</p>
+                <p className="text-sm font-semibold text-foreground">{videoActionTitle}</p>
+              </div>
+            </div>
+            <span className="text-xs text-muted-foreground">
+              {videoLimitReached
+                ? cameraVideoLimitText
+                : maxVideos !== null
+                ? `${videoCount}/${maxVideos}`
+                : `${videoCount}`}
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground">{cameraVideoSubtitle}</p>
+          <p className="text-xs text-muted-foreground">{cameraVideoMaxLabel}</p>
+          <button
+            type="button"
+            onClick={() => openRecordingSession("video")}
+            disabled={!allowVideoRecording || videoLimitReached || mediaButtonDisabled}
+            className={`w-full rounded-2xl border px-4 py-2 text-sm font-semibold transition ${allowVideoRecording && !videoLimitReached && !mediaButtonDisabled ? "border-primary bg-primary/10 text-primary hover:bg-primary/20" : "border-border bg-muted text-muted-foreground cursor-not-allowed"}`}
+          >
+            {recordVideoText}
+          </button>
+          {!allowVideoRecording && (
+            <p className="text-xs text-destructive">{cameraVideoDisabledText}</p>
+          )}
+        </div>
+        <div className={`rounded-3xl border ${audioLimitReached ? "border-destructive" : "border-border"} bg-card p-4 space-y-3 text-left shadow-lg`}>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="rounded-2xl bg-amber-500/10 p-2 text-amber-500">
+                <Mic className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">{recordAudioText}</p>
+                <p className="text-sm font-semibold text-foreground">{audioActionTitle}</p>
+              </div>
+            </div>
+            <span className="text-xs text-muted-foreground">
+              {audioLimitReached
+                ? cameraAudioLimitText
+                : maxAudios !== null
+                ? `${audioCount}/${maxAudios}`
+                : `${audioCount}`}
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground">{cameraAudioSubtitle}</p>
+          <p className="text-xs text-muted-foreground">{cameraAudioMaxLabel}</p>
+          <button
+            type="button"
+            onClick={() => openRecordingSession("audio")}
+            disabled={!allowAudioRecording || audioLimitReached || mediaButtonDisabled}
+            className={`w-full rounded-2xl border px-4 py-2 text-sm font-semibold transition ${allowAudioRecording && !audioLimitReached && !mediaButtonDisabled ? "border-primary bg-primary/10 text-primary hover:bg-primary/20" : "border-border bg-muted text-muted-foreground cursor-not-allowed"}`}
+          >
+            {recordAudioText}
+          </button>
+          {!allowAudioRecording && (
+            <p className="text-xs text-destructive">{cameraAudioDisabledText}</p>
+          )}
+        </div>
+      </div>
+      {failedUpload && !isUploading && (
+        <div className="flex justify-center">
+          <Button
+            onClick={handleRetryUpload}
+            variant="outline"
+            className="h-12 px-6 text-base rounded-xl flex items-center justify-center gap-2"
+          >
+            <RefreshCw className="w-4 h-4" />
+            {retryText}
+          </Button>
+        </div>
+      )}
+      {countdown && (
+        <div className="bg-card border border-border rounded-lg p-4">
+          <p className="text-primary font-semibold text-sm">{countdown}</p>
+        </div>
+      )}
+      <p className="text-muted-foreground leading-relaxed">
+        {revealTime && revealInfoText}
+      </p>
+    </div>
+  );
+  const renderCameraBody = (
+    <div className={cameraContentClass}>
+      {cameraActionGrid}
+      {customImageUrl && (
+        <div className="flex items-end justify-center pt-6">
+          <img
+            src={customImageUrl}
+            alt="Imagen personalizada"
+            className="max-w-[240px] max-h-[100px] object-contain"
+          />
+        </div>
+      )}
+      {showLegalText && (
+        <div className="flex-1 flex items-end justify-center pt-4 pb-2">
+          <p className="text-xs text-muted-foreground text-center max-w-sm">
+            Al hacer la foto aceptas los{" "}
+            <Link to={legalTextType === "custom" ? `/terms?eventId=${eventId}` : "/terms"} className="underline hover:text-foreground">
+              Términos y Condiciones
+            </Link>{" "}
+            y la{" "}
+            <Link to={legalTextType === "custom" ? `/privacy?eventId=${eventId}` : "/privacy"} className="underline hover:text-foreground">
+              Política de Privacidad
+            </Link>
+            .
+          </p>
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -1129,92 +1394,7 @@ const Camera = () => {
               </p>
             </div>
           </header>
-          
-          <div className="flex-1 px-6 pb-6 flex flex-col">
-            <div className="text-center space-y-4 max-w-lg mx-auto animate-fade-in">
-              <Button
-                onClick={handleTakePhoto}
-                disabled={isButtonDisabled}
-                className="h-16 px-8 text-lg bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl transition-all hover:scale-105 disabled:opacity-50"
-              >
-                {buttonLabel}
-              </Button>
-              {failedUpload && !isUploading && (
-                <Button
-                  onClick={handleRetryUpload}
-                  variant="outline"
-                  className="h-12 px-6 text-base rounded-xl"
-                >
-                  <RefreshCw className="w-4 h-4 mr-2" />
-                  {retryText}
-                </Button>
-              )}
-              <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                {allowVideoRecording && (
-                  <Button
-                    variant="outline"
-                    className="h-12 px-6 text-base rounded-xl flex items-center justify-center gap-2"
-                    onClick={() => openRecordingSession("video")}
-                    disabled={mediaButtonDisabled || videoLimitReached}
-                  >
-                    <Video className="w-4 h-4" />
-                    <span>{recordVideoText}</span>
-                  </Button>
-                )}
-                {allowAudioRecording && (
-                  <Button
-                    variant="outline"
-                    className="h-12 px-6 text-base rounded-xl flex items-center justify-center gap-2"
-                    onClick={() => openRecordingSession("audio")}
-                    disabled={mediaButtonDisabled || audioLimitReached}
-                  >
-                    <Mic className="w-4 h-4" />
-                    <span>{recordAudioText}</span>
-                  </Button>
-                )}
-              </div>
-              <div className="space-y-2">
-                {countdown && (
-                  <div className="bg-card border border-border rounded-lg p-4">
-                    <p className="text-primary font-semibold text-sm">
-                      {countdown}
-                    </p>
-                  </div>
-                )}
-                <p className="text-muted-foreground leading-relaxed">
-                  {revealTime && revealInfoText}
-                </p>
-              </div>
-            </div>
-            
-            {/* Custom image at bottom - only if set */}
-            {customImageUrl && (
-              <div className="flex items-end justify-center pt-6">
-                <img
-                  src={customImageUrl}
-                  alt="Imagen personalizada"
-                  className="max-w-[240px] max-h-[100px] object-contain"
-                />
-              </div>
-            )}
-            
-            {/* Legal text - only if enabled */}
-            {showLegalText && (
-              <div className="flex-1 flex items-end justify-center pt-4 pb-2">
-                <p className="text-xs text-muted-foreground text-center max-w-sm">
-                  Al hacer la foto aceptas los{" "}
-                  <Link to={legalTextType === "custom" ? `/terms?eventId=${eventId}` : "/terms"} className="underline hover:text-foreground">
-                    Términos y Condiciones
-                  </Link>{" "}
-                  y la{" "}
-                  <Link to={legalTextType === "custom" ? `/privacy?eventId=${eventId}` : "/privacy"} className="underline hover:text-foreground">
-                    Política de Privacidad
-                  </Link>
-                  .
-                </p>
-              </div>
-            )}
-          </div>
+          {renderCameraBody}
         </>
       ) : (
         <>
@@ -1265,177 +1445,121 @@ const Camera = () => {
               </Button>
             </div>
           </header>
-
-          <div className="flex-1 pt-16 pb-6 px-6 flex flex-col">
-            <div className="text-center space-y-4 max-w-lg mx-auto animate-fade-in">
-              <Button
-                onClick={handleTakePhoto}
-                disabled={isButtonDisabled}
-                className="h-16 px-8 text-lg bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl transition-all hover:scale-105 disabled:opacity-50"
-              >
-                {buttonLabel}
-              </Button>
-              {failedUpload && !isUploading && (
-                <Button
-                  onClick={handleRetryUpload}
-                  variant="outline"
-                  className="h-12 px-6 text-base rounded-xl"
-                >
-                  <RefreshCw className="w-4 h-4 mr-2" />
-                  {retryText}
-                </Button>
-              )}
-              <div className="space-y-2">
-                {countdown && (
-                  <div className="bg-card border border-border rounded-lg p-4">
-                    <p className="text-primary font-semibold text-sm">
-                      {countdown}
-                    </p>
-                  </div>
-                )}
-                <p className="text-muted-foreground leading-relaxed">
-                  {revealTime && revealInfoText}
-                </p>
-              </div>
-            </div>
-            
-            {/* Custom image at bottom - only if set */}
-            {customImageUrl && (
-              <div className="flex items-end justify-center pt-6">
-                <img
-                  src={customImageUrl}
-                  alt="Imagen personalizada"
-                  className="max-w-[240px] max-h-[100px] object-contain"
-                />
-              </div>
-            )}
-            
-            {/* Legal text - only if enabled */}
-            {showLegalText && (
-              <div className="flex-1 flex items-end justify-center pt-4 pb-2">
-                <p className="text-xs text-muted-foreground text-center max-w-sm">
-                  Al hacer la foto aceptas los{" "}
-                  <Link to={legalTextType === "custom" ? `/terms?eventId=${eventId}` : "/terms"} className="underline hover:text-foreground">
-                    Términos y Condiciones
-                  </Link>{" "}
-                  y la{" "}
-                  <Link to={legalTextType === "custom" ? `/privacy?eventId=${eventId}` : "/privacy"} className="underline hover:text-foreground">
-                    Política de Privacidad
-                  </Link>
-                  .
-                </p>
-              </div>
-            )}
-          </div>
+          {renderCameraBody}
         </>
       )}
 
       {recordingMode && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-10">
-          <div className="w-full max-w-md rounded-3xl bg-card border border-border p-6 space-y-4 shadow-2xl">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-sm font-semibold text-foreground">
-                  {recordingMode === "video" ? recordVideoText : recordAudioText}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {language === "en"
-                    ? `Max ${recordingMode === "video" ? videoDurationSeconds : audioDurationSeconds}s`
-                    : language === "it"
-                    ? `Max ${recordingMode === "video" ? videoDurationSeconds : audioDurationSeconds}s`
-                    : `Máx. ${recordingMode === "video" ? videoDurationSeconds : audioDurationSeconds}s`}
-                </p>
-              </div>
-              <Button variant="ghost" size="icon" onClick={closeRecordingOverlay}>
-                <X className="w-4 h-4" />
-              </Button>
+        <div className="fixed inset-0 z-50 flex flex-col bg-black/95 px-4 py-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-[0.4em] text-white/70">
+                {recordingMode === "video" ? recordVideoText : recordAudioText}
+              </p>
+              <p className="text-sm text-white/70">
+                {language === "en"
+                  ? `Max ${recordingMode === "video" ? videoDurationSeconds : audioDurationSeconds}s`
+                  : language === "it"
+                  ? `Max ${recordingMode === "video" ? videoDurationSeconds : audioDurationSeconds}s`
+                  : `Máx. ${recordingMode === "video" ? videoDurationSeconds : audioDurationSeconds}s`}
+              </p>
             </div>
+            <Button variant="ghost" size="icon" onClick={closeRecordingOverlay} className="text-white hover:bg-white/10">
+              <X className="w-5 h-5" />
+            </Button>
+          </div>
 
-            {recordingBlob ? (
-              <div className="space-y-4">
-                {recordingMode === "video" ? (
-                  <video
+          {recordingBlob ? (
+            <div className="mt-4 flex-1 overflow-auto space-y-4">
+              {recordingMode === "video" ? (
+                <video
+                  src={recordingPreviewUrl || ""}
+                  controls
+                  className="w-full rounded-2xl bg-black"
+                />
+              ) : (
+                <div className="space-y-2 text-center">
+                  <audio
                     src={recordingPreviewUrl || ""}
                     controls
-                    className="w-full rounded-2xl bg-black"
+                    className="w-full"
                   />
-                ) : (
-                  <div className="space-y-2 text-center">
-                    <audio
-                      src={recordingPreviewUrl || ""}
-                      controls
-                      className="w-full"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      {language === "en"
-                        ? `Duration: ${recordingDuration}s`
-                        : language === "it"
-                        ? `Durata: ${recordingDuration}s`
-                        : `Duración: ${recordingDuration}s`}
-                    </p>
-                  </div>
-                )}
-                <div className="flex gap-3">
-                  <Button
-                    className="flex-1"
-                    onClick={handleUseRecording}
-                    disabled={isUploadingMedia}
-                  >
-                    {language === "en" ? "Use" : language === "it" ? "Usa" : "Usar"}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="flex-1"
-                    onClick={handleDiscardRecording}
-                  >
-                    {language === "en" ? "Discard" : language === "it" ? "Scarta" : "Descartar"}
-                  </Button>
+                  <p className="text-xs text-white/70">
+                    {language === "en"
+                      ? `Duration: ${recordingDuration}s`
+                      : language === "it"
+                      ? `Durata: ${recordingDuration}s`
+                      : `Duración: ${recordingDuration}s`}
+                  </p>
                 </div>
+              )}
+              <div className="flex gap-3">
+                <Button
+                  className="flex-1"
+                  onClick={handleUseRecording}
+                  disabled={isUploadingMedia}
+                >
+                  {language === "en" ? "Use" : language === "it" ? "Usa" : "Usar"}
+                </Button>
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={handleDiscardRecording}
+                >
+                  {language === "en" ? "Discard" : language === "it" ? "Scarta" : "Descartar"}
+                </Button>
               </div>
-            ) : (
-              <div className="space-y-4 flex flex-col items-center">
-                {recordingMode === "video" ? (
+            </div>
+          ) : (
+            <div className="mt-6 flex flex-1 flex-col items-center justify-center gap-6 px-4">
+              {recordingMode === "video" ? (
+                <div className="relative w-full max-w-[500px] flex-1 overflow-hidden rounded-3xl bg-black">
                   <video
                     ref={recordingVideoRef}
                     autoPlay
                     muted
                     playsInline
-                    className="w-full rounded-2xl bg-black aspect-video"
+                    className="w-full h-full object-cover"
                   />
-                ) : (
-                  <div className="flex flex-col items-center gap-3">
-                    <Mic className="w-10 h-10 text-muted-foreground" />
-                    <p className="text-xs text-muted-foreground text-center">
-                      {language === "en"
-                        ? "Use the mic button to start recording."
-                        : language === "it"
-                        ? "Usa il pulsante per iniziare la registrazione."
-                        : "Pulsa el botón para comenzar a grabar."}
-                    </p>
+                  <div className="absolute inset-0 bg-black/30" />
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-3">
+                  <div className="relative flex h-36 w-36 items-center justify-center rounded-full border-4 border-destructive/70 bg-destructive/10">
+                    <div className="h-20 w-20 animate-pulse rounded-full bg-destructive" />
                   </div>
-                )}
-
-                <button
-                  type="button"
-                  onClick={startMediaRecording}
-                  className="relative flex h-20 w-20 items-center justify-center rounded-full border-4 border-destructive bg-destructive/80 text-white shadow-lg transition hover:scale-105"
-                >
-                  <span className="text-lg font-semibold">
-                    {isRecordingMedia
-                      ? language === "en"
-                        ? "Stop"
-                        : language === "it"
-                        ? "Stop"
-                        : "Parar"
-                      : language === "en"
-                      ? "Rec"
+                  <p className="text-sm text-white/80 text-center">
+                    {language === "en"
+                      ? "Use the red button below to start recording."
                       : language === "it"
-                      ? "Rec"
-                      : "Rec"}
-                  </span>
-                </button>
+                      ? "Usa il pulsante rosso per iniziare la registrazione."
+                      : "Pulsa el botón rojo para comenzar a grabar."}
+                  </p>
+                </div>
+              )}
 
-                <p className="text-xs text-muted-foreground">
+              <button
+                type="button"
+                onClick={startMediaRecording}
+                className="relative flex h-20 w-20 items-center justify-center rounded-full border-4 border-destructive bg-destructive/80 text-white shadow-lg transition hover:scale-105"
+              >
+                <span className="text-lg font-semibold">
+                  {isRecordingMedia
+                    ? language === "en"
+                      ? "Stop"
+                      : language === "it"
+                      ? "Stop"
+                      : "Parar"
+                    : language === "en"
+                    ? "Rec"
+                    : language === "it"
+                    ? "Rec"
+                    : "Rec"}
+                </span>
+              </button>
+
+              <div className="space-y-1 text-center text-xs text-white/80">
+                <p>
                   {recordingCountdown > 0
                     ? language === "en"
                       ? `Time left: ${recordingCountdown}s`
@@ -1448,12 +1572,19 @@ const Camera = () => {
                     ? "Pronto per registrare"
                     : "Listo para grabar"}
                 </p>
-                {recordingError && (
-                  <p className="text-xs text-destructive">{recordingError}</p>
-                )}
+                <p>
+                  {language === "en"
+                    ? `Max ${recordingMode === "video" ? videoDurationSeconds : audioDurationSeconds}s`
+                    : language === "it"
+                    ? `Max ${recordingMode === "video" ? videoDurationSeconds : audioDurationSeconds}s`
+                    : `Máx. ${recordingMode === "video" ? videoDurationSeconds : audioDurationSeconds}s`}
+                </p>
               </div>
-            )}
-          </div>
+              {recordingError && (
+                <p className="text-xs text-destructive">{recordingError}</p>
+              )}
+            </div>
+          )}
         </div>
       )}
 
