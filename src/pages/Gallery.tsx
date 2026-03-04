@@ -113,6 +113,7 @@ const Gallery = () => {
   const [allowPhotoDeletion, setAllowPhotoDeletion] = useState<boolean>(true);
   const [allowPhotoSharing, setAllowPhotoSharing] = useState<boolean>(true);
   const [galleryViewMode, setGalleryViewMode] = useState<"normal" | "grid">("normal");
+  const [isDesktopView, setIsDesktopView] = useState(false);
   const [likeCountingEnabled, setLikeCountingEnabled] = useState<boolean>(false);
   const [allowVideoRecording, setAllowVideoRecording] = useState(false);
   const [allowAudioRecording, setAllowAudioRecording] = useState(false);
@@ -457,27 +458,15 @@ const Gallery = () => {
     if (item.type === "video") {
       return (
         <div className="relative h-full w-full bg-black">
-          {item.thumbnailUrl ? (
-            <img
-              src={item.thumbnailUrl}
-              alt={language === "en" ? "Video thumbnail" : language === "it" ? "Miniatura video" : "Miniatura de vídeo"}
-              className="w-full h-full object-cover bg-black"
-              loading="lazy"
-            />
-          ) : (
-            <video
-              src={item.signedUrl || ""}
-              muted
-              playsInline
-              preload="metadata"
-              className="w-full h-full object-cover bg-black"
-              onLoadedData={(event) => {
-                const target = event.currentTarget;
-                target.currentTime = 0.05;
-                target.pause();
-              }}
-            />
-          )}
+          <video
+            src={item.signedUrl || ""}
+            muted
+            playsInline
+            autoPlay
+            loop
+            preload={view === "grid" ? "metadata" : "auto"}
+            className="w-full h-full object-cover bg-black"
+          />
         </div>
       );
     }
@@ -564,6 +553,27 @@ const Gallery = () => {
     loadVideos();
     loadAudios();
   }, [eventId, navigate, loadPhotos, loadVideos, loadAudios]);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(min-width: 1024px)");
+    const updateDesktopMode = () => {
+      const isDesktop = mediaQuery.matches;
+      setIsDesktopView(isDesktop);
+      if (isDesktop) {
+        setGalleryViewMode("grid");
+      }
+    };
+
+    updateDesktopMode();
+
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", updateDesktopMode);
+      return () => mediaQuery.removeEventListener("change", updateDesktopMode);
+    }
+
+    mediaQuery.addListener(updateDesktopMode);
+    return () => mediaQuery.removeListener(updateDesktopMode);
+  }, []);
 
   // Infinite scroll observer
   useEffect(() => {
@@ -1225,6 +1235,8 @@ const Gallery = () => {
     );
   }
 
+  const effectiveGalleryViewMode = isDesktopView ? "grid" : galleryViewMode;
+
   return (
     <div className="app-screen bg-background">
       {/* Hero Header with Background Image */}
@@ -1389,8 +1401,9 @@ const Gallery = () => {
 
       <main className={eventBackgroundImage ? "pt-4 pb-6" : "py-12 pt-36 pb-6"}>
         <div className="max-w-7xl mx-auto px-6">
-          <div className="mb-4">
-            <div className="mx-auto flex w-full max-w-2xl rounded-2xl bg-muted p-1">
+          {!isDesktopView && (
+            <div className="mb-4">
+              <div className="mx-auto flex w-full max-w-2xl rounded-2xl bg-muted p-1">
             {(["normal", "grid"] as const).map((mode) => {
               return (
                 <button
@@ -1408,10 +1421,11 @@ const Gallery = () => {
                 </button>
               );
             })}
+              </div>
             </div>
-          </div>
+          )}
         </div>
-        <div className={galleryViewMode === "grid" ? "w-full" : "max-w-7xl mx-auto px-6"}>
+        <div className={effectiveGalleryViewMode === "grid" ? "w-full" : "max-w-7xl mx-auto px-6"}>
           {isLoading ? (
             <div className="flex items-center justify-center min-h-[50vh]">
               <p className="text-muted-foreground uppercase tracking-wide">{loadingPhotosText}</p>
@@ -1428,9 +1442,9 @@ const Gallery = () => {
                 </p>
               </div>
             </div>
-          ) : galleryViewMode === "grid" ? (
+          ) : effectiveGalleryViewMode === "grid" ? (
             <div className="px-0">
-              <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 bg-white">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-2 bg-white">
                 {mixedMedia.map((item) => (
                   <button
                     key={`${item.type}-${item.id}`}
