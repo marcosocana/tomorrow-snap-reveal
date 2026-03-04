@@ -157,18 +157,6 @@ const Camera = () => {
     }
   }, [searchParams]);
 
-  useEffect(() => {
-    if (!queuedRecordingMode || !eventConfigReady) return;
-    if (queuedRecordingMode === "video" && allowVideoRecording) {
-      openRecordingSession("video");
-      setQueuedRecordingMode(null);
-    }
-    if (queuedRecordingMode === "audio" && allowAudioRecording) {
-      openRecordingSession("audio");
-      setQueuedRecordingMode(null);
-    }
-  }, [queuedRecordingMode, eventConfigReady, allowAudioRecording, allowVideoRecording, openRecordingSession]);
-
   const loadEventData = async () => {
     if (!eventId) return;
     try {
@@ -602,6 +590,18 @@ const Camera = () => {
       videoDurationSeconds,
     ]
   );
+
+  useEffect(() => {
+    if (!queuedRecordingMode || !eventConfigReady) return;
+    if (queuedRecordingMode === "video" && allowVideoRecording) {
+      openRecordingSession("video");
+      setQueuedRecordingMode(null);
+    }
+    if (queuedRecordingMode === "audio" && allowAudioRecording) {
+      openRecordingSession("audio");
+      setQueuedRecordingMode(null);
+    }
+  }, [queuedRecordingMode, eventConfigReady, allowAudioRecording, allowVideoRecording, openRecordingSession]);
 
   const startMediaRecording = () => {
     if (!recordingMode || !mediaStreamRef.current) return;
