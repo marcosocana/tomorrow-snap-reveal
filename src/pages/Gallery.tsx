@@ -117,6 +117,11 @@ const Gallery = () => {
   const [galleryViewMode, setGalleryViewMode] = useState<"normal" | "grid">("normal");
   const [isDesktopView, setIsDesktopView] = useState(false);
   const [hasManualViewSelection, setHasManualViewSelection] = useState(false);
+  const [viewToggleOrder, setViewToggleOrder] = useState<["normal", "grid"] | ["grid", "normal"]>([
+    "normal",
+    "grid",
+  ]);
+  const [defaultViewLocked, setDefaultViewLocked] = useState(false);
   const [likeCountingEnabled, setLikeCountingEnabled] = useState<boolean>(false);
   const [allowVideoRecording, setAllowVideoRecording] = useState(false);
   const [allowAudioRecording, setAllowAudioRecording] = useState(false);
@@ -579,15 +584,18 @@ const Gallery = () => {
   }, []);
 
   useEffect(() => {
-    if (hasManualViewSelection) return;
+    if (hasManualViewSelection || defaultViewLocked || isLoading) return;
     if (isDesktopView) {
       setGalleryViewMode("grid");
       return;
     }
 
     const totalMediaCount = totalPhotos + totalVideos + totalAudios;
-    setGalleryViewMode(totalMediaCount > 30 ? "grid" : "normal");
-  }, [totalPhotos, totalVideos, totalAudios, isDesktopView, hasManualViewSelection]);
+    const defaultMode: "normal" | "grid" = totalMediaCount > 30 ? "grid" : "normal";
+    setGalleryViewMode(defaultMode);
+    setViewToggleOrder(defaultMode === "grid" ? ["grid", "normal"] : ["normal", "grid"]);
+    setDefaultViewLocked(true);
+  }, [totalPhotos, totalVideos, totalAudios, isDesktopView, hasManualViewSelection, defaultViewLocked, isLoading]);
 
   // Infinite scroll observer
   useEffect(() => {
@@ -1435,7 +1443,7 @@ const Gallery = () => {
           {!isDesktopView && (
             <div className="mb-4">
               <div className="mx-auto flex w-full max-w-2xl rounded-2xl bg-muted p-1">
-            {(galleryViewMode === "grid" ? (["grid", "normal"] as const) : (["normal", "grid"] as const)).map((mode) => {
+            {viewToggleOrder.map((mode) => {
               return (
                 <button
                   key={mode}
@@ -1478,7 +1486,7 @@ const Gallery = () => {
             </div>
           ) : effectiveGalleryViewMode === "grid" ? (
             <div className="px-0">
-              <div className="grid grid-cols-3 gap-2 bg-white">
+              <div className="grid grid-cols-3 gap-[2px] bg-white">
                 {mixedMedia.map((item) => (
                   <button
                     key={`${item.type}-${item.id}`}
