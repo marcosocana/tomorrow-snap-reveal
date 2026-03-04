@@ -297,6 +297,85 @@ const Gallery = () => {
     return items.sort((a, b) => new Date(a.captured_at).getTime() - new Date(b.captured_at).getTime());
   }, [audios, photos, videos]);
 
+  const photoLookup = useMemo(() => {
+    const map = new Map<string, Photo>();
+    photos.forEach((photo) => map.set(photo.id, photo));
+    return map;
+  }, [photos]);
+
+  const handleMediaClick = useCallback(
+    (item: MixedMediaItem) => {
+      if (item.type !== "photo") return;
+      const photo = photoLookup.get(item.id);
+      if (photo) {
+        setSelectedPhoto(photo);
+      }
+    },
+    [photoLookup]
+  );
+
+  const getMediaTypeLabel = (type: MixedMediaType) => {
+    if (type === "photo") {
+      return language === "en" ? "Photo" : language === "it" ? "Foto" : "Foto";
+    }
+    if (type === "video") {
+      return language === "en" ? "Video" : language === "it" ? "Video" : "Vídeo";
+    }
+    return language === "en" ? "Audio" : language === "it" ? "Audio" : "Audio";
+  };
+
+  const renderMediaIcon = (type: MixedMediaType) => {
+    if (type === "video") return <Video className="w-4 h-4" />;
+    if (type === "audio") return <Mic className="w-4 h-4" />;
+    return <Image className="w-4 h-4" />;
+  };
+
+  const renderMediaPreview = (item: MixedMediaItem, view: "grid" | "list") => {
+    if (item.type === "photo") {
+      return (
+        <img
+          src={item.thumbnailUrl || (item as any).fullQualityUrl}
+          alt={language === "en" ? "Event photo" : language === "it" ? "Foto evento" : "Foto del evento"}
+          className={`w-full h-full object-cover ${getFilterClass(filterType)} transition-transform duration-300 ${
+            view === "list" ? "group-hover:scale-105" : ""
+          }`}
+          loading="lazy"
+          onError={(e) => (e.currentTarget.style.display = "none")}
+        />
+      );
+    }
+    if (item.type === "video") {
+      return (
+        <video
+          src={item.signedUrl || ""}
+          muted
+          playsInline
+          autoPlay={view === "grid"}
+          loop={view === "grid"}
+          controls={view === "list"}
+          className="w-full h-full object-cover bg-black"
+        />
+      );
+    }
+    return view === "grid" ? (
+      <div className="flex h-full w-full flex-col items-center justify-center gap-1 bg-slate-900 text-white">
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/20">
+          <Mic className="w-5 h-5 text-white" />
+        </div>
+        <p className="text-xs uppercase tracking-widest">
+          {language === "en" ? "Audio" : language === "it" ? "Audio" : "Audio"}
+        </p>
+      </div>
+    ) : (
+      <div className="flex h-full w-full flex-col justify-center gap-3 bg-muted/50 p-4">
+        <audio src={item.signedUrl || ""} controls className="w-full" />
+        <p className="text-xs text-muted-foreground">
+          {language === "en" ? "Audio note" : language === "it" ? "Nota audio" : "Nota de audio"}
+        </p>
+      </div>
+    );
+  };
+
   useEffect(() => {
     if (!eventId) {
       navigate("/");
@@ -1191,108 +1270,12 @@ const Gallery = () => {
             })}
           </div>
         </div>
-        {mixedMedia.length > 0 && (
-          <section className="max-w-7xl mx-auto px-6 space-y-3 mb-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-foreground">
-                {language === "en" ? "Timeline" : language === "it" ? "Timeline" : "Línea de tiempo"}
-              </h2>
-              <span className="text-xs uppercase tracking-[0.4em] text-muted-foreground">
-                {language === "en"
-                  ? "Chronological"
-                  : language === "it"
-                  ? "Cronologica"
-                  : "Cronológico"}
-              </span>
-            </div>
-            <div className="space-y-3">
-              {mixedMedia.map((item) => {
-                const typeLabel =
-                  item.type === "photo"
-                    ? language === "en"
-                      ? "Photo"
-                      : language === "it"
-                      ? "Foto"
-                      : "Foto"
-                    : item.type === "video"
-                    ? language === "en"
-                      ? "Video"
-                      : language === "it"
-                      ? "Video"
-                      : "Vídeo"
-                    : language === "en"
-                    ? "Audio"
-                    : language === "it"
-                    ? "Audio"
-                    : "Audio";
-                const icon = item.type === "photo" ? (
-                  <Image className="w-4 h-4" />
-                ) : item.type === "video" ? (
-                  <Video className="w-4 h-4" />
-                ) : (
-                  <Mic className="w-4 h-4" />
-                );
-
-                return (
-                  <article
-                    key={`${item.type}-${item.id}`}
-                    className="rounded-3xl border border-border bg-card p-4 shadow-sm"
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                        <span className="rounded-full bg-muted px-2 py-1 text-xs uppercase tracking-wide text-muted-foreground">
-                          {typeLabel}
-                        </span>
-                        {icon}
-                      </div>
-                      <span className="text-xs text-muted-foreground">
-                        {formatLocalDate(item.captured_at, "dd/MM/yyyy HH:mm")}
-                      </span>
-                    </div>
-                    <div className="mt-4 rounded-2xl border border-border bg-muted overflow-hidden">
-                      {item.type === "photo" ? (
-                        <img
-                          src={item.fullQualityUrl || item.thumbnailUrl || ""}
-                          alt={typeLabel}
-                          className="h-48 w-full object-cover"
-                        />
-                      ) : item.type === "video" ? (
-                        <video
-                          src={item.signedUrl || ""}
-                          controls
-                          className="h-48 w-full object-cover bg-black"
-                        />
-                      ) : (
-                        <div className="flex items-center justify-center p-4">
-                          <audio
-                            src={item.signedUrl || ""}
-                            controls
-                            className="w-full"
-                          />
-                        </div>
-                      )}
-                    </div>
-                    {item.duration_seconds && (
-                      <p className="mt-2 text-xs text-muted-foreground">
-                        {language === "en"
-                          ? `Duration: ${item.duration_seconds}s`
-                          : language === "it"
-                          ? `Durata: ${item.duration_seconds}s`
-                          : `Duración: ${item.duration_seconds}s`}
-                      </p>
-                    )}
-                  </article>
-                );
-              })}
-            </div>
-          </section>
-        )}
         <div className={galleryViewMode === "grid" ? "w-full" : "max-w-7xl mx-auto px-6"}>
           {isLoading ? (
             <div className="flex items-center justify-center min-h-[50vh]">
               <p className="text-muted-foreground uppercase tracking-wide">{loadingPhotosText}</p>
             </div>
-          ) : photos.length === 0 ? (
+          ) : mixedMedia.length === 0 ? (
             <div className="flex flex-col items-center justify-center min-h-[50vh] text-center space-y-4">
               <Film className="w-16 h-16 text-muted-foreground" />
               <div className="space-y-2">
@@ -1305,118 +1288,69 @@ const Gallery = () => {
               </div>
             </div>
           ) : galleryViewMode === "grid" ? (
-            /* Grid Mode - 3 columns, vertical scroll */
             <div className="px-0">
-              <div className="grid grid-cols-3 gap-px bg-white">
-                {photos.map((photo) => (
-                  <div
-                    key={photo.id}
-                    className="aspect-square cursor-pointer overflow-hidden bg-muted relative"
-                    onClick={() => setSelectedPhoto(photo)}
+              <div className="grid grid-cols-3 gap-2 bg-white">
+                {mixedMedia.map((item) => (
+                  <button
+                    key={`${item.type}-${item.id}`}
+                    type="button"
+                    onClick={() => handleMediaClick(item)}
+                    className="group relative aspect-square cursor-pointer overflow-hidden bg-muted outline-none focus-visible:ring focus-visible:ring-primary/60"
                   >
-                    <img
-                      src={(photo as any).thumbnailUrl}
-                      alt={language === "en" ? "Event photo" : language === "it" ? "Foto evento" : "Foto del evento"}
-                      className={`w-full h-full object-cover ${getFilterClass(filterType)}`}
-                      loading="lazy"
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none';
-                      }}
-                    />
-                    {/* Like count badge - only show when likeCountingEnabled */}
-                    {likeCountingEnabled && (photo.likeCount || 0) > 0 && (
-                      <div className="absolute bottom-1 right-1 bg-black/60 text-white px-1.5 py-0.5 rounded-full text-xs flex items-center gap-1">
-                        <img src={heartFilled} alt="" className="w-3 h-3" />
-                        <span>{photo.likeCount}</span>
-                      </div>
-                    )}
-                  </div>
+                    {renderMediaPreview(item, "grid")}
+                    <div className="absolute inset-x-0 bottom-0 flex flex-col gap-1 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-2 py-1 text-white text-[10px]">
+                      <span className="flex items-center gap-1 text-[11px] uppercase tracking-widest">
+                        {renderMediaIcon(item.type)}
+                        {getMediaTypeLabel(item.type)}
+                      </span>
+                      <span className="text-[9px] uppercase tracking-[0.4em]">
+                        {formatLocalDate(item.captured_at, "dd/MM/yyyy")}
+                      </span>
+                    </div>
+                  </button>
                 ))}
               </div>
-              {hasMore && (
-                <div ref={observerTarget} className="flex justify-center py-8">
-                  <p className="text-muted-foreground uppercase tracking-wide text-sm">
-                    {loadingMoreText}
-                  </p>
-                </div>
-              )}
             </div>
           ) : (
-            /* Normal Mode - Original view */
-            <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                {photos.map((photo) => (
-              <div
-                key={photo.id}
-                className="group relative bg-muted"
-              >
-                <div 
-                  className={`aspect-square overflow-hidden bg-muted relative ${getGrainClass(filterType)} cursor-pointer`}
-                  onClick={() => setSelectedPhoto(photo)}
+            <div className="space-y-6 pb-6">
+              {mixedMedia.map((item) => (
+                <article
+                  key={`${item.type}-${item.id}`}
+                  className="rounded-3xl border border-border bg-card p-4 shadow-sm space-y-4"
                 >
-                  <img
-                    src={(photo as any).thumbnailUrl}
-                    alt={language === "en" ? "Event photo" : language === "it" ? "Foto evento" : "Foto del evento"}
-                    className={`w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 ${getFilterClass(filterType)}`}
-                    loading="lazy"
-                    onError={(e) => {
-                      e.currentTarget.style.display = 'none';
-                    }}
-                  />
-                  <div className="absolute inset-0 bg-muted animate-pulse" style={{ zIndex: -1 }} />
-                  
-                  {/* Popularity bar - top overlay (only when like counting disabled) */}
-                  {!likeCountingEnabled && (
-                    <div className="absolute top-0 left-0 right-0 h-1.5 bg-black/30 overflow-hidden pointer-events-none">
-                      <div 
-                        className="h-full bg-like transition-all duration-500 ease-out"
-                        style={{ 
-                          width: `${Math.min(100, ((photo.likeCount || 0) / 10) * 100)}%` 
-                        }}
-                      />
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                      <span className="rounded-full bg-muted px-2 py-1 text-xs uppercase tracking-wide text-muted-foreground">
+                        {getMediaTypeLabel(item.type)}
+                      </span>
+                      {renderMediaIcon(item.type)}
                     </div>
-                  )}
-                  
-                  {/* Date - bottom left */}
-                  <div className="absolute bottom-2 left-2 bg-black/50 text-white px-2 py-1 rounded text-xs pointer-events-none">
-                    {formatLocalDate(photo.captured_at, "dd/MM/yyyy HH:mm")}
+                    <span className="text-xs text-muted-foreground">
+                      {formatLocalDate(item.captured_at, "dd/MM/yyyy HH:mm")}
+                    </span>
                   </div>
-                  
-                  {/* Like count badge - only show when likeCountingEnabled */}
-                  {likeCountingEnabled && (photo.likeCount || 0) > 0 && (
-                    <div className="absolute top-2 right-2 bg-black/60 text-white px-2 py-1 rounded-full text-xs flex items-center gap-1 pointer-events-none">
-                      <img src={heartFilled} alt="" className="w-3 h-3" />
-                      <span>{photo.likeCount}</span>
-                    </div>
+                  <div className="rounded-2xl border border-border bg-muted overflow-hidden">
+                    {renderMediaPreview(item, "list")}
+                  </div>
+                  {item.duration_seconds && (
+                    <p className="text-xs text-muted-foreground">
+                      {language === "en"
+                        ? `Duration: ${item.duration_seconds}s`
+                        : language === "it"
+                        ? `Durata: ${item.duration_seconds}s`
+                        : `Duración: ${item.duration_seconds}s`}
+                    </p>
                   )}
-                  
-                  {/* Like button - bottom right */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleLikePhoto(photo.id);
-                    }}
-                    disabled={photo.hasLiked}
-                    className="absolute bottom-2 right-2 p-2 rounded-full bg-black/50 hover:bg-black/70 transition-colors disabled:opacity-50"
-                  >
-                    <img 
-                      src={photo.hasLiked ? heartFilled : heartOutline}
-                      alt="like"
-                      className="w-5 h-5"
-                    />
-                  </button>
-                </div>
-              </div>
-                ))}
-              </div>
-              {hasMore && (
-                <div ref={observerTarget} className="flex justify-center py-8">
-                  <p className="text-muted-foreground uppercase tracking-wide text-sm">
-                    {loadingMoreText}
-                  </p>
-                </div>
-              )}
-            </>
+                </article>
+              ))}
+            </div>
+          )}
+          {hasMore && (
+            <div ref={observerTarget} className="flex justify-center py-8">
+              <p className="text-muted-foreground uppercase tracking-wide text-sm">
+                {loadingMoreText}
+              </p>
+            </div>
           )}
         </div>
 

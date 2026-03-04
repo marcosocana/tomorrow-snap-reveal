@@ -1183,102 +1183,71 @@ const Camera = () => {
   const cameraContentClass = backgroundImageUrl
     ? "flex-1 px-6 pb-6 flex flex-col"
     : "flex-1 pt-16 pb-6 px-6 flex flex-col";
-  const cameraActionGrid = (
-    <div className="space-y-6 text-center w-full max-w-4xl mx-auto">
-      <div className="grid gap-4 md:grid-cols-3">
-        <div className="rounded-3xl border border-border bg-card p-4 space-y-3 text-left shadow-lg">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="rounded-2xl bg-primary/10 p-2 text-primary">
-                <Image className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-                  {viewPhotosText}
-                </p>
-                <p className="text-sm font-semibold text-foreground">{cameraPhotoTitle}</p>
-              </div>
-            </div>
-            <span className="text-xs text-muted-foreground">{photoCount}</span>
+  const cameraActionButtons = (
+    <div className="flex flex-col items-center gap-4 w-full max-w-4xl mx-auto text-center">
+      <div className="grid w-full grid-cols-3 gap-3">
+        <button
+          type="button"
+          onClick={handleTakePhoto}
+          disabled={isButtonDisabled}
+          className="flex flex-col items-center justify-center gap-2 rounded-3xl border border-border bg-card p-4 text-sm font-semibold text-foreground transition hover:border-primary focus-visible:ring focus-visible:ring-primary/60 disabled:cursor-not-allowed disabled:border-border disabled:bg-muted/60 disabled:text-muted-foreground"
+        >
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <Image className="w-6 h-6" />
           </div>
-          <p className="text-xs text-muted-foreground">{cameraPhotoSubtitle}</p>
-          <Button
-            onClick={handleTakePhoto}
-            disabled={isButtonDisabled}
-            className="w-full h-12 rounded-2xl bg-primary text-primary-foreground font-semibold"
-          >
-            {buttonLabel}
-          </Button>
-        </div>
-        <div className={`rounded-3xl border ${videoLimitReached ? "border-destructive" : "border-border"} bg-card p-4 space-y-3 text-left shadow-lg`}>
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="rounded-2xl bg-blue-500/10 p-2 text-blue-500">
-                <Video className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">{recordVideoText}</p>
-                <p className="text-sm font-semibold text-foreground">{videoActionTitle}</p>
-              </div>
-            </div>
-            <span className="text-xs text-muted-foreground">
-              {videoLimitReached
-                ? cameraVideoLimitText
-                : maxVideos !== null
-                ? `${videoCount}/${maxVideos}`
-                : `${videoCount}`}
-            </span>
+          <span>{cameraPhotoTitle}</span>
+          <span className="text-xs text-muted-foreground">{cameraPhotoSubtitle}</span>
+          <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+            {language === "en" ? `${photoCount} photos` : language === "it" ? `${photoCount} foto` : `${photoCount} fotos`}
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={() => openRecordingSession("video")}
+          disabled={!allowVideoRecording || videoLimitReached || mediaButtonDisabled}
+          className={`flex flex-col items-center justify-center gap-2 rounded-3xl border p-4 text-sm font-semibold transition focus-visible:ring focus-visible:ring-primary/60 ${allowVideoRecording && !videoLimitReached && !mediaButtonDisabled ? "border-primary bg-primary/10 text-primary" : "border-border bg-muted text-muted-foreground disabled:cursor-not-allowed"}`}
+        >
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-500/10 text-blue-500">
+            <Video className="w-6 h-6" />
           </div>
-          <p className="text-xs text-muted-foreground">{cameraVideoSubtitle}</p>
-          <p className="text-xs text-muted-foreground">{cameraVideoMaxLabel}</p>
-          <button
-            type="button"
-            onClick={() => openRecordingSession("video")}
-            disabled={!allowVideoRecording || videoLimitReached || mediaButtonDisabled}
-            className={`w-full rounded-2xl border px-4 py-2 text-sm font-semibold transition ${allowVideoRecording && !videoLimitReached && !mediaButtonDisabled ? "border-primary bg-primary/10 text-primary hover:bg-primary/20" : "border-border bg-muted text-muted-foreground cursor-not-allowed"}`}
-          >
-            {recordVideoText}
-          </button>
-          {!allowVideoRecording && (
-            <p className="text-xs text-destructive">{cameraVideoDisabledText}</p>
-          )}
-        </div>
-        <div className={`rounded-3xl border ${audioLimitReached ? "border-destructive" : "border-border"} bg-card p-4 space-y-3 text-left shadow-lg`}>
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="rounded-2xl bg-amber-500/10 p-2 text-amber-500">
-                <Mic className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">{recordAudioText}</p>
-                <p className="text-sm font-semibold text-foreground">{audioActionTitle}</p>
-              </div>
-            </div>
-            <span className="text-xs text-muted-foreground">
-              {audioLimitReached
-                ? cameraAudioLimitText
-                : maxAudios !== null
-                ? `${audioCount}/${maxAudios}`
-                : `${audioCount}`}
-            </span>
+          <span>{recordVideoText}</span>
+          <span className="text-xs text-muted-foreground">{cameraVideoSubtitle}</span>
+          <span className="text-[10px] text-muted-foreground">
+            {videoLimitReached
+              ? cameraVideoLimitText
+              : maxVideos !== null
+              ? `${videoCount}/${maxVideos}`
+              : `${videoCount}`}
+          </span>
+          <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+            {cameraVideoMaxLabel}
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={() => openRecordingSession("audio")}
+          disabled={!allowAudioRecording || audioLimitReached || mediaButtonDisabled}
+          className={`flex flex-col items-center justify-center gap-2 rounded-3xl border p-4 text-sm font-semibold transition focus-visible:ring focus-visible:ring-primary/60 ${allowAudioRecording && !audioLimitReached && !mediaButtonDisabled ? "border-amber-500 bg-amber-500/10 text-amber-500" : "border-border bg-muted text-muted-foreground disabled:cursor-not-allowed"}`}
+        >
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-500/10 text-amber-500">
+            <Mic className="w-6 h-6" />
           </div>
-          <p className="text-xs text-muted-foreground">{cameraAudioSubtitle}</p>
-          <p className="text-xs text-muted-foreground">{cameraAudioMaxLabel}</p>
-          <button
-            type="button"
-            onClick={() => openRecordingSession("audio")}
-            disabled={!allowAudioRecording || audioLimitReached || mediaButtonDisabled}
-            className={`w-full rounded-2xl border px-4 py-2 text-sm font-semibold transition ${allowAudioRecording && !audioLimitReached && !mediaButtonDisabled ? "border-primary bg-primary/10 text-primary hover:bg-primary/20" : "border-border bg-muted text-muted-foreground cursor-not-allowed"}`}
-          >
-            {recordAudioText}
-          </button>
-          {!allowAudioRecording && (
-            <p className="text-xs text-destructive">{cameraAudioDisabledText}</p>
-          )}
-        </div>
+          <span>{recordAudioText}</span>
+          <span className="text-xs text-muted-foreground">{cameraAudioSubtitle}</span>
+          <span className="text-[10px] text-muted-foreground">
+            {audioLimitReached
+              ? cameraAudioLimitText
+              : maxAudios !== null
+              ? `${audioCount}/${maxAudios}`
+              : `${audioCount}`}
+          </span>
+          <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+            {cameraAudioMaxLabel}
+          </span>
+        </button>
       </div>
       {failedUpload && !isUploading && (
-        <div className="flex justify-center">
+        <div className="flex justify-center w-full">
           <Button
             onClick={handleRetryUpload}
             variant="outline"
@@ -1290,7 +1259,7 @@ const Camera = () => {
         </div>
       )}
       {countdown && (
-        <div className="bg-card border border-border rounded-lg p-4">
+        <div className="bg-card border border-border rounded-lg p-4 w-full">
           <p className="text-primary font-semibold text-sm">{countdown}</p>
         </div>
       )}
@@ -1301,7 +1270,7 @@ const Camera = () => {
   );
   const renderCameraBody = (
     <div className={cameraContentClass}>
-      {cameraActionGrid}
+      {cameraActionButtons}
       {customImageUrl && (
         <div className="flex items-end justify-center pt-6">
           <img
