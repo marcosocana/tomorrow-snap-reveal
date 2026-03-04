@@ -1195,9 +1195,9 @@ const Camera = () => {
             type="button"
             onClick={handleTakePhoto}
             disabled={isButtonDisabled}
-            className="flex flex-col items-center justify-center gap-2 rounded-3xl border border-border bg-card p-4 text-sm font-semibold text-foreground transition hover:border-primary focus-visible:ring focus-visible:ring-primary/60 disabled:cursor-not-allowed disabled:border-border disabled:bg-muted/60 disabled:text-muted-foreground"
+            className="flex h-36 w-full flex-col items-center justify-center gap-2 rounded-3xl border border-border bg-card p-4 text-sm font-semibold text-foreground transition hover:border-primary focus-visible:ring focus-visible:ring-primary/60 disabled:cursor-not-allowed disabled:border-border disabled:bg-muted/60 disabled:text-muted-foreground"
           >
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black text-white">
               <Image className="w-6 h-6" />
             </div>
             <span>{photoActionText}</span>
@@ -1206,9 +1206,9 @@ const Camera = () => {
             type="button"
             onClick={() => openRecordingSession("video")}
             disabled={!allowVideoRecording || videoLimitReached || mediaButtonDisabled}
-            className="flex flex-col items-center justify-center gap-2 rounded-3xl border border-border bg-card p-4 text-sm font-semibold text-foreground transition hover:border-primary focus-visible:ring focus-visible:ring-primary/60 disabled:cursor-not-allowed disabled:border-border disabled:bg-muted/60 disabled:text-muted-foreground"
+            className="flex h-36 w-full flex-col items-center justify-center gap-2 rounded-3xl border border-border bg-card p-4 text-sm font-semibold text-foreground transition hover:border-primary focus-visible:ring focus-visible:ring-primary/60 disabled:cursor-not-allowed disabled:border-border disabled:bg-muted/60 disabled:text-muted-foreground"
           >
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black text-white">
               <Video className="w-6 h-6" />
             </div>
             <span>{recordVideoText}</span>
@@ -1217,9 +1217,9 @@ const Camera = () => {
             type="button"
             onClick={() => openRecordingSession("audio")}
             disabled={!allowAudioRecording || audioLimitReached || mediaButtonDisabled}
-            className="flex flex-col items-center justify-center gap-2 rounded-3xl border border-border bg-card p-4 text-sm font-semibold text-foreground transition hover:border-primary focus-visible:ring focus-visible:ring-primary/60 disabled:cursor-not-allowed disabled:border-border disabled:bg-muted/60 disabled:text-muted-foreground"
+            className="flex h-36 w-full flex-col items-center justify-center gap-2 rounded-3xl border border-border bg-card p-4 text-sm font-semibold text-foreground transition hover:border-primary focus-visible:ring focus-visible:ring-primary/60 disabled:cursor-not-allowed disabled:border-border disabled:bg-muted/60 disabled:text-muted-foreground"
           >
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black text-white">
               <Mic className="w-6 h-6" />
             </div>
             <span>{recordAudioText}</span>
