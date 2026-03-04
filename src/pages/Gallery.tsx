@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { LogOut, Film, Trash2, Download, MoreVertical, Share2, Play, Image, Mic, Video, LayoutGrid, LayoutList } from "lucide-react";
+import { LogOut, Film, Trash2, Download, Share2, Play, Image, Mic, Video, LayoutGrid, LayoutList } from "lucide-react";
 import StoriesViewer from "@/components/StoriesViewer";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import {
@@ -11,9 +11,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
 import { es, enUS, it } from "date-fns/locale";
@@ -43,6 +40,7 @@ interface VideoItem {
   captured_at: string;
   duration_seconds?: number | null;
   signedUrl?: string;
+  thumbnailUrl?: string;
   likeCount?: number;
   hasLiked?: boolean;
 }
@@ -131,6 +129,70 @@ const Gallery = () => {
     const localDate = getLocalDateInTimezone(dateStr, timezone);
     return format(localDate, formatStr, { locale: dateLocale });
   };
+
+  const createVideoThumbnail = useCallback(async (videoUrl: string): Promise<string | null> => {
+    return new Promise((resolve) => {
+      const video = document.createElement("video");
+      video.crossOrigin = "anonymous";
+      video.muted = true;
+      video.playsInline = true;
+      video.preload = "metadata";
+
+      const cleanup = () => {
+        video.pause();
+        video.removeAttribute("src");
+        video.load();
+      };
+
+      const fail = () => {
+        cleanup();
+        resolve(null);
+      };
+
+      const capture = () => {
+        try {
+          if (!video.videoWidth || !video.videoHeight) {
+            fail();
+            return;
+          }
+          const canvas = document.createElement("canvas");
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          const context = canvas.getContext("2d");
+          if (!context) {
+            fail();
+            return;
+          }
+          context.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const dataUrl = canvas.toDataURL("image/jpeg", 0.82);
+          cleanup();
+          resolve(dataUrl);
+        } catch (error) {
+          console.error("Error generating video thumbnail:", error);
+          fail();
+        }
+      };
+
+      const timeoutId = window.setTimeout(fail, 5000);
+
+      video.onloadeddata = () => {
+        window.clearTimeout(timeoutId);
+        const onSeeked = () => {
+          video.onseeked = null;
+          capture();
+        };
+        video.onseeked = onSeeked;
+        try {
+          video.currentTime = 0.01;
+        } catch {
+          capture();
+        }
+      };
+      video.onerror = fail;
+      video.src = videoUrl;
+      video.load();
+    });
+  }, []);
 
   const loadPhotos = useCallback(async (pageNum: number) => {
     if (!eventId) return;
@@ -238,9 +300,12 @@ const Gallery = () => {
           const { data: signedData } = await supabase.storage
             .from("event-videos")
             .createSignedUrl(video.video_url, 3600);
+          const signedUrl = signedData?.signedUrl || "";
+          const thumbnailUrl = signedUrl ? await createVideoThumbnail(signedUrl) : null;
           return {
             ...video,
-            signedUrl: signedData?.signedUrl || "",
+            signedUrl,
+            thumbnailUrl: thumbnailUrl || "",
             likeCount: likeCounts[video.id] || 0,
             hasLiked: likedVideos.includes(video.id),
           };
@@ -317,6 +382,7 @@ const Gallery = () => {
         captured_at: video.captured_at,
         duration_seconds: video.duration_seconds,
         signedUrl: video.signedUrl,
+        thumbnailUrl: video.thumbnailUrl,
         likeCount: video.likeCount || 0,
         hasLiked: !!video.hasLiked,
       });
@@ -391,14 +457,22 @@ const Gallery = () => {
     if (item.type === "video") {
       return (
         <div className="relative h-full w-full bg-black">
-          <video
-            src={item.signedUrl || ""}
-            muted
-            playsInline
-            autoPlay={view === "grid"}
-            loop={view === "grid"}
-            className="w-full h-full object-cover bg-black"
-          />
+          {item.thumbnailUrl ? (
+            <img
+              src={item.thumbnailUrl}
+              alt={language === "en" ? "Video thumbnail" : language === "it" ? "Miniatura video" : "Miniatura de vídeo"}
+              className="w-full h-full object-cover bg-black"
+              loading="lazy"
+            />
+          ) : (
+            <video
+              src={item.signedUrl || ""}
+              muted
+              playsInline
+              preload="metadata"
+              className="w-full h-full object-cover bg-black"
+            />
+          )}
         </div>
       );
     }
@@ -934,6 +1008,25 @@ const Gallery = () => {
         : `¡Mira este ${label} de ${eventName}!`;
 
       if (navigator.share) {
+        try {
+          const response = await fetch(signedUrl);
+          const blob = await response.blob();
+          const extension = type === "video" ? "webm" : "webm";
+          const mimeType = type === "video" ? "video/webm" : "audio/webm";
+          const mediaFile = new File([blob], `${label}-${eventName}.${extension}`, { type: mimeType });
+
+          if (navigator.canShare && navigator.canShare({ files: [mediaFile] })) {
+            await navigator.share({
+              title: shareTitle,
+              text: shareText,
+              files: [mediaFile],
+            });
+            return;
+          }
+        } catch (fileShareError) {
+          console.log("File sharing not available for media, falling back to URL share", fileShareError);
+        }
+
         await navigator.share({
           title: shareTitle,
           text: shareText,
@@ -1133,45 +1226,36 @@ const Gallery = () => {
             />
             <div className={`absolute inset-0 ${isModernHeader ? "bg-black/65" : "bg-gradient-to-b from-transparent via-transparent to-background"}`} />
             
-            {/* Menu Button - Top Right */}
-            <div className="absolute top-4 right-4 z-10">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="secondary"
-                    size="icon"
-                    className={isModernHeader ? "bg-black/45 text-white backdrop-blur-sm hover:bg-black/60" : "bg-background/80 backdrop-blur-sm hover:bg-background"}
-                  >
-                    <MoreVertical className="w-5 h-5" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56 bg-card">
-                  <DropdownMenuItem onClick={() => setShowShareDialog(true)} className="cursor-pointer">
-                    <Share2 className="w-4 h-4 mr-2" />
-                    {shareText}
-                  </DropdownMenuItem>
-                  <DropdownMenuSub>
-                    <DropdownMenuSubTrigger className="cursor-pointer">
-                      <Download className="w-4 h-4 mr-2" />
-                      {downloadAllText}
-                    </DropdownMenuSubTrigger>
-                    <DropdownMenuSubContent className="bg-card">
-                      {filterType !== 'none' && (
-                        <DropdownMenuItem onClick={() => handleDownloadAll(true)} className="cursor-pointer">
-                          {withFilterText}
-                        </DropdownMenuItem>
-                      )}
-                      <DropdownMenuItem onClick={() => handleDownloadAll(false)} className="cursor-pointer">
-                        {filterType !== 'none' ? withoutFilterText : downloadAllText}
-                      </DropdownMenuItem>
-                    </DropdownMenuSubContent>
-                  </DropdownMenuSub>
-                  <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
-                    <LogOut className="w-4 h-4 mr-2" />
-                    {exitText}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+            <div className="absolute top-4 left-4 z-10">
+              <Button
+                variant="secondary"
+                size="icon"
+                onClick={handleLogout}
+                className="bg-black/45 text-white backdrop-blur-sm hover:bg-black/60"
+                aria-label={exitText}
+              >
+                <LogOut className="w-5 h-5" />
+              </Button>
+            </div>
+            <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
+              <Button
+                variant="secondary"
+                size="icon"
+                onClick={() => setShowShareDialog(true)}
+                className="bg-black/45 text-white backdrop-blur-sm hover:bg-black/60"
+                aria-label={shareText}
+              >
+                <Share2 className="w-5 h-5" />
+              </Button>
+              <Button
+                variant="secondary"
+                size="icon"
+                onClick={() => handleDownloadAll(false)}
+                className="bg-black/45 text-white backdrop-blur-sm hover:bg-black/60"
+                aria-label={downloadAllText}
+              >
+                <Download className="w-5 h-5" />
+              </Button>
             </div>
             {isModernHeader && (
               <div className="absolute inset-x-0 bottom-0 z-10 px-6 pb-6 text-left">
@@ -1225,7 +1309,38 @@ const Gallery = () => {
         </header>
       ) : (
         <header className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-card">
-          <div className="max-w-7xl mx-auto px-6 py-8 flex justify-between items-center">
+          <div className="max-w-7xl mx-auto px-6 py-6">
+            <div className="mb-4 flex items-center justify-between">
+              <Button
+                variant="secondary"
+                size="icon"
+                onClick={handleLogout}
+                className="bg-black/45 text-white backdrop-blur-sm hover:bg-black/60"
+                aria-label={exitText}
+              >
+                <LogOut className="w-5 h-5" />
+              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  onClick={() => setShowShareDialog(true)}
+                  className="bg-black/45 text-white backdrop-blur-sm hover:bg-black/60"
+                  aria-label={shareText}
+                >
+                  <Share2 className="w-5 h-5" />
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  onClick={() => handleDownloadAll(false)}
+                  className="bg-black/45 text-white backdrop-blur-sm hover:bg-black/60"
+                  aria-label={downloadAllText}
+                >
+                  <Download className="w-5 h-5" />
+                </Button>
+              </div>
+            </div>
             <div className="flex-1">
               <h1 
                 className="text-3xl font-bold tracking-tight text-foreground"
@@ -1251,39 +1366,6 @@ const Gallery = () => {
               {mediaStatsText}
             </p>
             </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="icon">
-                  <MoreVertical className="w-5 h-5" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56 bg-card">
-                <DropdownMenuItem onClick={() => setShowShareDialog(true)} className="cursor-pointer">
-                  <Share2 className="w-4 h-4 mr-2" />
-                  {shareText}
-                </DropdownMenuItem>
-                <DropdownMenuSub>
-                  <DropdownMenuSubTrigger className="cursor-pointer">
-                    <Download className="w-4 h-4 mr-2" />
-                    {downloadAllText}
-                  </DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent className="bg-card">
-                    {filterType !== 'none' && (
-                      <DropdownMenuItem onClick={() => handleDownloadAll(true)} className="cursor-pointer">
-                        {withFilterText}
-                      </DropdownMenuItem>
-                    )}
-                    <DropdownMenuItem onClick={() => handleDownloadAll(false)} className="cursor-pointer">
-                      {filterType !== 'none' ? withoutFilterText : downloadAllText}
-                    </DropdownMenuItem>
-                  </DropdownMenuSubContent>
-                </DropdownMenuSub>
-                <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
-                  <LogOut className="w-4 h-4 mr-2" />
-                  {exitText}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
           </div>
         </header>
       )}
@@ -1298,7 +1380,7 @@ const Gallery = () => {
                   key={mode}
                   type="button"
                   onClick={() => setGalleryViewMode(mode)}
-                  className={`flex-1 rounded-xl px-4 py-2 text-sm font-semibold transition ${
+                  className={`flex flex-1 items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold transition ${
                     galleryViewMode === mode
                       ? "bg-background text-foreground shadow-sm"
                       : "text-muted-foreground hover:text-foreground"

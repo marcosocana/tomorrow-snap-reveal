@@ -1178,7 +1178,7 @@ const Camera = () => {
     : "flex-1 pt-16 pb-6 px-6 flex flex-col";
   const cameraActionButtons = (
     <div className="flex flex-col items-center gap-4 w-full max-w-4xl mx-auto text-center">
-      <h2 className="text-xl md:text-2xl font-semibold text-foreground">{actionQuestionText}</h2>
+      <h2 className="mt-2 text-xl md:text-2xl font-semibold text-foreground">{actionQuestionText}</h2>
       {showOnlyPhotoAction ? (
         <div className="w-full flex justify-center">
           <Button
@@ -1206,9 +1206,9 @@ const Camera = () => {
             type="button"
             onClick={() => openRecordingSession("video")}
             disabled={!allowVideoRecording || videoLimitReached || mediaButtonDisabled}
-            className={`flex flex-col items-center justify-center gap-2 rounded-3xl border p-4 text-sm font-semibold transition focus-visible:ring focus-visible:ring-primary/60 ${allowVideoRecording && !videoLimitReached && !mediaButtonDisabled ? "border-primary bg-primary/10 text-primary" : "border-border bg-muted text-muted-foreground disabled:cursor-not-allowed"}`}
+            className="flex flex-col items-center justify-center gap-2 rounded-3xl border border-border bg-card p-4 text-sm font-semibold text-foreground transition hover:border-primary focus-visible:ring focus-visible:ring-primary/60 disabled:cursor-not-allowed disabled:border-border disabled:bg-muted/60 disabled:text-muted-foreground"
           >
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-500/10 text-blue-500">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
               <Video className="w-6 h-6" />
             </div>
             <span>{recordVideoText}</span>
@@ -1217,9 +1217,9 @@ const Camera = () => {
             type="button"
             onClick={() => openRecordingSession("audio")}
             disabled={!allowAudioRecording || audioLimitReached || mediaButtonDisabled}
-            className={`flex flex-col items-center justify-center gap-2 rounded-3xl border p-4 text-sm font-semibold transition focus-visible:ring focus-visible:ring-primary/60 ${allowAudioRecording && !audioLimitReached && !mediaButtonDisabled ? "border-amber-500 bg-amber-500/10 text-amber-500" : "border-border bg-muted text-muted-foreground disabled:cursor-not-allowed"}`}
+            className="flex flex-col items-center justify-center gap-2 rounded-3xl border border-border bg-card p-4 text-sm font-semibold text-foreground transition hover:border-primary focus-visible:ring focus-visible:ring-primary/60 disabled:cursor-not-allowed disabled:border-border disabled:bg-muted/60 disabled:text-muted-foreground"
           >
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-500/10 text-amber-500">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
               <Mic className="w-6 h-6" />
             </div>
             <span>{recordAudioText}</span>
@@ -1470,14 +1470,13 @@ const Camera = () => {
               )}
               <div className="flex gap-3">
                 <Button
-                  variant="outline"
-                  className="flex-1"
+                  className="flex-1 bg-black text-white hover:bg-black/90"
                   onClick={handleDiscardRecording}
                 >
                   {language === "en" ? "Discard" : language === "it" ? "Scarta" : "Descartar"}
                 </Button>
                 <Button
-                  className="flex-1"
+                  className="flex-1 bg-destructive text-destructive-foreground hover:bg-destructive/90"
                   onClick={handleUseRecording}
                   disabled={isUploadingMedia}
                 >
@@ -1497,6 +1496,19 @@ const Camera = () => {
                     className="w-full h-full object-cover"
                   />
                   <div className="absolute inset-0 bg-black/30" />
+                  <div className="absolute bottom-3 right-3 rounded-full bg-black/65 px-3 py-1 text-xs text-white">
+                    {recordingCountdown > 0
+                      ? language === "en"
+                        ? `${recordingCountdown}s`
+                        : language === "it"
+                        ? `${recordingCountdown}s`
+                        : `${recordingCountdown}s`
+                      : language === "en"
+                      ? "Ready"
+                      : language === "it"
+                      ? "Pronto"
+                      : "Listo"}
+                  </div>
                 </div>
               ) : (
                 <div className="flex flex-col items-center gap-3">
@@ -1534,19 +1546,21 @@ const Camera = () => {
               </button>
 
               <div className="space-y-1 text-center text-xs text-white/80">
-                <p>
-                  {recordingCountdown > 0
-                    ? language === "en"
-                      ? `Time left: ${recordingCountdown}s`
+                {recordingMode !== "video" && (
+                  <p>
+                    {recordingCountdown > 0
+                      ? language === "en"
+                        ? `Time left: ${recordingCountdown}s`
+                        : language === "it"
+                        ? `Tempo rimasto: ${recordingCountdown}s`
+                        : `Tiempo restante: ${recordingCountdown}s`
+                      : language === "en"
+                      ? "Ready to record"
                       : language === "it"
-                      ? `Tempo rimasto: ${recordingCountdown}s`
-                      : `Tiempo restante: ${recordingCountdown}s`
-                    : language === "en"
-                    ? "Ready to record"
-                    : language === "it"
-                    ? "Pronto per registrare"
-                    : "Listo para grabar"}
-                </p>
+                      ? "Pronto per registrare"
+                      : "Listo para grabar"}
+                  </p>
+                )}
                 <p>
                   {language === "en"
                     ? `Max ${recordingMode === "video" ? videoDurationSeconds : audioDurationSeconds}s`
