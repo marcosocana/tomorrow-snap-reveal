@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, Plus, Edit, Copy, Download, Eye, LogOut, ArrowLeft, User, Lock } from "lucide-react";
+import { Calendar, Plus, Edit, Copy, Download, Eye, LogOut, ArrowLeft, User, Lock, Camera, Video, Mic } from "lucide-react";
 import { format } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 import { getCountryByCode } from "@/lib/countries";
@@ -393,6 +393,21 @@ const EventManagement = () => {
     return { photos, videos, audios };
   };
 
+  const getMediaLimits = (event: Event) => {
+    const photos = event.max_photos ?? "∞";
+    const videos = event.allow_video_recording === false
+      ? "0"
+      : event.max_videos && event.max_videos > 0
+      ? String(event.max_videos)
+      : "∞";
+    const audios = event.allow_audio_recording === false
+      ? "0"
+      : event.max_audios && event.max_audios > 0
+      ? String(event.max_audios)
+      : "∞";
+    return { photos, videos, audios };
+  };
+
   const handleAdminSort = (key: "name" | "type" | "created_at" | "email" | "photos") => {
     setAdminSort((prev) => ({
       key,
@@ -485,9 +500,30 @@ const EventManagement = () => {
   };
 
   const getDeletionLockPin = (event: Event): string | null => {
+    const directPin = (event as any).deletion_lock_pin;
+    if (typeof directPin === "string" && directPin.trim().length > 0) {
+      return directPin.trim();
+    }
+
     const raw = event.limits_json;
-    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
-    const pin = (raw as Record<string, unknown>).deletion_lock_pin;
+    if (!raw) return null;
+
+    let parsed: Record<string, unknown> | null = null;
+    if (typeof raw === "string") {
+      try {
+        const maybeParsed = JSON.parse(raw);
+        if (maybeParsed && typeof maybeParsed === "object" && !Array.isArray(maybeParsed)) {
+          parsed = maybeParsed as Record<string, unknown>;
+        }
+      } catch {
+        parsed = null;
+      }
+    } else if (typeof raw === "object" && !Array.isArray(raw)) {
+      parsed = raw as Record<string, unknown>;
+    }
+
+    if (!parsed) return null;
+    const pin = parsed.deletion_lock_pin;
     return typeof pin === "string" && pin.trim().length > 0 ? pin.trim() : null;
   };
 
@@ -556,6 +592,22 @@ const EventManagement = () => {
       });
       if (error) throw error;
 
+      setEvents((prev) =>
+        prev.map((event) => {
+          if (!ids.includes(event.id)) return event;
+          const currentLimits =
+            event.limits_json && typeof event.limits_json === "object" && !Array.isArray(event.limits_json)
+              ? (event.limits_json as Record<string, unknown>)
+              : {};
+          return {
+            ...event,
+            limits_json: {
+              ...currentLimits,
+              deletion_lock_pin: normalizedPin,
+            },
+          };
+        }),
+      );
       await loadData();
       toast({
         title: "Eventos bloqueados",
@@ -633,6 +685,7 @@ const EventManagement = () => {
   const renderEventCard = (event: Event) => {
     const effectiveEvent = getEffectiveEvent(event);
     const { photos: photoCount, videos: videoCount, audios: audioCount } = getMediaCounts(event);
+    const { photos: photoLimit, videos: videoLimit, audios: audioLimit } = getMediaLimits(event);
     const eventUrl = `https://acceso.revelao.cam/events/${event.password_hash}`;
     const statusInfo = getEventStatus(
       event.upload_start_time,
@@ -700,6 +753,24 @@ const EventManagement = () => {
                 <Download className="w-4 h-4" />
                 {t("events.downloadQrAction")}
               </Button>
+              <Button
+                variant="outline"
+                className="h-auto rounded-full px-3 py-1 text-xs font-medium text-foreground gap-2 w-full"
+                onClick={() => setPreviewEvent(effectiveEvent)}
+              >
+                <span className="inline-flex items-center gap-1">
+                  <Camera className="w-3.5 h-3.5" />
+                  {photoCount}/{photoLimit}
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <Video className="w-3.5 h-3.5" />
+                  {videoCount}/{videoLimit}
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <Mic className="w-3.5 h-3.5" />
+                  {audioCount}/{audioLimit}
+                </span>
+              </Button>
               <div className="space-y-2 pt-1 w-full sm:hidden">
                 <div className="flex items-center gap-2">
                   <input
@@ -732,25 +803,6 @@ const EventManagement = () => {
                 <span className="font-medium">{t("events.createdLabel")}:</span>{" "}
                 {format(new Date(event.created_at), "dd/MM/yyyy HH:mm", { locale: dateLocale })}
               </p>
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="font-medium">Fotos / Vídeos / Audios:</span>
-                <Button
-                  variant="ghost"
-                  className="h-auto px-0 py-0 text-sm font-normal text-muted-foreground hover:bg-transparent hover:text-foreground"
-                  onClick={() => setPreviewEvent(effectiveEvent)}
-                >
-                  {photoCount} / {videoCount} / {audioCount}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPreviewEvent(effectiveEvent)}
-                  className="h-6 px-2 text-xs gap-1"
-                >
-                  <Eye className="w-3 h-3" />
-                  {t("events.preview")}
-                </Button>
-              </div>
               <div className="space-y-1">
                 <p className="font-medium text-foreground">{t("events.durationLabel")}:</p>
                 {event.upload_start_time && (
@@ -1025,18 +1077,14 @@ const EventManagement = () => {
                       {t("events.table.email")}
                     </th>
                     <th className="py-3 pr-4 font-medium">{t("events.statusLabel")}</th>
-                    <th className="py-3 pr-3 font-medium text-center cursor-pointer" onClick={() => handleAdminSort("photos")}>
-                      F
-                    </th>
-                    <th className="py-3 pr-3 font-medium text-center">V</th>
-                    <th className="py-3 pr-4 font-medium text-center">A</th>
+                    <th className="py-3 pr-4 font-medium">Contenido</th>
                     <th className="py-3 font-medium">{t("events.table.more")}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {paginatedAdminEvents.map((event, index) => {
                     const { photos: photoCount, videos: videoCount, audios: audioCount } = getMediaCounts(event);
-                    const maxPhotos = event.max_photos ?? "-";
+                    const { photos: photoLimit, videos: videoLimit, audios: audioLimit } = getMediaLimits(event);
                     const statusInfo = getEventStatus(
                       event.upload_start_time,
                       event.upload_end_time,
@@ -1086,17 +1134,26 @@ const EventManagement = () => {
                             {t(`events.status.${statusInfo.status}`)}
                           </span>
                         </td>
-                        <td className="py-3 pr-3 text-center">
+                        <td className="py-3 pr-4">
                           <Button
-                            variant="ghost"
-                            className="px-0 text-primary hover:text-primary"
+                            variant="outline"
+                            className="h-auto rounded-full px-3 py-1 text-xs font-medium text-foreground gap-2"
                             onClick={() => setPreviewEvent(event)}
                           >
-                            {photoCount}/{maxPhotos}
+                            <span className="inline-flex items-center gap-1">
+                              <Camera className="w-3.5 h-3.5" />
+                              {photoCount}/{photoLimit}
+                            </span>
+                            <span className="inline-flex items-center gap-1">
+                              <Video className="w-3.5 h-3.5" />
+                              {videoCount}/{videoLimit}
+                            </span>
+                            <span className="inline-flex items-center gap-1">
+                              <Mic className="w-3.5 h-3.5" />
+                              {audioCount}/{audioLimit}
+                            </span>
                           </Button>
                         </td>
-                        <td className="py-3 pr-3 text-center">{videoCount}</td>
-                        <td className="py-3 pr-4 text-center">{audioCount}</td>
                         <td className="py-3">
                           <Button
                             variant="outline"
@@ -1388,10 +1445,20 @@ const EventManagement = () => {
                 <span className="font-medium">{t("events.table.email")}:</span>{" "}
                 {createdSummary.owner_email || "-"}
               </p>
-              <p>
-                <span className="font-medium">F / V / A:</span>{" "}
-                {(createdSummary.max_photos ?? "-")} / {(createdSummary.max_videos ?? "-")} / {(createdSummary.max_audios ?? "-")}
-              </p>
+              <div className="inline-flex items-center rounded-full border border-border px-3 py-1 text-xs font-medium text-foreground gap-2">
+                <span className="inline-flex items-center gap-1">
+                  <Camera className="w-3.5 h-3.5" />
+                  0/{createdSummary.max_photos ?? "∞"}
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <Video className="w-3.5 h-3.5" />
+                  0/{createdSummary.max_videos ?? "∞"}
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <Mic className="w-3.5 h-3.5" />
+                  0/{createdSummary.max_audios ?? "∞"}
+                </span>
+              </div>
               <p>
                 <span className="font-medium">{t("events.startLabel")}:</span>{" "}
                 {createdSummary.upload_start_time

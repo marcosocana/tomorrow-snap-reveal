@@ -75,10 +75,19 @@ serve(async (req) => {
     }
 
     for (const event of events ?? []) {
-      const currentLimits =
-        event.limits_json && typeof event.limits_json === "object" && !Array.isArray(event.limits_json)
-          ? (event.limits_json as Record<string, unknown>)
-          : {};
+      let currentLimits: Record<string, unknown> = {};
+      if (typeof event.limits_json === "string") {
+        try {
+          const parsed = JSON.parse(event.limits_json);
+          if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+            currentLimits = parsed as Record<string, unknown>;
+          }
+        } catch {
+          currentLimits = {};
+        }
+      } else if (event.limits_json && typeof event.limits_json === "object" && !Array.isArray(event.limits_json)) {
+        currentLimits = event.limits_json as Record<string, unknown>;
+      }
 
       const { error: updateError } = await supabaseAdmin
         .from("events")
@@ -101,4 +110,3 @@ serve(async (req) => {
     return json({ error: "UNKNOWN_ERROR" }, 500);
   }
 });
-

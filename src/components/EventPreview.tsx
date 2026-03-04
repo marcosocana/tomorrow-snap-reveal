@@ -46,7 +46,6 @@ type PreviewTexts = {
   expiredDesc: string;
   expiredButton: string;
   previewLabel: string;
-  filterLabel: string;
   filters: Record<FilterType, string>;
 };
 
@@ -81,7 +80,6 @@ const PREVIEW_TEXTS: Record<"es" | "en" | "it", PreviewTexts> = {
     expiredDesc: "El enlace ya ha caducado",
     expiredButton: "Volver",
     previewLabel: "Vista previa",
-    filterLabel: "Filtro",
     filters: {
       none: "Sin filtros",
       vintage: "Vintage",
@@ -122,7 +120,6 @@ const PREVIEW_TEXTS: Record<"es" | "en" | "it", PreviewTexts> = {
     expiredDesc: "This link has expired",
     expiredButton: "Go back",
     previewLabel: "Preview",
-    filterLabel: "Filter",
     filters: {
       none: "No filters",
       vintage: "Vintage",
@@ -163,7 +160,6 @@ const PREVIEW_TEXTS: Record<"es" | "en" | "it", PreviewTexts> = {
     expiredDesc: "Il link è scaduto",
     expiredButton: "Torna indietro",
     previewLabel: "Anteprima",
-    filterLabel: "Filtro",
     filters: {
       none: "Nessun filtro",
       vintage: "Vintage",
@@ -208,14 +204,6 @@ export const EventPreview = ({
     "text-5xl": "text-2xl",
   };
   const previewFontSize = previewFontSizeMap[fontSize] || "text-lg";
-
-  const mediaCountText = [
-    "📷 12",
-    allowVideoRecording ? "📹 3" : null,
-    allowAudioRecording ? "🔈 2" : null,
-  ]
-    .filter(Boolean)
-    .join(" / ");
 
   const renderHeader = () => {
     if (backgroundImageUrl) {
@@ -475,13 +463,6 @@ export const EventPreview = ({
         </div>
       </div>
 
-      <p className="text-xs text-center text-muted-foreground">
-        {previewTexts.filterLabel}: {previewTexts.filters[filterType]}
-      </p>
-      <p className="text-[11px] text-center text-muted-foreground">
-        <Image className="inline w-3 h-3 mr-1" />
-        {mediaCountText}
-      </p>
     </div>
   );
 };

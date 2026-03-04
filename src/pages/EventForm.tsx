@@ -7,8 +7,9 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Globe, Trash2 } from "lucide-react";
+import { ArrowLeft, Globe, Trash2, Camera, Video, Mic } from "lucide-react";
 import { addDays, format } from "date-fns";
 import { toZonedTime, fromZonedTime, formatInTimeZone } from "date-fns-tz";
 import CountrySelect from "@/components/CountrySelect";
@@ -122,6 +123,12 @@ const EventForm = () => {
   const [ownerEmailInput, setOwnerEmailInput] = useState("");
   const [qrPreview, setQrPreview] = useState<{ src?: string; value: string } | null>(null);
   const [galleryPreviewOpen, setGalleryPreviewOpen] = useState(false);
+  const [mediaCounts, setMediaCounts] = useState({ photos: 0, videos: 0, audios: 0 });
+  const [backgroundAdjustOpen, setBackgroundAdjustOpen] = useState(false);
+  const [pendingBackgroundSrc, setPendingBackgroundSrc] = useState<string | null>(null);
+  const [backgroundAdjustX, setBackgroundAdjustX] = useState(50);
+  const [backgroundAdjustY, setBackgroundAdjustY] = useState(50);
+  const [backgroundAdjustZoom, setBackgroundAdjustZoom] = useState(1);
   const [planType, setPlanType] = useState<PlanType>("demo");
   // Generate a random 8-character hash for passwords
   const generateHash = () => {
@@ -192,6 +199,15 @@ const EventForm = () => {
   const { t, pathPrefix } = useAdminI18n();
   const isDemoEvent = formData.maxPhotos === "10";
   const eventUrl = eventId ? `https://acceso.revelao.cam/events/${formData.password}` : "";
+  const mediaLimits = {
+    photos: formData.maxPhotos?.trim() ? formData.maxPhotos : "∞",
+    videos: formData.allowVideoRecording
+      ? (formData.maxVideos?.trim() ? formData.maxVideos : "∞")
+      : "0",
+    audios: formData.allowAudioRecording
+      ? (formData.maxAudios?.trim() ? formData.maxAudios : "∞")
+      : "0",
+  };
 
   const formatTimezoneOffset = (timezone: string) => {
     const offsetMinutes = getTimezoneOffset(timezone);
@@ -324,6 +340,11 @@ const EventForm = () => {
         maxAudioDuration: event.max_audio_duration ? String(event.max_audio_duration) : "30",
         headerStyle: ((event as any).header_style || "modern") as HeaderStyle,
       });
+      setMediaCounts({
+        photos: Number((event as any).photo_count ?? 0),
+        videos: Number((event as any).video_count ?? 0),
+        audios: Number((event as any).audio_count ?? 0),
+      });
 
       const resolvedPlanType =
         event.max_photos === 10 ? "demo" :
@@ -386,6 +407,84 @@ const EventForm = () => {
       return null;
     } finally {
       setUploadingImage(false);
+    }
+  };
+
+  const openBackgroundAdjustModal = async (file: File) => {
+    const src = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(file);
+    });
+    setPendingBackgroundSrc(src);
+    setBackgroundAdjustX(50);
+    setBackgroundAdjustY(20);
+    setBackgroundAdjustZoom(1);
+    setBackgroundAdjustOpen(true);
+  };
+
+  const applyBackgroundAdjust = async () => {
+    if (!pendingBackgroundSrc) return;
+
+    try {
+      const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error("No se pudo cargar la imagen"));
+        img.src = pendingBackgroundSrc;
+      });
+
+      // Header cover framing (same visual proportion used in Camera/Gallery header).
+      const targetWidth = 1080;
+      const targetHeight = 1170;
+      const canvas = document.createElement("canvas");
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("No se pudo preparar el editor de imagen");
+
+      const baseScale = Math.max(targetWidth / image.width, targetHeight / image.height);
+      const drawWidth = image.width * baseScale * backgroundAdjustZoom;
+      const drawHeight = image.height * baseScale * backgroundAdjustZoom;
+      const maxOffsetX = Math.max(0, drawWidth - targetWidth);
+      const maxOffsetY = Math.max(0, drawHeight - targetHeight);
+      const drawX = -maxOffsetX * (backgroundAdjustX / 100);
+      const drawY = -maxOffsetY * (backgroundAdjustY / 100);
+
+      ctx.drawImage(image, drawX, drawY, drawWidth, drawHeight);
+
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob(
+          (generatedBlob) => {
+            if (!generatedBlob) {
+              reject(new Error("No se pudo generar el recorte"));
+              return;
+            }
+            resolve(generatedBlob);
+          },
+          "image/jpeg",
+          0.92
+        );
+      });
+
+      const croppedFile = new File([blob], `background-mobile-${Date.now()}.jpg`, {
+        type: "image/jpeg",
+      });
+
+      setFormData((prev) => ({
+        ...prev,
+        backgroundImage: croppedFile,
+      }));
+      setBackgroundAdjustOpen(false);
+      setPendingBackgroundSrc(null);
+    } catch (error) {
+      console.error("Error adjusting background image:", error);
+      toast({
+        title: t("form.errorTitle"),
+        description: "No se pudo ajustar la imagen de fondo.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -1145,10 +1244,11 @@ const EventForm = () => {
                 id="backgroundImage"
                 type="file"
                 accept="image/*"
-                onChange={(e) => {
+                onChange={async (e) => {
                   const file = e.target.files?.[0];
                   if (file) {
-                    setFormData({ ...formData, backgroundImage: file });
+                    await openBackgroundAdjustModal(file);
+                    e.currentTarget.value = "";
                   }
                 }}
               />
@@ -1811,17 +1911,6 @@ const EventForm = () => {
               </Button>
             </div>
 
-            {isEditing && eventId && (
-              <div className="pt-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setGalleryPreviewOpen(true)}
-                >
-                  Previsualización
-                </Button>
-              </div>
-            )}
           </form>
           </Card>
 
@@ -1865,6 +1954,24 @@ const EventForm = () => {
                     onClick={handleDownloadQR}
                   >
                     {t("events.downloadQrAction")}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="h-auto rounded-full px-3 py-1 text-xs font-medium text-foreground gap-2 w-full mt-2"
+                    onClick={() => setGalleryPreviewOpen(true)}
+                  >
+                    <span className="inline-flex items-center gap-1">
+                      <Camera className="w-3.5 h-3.5" />
+                      {mediaCounts.photos}/{mediaLimits.photos}
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      <Video className="w-3.5 h-3.5" />
+                      {mediaCounts.videos}/{mediaLimits.videos}
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      <Mic className="w-3.5 h-3.5" />
+                      {mediaCounts.audios}/{mediaLimits.audios}
+                    </span>
                   </Button>
                   <Button
                     variant="outline"
@@ -1944,6 +2051,24 @@ const EventForm = () => {
               </Button>
               <Button
                 variant="outline"
+                className="h-auto rounded-full px-3 py-1 text-xs font-medium text-foreground gap-2 w-full mt-2"
+                onClick={() => setGalleryPreviewOpen(true)}
+              >
+                <span className="inline-flex items-center gap-1">
+                  <Camera className="w-3.5 h-3.5" />
+                  {mediaCounts.photos}/{mediaLimits.photos}
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <Video className="w-3.5 h-3.5" />
+                  {mediaCounts.videos}/{mediaLimits.videos}
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <Mic className="w-3.5 h-3.5" />
+                  {mediaCounts.audios}/{mediaLimits.audios}
+                </span>
+              </Button>
+              <Button
+                variant="outline"
                 size="sm"
                 className="w-full mt-2"
                 onClick={() => window.open(eventUrl, "_blank")}
@@ -1954,6 +2079,91 @@ const EventForm = () => {
           </div>
         )}
       </div>
+
+      <Dialog
+        open={backgroundAdjustOpen}
+        onOpenChange={(open) => {
+          setBackgroundAdjustOpen(open);
+          if (!open) setPendingBackgroundSrc(null);
+        }}
+      >
+        <DialogContent className="w-[95vw] max-w-xl p-4">
+          <DialogHeader>
+            <DialogTitle>Ajustar foto de portada</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-xs text-muted-foreground">
+              Ajusta encuadre y zoom según el tamaño y la forma de la portada.
+            </p>
+            <div className="mx-auto w-[250px] max-w-full">
+              <div className="overflow-hidden rounded-b-3xl border border-border aspect-[375/406] bg-black">
+                {pendingBackgroundSrc ? (
+                  <img
+                    src={pendingBackgroundSrc}
+                    alt="Previsualización de portada"
+                    className="w-full h-full object-cover"
+                    style={{
+                      objectPosition: `${backgroundAdjustX}% ${backgroundAdjustY}%`,
+                      transform: `scale(${backgroundAdjustZoom})`,
+                      transformOrigin: "center",
+                    }}
+                  />
+                ) : null}
+              </div>
+            </div>
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Zoom</Label>
+                <Input
+                  type="range"
+                  min={1}
+                  max={2.5}
+                  step={0.01}
+                  value={backgroundAdjustZoom}
+                  onChange={(e) => setBackgroundAdjustZoom(Number(e.target.value))}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Posición horizontal</Label>
+                <Input
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={backgroundAdjustX}
+                  onChange={(e) => setBackgroundAdjustX(Number(e.target.value))}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Posición vertical</Label>
+                <Input
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={backgroundAdjustY}
+                  onChange={(e) => setBackgroundAdjustY(Number(e.target.value))}
+                />
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setBackgroundAdjustOpen(false);
+                  setPendingBackgroundSrc(null);
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button type="button" onClick={applyBackgroundAdjust}>
+                Confirmar encuadre
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {qrPreview && (
         <div

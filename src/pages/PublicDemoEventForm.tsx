@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { DateTimeField } from "@/components/DateTimeField";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { addDays, format, subHours } from "date-fns";
 import { fromZonedTime, formatInTimeZone, toZonedTime } from "date-fns-tz";
@@ -26,8 +27,8 @@ import EventPreview from "@/components/EventPreview";
 import { Language } from "@/lib/translations";
 import { EventFontFamily } from "@/lib/eventFonts";
 import { FilterType, FILTER_ORDER, getFilterClass, getGrainClass } from "@/lib/photoFilters";
+import { PricingPreview } from "@/components/PricingPreview";
 import logoDemo from "@/assets/Frame 626035.png";
-import defaultQrLogo from "@/assets/Frame 626035.png";
 import weddingPreview from "@/assets/testimonial-wedding.jpg";
 import { useDemoI18n } from "@/lib/demoI18n";
 import { getTimezoneOffset } from "@/lib/countries";
@@ -38,6 +39,7 @@ const PublicDemoEventForm = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [pricingOpen, setPricingOpen] = useState(false);
   const { lang, t, pathPrefix } = useDemoI18n();
   const [formData, setFormData] = useState(() => {
     const now = new Date();
@@ -60,7 +62,7 @@ const PublicDemoEventForm = () => {
       revealDate: format(addDays(now, 2), "yyyy-MM-dd"),
       revealTime: currentTime,
       customImage: null as File | null,
-      customImageUrl: defaultQrLogo,
+      customImageUrl: "/demo-logo.png",
       backgroundImage: null as File | null,
       backgroundImageUrl: "",
       filterType: "none" as FilterType,
@@ -531,6 +533,13 @@ const PublicDemoEventForm = () => {
           <p className="text-sm font-medium text-[hsl(var(--revelao-red))] text-center">
             {t("form.demoLimits")}
           </p>
+          <Button
+            type="button"
+            className="bg-[#f06a5f] text-white hover:bg-[#e95f54] rounded-full px-6"
+            onClick={() => setPricingOpen(true)}
+          >
+            Elegir plan de pago
+          </Button>
         </div>
 
         <div className="grid lg:grid-cols-[1fr,280px] gap-6">
@@ -1050,6 +1059,19 @@ const PublicDemoEventForm = () => {
           </div>
         </div>
       </div>
+
+      <Dialog open={pricingOpen} onOpenChange={setPricingOpen}>
+        <DialogContent className="w-screen h-[100dvh] max-h-[100dvh] rounded-none p-4 sm:p-6 sm:rounded-lg sm:h-auto sm:max-h-[90vh] sm:w-full sm:max-w-6xl">
+          <DialogHeader>
+            <DialogTitle>Elige tu plan</DialogTitle>
+          </DialogHeader>
+          <div className="max-h-[calc(100dvh-80px)] sm:max-h-[80vh] overflow-y-auto pr-1">
+            <div className="mx-auto w-full max-w-6xl">
+              <PricingPreview showHeader={false} mobileLayout="stack" hideDemo />
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

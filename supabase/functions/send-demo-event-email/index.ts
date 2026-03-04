@@ -21,7 +21,24 @@ type EmailLang = "es" | "en" | "it";
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
 const FROM_EMAIL = Deno.env.get("FROM_EMAIL") ?? "";
 const LOGO_URL =
-  Deno.env.get("LOGO_URL") ?? "https://www.revelao.cam/favicon.png";
+  Deno.env.get("LOGO_URL") ?? "https://acceso.revelao.cam/demo-logo.png";
+
+const toDataUri = async (url: string): Promise<string | null> => {
+  try {
+    if (!url) return null;
+    const response = await fetch(url);
+    if (!response.ok) return null;
+    const contentType = response.headers.get("content-type") || "image/png";
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    let binary = "";
+    for (let i = 0; i < bytes.length; i += 1) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return `data:${contentType};base64,${btoa(binary)}`;
+  } catch {
+    return null;
+  }
+};
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -73,6 +90,8 @@ serve(async (req) => {
     `https://quickchart.io/qr?size=220&margin=1&ecLevel=H&text=${encodeURIComponent(
       eventUrl
     )}`;
+  const inlineLogoDataUri = await toDataUri(LOGO_URL);
+  const logoSrc = inlineLogoDataUri || LOGO_URL;
 
   const formatDate = (value: string) => {
     try {
@@ -186,7 +205,7 @@ serve(async (req) => {
   const html = `
     <div style="font-family: Arial, sans-serif; color: #111; line-height: 1.6; background: #ffffff;">
       <div style="text-align: center; padding: 8px 0 16px;">
-        <img src="${LOGO_URL}" alt="Revelao" style="height: 96px; width: auto; display: inline-block;" />
+        <img src="${logoSrc}" alt="Revelao" style="height: 96px; width: auto; display: inline-block;" />
       </div>
       <p style="font-size: 13px; margin: 0 0 4px;">${isDemo ? t.introDemo : t.introPaid}</p>
       <p style="font-size: 20px; font-weight: 700; margin: 0 0 16px;">${event.name}</p>
