@@ -1125,7 +1125,7 @@ const Gallery = () => {
       {eventBackgroundImage ? (
         <header className="relative w-full">
           {/* Background Image */}
-          <div className="relative h-[50vh] min-h-[320px] max-h-[450px] w-full">
+          <div className="relative h-[50vh] min-h-[320px] max-h-[450px] w-full overflow-hidden rounded-b-3xl">
             <img
               src={eventBackgroundImage}
               alt={eventName || "Event"}

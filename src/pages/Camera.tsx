@@ -812,7 +812,7 @@ const Camera = () => {
           <>
             {/* Hero Header with Background Image */}
             <header className="relative w-full">
-              <div className="relative h-[50vh] min-h-[320px] max-h-[450px] w-full">
+              <div className="relative h-[50vh] min-h-[320px] max-h-[450px] w-full overflow-hidden rounded-b-3xl">
                 <img
                   src={backgroundImageUrl}
                   alt={eventName || "Event"}
@@ -985,7 +985,7 @@ const Camera = () => {
           <>
             {/* Hero Header with Background Image */}
             <header className="relative w-full">
-              <div className="relative h-[50vh] min-h-[320px] max-h-[450px] w-full">
+              <div className="relative h-[50vh] min-h-[320px] max-h-[450px] w-full overflow-hidden rounded-b-3xl">
                 <img
                   src={backgroundImageUrl}
                   alt={eventName || "Event"}
@@ -1284,7 +1284,7 @@ const Camera = () => {
         <>
           {/* Hero Header with Background Image */}
           <header className="relative w-full">
-            <div className="relative h-[50vh] min-h-[320px] max-h-[450px] w-full">
+            <div className="relative h-[50vh] min-h-[320px] max-h-[450px] w-full overflow-hidden rounded-b-3xl">
               <img
                 src={backgroundImageUrl}
                 alt={eventName || "Event"}
