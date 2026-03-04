@@ -923,7 +923,7 @@ const EventManagement = () => {
               </div>
             ) : null}
             <div className="overflow-x-auto">
-              <table className="min-w-[900px] w-full text-sm">
+              <table className="min-w-[980px] w-full text-sm">
                 <thead>
                   <tr className="text-left text-muted-foreground border-b">
                     <th className="py-3 pr-3 font-medium w-10"> </th>
@@ -941,9 +941,11 @@ const EventManagement = () => {
                       {t("events.table.email")}
                     </th>
                     <th className="py-3 pr-4 font-medium">{t("events.statusLabel")}</th>
-                    <th className="py-3 pr-4 font-medium cursor-pointer" onClick={() => handleAdminSort("photos")}>
-                      {t("events.table.photos")}
+                    <th className="py-3 pr-3 font-medium text-center cursor-pointer" onClick={() => handleAdminSort("photos")}>
+                      F
                     </th>
+                    <th className="py-3 pr-3 font-medium text-center">V</th>
+                    <th className="py-3 pr-4 font-medium text-center">A</th>
                     <th className="py-3 font-medium">{t("events.table.more")}</th>
                   </tr>
                 </thead>
@@ -993,15 +995,17 @@ const EventManagement = () => {
                             {t(`events.status.${statusInfo.status}`)}
                           </span>
                         </td>
-                        <td className="py-3 pr-4">
+                        <td className="py-3 pr-3 text-center">
                           <Button
                             variant="ghost"
                             className="px-0 text-primary hover:text-primary"
                             onClick={() => setPreviewEvent(event)}
                           >
-                            {photoCount}/{maxPhotos} · {videoCount} · {audioCount}
+                            {photoCount}/{maxPhotos}
                           </Button>
                         </td>
+                        <td className="py-3 pr-3 text-center">{videoCount}</td>
+                        <td className="py-3 pr-4 text-center">{audioCount}</td>
                         <td className="py-3">
                           <Button
                             variant="outline"

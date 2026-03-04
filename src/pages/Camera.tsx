@@ -1280,6 +1280,12 @@ const Camera = () => {
   const photoActionText = "Foto";
   const actionQuestionText = "¿Que quieres hacer?";
   const showOnlyPhotoAction = isPhotoOnlyConfigured;
+  const audioWaveBars = 28;
+  const audioRecordingProgress =
+    recordingMode === "audio" && isRecordingMedia && audioDurationSeconds > 0
+      ? Math.max(0, Math.min(1, 1 - recordingCountdown / audioDurationSeconds))
+      : 0;
+  const activeAudioWaveBars = Math.round(audioRecordingProgress * audioWaveBars);
   const cameraContentClass = backgroundImageUrl
     ? "flex-1 px-6 pb-6 flex flex-col"
     : "flex-1 pt-16 pb-6 px-6 flex flex-col";
@@ -1629,9 +1635,21 @@ const Camera = () => {
                 </div>
               ) : (
                 <div className="flex flex-col items-center gap-3">
-                  <div className="relative flex h-36 w-36 items-center justify-center rounded-full border-4 border-destructive/70 bg-destructive/10">
-                    <div className="h-20 w-20 animate-pulse rounded-full bg-destructive" />
-                  </div>
+                  {isRecordingMedia && (
+                    <div className="w-full max-w-[320px] rounded-2xl border border-destructive/40 bg-destructive/10 px-3 py-3">
+                      <div className="flex h-10 items-center gap-1">
+                        {Array.from({ length: audioWaveBars }).map((_, index) => (
+                          <span
+                            key={index}
+                            className={`block w-[2px] rounded-full transition-colors duration-300 ${
+                              index < activeAudioWaveBars ? "bg-destructive animate-pulse" : "bg-destructive/30"
+                            }`}
+                            style={{ height: `${12 + ((index * 11) % 20)}px` }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   <p className="text-sm text-white/80 text-center">
                     {language === "en"
                       ? "Use the red button below to start recording."
