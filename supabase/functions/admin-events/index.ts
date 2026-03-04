@@ -56,7 +56,9 @@ serve(async (req) => {
 
     const baseQuery = supabaseAdmin
       .from("events")
-      .select("id,name,password_hash,max_photos,upload_start_time,upload_end_time,reveal_time,created_at,owner_id,allow_video_recording,max_videos,max_video_duration,allow_audio_recording,max_audios,max_audio_duration")
+      .select(
+        "id,name,password_hash,max_photos,upload_start_time,upload_end_time,reveal_time,created_at,owner_id,allow_video_recording,max_videos,max_video_duration,allow_audio_recording,max_audios,max_audio_duration"
+      )
       .order("created_at", { ascending: false });
 
     const { data: events, error: eventsError } = eventId
@@ -98,21 +100,35 @@ serve(async (req) => {
 
     const eventIds = (events || []).map((e) => e.id);
     if (eventIds.length > 0) {
-      const [photosRes, videosRes, audiosRes] = await Promise.all([
+      const [photoResult, videoResult, audioResult] = await Promise.all([
         supabaseAdmin.from("photos").select("event_id").in("event_id", eventIds),
         supabaseAdmin.from("videos").select("event_id").in("event_id", eventIds),
         supabaseAdmin.from("audios").select("event_id").in("event_id", eventIds),
       ]);
 
-      const countBy = (rows: any[] | null) =>
-        (rows || []).reduce<Record<string, number>>((acc, row: any) => {
-          acc[row.event_id] = (acc[row.event_id] || 0) + 1;
+      if (!photoResult.error && photoResult.data) {
+        photoCounts = photoResult.data.reduce<Record<string, number>>((acc, row: any) => {
+          const id = row.event_id as string;
+          acc[id] = (acc[id] || 0) + 1;
           return acc;
         }, {});
+      }
 
-      photoCounts = countBy(photosRes.data);
-      videoCounts = countBy(videosRes.data);
-      audioCounts = countBy(audiosRes.data);
+      if (!videoResult.error && videoResult.data) {
+        videoCounts = videoResult.data.reduce<Record<string, number>>((acc, row: any) => {
+          const id = row.event_id as string;
+          acc[id] = (acc[id] || 0) + 1;
+          return acc;
+        }, {});
+      }
+
+      if (!audioResult.error && audioResult.data) {
+        audioCounts = audioResult.data.reduce<Record<string, number>>((acc, row: any) => {
+          const id = row.event_id as string;
+          acc[id] = (acc[id] || 0) + 1;
+          return acc;
+        }, {});
+      }
     }
 
     const enriched = (events || []).map((event) => ({

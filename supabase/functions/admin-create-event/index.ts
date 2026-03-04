@@ -48,6 +48,12 @@ type AdminEventPayload = {
     custom_privacy_text?: string | null;
     gallery_view_mode?: string | null;
     like_counting_enabled?: boolean;
+    allow_video_recording?: boolean;
+    max_videos?: number | null;
+    max_video_duration?: number;
+    allow_audio_recording?: boolean;
+    max_audios?: number | null;
+    max_audio_duration?: number;
   };
 };
 
@@ -157,6 +163,12 @@ serve(async (req) => {
         custom_privacy_text: event.custom_privacy_text ?? null,
         gallery_view_mode: event.gallery_view_mode ?? "normal",
         like_counting_enabled: event.like_counting_enabled ?? false,
+        allow_video_recording: event.allow_video_recording ?? false,
+        max_videos: event.max_videos ?? null,
+        max_video_duration: event.max_video_duration ?? 15,
+        allow_audio_recording: event.allow_audio_recording ?? false,
+        max_audios: event.max_audios ?? null,
+        max_audio_duration: event.max_audio_duration ?? 30,
         owner_id: existingUser.id,
       })
       .select()

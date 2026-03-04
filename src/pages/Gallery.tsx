@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { LogOut, Film, Trash2, Download, MoreVertical, Share2, Play } from "lucide-react";
+import { LogOut, Film, Trash2, Download, MoreVertical, Share2, Play, LayoutGrid, LayoutList } from "lucide-react";
 import StoriesViewer from "@/components/StoriesViewer";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import {
@@ -37,6 +37,22 @@ interface Photo {
   hasLiked?: boolean;
 }
 
+interface VideoItem {
+  id: string;
+  video_url: string;
+  captured_at: string;
+  duration_seconds?: number | null;
+  signedUrl?: string;
+}
+
+interface AudioItem {
+  id: string;
+  audio_url: string;
+  captured_at: string;
+  duration_seconds?: number | null;
+  signedUrl?: string;
+}
+
 const PHOTOS_PER_PAGE = 12;
 
 const getDateLocale = (language: Language) => {
@@ -50,6 +66,10 @@ const getDateLocale = (language: Language) => {
 const Gallery = () => {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [totalPhotos, setTotalPhotos] = useState(0);
+  const [videos, setVideos] = useState<VideoItem[]>([]);
+  const [audios, setAudios] = useState<AudioItem[]>([]);
+  const [totalVideos, setTotalVideos] = useState(0);
+  const [totalAudios, setTotalAudios] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(0);
@@ -169,6 +189,64 @@ const Gallery = () => {
     }
   }, [eventId, toast]);
 
+  const loadVideos = useCallback(async () => {
+    if (!eventId) return;
+    try {
+      const { data, error } = await supabase
+        .from("videos")
+        .select("id,video_url,captured_at,duration_seconds")
+        .eq("event_id", eventId)
+        .order("captured_at", { ascending: true });
+      if (error) throw error;
+
+      const enriched = await Promise.all(
+        (data || []).map(async (video) => {
+          const { data: signedData } = await supabase.storage
+            .from("event-videos")
+            .createSignedUrl(video.video_url, 3600);
+          return {
+            ...video,
+            signedUrl: signedData?.signedUrl || "",
+          };
+        })
+      );
+
+      setVideos(enriched as VideoItem[]);
+      setTotalVideos((enriched || []).length);
+    } catch (error) {
+      console.error("Error loading videos:", error);
+    }
+  }, [eventId]);
+
+  const loadAudios = useCallback(async () => {
+    if (!eventId) return;
+    try {
+      const { data, error } = await supabase
+        .from("audios")
+        .select("id,audio_url,captured_at,duration_seconds")
+        .eq("event_id", eventId)
+        .order("captured_at", { ascending: true });
+      if (error) throw error;
+
+      const enriched = await Promise.all(
+        (data || []).map(async (audio) => {
+          const { data: signedData } = await supabase.storage
+            .from("event-audio")
+            .createSignedUrl(audio.audio_url, 3600);
+          return {
+            ...audio,
+            signedUrl: signedData?.signedUrl || "",
+          };
+        })
+      );
+
+      setAudios(enriched as AudioItem[]);
+      setTotalAudios((enriched || []).length);
+    } catch (error) {
+      console.error("Error loading audio notes:", error);
+    }
+  }, [eventId]);
+
   useEffect(() => {
     if (!eventId) {
       navigate("/");
@@ -238,7 +316,9 @@ const Gallery = () => {
     frame();
 
     loadPhotos(0);
-  }, [eventId, navigate, loadPhotos]);
+    loadVideos();
+    loadAudios();
+  }, [eventId, navigate, loadPhotos, loadVideos, loadAudios]);
 
   // Infinite scroll observer
   useEffect(() => {
@@ -627,6 +707,14 @@ const Gallery = () => {
   const enjoyText = language === "en" ? "Enjoy them" : language === "it" ? "Goditele" : "Disfrútalas";
   const playStoriesText = language === "en" ? "Play stories" : language === "it" ? "Riproduci stories" : "Reproducir stories";
   const enlargedPhotoText = language === "en" ? "Enlarged photo" : language === "it" ? "Foto ingrandita" : "Foto ampliada";
+  const mediaStatsText =
+    language === "en"
+      ? `📷 ${totalPhotos} photos / 📹 ${totalVideos} videos / 🔈 ${totalAudios} audios`
+      : language === "it"
+      ? `📷 ${totalPhotos} foto / 📹 ${totalVideos} video / 🔈 ${totalAudios} audio`
+      : `📷 ${totalPhotos} fotos / 📹 ${totalVideos} vídeos / 🔈 ${totalAudios} audios`;
+  const videosLabel = language === "en" ? "Videos" : language === "it" ? "Video" : "Vídeos";
+  const audioLabel = language === "en" ? "Audio notes" : language === "it" ? "Note audio" : "Notas de audio";
 
   // Expired event screen
   if (isExpired) {
@@ -748,6 +836,9 @@ const Gallery = () => {
             <p className="text-sm text-muted-foreground tracking-wide">
               {language === "en" ? `✨ ${totalPhotos} photos have been revealed` : language === "it" ? `✨ Sono state rivelate ${totalPhotos} foto` : `✨ Se han revelado ${totalPhotos} fotos`}
             </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {mediaStatsText}
+            </p>
           </div>
         </header>
       ) : (
@@ -773,9 +864,12 @@ const Gallery = () => {
                   />
                 </div>
               )}
-              <p className="text-sm text-muted-foreground mt-2 tracking-wide">
-                {language === "en" ? `✨ ${totalPhotos} photos have been revealed` : language === "it" ? `✨ Sono state rivelate ${totalPhotos} foto` : `✨ Se han revelado ${totalPhotos} fotos`}
-              </p>
+            <p className="text-sm text-muted-foreground mt-2 tracking-wide">
+              {language === "en" ? `✨ ${totalPhotos} photos have been revealed` : language === "it" ? `✨ Sono state rivelate ${totalPhotos} foto` : `✨ Se han revelado ${totalPhotos} fotos`}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {mediaStatsText}
+            </p>
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -815,6 +909,26 @@ const Gallery = () => {
       )}
 
       <main className={eventBackgroundImage ? "pt-4 pb-20" : "py-12 pt-36 pb-20"}>
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="flex justify-end gap-2 mb-4">
+            <button
+              type="button"
+              onClick={() => setGalleryViewMode("normal")}
+              className={`p-2 rounded-full border transition ${galleryViewMode === "normal" ? "border-primary bg-primary/10" : "border-border bg-muted"}`}
+              aria-label="Normal view"
+            >
+              <LayoutList className="w-5 h-5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setGalleryViewMode("grid")}
+              className={`p-2 rounded-full border transition ${galleryViewMode === "grid" ? "border-primary bg-primary/10" : "border-border bg-muted"}`}
+              aria-label="Grid view"
+            >
+              <LayoutGrid className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
         <div className={galleryViewMode === "grid" ? "w-full" : "max-w-7xl mx-auto px-6"}>
           {isLoading ? (
             <div className="flex items-center justify-center min-h-[50vh]">
@@ -947,6 +1061,62 @@ const Gallery = () => {
             </>
           )}
         </div>
+
+        {videos.length > 0 && (
+          <section className="mt-10 space-y-4">
+            <div className="max-w-7xl mx-auto px-6 space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-foreground">{videosLabel}</h2>
+                <span className="text-xs text-muted-foreground">
+                  {totalVideos} {language === "en" ? "videos" : language === "it" ? "video" : "vídeos"}
+                </span>
+              </div>
+              <div className="space-y-3">
+                {videos.map((video) => (
+                  <div key={video.id} className="rounded-2xl border border-border bg-card overflow-hidden">
+                    <video
+                      src={video.signedUrl || ""}
+                      controls
+                      className="w-full h-56 object-cover bg-black"
+                    />
+                    <div className="flex items-center justify-between px-4 py-2 text-xs text-muted-foreground">
+                      <span>{formatLocalDate(video.captured_at, "dd/MM/yyyy HH:mm")}</span>
+                      {video.duration_seconds ? <span>{video.duration_seconds}s</span> : null}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {audios.length > 0 && (
+          <section className="mt-8 space-y-4">
+            <div className="max-w-7xl mx-auto px-6 space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-foreground">{audioLabel}</h2>
+                <span className="text-xs text-muted-foreground">
+                  {totalAudios} {language === "en" ? "audios" : language === "it" ? "audio" : "audios"}
+                </span>
+              </div>
+              <div className="space-y-3">
+                {audios.map((audio) => (
+                  <div key={audio.id} className="rounded-2xl border border-border bg-card p-4 space-y-2">
+                    <audio
+                      src={audio.signedUrl || ""}
+                      controls
+                      className="w-full"
+                    />
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span>{formatLocalDate(audio.captured_at, "dd/MM/yyyy HH:mm")}</span>
+                      {audio.duration_seconds ? <span>{audio.duration_seconds}s</span> : null}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
       </main>
 
       {/* Floating Play Stories Button */}

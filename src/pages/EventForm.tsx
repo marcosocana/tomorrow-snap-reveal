@@ -54,6 +54,12 @@ interface Event {
   description: string | null;
   expiry_date: string | null;
   expiry_redirect_url: string | null;
+  allow_video_recording?: boolean;
+  max_videos?: number | null;
+  max_video_duration?: number | null;
+  allow_audio_recording?: boolean;
+  max_audios?: number | null;
+  max_audio_duration?: number | null;
 }
 
 const EventForm = () => {
@@ -126,6 +132,12 @@ const EventForm = () => {
       customPrivacyText: "",
       galleryViewMode: "normal" as "normal" | "grid",
       likeCountingEnabled: false,
+      allowVideoRecording: false,
+      maxVideos: "",
+      maxVideoDuration: "15",
+      allowAudioRecording: false,
+      maxAudios: "",
+      maxAudioDuration: "30",
     };
   });
   const navigate = useNavigate();
@@ -257,6 +269,12 @@ const EventForm = () => {
         customPrivacyText: (event as any).custom_privacy_text || "",
         galleryViewMode: ((event as any).gallery_view_mode || "normal") as "normal" | "grid",
         likeCountingEnabled: (event as any).like_counting_enabled === true,
+        allowVideoRecording: (event as any).allow_video_recording === true,
+        maxVideos: event.max_videos ? String(event.max_videos) : "",
+        maxVideoDuration: event.max_video_duration ? String(event.max_video_duration) : "15",
+        allowAudioRecording: (event as any).allow_audio_recording === true,
+        maxAudios: event.max_audios ? String(event.max_audios) : "",
+        maxAudioDuration: event.max_audio_duration ? String(event.max_audio_duration) : "30",
       });
 
       const resolvedPlanType =
@@ -451,6 +469,18 @@ const EventForm = () => {
         isSuperAdmin && !isEditing && planType !== "custom"
           ? planToMaxPhotos[planType]
           : formData.maxPhotos;
+      const parseOptionalPositiveInt = (value: string) => {
+        const parsed = Number.parseInt(value, 10);
+        return Number.isNaN(parsed) || parsed <= 0 ? null : parsed;
+      };
+      const parseDuration = (value: string, fallback: number) => {
+        const parsed = Number.parseInt(value, 10);
+        return Number.isNaN(parsed) || parsed <= 0 ? fallback : parsed;
+      };
+      const resolvedMaxVideos = parseOptionalPositiveInt(formData.maxVideos);
+      const resolvedVideoDuration = parseDuration(formData.maxVideoDuration, 15);
+      const resolvedMaxAudios = parseOptionalPositiveInt(formData.maxAudios);
+      const resolvedAudioDuration = parseDuration(formData.maxAudioDuration, 30);
       const eventTz = formData.timezone;
       const uploadStartDateTime = fromZonedTime(`${formData.uploadStartDate}T${formData.uploadStartTime}:00`, eventTz);
       const uploadEndDateTime = fromZonedTime(`${formData.uploadEndDate}T${formData.uploadEndTime}:00`, eventTz);
@@ -506,6 +536,12 @@ const EventForm = () => {
             custom_privacy_text: formData.legalTextType === 'custom' ? (formData.customPrivacyText || null) : null,
             gallery_view_mode: formData.galleryViewMode,
             like_counting_enabled: formData.likeCountingEnabled,
+            allow_video_recording: formData.allowVideoRecording,
+            max_videos: resolvedMaxVideos,
+            max_video_duration: resolvedVideoDuration,
+            allow_audio_recording: formData.allowAudioRecording,
+            max_audios: resolvedMaxAudios,
+            max_audio_duration: resolvedAudioDuration,
           } as any)
           .eq("id", eventId);
 
@@ -546,6 +582,12 @@ const EventForm = () => {
             custom_privacy_text: formData.legalTextType === 'custom' ? (formData.customPrivacyText || null) : null,
             gallery_view_mode: formData.galleryViewMode,
             like_counting_enabled: formData.likeCountingEnabled,
+            allow_video_recording: formData.allowVideoRecording,
+            max_videos: resolvedMaxVideos,
+            max_video_duration: resolvedVideoDuration,
+            allow_audio_recording: formData.allowAudioRecording,
+            max_audios: resolvedMaxAudios,
+            max_audio_duration: resolvedAudioDuration,
           },
         };
 
@@ -616,6 +658,12 @@ const EventForm = () => {
           custom_privacy_text: formData.legalTextType === 'custom' ? (formData.customPrivacyText || null) : null,
           gallery_view_mode: formData.galleryViewMode,
           like_counting_enabled: formData.likeCountingEnabled,
+          allow_video_recording: formData.allowVideoRecording,
+          max_videos: resolvedMaxVideos,
+          max_video_duration: resolvedVideoDuration,
+          allow_audio_recording: formData.allowAudioRecording,
+          max_audios: resolvedMaxAudios,
+          max_audio_duration: resolvedAudioDuration,
         } as any).select().single();
 
         if (error) throw error;
@@ -1475,10 +1523,10 @@ const EventForm = () => {
                 />
               </div>
 
-              {formData.showLegalText && (
-                <div className="ml-4 space-y-4 border-l-2 border-border pl-4">
-                  <div className="space-y-2">
-                    <Label>{t("form.legalTypeLabel")}</Label>
+            {formData.showLegalText && (
+              <div className="ml-4 space-y-4 border-l-2 border-border pl-4">
+                <div className="space-y-2">
+                  <Label>{t("form.legalTypeLabel")}</Label>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       <button
                         type="button"
@@ -1534,13 +1582,118 @@ const EventForm = () => {
                           }
                           placeholder={t("form.customPrivacyPlaceholder")}
                           rows={8}
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
+            {isSuperAdmin && (
+              <div className="mt-4 space-y-4 border-t border-border pt-4">
+                <div>
+                  <Label className="text-base font-semibold">{t("form.mediaSection")}</Label>
+                  <p className="text-xs text-muted-foreground">{t("form.mediaSectionHint")}</p>
+                </div>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="allowVideoRecording">{t("form.allowVideoUploadLabel")}</Label>
+                        <p className="text-xs text-muted-foreground">{t("form.allowVideoUploadHint")}</p>
+                      </div>
+                      <Switch
+                        id="allowVideoRecording"
+                        checked={formData.allowVideoRecording}
+                        onCheckedChange={(checked) =>
+                          setFormData({ ...formData, allowVideoRecording: checked })
+                        }
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="maxVideos">{t("form.maxVideosLabel")}</Label>
+                        <Input
+                          id="maxVideos"
+                          type="number"
+                          min={1}
+                          placeholder={t("form.maxVideosPlaceholder")}
+                          value={formData.maxVideos}
+                          onChange={(e) =>
+                            setFormData({ ...formData, maxVideos: e.target.value })
+                          }
+                          disabled={!formData.allowVideoRecording}
                         />
                       </div>
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="maxVideoDuration">{t("form.videoDurationLabel")}</Label>
+                        <Input
+                          id="maxVideoDuration"
+                          type="number"
+                          min={5}
+                          value={formData.maxVideoDuration}
+                          onChange={(e) =>
+                            setFormData({ ...formData, maxVideoDuration: e.target.value })
+                          }
+                          disabled={!formData.allowVideoRecording}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          {t("form.videoDurationHint")}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="allowAudioRecording">{t("form.allowAudioUploadLabel")}</Label>
+                        <p className="text-xs text-muted-foreground">{t("form.allowAudioUploadHint")}</p>
+                      </div>
+                      <Switch
+                        id="allowAudioRecording"
+                        checked={formData.allowAudioRecording}
+                        onCheckedChange={(checked) =>
+                          setFormData({ ...formData, allowAudioRecording: checked })
+                        }
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="maxAudios">{t("form.maxAudioLabel")}</Label>
+                        <Input
+                          id="maxAudios"
+                          type="number"
+                          min={1}
+                          placeholder={t("form.maxAudioPlaceholder")}
+                          value={formData.maxAudios}
+                          onChange={(e) =>
+                            setFormData({ ...formData, maxAudios: e.target.value })
+                          }
+                          disabled={!formData.allowAudioRecording}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="maxAudioDuration">{t("form.audioDurationLabel")}</Label>
+                        <Input
+                          id="maxAudioDuration"
+                          type="number"
+                          min={5}
+                          value={formData.maxAudioDuration}
+                          onChange={(e) =>
+                            setFormData({ ...formData, maxAudioDuration: e.target.value })
+                          }
+                          disabled={!formData.allowAudioRecording}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          {t("form.audioDurationHint")}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+              </div>
+            )}
+          </div>
 
             <div className="flex flex-col sm:flex-row gap-3 pt-4">
               <Button

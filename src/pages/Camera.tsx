@@ -3,7 +3,7 @@ import { useNavigate, Navigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { LogOut, Image, Share2, RefreshCw } from "lucide-react";
+import { LogOut, Image, Share2, RefreshCw, Mic, Video, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { es, enUS, it } from "date-fns/locale";
@@ -30,7 +30,10 @@ const getDateLocale = (language: Language) => {
 
 const Camera = () => {
   const [photoCount, setPhotoCount] = useState(0);
+  const [videoCount, setVideoCount] = useState(0);
+  const [audioCount, setAudioCount] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
+  const [isUploadingMedia, setIsUploadingMedia] = useState(false);
   const [revealTime, setRevealTime] = useState<string>("");
   const [uploadStartTime, setUploadStartTime] = useState<string>("");
   const [uploadEndTime, setUploadEndTime] = useState<string>("");
@@ -50,6 +53,25 @@ const Camera = () => {
   const uploadTimestampsRef = useRef<number[]>([]);
   const cooldownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [allowVideoRecording, setAllowVideoRecording] = useState(false);
+  const [maxVideos, setMaxVideos] = useState<number | null>(null);
+  const [videoDurationSeconds, setVideoDurationSeconds] = useState(15);
+  const [allowAudioRecording, setAllowAudioRecording] = useState(false);
+  const [maxAudios, setMaxAudios] = useState<number | null>(null);
+  const [audioDurationSeconds, setAudioDurationSeconds] = useState(30);
+  const [recordingMode, setRecordingMode] = useState<"video" | "audio" | null>(null);
+  const [isRecordingMedia, setIsRecordingMedia] = useState(false);
+  const [recordingCountdown, setRecordingCountdown] = useState(0);
+  const [recordingBlob, setRecordingBlob] = useState<Blob | null>(null);
+  const [recordingPreviewUrl, setRecordingPreviewUrl] = useState<string | null>(null);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  const [recordingError, setRecordingError] = useState<string | null>(null);
+  const recordedChunksRef = useRef<Blob[]>([]);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const recordingVideoRef = useRef<HTMLVideoElement>(null);
+  const countdownIntervalRef = useRef<number | null>(null);
+  const recordingStartRef = useRef<number>(0);
   const navigate = useNavigate();
   const { toast } = useToast();
   const eventId = localStorage.getItem("eventId");
@@ -68,7 +90,7 @@ const Camera = () => {
       return;
     }
     loadEventData();
-    loadPhotoCount();
+    loadMediaCounts();
     window.scrollTo(0, 0);
   }, [eventId, navigate]);
 
@@ -124,11 +146,11 @@ const Camera = () => {
 
   const loadEventData = async () => {
     if (!eventId) return;
-    const { data, error } = await supabase
-      .from("events")
-      .select("reveal_time, upload_start_time, upload_end_time, password_hash, max_photos, custom_image_url, background_image_url, description, font_family, font_size, show_legal_text, legal_text_type")
-      .eq("id", eventId)
-      .single();
+      const { data, error } = await supabase
+        .from("events")
+      .select("reveal_time, upload_start_time, upload_end_time, password_hash, max_photos, custom_image_url, background_image_url, description, font_family, font_size, show_legal_text, legal_text_type, allow_video_recording, max_videos, max_video_duration, allow_audio_recording, max_audios, max_audio_duration")
+        .eq("id", eventId)
+        .single();
     if (data && !error) {
       setRevealTime(data.reveal_time);
       setUploadStartTime(data.upload_start_time || "");
@@ -141,6 +163,12 @@ const Camera = () => {
       setEventFontSize((data as any).font_size || "text-3xl");
       setShowLegalText((data as any).show_legal_text === true);
       setLegalTextType((data as any).legal_text_type || "default");
+      setAllowVideoRecording((data as any).allow_video_recording === true);
+      setMaxVideos((data as any).max_videos ?? null);
+      setVideoDurationSeconds((data as any).max_video_duration ?? 15);
+      setAllowAudioRecording((data as any).allow_audio_recording === true);
+      setMaxAudios((data as any).max_audios ?? null);
+      setAudioDurationSeconds((data as any).max_audio_duration ?? 30);
       
       // Check if max photos limit reached
       if (data.max_photos) {
@@ -217,13 +245,32 @@ const Camera = () => {
     return () => clearInterval(interval);
   }, [uploadEndTime, t, timezone]);
 
-  const loadPhotoCount = async () => {
+  const loadMediaCounts = async () => {
     if (!eventId) return;
-    const { count } = await supabase
-      .from("photos")
-      .select("*", { count: "exact", head: true })
-      .eq("event_id", eventId);
-    setPhotoCount(count || 0);
+    const [photosRes, videosRes, audiosRes] = await Promise.all([
+      supabase
+        .from("photos")
+        .select("*", { count: "exact", head: true })
+        .eq("event_id", eventId),
+      supabase
+        .from("videos")
+        .select("*", { count: "exact", head: true })
+        .eq("event_id", eventId),
+      supabase
+        .from("audios")
+        .select("*", { count: "exact", head: true })
+        .eq("event_id", eventId),
+    ]);
+
+    if (!photosRes.error) {
+      setPhotoCount(photosRes.count || 0);
+    }
+    if (!videosRes.error) {
+      setVideoCount(videosRes.count || 0);
+    }
+    if (!audiosRes.error) {
+      setAudioCount(audiosRes.count || 0);
+    }
   };
 
   const generateHash = () => {
@@ -370,7 +417,8 @@ const Camera = () => {
       });
 
       // Reload event data to check if max photos reached
-      loadEventData();
+      await loadEventData();
+      await loadMediaCounts();
     } catch (error) {
       console.error("Error uploading photo:", error);
       setFailedUpload({ file });
@@ -395,6 +443,250 @@ const Camera = () => {
     // Reset input
     if (event.target) {
       event.target.value = "";
+    }
+  };
+
+  const stopRecordingInterval = () => {
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
+  };
+
+  const stopMediaRecorder = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+    }
+    setIsRecordingMedia(false);
+    stopRecordingInterval();
+  };
+
+  const cleanupMediaStream = () => {
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+      mediaStreamRef.current = null;
+    }
+    mediaRecorderRef.current = null;
+  };
+
+  const resetRecordingState = () => {
+    if (recordingPreviewUrl) {
+      URL.revokeObjectURL(recordingPreviewUrl);
+    }
+    setRecordingPreviewUrl(null);
+    setRecordingBlob(null);
+    setRecordingDuration(0);
+    setRecordingCountdown(0);
+    setRecordingError(null);
+    recordedChunksRef.current = [];
+  };
+
+  const teardownRecordingControls = () => {
+    stopMediaRecorder();
+    cleanupMediaStream();
+    resetRecordingState();
+  };
+
+  const closeRecordingOverlay = () => {
+    teardownRecordingControls();
+    setRecordingMode(null);
+  };
+
+  const handleDiscardRecording = () => {
+    resetRecordingState();
+  };
+
+  const openRecordingSession = async (mode: "video" | "audio") => {
+    if (!eventId) return;
+    if (mode === "video") {
+      if (!allowVideoRecording) return;
+      if (maxVideos !== null && videoCount >= maxVideos) {
+        const title = language === "en" ? "Limit reached" : language === "it" ? "Limite raggiunto" : "Límite alcanzado";
+        const description =
+          language === "en"
+            ? "You've uploaded the maximum number of videos."
+            : language === "it"
+            ? "Hai raggiunto il numero massimo di video."
+            : "Ya alcanzaste el número máximo de vídeos.";
+        toast({ title, description, variant: "destructive" });
+        return;
+      }
+    }
+    if (mode === "audio") {
+      if (!allowAudioRecording) return;
+      if (maxAudios !== null && audioCount >= maxAudios) {
+        const title = language === "en" ? "Limit reached" : language === "it" ? "Limite raggiunto" : "Límite alcanzado";
+        const description =
+          language === "en"
+            ? "You've uploaded the maximum number of audio notes."
+            : language === "it"
+            ? "Hai raggiunto il numero massimo di note audio."
+            : "Ya alcanzaste el número máximo de notas de audio.";
+        toast({ title, description, variant: "destructive" });
+        return;
+      }
+    }
+
+    try {
+      teardownRecordingControls();
+      const constraints =
+        mode === "video"
+          ? { video: { facingMode: "environment" }, audio: true }
+          : { audio: true };
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      mediaStreamRef.current = stream;
+      if (mode === "video" && recordingVideoRef.current) {
+        recordingVideoRef.current.srcObject = stream;
+      }
+      setRecordingMode(mode);
+      setRecordingCountdown(mode === "video" ? videoDurationSeconds : audioDurationSeconds);
+      setRecordingDuration(0);
+      setRecordingError(null);
+    } catch (error) {
+      console.error("Error accessing media:", error);
+      const description =
+        language === "en"
+          ? "We couldn't access your camera or microphone."
+          : language === "it"
+          ? "Non possiamo accedere alla fotocamera o al microfono."
+          : "No pudimos acceder a la cámara o al micrófono.";
+      toast({
+        title: t("form.errorTitle"),
+        description,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const startMediaRecording = () => {
+    if (!recordingMode || !mediaStreamRef.current) return;
+    if (isRecordingMedia) {
+      stopMediaRecorder();
+      return;
+    }
+
+    try {
+      const preferredType =
+        recordingMode === "video" ? "video/webm;codecs=vp8,opus" : "audio/webm;codecs=opus";
+      const options: MediaRecorderOptions = {};
+      if (MediaRecorder.isTypeSupported(preferredType)) {
+        options.mimeType = preferredType;
+      }
+      const recorder = new MediaRecorder(mediaStreamRef.current, options);
+      recordedChunksRef.current = [];
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          recordedChunksRef.current.push(event.data);
+        }
+      };
+
+      recorder.onstop = () => {
+        const durationSeconds = Math.max(
+          1,
+          Math.round((Date.now() - recordingStartRef.current) / 1000)
+        );
+        setRecordingDuration(durationSeconds);
+        const blob = new Blob(recordedChunksRef.current, {
+          type: options.mimeType || (recordingMode === "video" ? "video/webm" : "audio/webm"),
+        });
+        setRecordingBlob(blob);
+        if (recordingPreviewUrl) {
+          URL.revokeObjectURL(recordingPreviewUrl);
+        }
+        const previewUrl = URL.createObjectURL(blob);
+        setRecordingPreviewUrl(previewUrl);
+        setIsRecordingMedia(false);
+        stopRecordingInterval();
+        setRecordingCountdown(0);
+      };
+
+      recorder.start();
+      mediaRecorderRef.current = recorder;
+      recordingStartRef.current = Date.now();
+      setIsRecordingMedia(true);
+      stopRecordingInterval();
+      const initialCountdown = recordingMode === "video" ? videoDurationSeconds : audioDurationSeconds;
+      setRecordingCountdown(initialCountdown);
+      countdownIntervalRef.current = window.setInterval(() => {
+        setRecordingCountdown((prev) => {
+          if (prev <= 1) {
+            stopMediaRecorder();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } catch (error) {
+      console.error("Recording failed:", error);
+      setRecordingError(
+        language === "en"
+          ? "Recording not supported"
+          : language === "it"
+          ? "Registrazione non supportata"
+          : "La grabación no está disponible"
+      );
+    }
+  };
+
+  const handleUseRecording = async () => {
+    if (!recordingBlob || !recordingMode) return;
+    const durationSeconds =
+      recordingDuration || (recordingMode === "video" ? videoDurationSeconds : audioDurationSeconds);
+    await uploadMediaFile(recordingBlob, recordingMode, durationSeconds);
+    closeRecordingOverlay();
+  };
+
+  const uploadMediaFile = async (blob: Blob, mode: "video" | "audio", duration: number) => {
+    if (!eventId) return;
+    setIsUploadingMedia(true);
+    try {
+      const bucket = mode === "video" ? "event-videos" : "event-audio";
+      const table = mode === "video" ? "videos" : "audios";
+      const hash = generateHash();
+      const extension = mode === "video" ? "webm" : "webm";
+      const fileName = `${eventId}/${hash}_${Date.now()}.${extension}`;
+      const { error: uploadError } = await supabase.storage.from(bucket).upload(fileName, blob);
+      if (uploadError) throw uploadError;
+      const { error: dbError } = await supabase.from(table).insert({
+        event_id: eventId,
+        [mode === "video" ? "video_url" : "audio_url"]: fileName,
+        duration_seconds: Math.max(1, Math.round(duration)),
+      });
+      if (dbError) throw dbError;
+
+      const description =
+        language === "en"
+          ? mode === "video"
+            ? "Your video was saved and will appear when the gallery is revealed."
+            : "Your audio note was saved and will appear when the gallery is revealed."
+          : language === "it"
+          ? mode === "video"
+            ? "Il tuo video è stato salvato e apparirà quando la galleria verrà rivelata."
+            : "La tua nota audio è stata salvata e apparirà quando la galleria verrà rivelata."
+          : mode === "video"
+          ? "Tu vídeo se guardó y aparecerá cuando se revele la galería."
+          : "Tu nota de audio se guardó y aparecerá cuando se revele la galería.";
+
+      toast({
+        title: t.camera.uploadSuccess,
+        description,
+      });
+      await loadMediaCounts();
+    } catch (error) {
+      console.error("Error uploading media:", error);
+      toast({
+        title: t.common.error,
+        description:
+          language === "en"
+            ? "We couldn't upload the recording. Please try again."
+            : language === "it"
+            ? "Non è stato possibile caricare la registrazione. Riprova."
+            : "No se pudo subir la grabación. Inténtalo de nuevo.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploadingMedia(false);
     }
   };
 
@@ -757,10 +1049,20 @@ const Camera = () => {
     : language === "it"
     ? `${photoCount} foto caricate`
     : `Ya hay ${photoCount} fotos subidas`;
+  const mediaCountsText = language === "en"
+    ? `📷 ${photoCount} photos / 📹 ${videoCount} videos / 🔈 ${audioCount} audios`
+    : language === "it"
+    ? `📷 ${photoCount} foto / 📹 ${videoCount} video / 🔈 ${audioCount} audio`
+    : `📷 ${photoCount} fotos / 📹 ${videoCount} vídeos / 🔈 ${audioCount} audios`;
   const cooldownText = language === "en" ? `Wait ${rateLimitCooldown}s` : language === "it" ? `Attendi ${rateLimitCooldown}s` : `Espera ${rateLimitCooldown}s`;
   const retryText = language === "en" ? "Retry" : language === "it" ? "Riprova" : "Reintentar";
   const isButtonDisabled = isUploading || rateLimitCooldown > 0;
   const buttonLabel = rateLimitCooldown > 0 ? cooldownText : isUploading ? uploadingText : uploadButtonText;
+  const videoLimitReached = allowVideoRecording && maxVideos !== null && videoCount >= maxVideos;
+  const audioLimitReached = allowAudioRecording && maxAudios !== null && audioCount >= maxAudios;
+  const mediaButtonDisabled = isRecordingMedia || isUploadingMedia;
+  const recordVideoText = language === "en" ? "Record video" : language === "it" ? "Registra video" : "Grabar vídeo";
+  const recordAudioText = language === "en" ? "Record audio" : language === "it" ? "Registra audio" : "Grabar audio";
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -822,6 +1124,9 @@ const Camera = () => {
                 <Image className="w-4 h-4" />
                 {photosUploadedText}
               </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {mediaCountsText}
+              </p>
             </div>
           </header>
           
@@ -844,6 +1149,30 @@ const Camera = () => {
                   {retryText}
                 </Button>
               )}
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                {allowVideoRecording && (
+                  <Button
+                    variant="outline"
+                    className="h-12 px-6 text-base rounded-xl flex items-center justify-center gap-2"
+                    onClick={() => openRecordingSession("video")}
+                    disabled={mediaButtonDisabled || videoLimitReached}
+                  >
+                    <Video className="w-4 h-4" />
+                    <span>{recordVideoText}</span>
+                  </Button>
+                )}
+                {allowAudioRecording && (
+                  <Button
+                    variant="outline"
+                    className="h-12 px-6 text-base rounded-xl flex items-center justify-center gap-2"
+                    onClick={() => openRecordingSession("audio")}
+                    disabled={mediaButtonDisabled || audioLimitReached}
+                  >
+                    <Mic className="w-4 h-4" />
+                    <span>{recordAudioText}</span>
+                  </Button>
+                )}
+              </div>
               <div className="space-y-2">
                 {countdown && (
                   <div className="bg-card border border-border rounded-lg p-4">
@@ -900,6 +1229,9 @@ const Camera = () => {
               <p className="text-sm text-muted-foreground flex items-center gap-1">
                 <Image className="w-4 h-4" />
                 {photosUploadedText}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {mediaCountsText}
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -996,6 +1328,133 @@ const Camera = () => {
             )}
           </div>
         </>
+      )}
+
+      {recordingMode && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-10">
+          <div className="w-full max-w-md rounded-3xl bg-card border border-border p-6 space-y-4 shadow-2xl">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-sm font-semibold text-foreground">
+                  {recordingMode === "video" ? recordVideoText : recordAudioText}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {language === "en"
+                    ? `Max ${recordingMode === "video" ? videoDurationSeconds : audioDurationSeconds}s`
+                    : language === "it"
+                    ? `Max ${recordingMode === "video" ? videoDurationSeconds : audioDurationSeconds}s`
+                    : `Máx. ${recordingMode === "video" ? videoDurationSeconds : audioDurationSeconds}s`}
+                </p>
+              </div>
+              <Button variant="ghost" size="icon" onClick={closeRecordingOverlay}>
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+
+            {recordingBlob ? (
+              <div className="space-y-4">
+                {recordingMode === "video" ? (
+                  <video
+                    src={recordingPreviewUrl || ""}
+                    controls
+                    className="w-full rounded-2xl bg-black"
+                  />
+                ) : (
+                  <div className="space-y-2 text-center">
+                    <audio
+                      src={recordingPreviewUrl || ""}
+                      controls
+                      className="w-full"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      {language === "en"
+                        ? `Duration: ${recordingDuration}s`
+                        : language === "it"
+                        ? `Durata: ${recordingDuration}s`
+                        : `Duración: ${recordingDuration}s`}
+                    </p>
+                  </div>
+                )}
+                <div className="flex gap-3">
+                  <Button
+                    className="flex-1"
+                    onClick={handleUseRecording}
+                    disabled={isUploadingMedia}
+                  >
+                    {language === "en" ? "Use" : language === "it" ? "Usa" : "Usar"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={handleDiscardRecording}
+                  >
+                    {language === "en" ? "Discard" : language === "it" ? "Scarta" : "Descartar"}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4 flex flex-col items-center">
+                {recordingMode === "video" ? (
+                  <video
+                    ref={recordingVideoRef}
+                    autoPlay
+                    muted
+                    playsInline
+                    className="w-full rounded-2xl bg-black aspect-video"
+                  />
+                ) : (
+                  <div className="flex flex-col items-center gap-3">
+                    <Mic className="w-10 h-10 text-muted-foreground" />
+                    <p className="text-xs text-muted-foreground text-center">
+                      {language === "en"
+                        ? "Use the mic button to start recording."
+                        : language === "it"
+                        ? "Usa il pulsante per iniziare la registrazione."
+                        : "Pulsa el botón para comenzar a grabar."}
+                    </p>
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={startMediaRecording}
+                  className="relative flex h-20 w-20 items-center justify-center rounded-full border-4 border-destructive bg-destructive/80 text-white shadow-lg transition hover:scale-105"
+                >
+                  <span className="text-lg font-semibold">
+                    {isRecordingMedia
+                      ? language === "en"
+                        ? "Stop"
+                        : language === "it"
+                        ? "Stop"
+                        : "Parar"
+                      : language === "en"
+                      ? "Rec"
+                      : language === "it"
+                      ? "Rec"
+                      : "Rec"}
+                  </span>
+                </button>
+
+                <p className="text-xs text-muted-foreground">
+                  {recordingCountdown > 0
+                    ? language === "en"
+                      ? `Time left: ${recordingCountdown}s`
+                      : language === "it"
+                      ? `Tempo rimasto: ${recordingCountdown}s`
+                      : `Tiempo restante: ${recordingCountdown}s`
+                    : language === "en"
+                    ? "Ready to record"
+                    : language === "it"
+                    ? "Pronto per registrare"
+                    : "Listo para grabar"}
+                </p>
+                {recordingError && (
+                  <p className="text-xs text-destructive">{recordingError}</p>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       <input

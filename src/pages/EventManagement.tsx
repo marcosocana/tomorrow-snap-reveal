@@ -49,6 +49,14 @@ interface Event {
   owner_email?: string | null;
   owner_phone?: string | null;
   photo_count?: number | null;
+  video_count?: number | null;
+  audio_count?: number | null;
+  allow_video_recording?: boolean;
+  max_videos?: number | null;
+  max_video_duration?: number | null;
+  allow_audio_recording?: boolean;
+  max_audios?: number | null;
+  max_audio_duration?: number | null;
 }
 
 const EventManagement = () => {
