@@ -1035,7 +1035,7 @@ const Camera = () => {
             <div className="flex-1 px-6 pb-6 flex flex-col">
               <div className="text-center space-y-4 max-w-md mx-auto animate-fade-in">
                 {/* Crossed camera icon - always visible, above title */}
-                <div>
+                <div className="mt-[10px]">
                   <img
                     src={prohibidoIcon}
                     alt="Cámara prohibida"
@@ -1116,7 +1116,7 @@ const Camera = () => {
             <div className="flex-1 pt-16 pb-6 px-6 flex flex-col">
               <div className="text-center space-y-4 max-w-md mx-auto animate-fade-in">
                 {/* Crossed camera icon - always visible, above title */}
-                <div>
+                <div className="mt-[10px]">
                   <img
                     src={prohibidoIcon}
                     alt="Cámara prohibida"
@@ -1255,7 +1255,7 @@ const Camera = () => {
             <div className="flex-1 px-6 pb-6 flex flex-col">
               <div className="text-center space-y-4 max-w-md mx-auto animate-fade-in">
                 {/* Crossed camera icon - always visible, above title */}
-                <div>
+                <div className="mt-[10px]">
                   <img
                     src={prohibidoIcon}
                     alt="Cámara prohibida"
@@ -1341,7 +1341,7 @@ const Camera = () => {
             <div className="flex-1 pt-16 pb-6 px-6 flex flex-col">
               <div className="text-center space-y-4 max-w-md mx-auto animate-fade-in">
                 {/* Crossed camera icon - always visible, above title */}
-                <div>
+                <div className="mt-[10px]">
                   <img
                     src={prohibidoIcon}
                     alt="Cámara prohibida"
