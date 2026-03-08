@@ -434,21 +434,18 @@ export type Database = {
         Row: {
           created_at: string
           id: string
-          marketing_opt_in: boolean
           phone: string | null
           updated_at: string
         }
         Insert: {
           created_at?: string
           id: string
-          marketing_opt_in?: boolean
           phone?: string | null
           updated_at?: string
         }
         Update: {
           created_at?: string
           id?: string
-          marketing_opt_in?: boolean
           phone?: string | null
           updated_at?: string
         }
