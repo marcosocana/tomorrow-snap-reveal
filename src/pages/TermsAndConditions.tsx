@@ -55,6 +55,7 @@ const TermsAndConditions = () => {
       </header>
 
       <main className="max-w-2xl mx-auto px-6 py-8 space-y-6">
+        <p className="text-sm text-muted-foreground">Última actualización: 08-03-2026</p>
         {customText ? (
           <div className="prose prose-sm max-w-none text-muted-foreground prose-headings:text-foreground prose-strong:text-foreground prose-a:text-primary">
             <ReactMarkdown>{customText}</ReactMarkdown>
@@ -62,45 +63,115 @@ const TermsAndConditions = () => {
         ) : (
           <>
             <section className="space-y-4">
-              <h2 className="text-lg font-semibold text-foreground">1. Objeto</h2>
+              <h2 className="text-lg font-semibold text-foreground">1. Definiciones</h2>
               <p className="text-muted-foreground leading-relaxed">
-                Revelao permite a los usuarios tomar fotografías a través de la plataforma y subirlas automáticamente para su visualización y descarga temporal.
+                "Servicio" se refiere al servicio online y funcionalidades relacionadas ofrecidas por Revelao.
+                "Compañía", "nosotros", "nos" y "nuestro" se refieren a Revelao.
+                "Usted" y "su" se refieren al usuario del Servicio.
+                "Contenido" incluye texto, imágenes, audio, vídeo, información u otros materiales publicados por los usuarios.
               </p>
             </section>
 
             <section className="space-y-4">
-              <h2 className="text-lg font-semibold text-foreground">2. Uso del servicio</h2>
+              <h2 className="text-lg font-semibold text-foreground">2. Cancelación y suspensión</h2>
               <p className="text-muted-foreground leading-relaxed">
-                Al utilizar el servicio, el usuario declara que:
-              </p>
-              <ul className="list-disc list-inside text-muted-foreground space-y-2 ml-4">
-                <li>Tiene derecho a capturar y subir las imágenes.</li>
-                <li>No infringe derechos de terceros (imagen, privacidad, propiedad intelectual).</li>
-                <li>No utiliza el servicio para fines ilegales, ofensivos o no autorizados.</li>
-              </ul>
-              <p className="text-muted-foreground leading-relaxed">
-                Revelao se reserva el derecho de eliminar cualquier contenido que incumpla estas condiciones.
+                Nos reservamos el derecho de cancelar o suspender pedidos, cuentas o eventos si se utilizan para cargar contenidos inapropiados o para un uso contrario a estos términos.
               </p>
             </section>
 
             <section className="space-y-4">
-              <h2 className="text-lg font-semibold text-foreground">3. Disponibilidad de las fotografías</h2>
+              <h2 className="text-lg font-semibold text-foreground">3. Ajustes de precios</h2>
               <p className="text-muted-foreground leading-relaxed">
-                Las fotografías subidas estarán disponibles durante un plazo máximo de 15 días desde su captura.
-                Transcurrido este plazo, las imágenes se eliminarán automáticamente de los sistemas de Revelao.
+                Nos reservamos el derecho de modificar precios en cualquier momento. Estos cambios no afectarán a pedidos ya realizados y pagados.
               </p>
             </section>
 
             <section className="space-y-4">
-              <h2 className="text-lg font-semibold text-foreground">4. Responsabilidad</h2>
+              <h2 className="text-lg font-semibold text-foreground">4. Datos de cuenta y seguridad</h2>
               <p className="text-muted-foreground leading-relaxed">
-                Revelao no se hace responsable del uso que terceros puedan hacer de las imágenes una vez descargadas por el usuario.
-                El servicio se ofrece "tal cual", sin garantía de disponibilidad permanente o ausencia de errores.
+                Al crear una cuenta, debe proporcionar información veraz, completa y actualizada. Usted es responsable de mantener la confidencialidad de su contraseña y de todas las actividades realizadas con su cuenta.
               </p>
             </section>
 
             <section className="space-y-4">
-              <h2 className="text-lg font-semibold text-foreground">5. Modificaciones</h2>
+              <h2 className="text-lg font-semibold text-foreground">5. Uso del servicio y contenido</h2>
+              <p className="text-muted-foreground leading-relaxed">
+                Usted es responsable del contenido que publique en el Servicio, incluyendo su legalidad, fiabilidad y adecuación. Declara que tiene los derechos necesarios sobre dicho contenido.
+              </p>
+            </section>
+
+            <section className="space-y-4">
+              <h2 className="text-lg font-semibold text-foreground">6. Política de uso justo y almacenamiento</h2>
+              <p className="text-muted-foreground leading-relaxed">
+                Revelao aplica una política de uso justo para el almacenamiento y subida de contenido según el plan contratado. El Servicio no está diseñado como almacenamiento en la nube personal ni copia de seguridad permanente.
+              </p>
+            </section>
+
+            <section className="space-y-4">
+              <h2 className="text-lg font-semibold text-foreground">7. Licencia del contenido publicado</h2>
+              <p className="text-muted-foreground leading-relaxed">
+                Al publicar contenido, usted otorga a Revelao una licencia no exclusiva, mundial y gratuita para alojar, procesar, reproducir, mostrar y distribuir dicho contenido únicamente para prestar el Servicio.
+              </p>
+            </section>
+
+            <section className="space-y-4">
+              <h2 className="text-lg font-semibold text-foreground">8. Contenido inaceptable</h2>
+              <p className="text-muted-foreground leading-relaxed">
+                No está permitido publicar contenido ilegal, ofensivo, amenazante, difamatorio, obsceno, discriminatorio, violento o que vulnere derechos de terceros.
+              </p>
+            </section>
+
+            <section className="space-y-4">
+              <h2 className="text-lg font-semibold text-foreground">9. Derecho a rechazar o eliminar contenido</h2>
+              <p className="text-muted-foreground leading-relaxed">
+                Revelao podrá revisar, rechazar, bloquear, retirar o limitar contenido y/o cuentas cuando considere que incumplen estos términos o la normativa aplicable.
+              </p>
+            </section>
+
+            <section className="space-y-4">
+              <h2 className="text-lg font-semibold text-foreground">10. Respaldo e integridad de datos</h2>
+              <p className="text-muted-foreground leading-relaxed">
+                Aunque se aplican medidas razonables de respaldo y seguridad, no garantizamos ausencia total de pérdida o corrupción de datos. Recomendamos mantener copias propias.
+              </p>
+            </section>
+
+            <section className="space-y-4">
+              <h2 className="text-lg font-semibold text-foreground">11. Enlaces de terceros</h2>
+              <p className="text-muted-foreground leading-relaxed">
+                El Servicio puede incluir enlaces a webs o servicios de terceros. Revelao no controla ni asume responsabilidad por su contenido, políticas o prácticas.
+              </p>
+            </section>
+
+            <section className="space-y-4">
+              <h2 className="text-lg font-semibold text-foreground">12. Limitación de responsabilidad</h2>
+              <p className="text-muted-foreground leading-relaxed">
+                En la máxima medida permitida por la ley, la responsabilidad total de Revelao se limita al importe efectivamente pagado por usted por el Servicio en cuestión, o 100 € si no hubo pago.
+              </p>
+            </section>
+
+            <section className="space-y-4">
+              <h2 className="text-lg font-semibold text-foreground">13. Sin garantía</h2>
+              <p className="text-muted-foreground leading-relaxed">
+                El Servicio se ofrece "tal cual" y "según disponibilidad", sin garantías de funcionamiento ininterrumpido, ausencia de errores o adecuación a un propósito concreto.
+              </p>
+            </section>
+
+            <section className="space-y-4">
+              <h2 className="text-lg font-semibold text-foreground">14. Contacto</h2>
+              <p className="text-muted-foreground leading-relaxed">
+                Para cualquier consulta o reclamación puede escribir a: revelao.cam@gmail.com
+              </p>
+            </section>
+
+            <section className="space-y-4">
+              <h2 className="text-lg font-semibold text-foreground">15. Ley aplicable y jurisdicción</h2>
+              <p className="text-muted-foreground leading-relaxed">
+                Estos términos se regirán por la normativa aplicable en España. Cualquier controversia se someterá a los juzgados y tribunales competentes conforme a derecho.
+              </p>
+            </section>
+
+            <section className="space-y-4">
+              <h2 className="text-lg font-semibold text-foreground">16. Modificaciones</h2>
               <p className="text-muted-foreground leading-relaxed">
                 Revelao podrá modificar estos Términos y Condiciones cuando sea necesario. Las versiones actualizadas estarán disponibles en esta misma página.
               </p>

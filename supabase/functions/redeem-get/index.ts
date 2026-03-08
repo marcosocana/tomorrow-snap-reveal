@@ -72,5 +72,6 @@ serve(async (req) => {
     plan,
     status: data.status,
     expiresAt: data.redeem_token_expires_at,
+    userEmail: data.user_email ?? null,
   });
 });

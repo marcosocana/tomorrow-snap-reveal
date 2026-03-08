@@ -190,6 +190,8 @@ const App = () => {
               <Route path="/en/logout" element={<Logout />} />
               <Route path="/en/redeem/:token" element={<RedeemEvent />} />
               <Route path="/en/evento-pago/resumen" element={<PaidEventSummary />} />
+              <Route path="/en/terms" element={<TermsAndConditions />} />
+              <Route path="/en/privacy" element={<PrivacyPolicy />} />
 
               <Route path="/it/login" element={<AdminLogin />} />
               <Route path="/it/admin-login" element={<AdminLogin />} />
@@ -204,6 +206,8 @@ const App = () => {
               <Route path="/it/logout" element={<Logout />} />
               <Route path="/it/redeem/:token" element={<RedeemEvent />} />
               <Route path="/it/evento-pago/resumen" element={<PaidEventSummary />} />
+              <Route path="/it/terms" element={<TermsAndConditions />} />
+              <Route path="/it/privacy" element={<PrivacyPolicy />} />
 
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />

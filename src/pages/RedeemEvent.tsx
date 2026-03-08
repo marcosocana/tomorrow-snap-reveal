@@ -50,6 +50,9 @@ const languageLabels: Record<string, string> = {
 const RedeemEvent = () => {
   const { token } = useParams<{ token: string }>();
   const [currentStep, setCurrentStep] = useState(1);
+  const [authResolved, setAuthResolved] = useState(false);
+  const [requiresAccountSetup, setRequiresAccountSetup] = useState(false);
+  const [purchaseEmailLocked, setPurchaseEmailLocked] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [plan, setPlan] = useState<RedeemPlan | null>(null);
@@ -61,6 +64,11 @@ const RedeemEvent = () => {
 
     return {
       // Event fields
+      contactEmail: "",
+      contactPassword: "",
+      contactPasswordConfirm: "",
+      contactPhone: "",
+      acceptMarketing: true,
       name: "",
       password: generateHash(),
       adminPassword: generateHash(),
@@ -120,6 +128,9 @@ const RedeemEvent = () => {
     return { label: "Pro", color: "bg-purple-50 text-purple-700 border-purple-200" };
   };
 
+  const isEmail = (value: string) =>
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+
   const formatDuration = () => {
     try {
       const start = fromZonedTime(`${formData.uploadStartDate}T${formData.uploadStartTime}:00`, formData.timezone);
@@ -155,12 +166,11 @@ const RedeemEvent = () => {
   useEffect(() => {
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        navigate(`${pathPrefix}/admin-login?redirect=${encodeURIComponent(`${pathPrefix}/redeem/${token}`)}`);
-      }
+      setRequiresAccountSetup(!session);
+      setAuthResolved(true);
     };
     checkSession();
-  }, [navigate, token]);
+  }, []);
 
   useEffect(() => {
     const fetchPlan = async () => {
@@ -175,6 +185,10 @@ const RedeemEvent = () => {
           throw error || new Error("INVALID_TOKEN");
         }
         setPlan(data.plan as RedeemPlan);
+        if (data?.userEmail) {
+          setFormData((prev) => ({ ...prev, contactEmail: String(data.userEmail).toLowerCase() }));
+          setPurchaseEmailLocked(true);
+        }
       } catch {
         setPlanError("El enlace de canje no es válido o ha caducado.");
       } finally {
@@ -329,6 +343,34 @@ const RedeemEvent = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token) return;
+
+    if (requiresAccountSetup) {
+      if (!formData.contactEmail.trim() || !isEmail(formData.contactEmail)) {
+        toast({
+          title: "Error",
+          description: "Introduce un email válido.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (!formData.contactPassword || formData.contactPassword.length < 8) {
+        toast({
+          title: "Error",
+          description: "La contraseña debe tener al menos 8 caracteres.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (formData.contactPassword !== formData.contactPasswordConfirm) {
+        toast({
+          title: "Error",
+          description: "Las contraseñas no coinciden.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -356,6 +398,10 @@ const RedeemEvent = () => {
       const { data, error } = await supabase.functions.invoke("redeem-create-event", {
         body: {
           token,
+          contactEmail: requiresAccountSetup ? formData.contactEmail.trim().toLowerCase() : undefined,
+          password: requiresAccountSetup ? formData.contactPassword : undefined,
+          phone: requiresAccountSetup ? (formData.contactPhone.trim() || null) : undefined,
+          marketingConsent: requiresAccountSetup ? formData.acceptMarketing : undefined,
           event: {
             name: formData.name,
             password_hash: formData.password,
@@ -377,7 +423,37 @@ const RedeemEvent = () => {
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        let errorCode = (error as any)?.message || "";
+        try {
+          const res = (error as any)?.context;
+          if (res && typeof res.json === "function") {
+            const body = await res.json();
+            errorCode = body?.error || errorCode;
+          }
+        } catch {
+          // ignore
+        }
+
+        if (errorCode === "USER_EXISTS_LOGIN_REQUIRED") {
+          toast({
+            title: "Ya existe una cuenta con ese email",
+            description: "Inicia sesión para crear tu evento de pago.",
+            variant: "destructive",
+          });
+          navigate(`${pathPrefix}/admin-login?redirect=${encodeURIComponent(`${pathPrefix}/redeem/${token}`)}&email=${encodeURIComponent(formData.contactEmail.trim().toLowerCase())}`);
+          return;
+        }
+        if (errorCode === "EMAIL_MISMATCH") {
+          toast({
+            title: "Email no válido",
+            description: "Debes usar el mismo email con el que compraste el plan.",
+            variant: "destructive",
+          });
+          return;
+        }
+        throw error;
+      }
 
       const newEvent = data?.event;
       if (!newEvent) throw new Error("No se pudo crear el evento");
@@ -392,7 +468,7 @@ const RedeemEvent = () => {
       }
 
       const { data: userData } = await supabase.auth.getUser();
-      const userEmail = userData?.user?.email;
+      const userEmail = data?.ownerEmail || userData?.user?.email || formData.contactEmail?.trim() || null;
       if (userEmail) {
         await supabase.functions.invoke("send-demo-event-email", {
           body: {
@@ -425,6 +501,14 @@ const RedeemEvent = () => {
   };
 
   if (loadingPlan) {
+    return (
+      <div className="min-h-screen bg-background p-6 flex items-center justify-center">
+        <p className="text-muted-foreground">Cargando...</p>
+      </div>
+    );
+  }
+
+  if (!authResolved) {
     return (
       <div className="min-h-screen bg-background p-6 flex items-center justify-center">
         <p className="text-muted-foreground">Cargando...</p>
@@ -849,47 +933,122 @@ const RedeemEvent = () => {
 
               {currentStep === 2 && (
                 <>
-                  <div className="space-y-4">
-                    <Label className="text-base font-semibold">Confirma tu evento</Label>
-                    <p className="text-xs text-muted-foreground">
-                      Revisa la información antes de crear el evento de pago. No te preocupes si te equivocas, después podrás editarlo en cualquier momento.
-                    </p>
-                    {plan ? (
-                      <div className="rounded-lg border border-border bg-muted/40 p-4 text-sm">
-                        <p><strong>Plan:</strong> {getPlanBadge()?.label ?? plan.label}</p>
-                        <p><strong>Nombre:</strong> {formData.name || "—"}</p>
-                        <p>
-                          <strong>Duración del evento:</strong>{" "}
-                          {formatDuration() || "—"}
-                        </p>
-                        <p><strong>Inicio:</strong> {formData.uploadStartDate} {formData.uploadStartTime}</p>
-                        <p><strong>Fin:</strong> {formData.uploadEndDate} {formData.uploadEndTime}</p>
-                        <p><strong>Fecha de revelado:</strong> {formData.revealDate} {formData.revealTime}</p>
-                        <p><strong>Idioma:</strong> {languageLabels[formData.language] ?? formData.language}</p>
-                        <p><strong>Zona horaria:</strong> {formData.timezone}</p>
-                        <p><strong>Máximo de fotos:</strong> {plan.maxPhotos ?? "Sin límite"}</p>
-                        <p><strong>Máximo de vídeos:</strong> {plan.maxVideos ?? "Sin límite"}</p>
-                        <p><strong>Máximo de audios:</strong> {plan.maxAudios ?? "Sin límite"}</p>
-                        <p><strong>Descripción:</strong> {formData.description?.trim() ? formData.description : "—"}</p>
-                        <p>
-                          <strong>Caducidad:</strong>{" "}
-                          {(() => {
-                            const expiry = getExpiryDateTime();
-                            return expiry
-                              ? formatInTimeZone(expiry, formData.timezone, "dd/MM/yyyy HH:mm")
-                              : "Se calculará automáticamente";
-                          })()}
-                        </p>
-                        <p>
-                          <strong>URL al caducar:</strong>{" "}
-                          {formData.expiryRedirectUrl?.trim() ? formData.expiryRedirectUrl : "—"}
-                        </p>
-                        <p className="mt-2 text-xs text-muted-foreground">
-                          La caducidad se calcula según el plan y no se puede editar. La extracción de fotos es manual.
-                        </p>
+                  {requiresAccountSetup ? (
+                    <div className="space-y-4">
+                      <Label className="text-base font-semibold">Información de contacto</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Para terminar, crea tu acceso con email y contraseña. Así crearemos tu usuario y tu evento de pago.
+                      </p>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="contactEmail">
+                          Email<span className="text-red-500"> *</span>
+                        </Label>
+                        <Input
+                          id="contactEmail"
+                          type="email"
+                          value={formData.contactEmail}
+                          onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })}
+                          placeholder="tu@email.com"
+                          required
+                          readOnly={purchaseEmailLocked}
+                        />
                       </div>
-                    ) : null}
-                  </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="contactPassword">
+                          Contraseña<span className="text-red-500"> *</span>
+                        </Label>
+                        <Input
+                          id="contactPassword"
+                          type="password"
+                          value={formData.contactPassword}
+                          onChange={(e) => setFormData({ ...formData, contactPassword: e.target.value })}
+                          placeholder="Mínimo 8 caracteres"
+                          required
+                          autoComplete="new-password"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="contactPasswordConfirm">
+                          Repetir contraseña<span className="text-red-500"> *</span>
+                        </Label>
+                        <Input
+                          id="contactPasswordConfirm"
+                          type="password"
+                          value={formData.contactPasswordConfirm}
+                          onChange={(e) => setFormData({ ...formData, contactPasswordConfirm: e.target.value })}
+                          placeholder="Repite la contraseña"
+                          required
+                          autoComplete="new-password"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="contactPhone">Teléfono (opcional)</Label>
+                        <Input
+                          id="contactPhone"
+                          type="tel"
+                          value={formData.contactPhone}
+                          onChange={(e) => setFormData({ ...formData, contactPhone: e.target.value })}
+                          placeholder="+34 600 000 000"
+                        />
+                      </div>
+
+                      <label className="flex items-start gap-3 text-sm text-foreground">
+                        <input
+                          type="checkbox"
+                          className="mt-1 h-4 w-4 rounded border-border"
+                          checked={formData.acceptMarketing}
+                          onChange={(e) => setFormData({ ...formData, acceptMarketing: e.target.checked })}
+                        />
+                        <span>Autorizo el envío de comunicaciones comerciales por email (opcional).</span>
+                      </label>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <Label className="text-base font-semibold">Confirma tu evento</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Revisa la información antes de crear el evento de pago. No te preocupes si te equivocas, después podrás editarlo en cualquier momento.
+                      </p>
+                      {plan ? (
+                        <div className="rounded-lg border border-border bg-muted/40 p-4 text-sm">
+                          <p><strong>Plan:</strong> {getPlanBadge()?.label ?? plan.label}</p>
+                          <p><strong>Nombre:</strong> {formData.name || "—"}</p>
+                          <p>
+                            <strong>Duración del evento:</strong>{" "}
+                            {formatDuration() || "—"}
+                          </p>
+                          <p><strong>Inicio:</strong> {formData.uploadStartDate} {formData.uploadStartTime}</p>
+                          <p><strong>Fin:</strong> {formData.uploadEndDate} {formData.uploadEndTime}</p>
+                          <p><strong>Fecha de revelado:</strong> {formData.revealDate} {formData.revealTime}</p>
+                          <p><strong>Idioma:</strong> {languageLabels[formData.language] ?? formData.language}</p>
+                          <p><strong>Zona horaria:</strong> {formData.timezone}</p>
+                          <p><strong>Máximo de fotos:</strong> {plan.maxPhotos ?? "Sin límite"}</p>
+                          <p><strong>Máximo de vídeos:</strong> {plan.maxVideos ?? "Sin límite"}</p>
+                          <p><strong>Máximo de audios:</strong> {plan.maxAudios ?? "Sin límite"}</p>
+                          <p><strong>Descripción:</strong> {formData.description?.trim() ? formData.description : "—"}</p>
+                          <p>
+                            <strong>Caducidad:</strong>{" "}
+                            {(() => {
+                              const expiry = getExpiryDateTime();
+                              return expiry
+                                ? formatInTimeZone(expiry, formData.timezone, "dd/MM/yyyy HH:mm")
+                                : "Se calculará automáticamente";
+                            })()}
+                          </p>
+                          <p>
+                            <strong>URL al caducar:</strong>{" "}
+                            {formData.expiryRedirectUrl?.trim() ? formData.expiryRedirectUrl : "—"}
+                          </p>
+                          <p className="mt-2 text-xs text-muted-foreground">
+                            La caducidad se calcula según el plan y no se puede editar. La extracción de fotos es manual.
+                          </p>
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
                 </>
               )}
 
@@ -927,7 +1086,9 @@ const RedeemEvent = () => {
                       ? "Subiendo imagen..."
                       : isSubmitting
                         ? "Creando evento..."
-                        : "Terminar"}
+                        : requiresAccountSetup
+                          ? "Crear usuario y evento"
+                          : "Terminar"}
                 </Button>
               </div>
             </form>

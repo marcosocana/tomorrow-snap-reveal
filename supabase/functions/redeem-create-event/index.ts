@@ -21,6 +21,10 @@ const json = (body: unknown, status = 200) =>
 
 type PaidEventPayload = {
   token: string;
+  contactEmail?: string;
+  password?: string;
+  phone?: string | null;
+  marketingConsent?: boolean;
   event: {
     name: string;
     password_hash: string;
@@ -41,6 +45,9 @@ type PaidEventPayload = {
   };
 };
 
+const isEmail = (value: string) =>
+  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -54,12 +61,6 @@ serve(async (req) => {
     return json({ error: "Missing env" }, 500);
   }
 
-  const authHeader = req.headers.get("Authorization") || "";
-  const tokenAuth = authHeader.replace("Bearer ", "").trim();
-  if (!tokenAuth) {
-    return json({ error: "UNAUTHORIZED" }, 401);
-  }
-
   try {
     const payload = (await req.json()) as PaidEventPayload;
     const redeemToken = payload?.token;
@@ -68,13 +69,9 @@ serve(async (req) => {
       return json({ error: "INVALID_REQUEST" }, 400);
     }
 
+    const authHeader = req.headers.get("Authorization") || "";
+    const tokenAuth = authHeader.replace("Bearer ", "").trim();
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    const { data: userData, error: userError } = await supabase.auth.getUser(
-      tokenAuth,
-    );
-    if (userError || !userData?.user) {
-      return json({ error: "UNAUTHORIZED" }, 401);
-    }
 
     const supabaseAdmin = createClient(
       SUPABASE_URL,
@@ -103,6 +100,84 @@ serve(async (req) => {
     const plan = getPlanById(purchase.plan_id);
     if (!plan) {
       return json({ error: "INVALID_PLAN" }, 400);
+    }
+
+    let ownerId: string | null = null;
+    let ownerEmail: string | null = null;
+    let contactPhone: string | null = payload?.phone?.trim() || null;
+    const marketingConsent = payload?.marketingConsent ?? true;
+
+    if (tokenAuth) {
+      const { data: userData, error: userError } = await supabase.auth.getUser(
+        tokenAuth,
+      );
+      if (userError || !userData?.user) {
+        return json({ error: "UNAUTHORIZED" }, 401);
+      }
+      ownerId = userData.user.id;
+      ownerEmail = userData.user.email ?? purchase.user_email ?? null;
+    } else {
+      const email = payload?.contactEmail?.trim().toLowerCase() ?? "";
+      const password = payload?.password ?? "";
+      if (!email || !isEmail(email)) {
+        return json({ error: "INVALID_EMAIL" }, 400);
+      }
+      if (!password || password.length < 8) {
+        return json({ error: "INVALID_PASSWORD" }, 400);
+      }
+      const purchaseEmail = purchase.user_email?.trim().toLowerCase() ?? null;
+      if (purchaseEmail && email !== purchaseEmail) {
+        return json({ error: "EMAIL_MISMATCH" }, 409);
+      }
+
+      const { data: existingAuthUser, error: existingUserError } = await supabaseAdmin
+        .schema("auth")
+        .from("users")
+        .select("id")
+        .eq("email", email)
+        .maybeSingle();
+
+      if (existingUserError) {
+        console.error("redeem-create-event user lookup error:", existingUserError.message);
+        return json({ error: "USER_LOOKUP_FAILED" }, 500);
+      }
+      if (existingAuthUser?.id) {
+        return json({ error: "USER_EXISTS_LOGIN_REQUIRED" }, 409);
+      }
+
+      const { data: createdUser, error: createUserError } =
+        await supabaseAdmin.auth.admin.createUser({
+          email,
+          password,
+          email_confirm: true,
+        });
+
+      if (createUserError || !createdUser?.user?.id) {
+        return json({ error: "CREATE_USER_FAILED", detail: createUserError?.message ?? "unknown_error" }, 500);
+      }
+
+      ownerId = createdUser.user.id;
+      ownerEmail = email;
+    }
+
+    if (!ownerId) {
+      return json({ error: "UNAUTHORIZED" }, 401);
+    }
+
+    if (contactPhone) {
+      const { error: profileError } = await supabaseAdmin
+        .from("user_profiles")
+        .upsert(
+          {
+            id: ownerId,
+            phone: contactPhone,
+            marketing_opt_in: marketingConsent,
+          },
+          { onConflict: "id" },
+        );
+      if (profileError) {
+        return json({ error: "CREATE_PROFILE_FAILED", detail: profileError.message }, 500);
+      }
     }
 
     const maxPhotos = plan.maxPhotos;
@@ -158,7 +233,7 @@ serve(async (req) => {
         expiry_redirect_url: event.expiry_redirect_url ?? null,
         allow_photo_deletion: true,
         show_legal_text: true,
-        owner_id: userData.user.id,
+        owner_id: ownerId,
       })
       .select()
       .single();
@@ -172,11 +247,12 @@ serve(async (req) => {
       .update({
         status: "redeemed",
         redeemed_at: new Date().toISOString(),
-        user_id: userData.user.id,
+        user_id: ownerId,
+        user_email: ownerEmail ?? purchase.user_email ?? null,
       })
       .eq("id", purchase.id);
 
-    return json({ event: createdEvent });
+    return json({ event: createdEvent, ownerEmail: ownerEmail ?? null });
   } catch (error) {
     console.error("redeem-create-event error:", error);
     return json({ error: "UNKNOWN_ERROR" }, 500);

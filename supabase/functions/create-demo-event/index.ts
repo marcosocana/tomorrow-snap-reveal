@@ -23,6 +23,7 @@ type DemoEventPayload = {
   contactEmail: string;
   password: string;
   phone?: string | null;
+  marketingConsent?: boolean;
   event: {
     name: string;
     password_hash: string;
@@ -75,6 +76,7 @@ serve(async (req) => {
     const email = payload?.contactEmail?.trim().toLowerCase() ?? "";
     const password = payload?.password ?? "";
     const phone = payload?.phone?.trim() || null;
+    const marketingConsent = payload?.marketingConsent ?? true;
     const event = payload?.event;
 
     if (!email || !isEmail(email)) {
@@ -157,6 +159,7 @@ serve(async (req) => {
       .upsert({
         id: userId,
         phone,
+        marketing_opt_in: marketingConsent,
       }, { onConflict: "id" });
 
     if (profileError) {

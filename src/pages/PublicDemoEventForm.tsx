@@ -51,6 +51,8 @@ const PublicDemoEventForm = () => {
       contactPassword: "",
       contactPasswordConfirm: "",
       contactPhone: "",
+      acceptLegal: false,
+      acceptMarketing: true,
       // Event fields
       name: "",
       password: generateHash(),
@@ -134,7 +136,7 @@ const PublicDemoEventForm = () => {
     const hasEmail = formData.contactEmail.trim().length > 0;
     const hasPassword = formData.contactPassword.trim().length > 0;
     const hasConfirm = formData.contactPasswordConfirm.trim().length > 0;
-    return hasEmail && hasPassword && hasConfirm;
+    return hasEmail && hasPassword && hasConfirm && formData.acceptLegal;
   };
 
   const getEndTimeMin = (overrideDate?: string) => {
@@ -385,6 +387,14 @@ const PublicDemoEventForm = () => {
       });
       return;
     }
+    if (!formData.acceptLegal) {
+      toast({
+        title: t("summary.copyErrorTitle"),
+        description: t("form.errors.legalRequired"),
+        variant: "destructive",
+      });
+      return;
+    }
     if (!formData.backgroundImage && !formData.backgroundImageUrl) {
       toast({
         title: t("form.errors.invalidDateTitle"),
@@ -425,6 +435,7 @@ const PublicDemoEventForm = () => {
           contactEmail: formData.contactEmail,
           password: formData.contactPassword,
           phone: formData.contactPhone,
+          marketingConsent: formData.acceptMarketing,
           event: {
             name: formData.name,
             password_hash: formData.password,
@@ -992,6 +1003,48 @@ const PublicDemoEventForm = () => {
                         onChange={(e) => setFormData({ ...formData, contactPhone: e.target.value })}
                         placeholder={t("form.step2.phonePlaceholder")}
                       />
+                    </div>
+
+                    <div className="space-y-3 rounded-md border border-border p-3">
+                      <label className="flex items-start gap-3 text-sm text-foreground">
+                        <input
+                          type="checkbox"
+                          className="mt-1 h-4 w-4 rounded border-border"
+                          checked={formData.acceptLegal}
+                          onChange={(e) => setFormData({ ...formData, acceptLegal: e.target.checked })}
+                        />
+                        <span>
+                          {t("form.step2.acceptLegalPrefix")}{" "}
+                          <a
+                            href={`${pathPrefix}/terms`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="underline underline-offset-2"
+                          >
+                            {t("form.step2.terms")}
+                          </a>{" "}
+                          {t("form.step2.acceptLegalMiddle")}{" "}
+                          <a
+                            href={`${pathPrefix}/privacy`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="underline underline-offset-2"
+                          >
+                            {t("form.step2.privacy")}
+                          </a>
+                          <span className="text-red-500"> *</span>
+                        </span>
+                      </label>
+
+                      <label className="flex items-start gap-3 text-sm text-foreground">
+                        <input
+                          type="checkbox"
+                          className="mt-1 h-4 w-4 rounded border-border"
+                          checked={formData.acceptMarketing}
+                          onChange={(e) => setFormData({ ...formData, acceptMarketing: e.target.checked })}
+                        />
+                        <span>{t("form.step2.acceptMarketing")}</span>
+                      </label>
                     </div>
                   </div>
                 </>

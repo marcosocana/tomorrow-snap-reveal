@@ -130,7 +130,10 @@ const EventManagement = () => {
   const [isDemoMode] = useState(() => localStorage.getItem("isDemoMode") === "true");
   const [adminEventId] = useState(() => localStorage.getItem("adminEventId"));
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
+  const [marketingOptIn, setMarketingOptIn] = useState(true);
+  const [marketingSaving, setMarketingSaving] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [previewEvent, setPreviewEvent] = useState<Event | null>(null);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
@@ -295,10 +298,49 @@ const EventManagement = () => {
   useEffect(() => {
     const loadUserEmail = async () => {
       const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUserId(user?.id ?? null);
       setCurrentUserEmail(user?.email ?? null);
+      if (!user?.id) return;
+      const { data: profile } = await supabase
+        .from("user_profiles")
+        .select("marketing_opt_in")
+        .eq("id", user.id)
+        .maybeSingle();
+      setMarketingOptIn(profile?.marketing_opt_in ?? true);
     };
     loadUserEmail();
   }, []);
+
+  const handleMarketingToggle = async (checked: boolean) => {
+    if (!currentUserId) return;
+    try {
+      setMarketingSaving(true);
+      const { error } = await supabase
+        .from("user_profiles")
+        .upsert(
+          {
+            id: currentUserId,
+            marketing_opt_in: checked,
+          },
+          { onConflict: "id" },
+        );
+      if (error) throw error;
+      setMarketingOptIn(checked);
+      toast({
+        title: "Preferencias guardadas",
+        description: "Se actualizó tu preferencia de comunicaciones comerciales.",
+      });
+    } catch (error) {
+      console.error("Error updating marketing preference:", error);
+      toast({
+        title: "Error",
+        description: "No se pudo actualizar la preferencia.",
+        variant: "destructive",
+      });
+    } finally {
+      setMarketingSaving(false);
+    }
+  };
 
   useEffect(() => {
     const created = (location.state as any)?.createdEvent;
@@ -1539,6 +1581,21 @@ const EventManagement = () => {
             <div className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm">
               {currentUserEmail || "-"}
             </div>
+            <label className="flex items-start gap-3 rounded-md border border-border bg-muted/30 px-3 py-2 text-sm">
+              <input
+                type="checkbox"
+                className="mt-1 h-4 w-4 rounded border-border"
+                checked={marketingOptIn}
+                disabled={marketingSaving}
+                onChange={(e) => handleMarketingToggle(e.target.checked)}
+              />
+              <span>
+                Comunicaciones comerciales por email
+                <span className="block text-xs text-muted-foreground">
+                  Puedes activarlas o desactivarlas cuando quieras.
+                </span>
+              </span>
+            </label>
             <Button
               className="w-full"
               variant="outline"

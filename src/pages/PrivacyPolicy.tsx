@@ -72,45 +72,43 @@ const PrivacyPolicy = () => {
             <section className="space-y-4">
               <h2 className="text-lg font-semibold text-foreground">2. Datos tratados</h2>
               <p className="text-muted-foreground leading-relaxed">
-                Los únicos datos personales tratados son las imágenes (fotografías) capturadas y subidas por el propio usuario mediante la plataforma.
-              </p>
-              <p className="text-muted-foreground leading-relaxed">
-                No se recogen datos de registro, perfiles de usuario ni información adicional.
+                Los datos personales tratados son los contenidos capturados y subidos por el propio usuario mediante la plataforma (fotografías, vídeos y mensajes de voz), así como el email de registro cuando se crea un evento demo.
               </p>
             </section>
 
             <section className="space-y-4">
               <h2 className="text-lg font-semibold text-foreground">3. Finalidad del tratamiento</h2>
               <p className="text-muted-foreground leading-relaxed">
-                Las imágenes se tratan exclusivamente para:
+                Los datos se tratan exclusivamente para:
               </p>
               <ul className="list-disc list-inside text-muted-foreground space-y-2 ml-4">
-                <li>Permitir su visualización y descarga por el usuario.</li>
+                <li>Permitir la subida, visualización, reproducción y descarga del contenido por los usuarios autorizados.</li>
                 <li>Gestionar el funcionamiento técnico del servicio.</li>
+                <li>Enviar comunicaciones por email únicamente si el usuario ha dado su consentimiento expreso.</li>
               </ul>
               <p className="text-muted-foreground leading-relaxed">
-                Las fotografías no se utilizan para fines publicitarios, comerciales, analíticos ni de entrenamiento de modelos.
+                Los contenidos no se utilizan para entrenamiento de modelos ni para fines comerciales distintos de la prestación del servicio.
               </p>
             </section>
 
             <section className="space-y-4">
               <h2 className="text-lg font-semibold text-foreground">4. Conservación de los datos</h2>
               <p className="text-muted-foreground leading-relaxed">
-                Las imágenes se almacenan durante un máximo de 15 días, tras los cuales se eliminan automáticamente y de forma definitiva.
+                Los contenidos del evento se almacenan durante un máximo de 15 días, tras los cuales se eliminan automáticamente y de forma definitiva.
               </p>
             </section>
 
             <section className="space-y-4">
               <h2 className="text-lg font-semibold text-foreground">5. Base legal</h2>
               <p className="text-muted-foreground leading-relaxed">
-                La base legal para el tratamiento de los datos es el consentimiento del usuario, otorgado al hacer uso del servicio y tomar la fotografía.
+                La base legal para el tratamiento de los datos es el consentimiento del usuario, otorgado al aceptar estas políticas y hacer uso del servicio.
               </p>
             </section>
 
             <section className="space-y-4">
               <h2 className="text-lg font-semibold text-foreground">6. Cesión de datos</h2>
               <p className="text-muted-foreground leading-relaxed">
-                Las imágenes no se ceden a terceros, salvo obligación legal.
+                Los datos no se ceden a terceros, salvo obligación legal o proveedores tecnológicos necesarios para prestar el servicio bajo acuerdos de tratamiento.
               </p>
             </section>
 
@@ -124,7 +122,7 @@ const PrivacyPolicy = () => {
             <section className="space-y-4">
               <h2 className="text-lg font-semibold text-foreground">8. Seguridad</h2>
               <p className="text-muted-foreground leading-relaxed">
-                Revelao aplica medidas técnicas razonables para proteger las imágenes frente a accesos no autorizados durante el tiempo en que están almacenadas.
+                Revelao aplica medidas técnicas razonables para proteger los datos frente a accesos no autorizados durante el tiempo en que están almacenados.
               </p>
             </section>
           </>
