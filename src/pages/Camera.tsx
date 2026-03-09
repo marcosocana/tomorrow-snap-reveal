@@ -3,7 +3,7 @@ import { useNavigate, Navigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { LogOut, Image, Share2, RefreshCw, Mic, Video, X } from "lucide-react";
+import { LogOut, Image, Share2, RefreshCw, Mic, Video, X, ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { es, enUS, it } from "date-fns/locale";
@@ -950,6 +950,7 @@ const Camera = () => {
   // Capture the magic text based on language
   const captureMagicText = language === "en" ? "Capture the magic!" : language === "it" ? "Cattura la magia!" : "¡Captura la magia!";
   const isModernHeader = headerStyle === "modern";
+  const showDemoEnvironmentBack = localStorage.getItem("demoEnvironmentMode") === "1";
   const demoBanner = isDemoEvent ? (
     <div className="fixed top-0 left-0 right-0 z-40 bg-[#f06a5f] py-2 text-center text-xs font-semibold tracking-wide text-white">
       <span>Evento de prueba. </span>
@@ -1881,6 +1882,18 @@ const Camera = () => {
           </div>
         </DialogContent>
       </Dialog>
+      {showDemoEnvironmentBack && (
+        <button
+          type="button"
+          onClick={() => {
+            window.location.href = "https://www.revelao.cam/entornodemo";
+          }}
+          className="fixed bottom-4 left-1/2 z-[80] flex -translate-x-1/2 items-center gap-2 rounded-full bg-[#f06a5f] px-4 py-2 text-sm font-semibold text-white shadow-lg hover:bg-[#e65c51]"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          <span>Volver al menú</span>
+        </button>
+      )}
       </div>
     </>
   );

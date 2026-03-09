@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { LogOut, Film, Trash2, Download, Share2, Play, Image, Mic, Video, LayoutGrid, LayoutList } from "lucide-react";
+import { LogOut, Film, Trash2, Download, Share2, Play, Image, Mic, Video, LayoutGrid, LayoutList, ArrowLeft } from "lucide-react";
 import StoriesViewer from "@/components/StoriesViewer";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
@@ -1240,6 +1240,7 @@ const Gallery = () => {
     ? "✨ I contenuti dell'evento sono stati rivelati"
     : "✨ Ya se ha revelado el contenido del evento";
   const isModernHeader = headerStyle === "modern";
+  const showDemoEnvironmentBack = localStorage.getItem("demoEnvironmentMode") === "1";
   const demoBanner = isDemoEvent ? (
     <div className="fixed top-0 left-0 right-0 z-40 bg-[#f06a5f] py-2 text-center text-xs font-semibold tracking-wide text-white">
       <span>Evento de prueba. </span>
@@ -1800,6 +1801,18 @@ const Gallery = () => {
           </div>
         </DialogContent>
       </Dialog>
+      {showDemoEnvironmentBack && (
+        <button
+          type="button"
+          onClick={() => {
+            window.location.href = "https://www.revelao.cam/entornodemo";
+          }}
+          className="fixed bottom-4 left-1/2 z-[80] flex -translate-x-1/2 items-center gap-2 rounded-full bg-[#f06a5f] px-4 py-2 text-sm font-semibold text-white shadow-lg hover:bg-[#e65c51]"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          <span>Volver al menú</span>
+        </button>
+      )}
       </div>
     </>
   );
