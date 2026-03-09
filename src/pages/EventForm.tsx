@@ -32,6 +32,7 @@ import {
 import { useAdminI18n } from "@/lib/adminI18n";
 import { QRCodeSVG } from "qrcode.react";
 import defaultQrLogo from "@/assets/marca_revelao_qr_evento.png";
+const defaultDemoLogo = "/demo-logo.png";
 import weddingPreview from "@/assets/testimonial-wedding.jpg";
 
 // Background image - no size restrictions
@@ -164,7 +165,7 @@ const EventForm = () => {
       revealTime: initialRevealTime,
       maxPhotos: isDemoMode ? "30" : "",
       customImage: null as File | null,
-      customImageUrl: "",
+      customImageUrl: isDemoMode ? defaultDemoLogo : "",
       backgroundImage: null as File | null,
       backgroundImageUrl: "",
       filterType: "none" as FilterType,
@@ -896,9 +897,11 @@ const EventForm = () => {
   useEffect(() => {
     if (!isSuperAdmin || isEditing) return;
     setFormData((prev) =>
-      prev.customImageUrl ? prev : { ...prev, customImageUrl: defaultQrLogo }
+      prev.customImageUrl
+        ? prev
+        : { ...prev, customImageUrl: isDemoMode ? defaultDemoLogo : defaultQrLogo }
     );
-  }, [isSuperAdmin, isEditing]);
+  }, [isSuperAdmin, isEditing, isDemoMode]);
 
   const getExpiryDays = () => {
     if (planType === "custom") return null;

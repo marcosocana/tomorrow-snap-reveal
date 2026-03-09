@@ -28,7 +28,7 @@ import { Language } from "@/lib/translations";
 import { EventFontFamily } from "@/lib/eventFonts";
 import { FilterType, FILTER_ORDER, getFilterClass, getGrainClass } from "@/lib/photoFilters";
 import { PricingPreview } from "@/components/PricingPreview";
-import logoDemo from "@/assets/Frame 626035.png";
+const logoDemo = "/demo-logo.png";
 import weddingPreview from "@/assets/testimonial-wedding.jpg";
 import { useDemoI18n } from "@/lib/demoI18n";
 import { getTimezoneOffset } from "@/lib/countries";
