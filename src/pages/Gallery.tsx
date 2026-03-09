@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -122,6 +122,8 @@ const Gallery = () => {
   
   const observerTarget = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const isDemoEnvironmentFromQuery = searchParams.get("demo_env") === "1";
   const { toast } = useToast();
   const eventId = localStorage.getItem("eventId");
   const eventName = localStorage.getItem("eventName");
@@ -512,6 +514,12 @@ const Gallery = () => {
       </div>
     );
   };
+
+  useEffect(() => {
+    if (isDemoEnvironmentFromQuery) {
+      localStorage.setItem("demoEnvironmentMode", "1");
+    }
+  }, [isDemoEnvironmentFromQuery]);
 
   useEffect(() => {
     if (!eventId) {
@@ -1240,7 +1248,8 @@ const Gallery = () => {
     ? "✨ I contenuti dell'evento sono stati rivelati"
     : "✨ Ya se ha revelado el contenido del evento";
   const isModernHeader = headerStyle === "modern";
-  const showDemoEnvironmentBack = localStorage.getItem("demoEnvironmentMode") === "1";
+  const showDemoEnvironmentBack =
+    isDemoEnvironmentFromQuery || localStorage.getItem("demoEnvironmentMode") === "1";
   const demoBanner = isDemoEvent ? (
     <div className="fixed top-0 left-0 right-0 z-40 bg-[#f06a5f] py-2 text-center text-xs font-semibold tracking-wide text-white">
       <span>Evento de prueba. </span>

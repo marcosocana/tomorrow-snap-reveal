@@ -17,7 +17,8 @@ const EventAccess = () => {
       }
 
       const searchParams = new URLSearchParams(location.search);
-      if (searchParams.get("demo_env") === "1") {
+      const demoEnvEnabled = searchParams.get("demo_env") === "1";
+      if (demoEnvEnabled) {
         localStorage.setItem("demoEnvironmentMode", "1");
       } else {
         localStorage.removeItem("demoEnvironmentMode");
@@ -78,9 +79,9 @@ const EventAccess = () => {
           const now = new Date();
           
           if (now >= revealTime) {
-            navigate("/gallery");
+            navigate(demoEnvEnabled ? "/gallery?demo_env=1" : "/gallery");
           } else {
-            navigate("/camera");
+            navigate(demoEnvEnabled ? "/camera?demo_env=1" : "/camera");
           }
         } else {
           toast({

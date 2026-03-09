@@ -154,6 +154,7 @@ const Camera = () => {
   const eventName = localStorage.getItem("eventName");
   const [eventPassword, setEventPassword] = useState<string>("");
   const [searchParams] = useSearchParams();
+  const isDemoEnvironmentFromQuery = searchParams.get("demo_env") === "1";
   const [queuedRecordingMode, setQueuedRecordingMode] = useState<"video" | "audio" | null>(() => {
     const initial = searchParams.get("mode");
     return initial === "video" || initial === "audio" ? initial : null;
@@ -165,6 +166,12 @@ const Camera = () => {
   const t = getTranslations(language);
   const timezone = getEventTimezone();
   const dateLocale = getDateLocale(language);
+
+  useEffect(() => {
+    if (isDemoEnvironmentFromQuery) {
+      localStorage.setItem("demoEnvironmentMode", "1");
+    }
+  }, [isDemoEnvironmentFromQuery]);
 
   useEffect(() => {
     if (!eventId) {
@@ -950,7 +957,8 @@ const Camera = () => {
   // Capture the magic text based on language
   const captureMagicText = language === "en" ? "Capture the magic!" : language === "it" ? "Cattura la magia!" : "¡Captura la magia!";
   const isModernHeader = headerStyle === "modern";
-  const showDemoEnvironmentBack = localStorage.getItem("demoEnvironmentMode") === "1";
+  const showDemoEnvironmentBack =
+    isDemoEnvironmentFromQuery || localStorage.getItem("demoEnvironmentMode") === "1";
   const demoBanner = isDemoEvent ? (
     <div className="fixed top-0 left-0 right-0 z-40 bg-[#f06a5f] py-2 text-center text-xs font-semibold tracking-wide text-white">
       <span>Evento de prueba. </span>
