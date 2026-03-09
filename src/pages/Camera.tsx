@@ -20,6 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const getDateLocale = (language: Language) => {
   switch (language) {
@@ -69,6 +70,33 @@ const getExtensionForMimeType = (mimeType: string | null | undefined, mode: "vid
   if (mime.includes("mpeg")) return "mp3";
   return mode === "audio" ? "webm" : "webm";
 };
+
+const CameraLoadingSkeleton = () => (
+  <div className="app-screen bg-background flex flex-col">
+    <div className="relative h-[50vh] min-h-[320px] max-h-[450px] w-full overflow-hidden rounded-b-3xl">
+      <Skeleton className="absolute inset-0 h-full w-full rounded-none" />
+      <div className="absolute left-4 top-4">
+        <Skeleton className="h-10 w-10 rounded-full" />
+      </div>
+      <div className="absolute right-4 top-4">
+        <Skeleton className="h-10 w-10 rounded-full" />
+      </div>
+      <div className="absolute inset-x-0 bottom-0 px-6 pb-6 space-y-2">
+        <Skeleton className="h-8 w-52" />
+        <Skeleton className="h-4 w-72 max-w-full" />
+      </div>
+    </div>
+    <div className="flex-1 px-6 py-6 space-y-4">
+      <Skeleton className="mx-auto h-7 w-48" />
+      <div className="grid grid-cols-3 gap-3">
+        <Skeleton className="h-36 rounded-3xl" />
+        <Skeleton className="h-36 rounded-3xl" />
+        <Skeleton className="h-36 rounded-3xl" />
+      </div>
+      <Skeleton className="h-4 w-80 max-w-full mx-auto" />
+    </div>
+  </div>
+);
 
 const Camera = () => {
   const [photoCount, setPhotoCount] = useState(0);
@@ -945,6 +973,10 @@ const Camera = () => {
     : language === "it"
     ? `📷 ${photoCount} foto / 📹 ${videoCount} video / 🔈 ${audioCount} audio`
     : `📷 ${photoCount} fotos / 📹 ${videoCount} vídeos / 🔈 ${audioCount} audios`;
+
+  if (!eventConfigReady) {
+    return <CameraLoadingSkeleton />;
+  }
 
   // Photos already revealed - go straight to gallery
   if (hasRevealed) {

@@ -24,6 +24,7 @@ import { FilterType, getFilterClass, getGrainClass, applyFilterToCanvas } from "
 import { getTranslations, getEventLanguage, getEventTimezone, getLocalDateInTimezone, Language } from "@/lib/translations";
 import { EventFontFamily, getEventFontFamily } from "@/lib/eventFonts";
 import { getDeviceId } from "@/lib/deviceId";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface Photo {
   id: string;
@@ -71,6 +72,32 @@ interface MixedMediaItem {
 }
 
 const PHOTOS_PER_PAGE = 12;
+
+const GalleryLoadingSkeleton = () => (
+  <div className="w-full">
+    <div className="relative h-[50vh] min-h-[320px] max-h-[450px] w-full overflow-hidden rounded-b-3xl">
+      <Skeleton className="absolute inset-0 h-full w-full rounded-none" />
+      <div className="absolute left-4 top-4">
+        <Skeleton className="h-10 w-10 rounded-full" />
+      </div>
+      <div className="absolute right-4 top-4 flex gap-2">
+        <Skeleton className="h-10 w-10 rounded-full" />
+        <Skeleton className="h-10 w-10 rounded-full" />
+      </div>
+      <div className="absolute inset-x-0 bottom-0 px-6 pb-6 space-y-2">
+        <Skeleton className="h-8 w-56" />
+        <Skeleton className="h-4 w-72 max-w-full" />
+      </div>
+    </div>
+    <div className="px-0 pt-3">
+      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-8 gap-[2px]">
+        {Array.from({ length: 24 }).map((_, index) => (
+          <Skeleton key={index} className="aspect-square w-full rounded-none" />
+        ))}
+      </div>
+    </div>
+  </div>
+);
 
 const getDateLocale = (language: Language) => {
   switch (language) {
@@ -1469,9 +1496,7 @@ const Gallery = () => {
         </div>
         <div className={effectiveGalleryViewMode === "grid" ? "w-full" : "max-w-7xl mx-auto px-6"}>
           {isLoading ? (
-            <div className="flex items-center justify-center min-h-[50vh]">
-              <p className="text-muted-foreground uppercase tracking-wide">{loadingPhotosText}</p>
-            </div>
+            <GalleryLoadingSkeleton />
           ) : mixedMedia.length === 0 ? (
             <div className="flex flex-col items-center justify-center min-h-[50vh] text-center space-y-4">
               <Film className="w-16 h-16 text-muted-foreground" />
