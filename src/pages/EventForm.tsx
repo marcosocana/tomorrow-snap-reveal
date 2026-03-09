@@ -218,6 +218,15 @@ const EventForm = () => {
     const minutes = String(absMinutes % 60).padStart(2, "0");
     return `GMT${sign}${hours}:${minutes}`;
   };
+
+  const hasValidDateTimeParts = (dateValue: string, timeValue: string) =>
+    /^\d{4}-\d{2}-\d{2}$/.test(dateValue) && /^\d{2}:\d{2}$/.test(timeValue);
+
+  const toSafeUtc = (dateValue: string, timeValue: string, timezone: string) => {
+    if (!hasValidDateTimeParts(dateValue, timeValue)) return null;
+    const parsed = fromZonedTime(`${dateValue}T${timeValue}:00`, timezone);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  };
   const timezoneOffsetLabel = formatTimezoneOffset(formData.timezone);
 
   const getEventQrUrl = (id: string) =>
@@ -653,9 +662,18 @@ const EventForm = () => {
       const maxVideosValue = effectiveAllowVideoRecording ? (resolvedMaxVideos ?? 0) : 0;
       const maxAudiosValue = effectiveAllowAudioRecording ? (resolvedMaxAudios ?? 0) : 0;
       const eventTz = formData.timezone;
-      const uploadStartDateTime = fromZonedTime(`${formData.uploadStartDate}T${formData.uploadStartTime}:00`, eventTz);
-      const uploadEndDateTime = fromZonedTime(`${formData.uploadEndDate}T${formData.uploadEndTime}:00`, eventTz);
-      const revealDateTime = fromZonedTime(`${formData.revealDate}T${formData.revealTime}:00`, eventTz);
+      const uploadStartDateTime = toSafeUtc(formData.uploadStartDate, formData.uploadStartTime, eventTz);
+      const uploadEndDateTime = toSafeUtc(formData.uploadEndDate, formData.uploadEndTime, eventTz);
+      const revealDateTime = toSafeUtc(formData.revealDate, formData.revealTime, eventTz);
+      if (!uploadStartDateTime || !uploadEndDateTime || !revealDateTime) {
+        toast({
+          title: t("form.errorTitle"),
+          description: t("form.errorDesc"),
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
+      }
 
       let customImageUrl = formData.customImageUrl;
       if (formData.customImage) {
@@ -673,9 +691,10 @@ const EventForm = () => {
         }
       }
 
-      const expiryDateTime = formData.expiryDate 
-        ? fromZonedTime(`${formData.expiryDate}T${formData.expiryTime}:00`, eventTz).toISOString()
+      const parsedExpiry = formData.expiryDate
+        ? toSafeUtc(formData.expiryDate, formData.expiryTime, eventTz)
         : null;
+      const expiryDateTime = parsedExpiry ? parsedExpiry.toISOString() : null;
 
       if (isEditing && eventId) {
         const { error } = await supabase
@@ -922,6 +941,7 @@ const EventForm = () => {
     }
     const eventTz = formData.timezone;
     const revealBase = fromZonedTime(`${formData.revealDate}T00:00:00`, eventTz);
+    if (Number.isNaN(revealBase.getTime())) return;
     const expiryDate = formatInTimeZone(addDays(revealBase, expiryDays), eventTz, "yyyy-MM-dd");
     setFormData((prev) =>
       prev.expiryDate === expiryDate && prev.expiryTime === "23:59"
@@ -1277,10 +1297,11 @@ const EventForm = () => {
                 type="file"
                 accept="image/*"
                 onChange={async (e) => {
-                  const file = e.target.files?.[0];
+                  const input = e.currentTarget;
+                  const file = input.files?.[0];
                   if (file) {
                     await openBackgroundAdjustModal(file);
-                    e.currentTarget.value = "";
+                    input.value = "";
                   }
                 }}
               />
@@ -1452,23 +1473,17 @@ const EventForm = () => {
                   />
                 </div>
               </div>
-              {formData.countryCode !== "ES" && formData.uploadStartDate && formData.uploadEndDate && (
+              {formData.countryCode !== "ES" && formData.uploadStartDate && formData.uploadStartTime && formData.uploadEndDate && formData.uploadEndTime && (
                 <p className="text-xs text-muted-foreground">
                   🇪🇸 {t("events.inSpain")}: {(() => {
-                    try {
-                      const eventTz = formData.timezone;
-                      const spainTz = "Europe/Madrid";
-                      
-                      const startUtc = fromZonedTime(`${formData.uploadStartDate}T${formData.uploadStartTime}:00`, eventTz);
-                      const endUtc = fromZonedTime(`${formData.uploadEndDate}T${formData.uploadEndTime}:00`, eventTz);
-                      
-                      const startInSpain = formatInTimeZone(startUtc, spainTz, "dd/MM/yyyy HH:mm");
-                      const endInSpain = formatInTimeZone(endUtc, spainTz, "dd/MM/yyyy HH:mm");
-                      
-                      return `${startInSpain} - ${endInSpain}`;
-                    } catch {
-                      return "";
-                    }
+                    const eventTz = formData.timezone;
+                    const spainTz = "Europe/Madrid";
+                    const startUtc = toSafeUtc(formData.uploadStartDate, formData.uploadStartTime, eventTz);
+                    const endUtc = toSafeUtc(formData.uploadEndDate, formData.uploadEndTime, eventTz);
+                    if (!startUtc || !endUtc) return "";
+                    const startInSpain = formatInTimeZone(startUtc, spainTz, "dd/MM/yyyy HH:mm");
+                    const endInSpain = formatInTimeZone(endUtc, spainTz, "dd/MM/yyyy HH:mm");
+                    return `${startInSpain} - ${endInSpain}`;
                   })()}
                 </p>
               )}
@@ -1505,19 +1520,14 @@ const EventForm = () => {
                   />
                 </div>
               </div>
-              {formData.countryCode !== "ES" && formData.revealDate && (
+              {formData.countryCode !== "ES" && formData.revealDate && formData.revealTime && (
                 <p className="text-xs text-muted-foreground">
                   🇪🇸 {t("events.inSpain")}: {(() => {
-                    try {
-                      const eventTz = formData.timezone;
-                      const spainTz = "Europe/Madrid";
-                      
-                      const revealUtc = fromZonedTime(`${formData.revealDate}T${formData.revealTime}:00`, eventTz);
-                      
-                      return formatInTimeZone(revealUtc, spainTz, "dd/MM/yyyy HH:mm");
-                    } catch {
-                      return "";
-                    }
+                    const eventTz = formData.timezone;
+                    const spainTz = "Europe/Madrid";
+                    const revealUtc = toSafeUtc(formData.revealDate, formData.revealTime, eventTz);
+                    if (!revealUtc) return "";
+                    return formatInTimeZone(revealUtc, spainTz, "dd/MM/yyyy HH:mm");
                   })()}
                 </p>
               )}
@@ -1555,19 +1565,14 @@ const EventForm = () => {
                   />
                   </div>
                 </div>
-                {formData.countryCode !== "ES" && formData.expiryDate && (
+                {formData.countryCode !== "ES" && formData.expiryDate && formData.expiryTime && (
                   <p className="text-xs text-muted-foreground">
                     🇪🇸 {t("events.inSpain")}: {(() => {
-                      try {
-                        const eventTz = formData.timezone;
-                        const spainTz = "Europe/Madrid";
-                        
-                        const expiryUtc = fromZonedTime(`${formData.expiryDate}T${formData.expiryTime}:00`, eventTz);
-                        
-                        return formatInTimeZone(expiryUtc, spainTz, "dd/MM/yyyy HH:mm");
-                      } catch {
-                        return "";
-                      }
+                      const eventTz = formData.timezone;
+                      const spainTz = "Europe/Madrid";
+                      const expiryUtc = toSafeUtc(formData.expiryDate, formData.expiryTime, eventTz);
+                      if (!expiryUtc) return "";
+                      return formatInTimeZone(expiryUtc, spainTz, "dd/MM/yyyy HH:mm");
                     })()}
                   </p>
                 )}

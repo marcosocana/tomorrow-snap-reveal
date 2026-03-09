@@ -153,7 +153,9 @@ const RedeemEvent = () => {
     if (!formData.revealDate || !formData.revealTime) return null;
     const eventTz = formData.timezone;
     const revealUtc = fromZonedTime(`${formData.revealDate}T${formData.revealTime}:00`, eventTz);
+    if (Number.isNaN(revealUtc.getTime())) return null;
     const expiryBase = addDays(revealUtc, expiryDays);
+    if (Number.isNaN(expiryBase.getTime())) return null;
     const expiryDateStr = formatInTimeZone(expiryBase, eventTz, "yyyy-MM-dd");
     return fromZonedTime(`${expiryDateStr}T23:59:00`, eventTz);
   };
@@ -846,7 +848,7 @@ const RedeemEvent = () => {
                       onDateChange={(nextDate) => setFormData({ ...formData, uploadEndDate: nextDate })}
                       onTimeChange={(nextTime) => setFormData({ ...formData, uploadEndTime: nextTime })}
                     />
-                    {formData.countryCode !== "ES" && formData.uploadStartDate && formData.uploadEndDate && (
+                    {formData.countryCode !== "ES" && formData.uploadStartDate && formData.uploadStartTime && formData.uploadEndDate && formData.uploadEndTime && (
                       <p className="text-xs text-muted-foreground">
                         En España: {(() => {
                           try {
@@ -886,7 +888,7 @@ const RedeemEvent = () => {
                       onDateChange={(nextDate) => setFormData({ ...formData, revealDate: nextDate })}
                       onTimeChange={(nextTime) => setFormData({ ...formData, revealTime: nextTime })}
                     />
-                    {formData.countryCode !== "ES" && formData.revealDate && (
+                    {formData.countryCode !== "ES" && formData.revealDate && formData.revealTime && (
                       <p className="text-xs text-muted-foreground">
                         En España: {(() => {
                           try {

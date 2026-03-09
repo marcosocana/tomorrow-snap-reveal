@@ -859,7 +859,7 @@ const PublicDemoEventForm = () => {
                         })
                       }
                     />
-                    {formData.countryCode !== "ES" && formData.uploadStartDate && formData.uploadEndDate && (
+                    {formData.countryCode !== "ES" && formData.uploadStartDate && formData.uploadStartTime && formData.uploadEndDate && formData.uploadEndTime && (
                       <p className="text-xs text-muted-foreground">
                         {t("form.step1.spainTime")} {(() => {
                           try {
@@ -921,7 +921,7 @@ const PublicDemoEventForm = () => {
                         })
                       }
                     />
-                    {formData.countryCode !== "ES" && formData.revealDate && (
+                    {formData.countryCode !== "ES" && formData.revealDate && formData.revealTime && (
                       <p className="text-xs text-muted-foreground">
                         {t("form.step1.spainTime")} {(() => {
                           try {
