@@ -1486,7 +1486,7 @@ const Gallery = () => {
             </div>
           ) : effectiveGalleryViewMode === "grid" ? (
             <div className="px-0">
-              <div className="grid grid-cols-3 gap-[2px] bg-white">
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-8 gap-[2px] bg-white">
                 {mixedMedia.map((item) => (
                   <button
                     key={`${item.type}-${item.id}`}
