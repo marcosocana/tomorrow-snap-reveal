@@ -1,10 +1,11 @@
 import { useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
 const EventAccess = () => {
   const { password } = useParams<{ password: string }>();
+  const location = useLocation();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -13,6 +14,13 @@ const EventAccess = () => {
       if (!password) {
         navigate("/");
         return;
+      }
+
+      const searchParams = new URLSearchParams(location.search);
+      if (searchParams.get("demo_env") === "1") {
+        localStorage.setItem("demoEnvironmentMode", "1");
+      } else {
+        localStorage.removeItem("demoEnvironmentMode");
       }
 
       try {
@@ -94,7 +102,7 @@ const EventAccess = () => {
     };
 
     handleEventAccess();
-  }, [password, navigate, toast]);
+  }, [password, navigate, toast, location.search]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">

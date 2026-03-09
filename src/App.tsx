@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import Login from "./pages/Login";
 import Logout from "./pages/Logout";
@@ -104,6 +104,30 @@ const ScrollToTop = () => {
   return null;
 };
 
+const DemoEnvironmentBackButton = () => {
+  const { pathname } = useLocation();
+  const [enabled, setEnabled] = useState(() => localStorage.getItem("demoEnvironmentMode") === "1");
+
+  useEffect(() => {
+    setEnabled(localStorage.getItem("demoEnvironmentMode") === "1");
+  }, [pathname]);
+
+  const shouldShow = enabled && (pathname === "/camera" || pathname === "/gallery");
+  if (!shouldShow) return null;
+
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        window.location.href = "https://www.revelao.cam/entornodemo";
+      }}
+      className="fixed bottom-4 left-1/2 z-[70] -translate-x-1/2 rounded-full bg-black/85 px-4 py-2 text-sm font-semibold text-white shadow-lg backdrop-blur-sm hover:bg-black"
+    >
+      {"<- Volver a Entorno Prueba"}
+    </button>
+  );
+};
+
 const App = () => {
   useEffect(() => {
     if ("scrollRestoration" in window.history) {
@@ -153,6 +177,7 @@ const App = () => {
             <Toaster />
             <Sonner />
             <ScrollToTop />
+            <DemoEnvironmentBackButton />
             <Routes>
               <Route path="/" element={<AdminLogin />} />
               <Route path="/login" element={<AdminLogin />} />
