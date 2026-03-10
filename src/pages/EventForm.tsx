@@ -1549,6 +1549,9 @@ const EventForm = () => {
                     id="expiryDate"
                     type="date"
                     value={formData.expiryDate}
+                    onChange={(e) =>
+                      setFormData({ ...formData, expiryDate: e.target.value })
+                    }
                     disabled={!isSuperAdmin || planType !== "custom"}
                   />
                   </div>
@@ -1561,6 +1564,9 @@ const EventForm = () => {
                     id="expiryTime"
                     type="time"
                     value={formData.expiryTime}
+                    onChange={(e) =>
+                      setFormData({ ...formData, expiryTime: e.target.value })
+                    }
                     disabled={!isSuperAdmin || planType !== "custom"}
                   />
                   </div>
