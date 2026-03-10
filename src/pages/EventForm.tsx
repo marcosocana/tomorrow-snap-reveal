@@ -934,9 +934,7 @@ const EventForm = () => {
     if (!formData.revealDate) return;
     const expiryDays = getExpiryDays();
     if (expiryDays === null) {
-      setFormData((prev) =>
-        prev.expiryDate === "" && prev.expiryTime === "" ? prev : { ...prev, expiryDate: "", expiryTime: "" }
-      );
+      // In custom plan, expiry is manually managed by superadmin.
       return;
     }
     const eventTz = formData.timezone;
