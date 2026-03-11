@@ -346,45 +346,6 @@ const EventManagement = () => {
     }
   };
 
-  const handleReferralToggle = async (checked: boolean) => {
-    try {
-      setReferralSaving(true);
-      const { data, error } = await supabase.functions.invoke("referrals", {
-        method: "POST",
-        body: { active: checked },
-      });
-      if (error) throw error;
-      setReferralInfo((prev) => ({
-        code: data?.code ?? prev?.code ?? null,
-        active: Boolean(data?.active),
-        link: data?.link ?? prev?.link ?? null,
-        stats: prev?.stats ?? {
-          totalSignups: 0,
-          totalConversions: 0,
-          totalRewards: 0,
-          pendingRewards: 0,
-        },
-      }));
-      toast({
-        title: "Plan de referidos actualizado",
-        description: checked
-          ? "Ya puedes compartir tu enlace y generar comisiones."
-          : "Has desactivado temporalmente tu enlace de referidos.",
-      });
-      if (checked) {
-        await loadReferralInfo();
-      }
-    } catch (error) {
-      console.error("Error updating referral preference:", error);
-      toast({
-        title: "Error",
-        description: "No se pudo actualizar el plan de referidos.",
-        variant: "destructive",
-      });
-    } finally {
-      setReferralSaving(false);
-    }
-  };
 
   useEffect(() => {
     const created = (location.state as any)?.createdEvent;
