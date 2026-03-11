@@ -310,8 +310,6 @@ const EventManagement = () => {
       setMarketingOptIn(profile?.marketing_opt_in ?? true);
     };
     loadUserEmail();
-    };
-    loadUserEmail();
   }, []);
 
 
