@@ -81,17 +81,29 @@ serve(async (req) => {
     }
 
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-    const { data: attribution, error: attributionError } = await supabaseAdmin
+    const { data: byUserId, error: byUserIdError } = await supabaseAdmin
       .from("referral_attributions")
       .select("id")
       .eq("referred_user_id", userData.user.id)
-      .maybeSingle();
+      .limit(1);
 
-    if (attributionError) {
-      console.error("stripe-create-checkout-session referral lookup error:", attributionError);
+    if (byUserIdError) {
+      console.error("stripe-create-checkout-session referral lookup byUserId error:", byUserIdError);
     }
 
-    const hasReferral = Boolean(attribution?.id);
+    let hasReferral = Boolean(byUserId && byUserId.length > 0);
+    if (!hasReferral && userData.user.email) {
+      const { data: byEmail, error: byEmailError } = await supabaseAdmin
+        .from("referral_attributions")
+        .select("id")
+        .ilike("referred_email", userData.user.email.trim().toLowerCase())
+        .limit(1);
+      if (byEmailError) {
+        console.error("stripe-create-checkout-session referral lookup byEmail error:", byEmailError);
+      }
+      hasReferral = Boolean(byEmail && byEmail.length > 0);
+    }
+
     const discountEligible = hasReferral && plan.id !== "small";
     const params = new URLSearchParams();
     params.set("mode", "payment");

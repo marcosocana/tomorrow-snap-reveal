@@ -4,6 +4,7 @@ import { useAdminI18n } from "@/lib/adminI18n";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { useEffect, useState } from "react";
 import {
   Carousel,
   CarouselContent,
@@ -18,26 +19,26 @@ const plans = [
     subtitleKey: "pricing.plan.demo.subtitle",
     ctaKey: "pricing.plan.demo.cta",
     planId: "demo",
-    price: "0€",
+    price: 0,
   },
   {
     titleKey: "pricing.plan.small",
     subtitleKey: "pricing.plan.small.subtitle",
     planId: "small",
-    price: "39€",
+    price: 39,
   },
   {
     titleKey: "pricing.plan.medium",
     subtitleKey: "pricing.plan.medium.subtitle",
     planId: "medium",
-    price: "79€",
+    price: 79,
     featured: true,
   },
   {
     titleKey: "pricing.plan.xl",
     subtitleKey: "pricing.plan.xl.subtitle",
     planId: "xxl",
-    price: "149€",
+    price: 149,
   },
 ];
 
@@ -57,7 +58,32 @@ export const PricingPreview = ({
   const { t, pathPrefix } = useAdminI18n();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [referralDiscountEligible, setReferralDiscountEligible] = useState(false);
   const visiblePlans = hideDemo ? plans.filter((plan) => plan.planId !== "demo") : plans;
+
+  const formatEur = (amount: number) =>
+    new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR", maximumFractionDigits: 2 }).format(amount);
+
+  useEffect(() => {
+    const loadReferralDiscountStatus = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          setReferralDiscountEligible(false);
+          return;
+        }
+        const { data, error } = await supabase.functions.invoke("referral-discount-status", { method: "GET" });
+        if (error) {
+          setReferralDiscountEligible(false);
+          return;
+        }
+        setReferralDiscountEligible(Boolean(data?.eligible));
+      } catch {
+        setReferralDiscountEligible(false);
+      }
+    };
+    loadReferralDiscountStatus();
+  }, []);
   const planFeatures: Record<string, string[]> = {
     demo: [
       t("pricing.plan.demo.feature.photos"),
@@ -164,8 +190,18 @@ export const PricingPreview = ({
       <div className="mb-6 space-y-2">
         <h4 className="text-lg font-semibold text-foreground">{t(plan.titleKey)}</h4>
         <p className="text-sm text-muted-foreground">{t(plan.subtitleKey)}</p>
+        {referralDiscountEligible && plan.planId !== "small" && plan.planId !== "demo" ? (
+          <p className="text-xs font-semibold text-[hsl(var(--revelao-red))]">Precio referido -30%</p>
+        ) : null}
         <div className="flex items-end gap-2 pt-1">
-          <span className="text-4xl font-bold text-foreground">{plan.price}</span>
+          {referralDiscountEligible && plan.planId !== "small" && plan.planId !== "demo" ? (
+            <>
+              <span className="text-4xl font-bold text-foreground">{formatEur(Math.round(plan.price * 70) / 100)}</span>
+              <span className="text-base text-muted-foreground line-through">{formatEur(plan.price)}</span>
+            </>
+          ) : (
+            <span className="text-4xl font-bold text-foreground">{formatEur(plan.price)}</span>
+          )}
           <span className="text-sm text-muted-foreground pb-1">{t("pricing.perEvent")}</span>
         </div>
       </div>
