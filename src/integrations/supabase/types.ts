@@ -430,6 +430,131 @@ export type Database = {
         }
         Relationships: []
       }
+      referral_attributions: {
+        Row: {
+          converted_at: string | null
+          created_at: string
+          demo_event_id: string | null
+          id: string
+          purchase_id: string | null
+          referral_code_id: string
+          referred_email: string | null
+          referred_user_id: string
+          referrer_user_id: string
+          source: string | null
+        }
+        Insert: {
+          converted_at?: string | null
+          created_at?: string
+          demo_event_id?: string | null
+          id?: string
+          purchase_id?: string | null
+          referral_code_id: string
+          referred_email?: string | null
+          referred_user_id: string
+          referrer_user_id: string
+          source?: string | null
+        }
+        Update: {
+          converted_at?: string | null
+          created_at?: string
+          demo_event_id?: string | null
+          id?: string
+          purchase_id?: string | null
+          referral_code_id?: string
+          referred_email?: string | null
+          referred_user_id?: string
+          referrer_user_id?: string
+          source?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referral_attributions_demo_event_id_fkey"
+            columns: ["demo_event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referral_attributions_referral_code_id_fkey"
+            columns: ["referral_code_id"]
+            isOneToOne: false
+            referencedRelation: "referral_codes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      referral_codes: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          is_active: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      referral_rewards: {
+        Row: {
+          amount_eur: number
+          attribution_id: string | null
+          created_at: string
+          id: string
+          purchase_id: string | null
+          referred_user_id: string
+          referrer_user_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          amount_eur?: number
+          attribution_id?: string | null
+          created_at?: string
+          id?: string
+          purchase_id?: string | null
+          referred_user_id: string
+          referrer_user_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          amount_eur?: number
+          attribution_id?: string | null
+          created_at?: string
+          id?: string
+          purchase_id?: string | null
+          referred_user_id?: string
+          referrer_user_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referral_rewards_attribution_id_fkey"
+            columns: ["attribution_id"]
+            isOneToOne: false
+            referencedRelation: "referral_attributions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_profiles: {
         Row: {
           created_at: string
