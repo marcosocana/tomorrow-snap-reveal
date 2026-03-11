@@ -79,10 +79,6 @@ const PublicDemoEventForm = () => {
   const [startMode, setStartMode] = useState<"now" | "schedule">("now");
   const navigate = useNavigate();
   const location = useLocation();
-  const referralCode = useMemo(
-    () => (new URLSearchParams(location.search).get("ref") ?? "").trim().toUpperCase(),
-    [location.search],
-  );
   const { toast } = useToast();
   const now = new Date();
   const nowTz = toZonedTime(now, formData.timezone);
