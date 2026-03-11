@@ -63,6 +63,7 @@ serve(async (req) => {
     params.set("cancel_url", `${APP_ORIGIN}/?checkout=cancel`);
     params.append("line_items[0][price]", priceId);
     params.append("line_items[0][quantity]", "1");
+
     if (userData.user.email) {
       params.set("customer_email", userData.user.email);
     }

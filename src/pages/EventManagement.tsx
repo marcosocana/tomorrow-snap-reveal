@@ -71,6 +71,7 @@ interface MediaUsageTagProps {
   className?: string;
 }
 
+
 const MediaUsageTag = ({
   photoCount,
   photoLimit,
@@ -311,6 +312,7 @@ const EventManagement = () => {
     loadUserEmail();
   }, []);
 
+
   const handleMarketingToggle = async (checked: boolean) => {
     if (!currentUserId) return;
     try {
@@ -341,6 +343,7 @@ const EventManagement = () => {
       setMarketingSaving(false);
     }
   };
+
 
   useEffect(() => {
     const created = (location.state as any)?.createdEvent;

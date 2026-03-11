@@ -66,10 +66,7 @@ serve(async (req) => {
     return json({ error: "Missing Supabase env" }, 500);
   }
 
-  const supabaseAdmin = createClient(
-    SUPABASE_URL,
-    SUPABASE_SERVICE_ROLE_KEY,
-  );
+  const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
   try {
     const payload = (await req.json()) as DemoEventPayload;
@@ -115,7 +112,6 @@ serve(async (req) => {
         const message = createUserError?.message ?? "unknown_error";
         console.error("create-demo-event createUserError:", message);
         if (isUserExistsError(message)) {
-          // Fallback: user may exist even if initial lookup failed (replication/permissions).
           const { data: fallbackUser, error: fallbackError } = await supabaseAdmin
             .schema("auth")
             .from("users")

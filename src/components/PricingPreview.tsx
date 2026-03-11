@@ -18,26 +18,26 @@ const plans = [
     subtitleKey: "pricing.plan.demo.subtitle",
     ctaKey: "pricing.plan.demo.cta",
     planId: "demo",
-    price: "0€",
+    price: 0,
   },
   {
     titleKey: "pricing.plan.small",
     subtitleKey: "pricing.plan.small.subtitle",
     planId: "small",
-    price: "39€",
+    price: 39,
   },
   {
     titleKey: "pricing.plan.medium",
     subtitleKey: "pricing.plan.medium.subtitle",
     planId: "medium",
-    price: "79€",
+    price: 79,
     featured: true,
   },
   {
     titleKey: "pricing.plan.xl",
     subtitleKey: "pricing.plan.xl.subtitle",
     planId: "xxl",
-    price: "149€",
+    price: 149,
   },
 ];
 
@@ -58,6 +58,10 @@ export const PricingPreview = ({
   const navigate = useNavigate();
   const { toast } = useToast();
   const visiblePlans = hideDemo ? plans.filter((plan) => plan.planId !== "demo") : plans;
+
+  const formatEur = (amount: number) =>
+    new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR", maximumFractionDigits: 2 }).format(amount);
+
   const planFeatures: Record<string, string[]> = {
     demo: [
       t("pricing.plan.demo.feature.photos"),
@@ -112,20 +116,19 @@ export const PricingPreview = ({
       return;
     }
 
-    const testUrlMap: Record<string, string | undefined> = {
-      small: import.meta.env.VITE_STRIPE_CHECKOUT_URL_SMALL ?? "https://buy.stripe.com/dRmdR2fCVbTMgIv0nl3ks06",
-      medium: import.meta.env.VITE_STRIPE_CHECKOUT_URL_MEDIUM ?? "https://buy.stripe.com/00w9AM3UdaPIfEr4DB3ks05",
-      large: import.meta.env.VITE_STRIPE_CHECKOUT_URL_LARGE,
-      xxl: import.meta.env.VITE_STRIPE_CHECKOUT_URL_XXL ?? "https://buy.stripe.com/7sY3co8at3ngfErc633ks04",
-    };
-    const testUrl = testUrlMap[planId];
-    if (testUrl) {
-      window.location.href = testUrl;
-      return;
-    }
-
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
+      const testUrlMap: Record<string, string | undefined> = {
+        small: import.meta.env.VITE_STRIPE_CHECKOUT_URL_SMALL ?? "https://buy.stripe.com/dRmdR2fCVbTMgIv0nl3ks06",
+        medium: import.meta.env.VITE_STRIPE_CHECKOUT_URL_MEDIUM ?? "https://buy.stripe.com/00w9AM3UdaPIfEr4DB3ks05",
+        large: import.meta.env.VITE_STRIPE_CHECKOUT_URL_LARGE,
+        xxl: import.meta.env.VITE_STRIPE_CHECKOUT_URL_XXL ?? "https://buy.stripe.com/7sY3co8at3ngfErc633ks04",
+      };
+      const testUrl = testUrlMap[planId];
+      if (testUrl) {
+        window.location.href = testUrl;
+        return;
+      }
       navigate(`${pathPrefix}/admin-login`);
       return;
     }
@@ -166,7 +169,7 @@ export const PricingPreview = ({
         <h4 className="text-lg font-semibold text-foreground">{t(plan.titleKey)}</h4>
         <p className="text-sm text-muted-foreground">{t(plan.subtitleKey)}</p>
         <div className="flex items-end gap-2 pt-1">
-          <span className="text-4xl font-bold text-foreground">{plan.price}</span>
+          <span className="text-4xl font-bold text-foreground">{formatEur(plan.price)}</span>
           <span className="text-sm text-muted-foreground pb-1">{t("pricing.perEvent")}</span>
         </div>
       </div>
