@@ -437,7 +437,7 @@ const PublicDemoEventForm = () => {
           password: formData.contactPassword,
           phone: formData.contactPhone,
           marketingConsent: formData.acceptMarketing,
-          referralCode: referralCode || null,
+          
           event: {
             name: formData.name,
             password_hash: formData.password,

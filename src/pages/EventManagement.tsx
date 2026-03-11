@@ -1601,64 +1601,6 @@ const EventManagement = () => {
                 </span>
               </span>
             </label>
-            <label className="flex items-start gap-3 rounded-md border border-border bg-muted/30 px-3 py-2 text-sm">
-              <input
-                type="checkbox"
-                className="mt-1 h-4 w-4 rounded border-border"
-                checked={Boolean(referralInfo?.active)}
-                disabled={referralSaving || referralLoading}
-                onChange={(e) => handleReferralToggle(e.target.checked)}
-              />
-              <span>
-                Activar plan de referidos
-                <span className="block text-xs text-muted-foreground">
-                  Si alguien se registra con tu enlace y compra un plan, generas 30€.
-                </span>
-              </span>
-            </label>
-            {referralLoading ? (
-              <div className="rounded-md border border-border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                Cargando datos de referidos...
-              </div>
-            ) : referralInfo?.active ? (
-              <div className="space-y-2 rounded-md border border-border bg-muted/20 px-3 py-2 text-xs">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-muted-foreground">Código:</span>
-                  <span className="font-medium">{referralInfo.code || "-"}</span>
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-muted-foreground">Registros:</span>
-                  <span className="font-medium">{referralInfo.stats.totalSignups}</span>
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-muted-foreground">Compras:</span>
-                  <span className="font-medium">{referralInfo.stats.totalConversions}</span>
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-muted-foreground">Acumulado:</span>
-                  <span className="font-medium">{referralInfo.stats.totalRewards.toFixed(2)}€</span>
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-muted-foreground">Pendiente:</span>
-                  <span className="font-medium">{referralInfo.stats.pendingRewards.toFixed(2)}€</span>
-                </div>
-                <Button
-                  className="w-full"
-                  variant="outline"
-                  onClick={() => {
-                    if (!referralInfo.link) return;
-                    navigator.clipboard.writeText(referralInfo.link);
-                    toast({
-                      title: "Enlace copiado",
-                      description: "Tu enlace de referidos está en el portapapeles.",
-                    });
-                  }}
-                >
-                  <Copy className="w-4 h-4 mr-2" />
-                  Copiar enlace de referidos
-                </Button>
-              </div>
-            ) : null}
             <Button
               className="w-full"
               variant="outline"
