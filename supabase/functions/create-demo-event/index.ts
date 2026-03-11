@@ -189,7 +189,7 @@ serve(async (req) => {
       if (codeRow?.id && codeRow?.is_active && codeRow.user_id !== userId) {
         const { error: attributionError } = await supabaseAdmin
           .from("referral_attributions")
-          .insert(
+          .upsert(
             {
               referral_code_id: codeRow.id,
               referrer_user_id: codeRow.user_id,

@@ -42,7 +42,7 @@ const getUserIdFromToken = async (token: string) => {
   return data.user.id;
 };
 
-const ensureReferralCode = async (supabaseAdmin: ReturnType<typeof createClient>, userId: string) => {
+const ensureReferralCode = async (supabaseAdmin: any, userId: string) => {
   const { data: existing } = await supabaseAdmin
     .from("referral_codes")
     .select("id, code, is_active")
