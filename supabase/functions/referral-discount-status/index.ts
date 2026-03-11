@@ -7,7 +7,8 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
   "Access-Control-Allow-Methods": "GET, OPTIONS",
 };
 
@@ -36,43 +37,47 @@ serve(async (req) => {
     return json({ error: "UNAUTHORIZED" }, 401);
   }
 
-  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  const { data: userData, error: userError } = await supabase.auth.getUser(token);
-  if (userError || !userData?.user?.id) {
-    return json({ error: "UNAUTHORIZED" }, 401);
-  }
+  try {
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const { data: userData, error: userError } = await supabase.auth.getUser(token);
+    if (userError || !userData?.user) {
+      return json({ error: "UNAUTHORIZED" }, 401);
+    }
 
-  const userId = userData.user.id;
-  const userEmail = userData.user.email?.trim().toLowerCase() ?? null;
-  const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const userId = userData.user.id;
+    const userEmail = userData.user.email;
 
-  const { data: byUserId, error: byUserIdError } = await supabaseAdmin
-    .from("referral_attributions")
-    .select("id")
-    .eq("referred_user_id", userId)
-    .limit(1);
+    const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-  if (byUserIdError) {
-    console.error("referral-discount-status byUserId error:", byUserIdError.message);
-  }
-
-  let eligible = Boolean(byUserId && byUserId.length > 0);
-
-  if (!eligible && userEmail) {
-    const { data: byEmail, error: byEmailError } = await supabaseAdmin
+    // Check by referred_user_id
+    const { data: byId } = await supabaseAdmin
       .from("referral_attributions")
       .select("id")
-      .ilike("referred_email", userEmail)
-      .limit(1);
-    if (byEmailError) {
-      console.error("referral-discount-status byEmail error:", byEmailError.message);
-    }
-    eligible = Boolean(byEmail && byEmail.length > 0);
-  }
+      .eq("referred_user_id", userId)
+      .limit(1)
+      .maybeSingle();
 
-  return json({
-    eligible,
-    discountPercent: eligible ? 30 : 0,
-    excludedPlans: ["small"],
-  });
+    let eligible = Boolean(byId?.id);
+
+    // Fallback: check by referred_email (case-insensitive)
+    if (!eligible && userEmail) {
+      const { data: byEmail } = await supabaseAdmin
+        .from("referral_attributions")
+        .select("id")
+        .ilike("referred_email", userEmail)
+        .limit(1)
+        .maybeSingle();
+
+      eligible = Boolean(byEmail?.id);
+    }
+
+    return json({
+      eligible,
+      discountPercent: eligible ? 30 : 0,
+      excludedPlans: ["small"],
+    });
+  } catch (error) {
+    console.error("referral-discount-status error:", error);
+    return json({ error: "UNKNOWN_ERROR" }, 500);
+  }
 });
