@@ -314,28 +314,6 @@ const EventManagement = () => {
     loadUserEmail();
   }, []);
 
-  const loadReferralInfo = async () => {
-    try {
-      setReferralLoading(true);
-      const { data, error } = await supabase.functions.invoke("referrals", { method: "GET" });
-      if (error) throw error;
-      setReferralInfo({
-        code: data?.code ?? null,
-        active: Boolean(data?.active),
-        link: data?.link ?? null,
-        stats: {
-          totalSignups: Number(data?.stats?.totalSignups ?? 0),
-          totalConversions: Number(data?.stats?.totalConversions ?? 0),
-          totalRewards: Number(data?.stats?.totalRewards ?? 0),
-          pendingRewards: Number(data?.stats?.pendingRewards ?? 0),
-        },
-      });
-    } catch (error) {
-      console.error("Error loading referral info:", error);
-    } finally {
-      setReferralLoading(false);
-    }
-  };
 
   const handleMarketingToggle = async (checked: boolean) => {
     if (!currentUserId) return;
