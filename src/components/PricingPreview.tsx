@@ -57,32 +57,11 @@ export const PricingPreview = ({
   const { t, pathPrefix } = useAdminI18n();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [referralDiscountEligible, setReferralDiscountEligible] = useState(false);
   const visiblePlans = hideDemo ? plans.filter((plan) => plan.planId !== "demo") : plans;
 
   const formatEur = (amount: number) =>
     new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR", maximumFractionDigits: 2 }).format(amount);
 
-  useEffect(() => {
-    const loadReferralDiscountStatus = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) {
-          setReferralDiscountEligible(false);
-          return;
-        }
-        const { data, error } = await supabase.functions.invoke("referral-discount-status", { method: "GET" });
-        if (error) {
-          setReferralDiscountEligible(false);
-          return;
-        }
-        setReferralDiscountEligible(Boolean(data?.eligible));
-      } catch {
-        setReferralDiscountEligible(false);
-      }
-    };
-    loadReferralDiscountStatus();
-  }, []);
   const planFeatures: Record<string, string[]> = {
     demo: [
       t("pricing.plan.demo.feature.photos"),
