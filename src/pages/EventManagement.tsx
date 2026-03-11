@@ -135,9 +135,6 @@ const EventManagement = () => {
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
   const [marketingOptIn, setMarketingOptIn] = useState(true);
   const [marketingSaving, setMarketingSaving] = useState(false);
-  const [referralInfo, setReferralInfo] = useState<ReferralSummary | null>(null);
-  const [referralLoading, setReferralLoading] = useState(false);
-  const [referralSaving, setReferralSaving] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [previewEvent, setPreviewEvent] = useState<Event | null>(null);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
