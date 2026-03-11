@@ -4,6 +4,7 @@ import { getPlanById } from "../_shared/planConfig.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const STRIPE_SECRET_KEY = Deno.env.get("STRIPE_SECRET_KEY") ?? "";
 const APP_ORIGIN = Deno.env.get("APP_ORIGIN") ?? "https://acceso.revelao.cam";
 
@@ -20,6 +21,28 @@ const json = (body: unknown, status = 200) =>
     headers: { "Content-Type": "application/json", ...corsHeaders },
   });
 
+type StripePrice = {
+  id: string;
+  unit_amount: number | null;
+  currency: string;
+  product: string;
+};
+
+const getStripePrice = async (priceId: string): Promise<StripePrice | null> => {
+  const response = await fetch(`https://api.stripe.com/v1/prices/${priceId}`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${STRIPE_SECRET_KEY}`,
+    },
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    console.error("stripe-create-checkout-session price lookup error:", data);
+    return null;
+  }
+  return data as StripePrice;
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -29,7 +52,7 @@ serve(async (req) => {
     return json({ error: "Method not allowed" }, 405);
   }
 
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !STRIPE_SECRET_KEY) {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !SUPABASE_SERVICE_ROLE_KEY || !STRIPE_SECRET_KEY) {
     return json({ error: "Missing env" }, 500);
   }
 
@@ -57,12 +80,41 @@ serve(async (req) => {
       return json({ error: "UNAUTHORIZED" }, 401);
     }
 
+    const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const { data: attribution, error: attributionError } = await supabaseAdmin
+      .from("referral_attributions")
+      .select("id")
+      .eq("referred_user_id", userData.user.id)
+      .maybeSingle();
+
+    if (attributionError) {
+      console.error("stripe-create-checkout-session referral lookup error:", attributionError);
+    }
+
+    const hasReferral = Boolean(attribution?.id);
+    const discountEligible = hasReferral && plan.id !== "small";
     const params = new URLSearchParams();
     params.set("mode", "payment");
     params.set("success_url", `${APP_ORIGIN}/?checkout=success`);
     params.set("cancel_url", `${APP_ORIGIN}/?checkout=cancel`);
-    params.append("line_items[0][price]", priceId);
-    params.append("line_items[0][quantity]", "1");
+
+    if (discountEligible) {
+      const basePrice = await getStripePrice(priceId);
+      if (!basePrice?.unit_amount || !basePrice.currency || !basePrice.product) {
+        return json({ error: "INVALID_PRICE_DATA" }, 500);
+      }
+      const discountedAmount = Math.max(1, Math.round(basePrice.unit_amount * 0.7));
+      params.append("line_items[0][price_data][currency]", basePrice.currency);
+      params.append("line_items[0][price_data][product]", basePrice.product);
+      params.append("line_items[0][price_data][unit_amount]", String(discountedAmount));
+      params.append("line_items[0][quantity]", "1");
+      params.append("metadata[referralDiscountPercent]", "30");
+      params.append("metadata[baseStripePriceId]", priceId);
+    } else {
+      params.append("line_items[0][price]", priceId);
+      params.append("line_items[0][quantity]", "1");
+    }
+
     if (userData.user.email) {
       params.set("customer_email", userData.user.email);
     }
