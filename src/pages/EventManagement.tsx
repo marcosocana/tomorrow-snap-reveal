@@ -308,7 +308,8 @@ const EventManagement = () => {
         .eq("id", user.id)
         .maybeSingle();
       setMarketingOptIn(profile?.marketing_opt_in ?? true);
-      loadReferralInfo();
+    };
+    loadUserEmail();
     };
     loadUserEmail();
   }, []);
