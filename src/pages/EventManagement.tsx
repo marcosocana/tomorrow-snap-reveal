@@ -71,17 +71,6 @@ interface MediaUsageTagProps {
   className?: string;
 }
 
-interface ReferralSummary {
-  code: string | null;
-  active: boolean;
-  link: string | null;
-  stats: {
-    totalSignups: number;
-    totalConversions: number;
-    totalRewards: number;
-    pendingRewards: number;
-  };
-}
 
 const MediaUsageTag = ({
   photoCount,
