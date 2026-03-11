@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Trash2 } from "lucide-react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -78,11 +78,6 @@ const PublicDemoEventForm = () => {
   });
   const [startMode, setStartMode] = useState<"now" | "schedule">("now");
   const navigate = useNavigate();
-  const location = useLocation();
-  const referralCode = useMemo(
-    () => (new URLSearchParams(location.search).get("ref") ?? "").trim().toUpperCase(),
-    [location.search],
-  );
   const { toast } = useToast();
   const now = new Date();
   const nowTz = toZonedTime(now, formData.timezone);
@@ -441,7 +436,6 @@ const PublicDemoEventForm = () => {
           password: formData.contactPassword,
           phone: formData.contactPhone,
           marketingConsent: formData.acceptMarketing,
-          referralCode: referralCode || null,
           event: {
             name: formData.name,
             password_hash: formData.password,

@@ -24,7 +24,6 @@ type DemoEventPayload = {
   password: string;
   phone?: string | null;
   marketingConsent?: boolean;
-  referralCode?: string | null;
   event: {
     name: string;
     password_hash: string;
@@ -54,13 +53,6 @@ const isUserExistsError = (message: string) =>
   message.toLowerCase().includes("email already") ||
   message.toLowerCase().includes("already exists");
 
-const normalizeReferralCode = (value: string | null | undefined) => {
-  const code = (value ?? "").trim().toUpperCase();
-  if (!code) return null;
-  if (!/^[A-Z0-9]{6,20}$/.test(code)) return null;
-  return code;
-};
-
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -85,7 +77,6 @@ serve(async (req) => {
     const password = payload?.password ?? "";
     const phone = payload?.phone?.trim() || null;
     const marketingConsent = payload?.marketingConsent ?? true;
-    const referralCode = normalizeReferralCode(payload?.referralCode);
     const event = payload?.event;
 
     if (!email || !isEmail(email)) {
@@ -175,40 +166,6 @@ serve(async (req) => {
       return json({ error: "CREATE_PROFILE_FAILED", detail: profileError.message }, 500);
     }
 
-    if (referralCode) {
-      const { data: codeRow, error: referralCodeError } = await supabaseAdmin
-        .from("referral_codes")
-        .select("id, user_id, is_active")
-        .eq("code", referralCode)
-        .maybeSingle();
-
-      if (referralCodeError) {
-        console.error("create-demo-event referral code lookup error:", referralCodeError.message);
-      }
-
-      if (codeRow?.id && codeRow?.is_active && codeRow.user_id !== userId) {
-        const { error: attributionError } = await supabaseAdmin
-          .from("referral_attributions")
-          .upsert(
-            {
-              referral_code_id: codeRow.id,
-              referrer_user_id: codeRow.user_id,
-              referred_user_id: userId,
-              referred_email: email,
-              source: "demo_signup",
-            },
-            {
-              onConflict: "referred_user_id",
-              ignoreDuplicates: true,
-            },
-          );
-
-        if (attributionError) {
-          console.error("create-demo-event referral attribution error:", attributionError.message);
-        }
-      }
-    }
-
     const revealBase = new Date(event.reveal_time);
     const expiryDate = new Date(revealBase);
     expiryDate.setUTCDate(expiryDate.getUTCDate() + 10);
@@ -256,18 +213,6 @@ serve(async (req) => {
       const detail = eventError?.message ?? "unknown_error";
       console.error("create-demo-event createEventError:", detail);
       return json({ error: "CREATE_EVENT_FAILED", detail }, 500);
-    }
-
-    if (referralCode) {
-      const { error: linkAttributionError } = await supabaseAdmin
-        .from("referral_attributions")
-        .update({ demo_event_id: createdEvent.id })
-        .eq("referred_user_id", userId)
-        .is("demo_event_id", null);
-
-      if (linkAttributionError) {
-        console.error("create-demo-event referral link event error:", linkAttributionError.message);
-      }
     }
 
     return json({
