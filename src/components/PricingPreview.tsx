@@ -112,20 +112,19 @@ export const PricingPreview = ({
       return;
     }
 
-    const testUrlMap: Record<string, string | undefined> = {
-      small: import.meta.env.VITE_STRIPE_CHECKOUT_URL_SMALL ?? "https://buy.stripe.com/dRmdR2fCVbTMgIv0nl3ks06",
-      medium: import.meta.env.VITE_STRIPE_CHECKOUT_URL_MEDIUM ?? "https://buy.stripe.com/00w9AM3UdaPIfEr4DB3ks05",
-      large: import.meta.env.VITE_STRIPE_CHECKOUT_URL_LARGE,
-      xxl: import.meta.env.VITE_STRIPE_CHECKOUT_URL_XXL ?? "https://buy.stripe.com/7sY3co8at3ngfErc633ks04",
-    };
-    const testUrl = testUrlMap[planId];
-    if (testUrl) {
-      window.location.href = testUrl;
-      return;
-    }
-
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
+      const testUrlMap: Record<string, string | undefined> = {
+        small: import.meta.env.VITE_STRIPE_CHECKOUT_URL_SMALL ?? "https://buy.stripe.com/dRmdR2fCVbTMgIv0nl3ks06",
+        medium: import.meta.env.VITE_STRIPE_CHECKOUT_URL_MEDIUM ?? "https://buy.stripe.com/00w9AM3UdaPIfEr4DB3ks05",
+        large: import.meta.env.VITE_STRIPE_CHECKOUT_URL_LARGE,
+        xxl: import.meta.env.VITE_STRIPE_CHECKOUT_URL_XXL ?? "https://buy.stripe.com/7sY3co8at3ngfErc633ks04",
+      };
+      const testUrl = testUrlMap[planId];
+      if (testUrl) {
+        window.location.href = testUrl;
+        return;
+      }
       navigate(`${pathPrefix}/admin-login`);
       return;
     }
