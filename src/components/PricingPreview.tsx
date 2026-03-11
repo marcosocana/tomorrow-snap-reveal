@@ -168,18 +168,8 @@ export const PricingPreview = ({
       <div className="mb-6 space-y-2">
         <h4 className="text-lg font-semibold text-foreground">{t(plan.titleKey)}</h4>
         <p className="text-sm text-muted-foreground">{t(plan.subtitleKey)}</p>
-        {referralDiscountEligible && plan.planId !== "small" && plan.planId !== "demo" ? (
-          <p className="text-xs font-semibold text-[hsl(var(--revelao-red))]">Precio referido -30%</p>
-        ) : null}
         <div className="flex items-end gap-2 pt-1">
-          {referralDiscountEligible && plan.planId !== "small" && plan.planId !== "demo" ? (
-            <>
-              <span className="text-4xl font-bold text-foreground">{formatEur(Math.round(plan.price * 70) / 100)}</span>
-              <span className="text-base text-muted-foreground line-through">{formatEur(plan.price)}</span>
-            </>
-          ) : (
-            <span className="text-4xl font-bold text-foreground">{formatEur(plan.price)}</span>
-          )}
+          <span className="text-4xl font-bold text-foreground">{formatEur(plan.price)}</span>
           <span className="text-sm text-muted-foreground pb-1">{t("pricing.perEvent")}</span>
         </div>
       </div>
