@@ -85,7 +85,7 @@ const findUserIdByEmail = async (supabaseAdmin: any, email: string) => {
 };
 
 const applyReferralReward = async (
-  supabaseAdmin: ReturnType<typeof createClient>,
+  supabaseAdmin: any,
   referredUserId: string,
   purchaseId: string,
 ) => {
