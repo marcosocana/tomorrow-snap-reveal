@@ -68,6 +68,75 @@ const generateRedeemToken = (length = 16) => {
   return token;
 };
 
+const findUserIdByEmail = async (supabaseAdmin: ReturnType<typeof createClient>, email: string) => {
+  const normalizedEmail = email.trim().toLowerCase();
+  if (!normalizedEmail) return null;
+  const { data, error } = await supabaseAdmin
+    .schema("auth")
+    .from("users")
+    .select("id")
+    .eq("email", normalizedEmail)
+    .maybeSingle();
+  if (error) {
+    console.error("stripe-webhook auth user lookup error:", error.message);
+    return null;
+  }
+  return data?.id ?? null;
+};
+
+const applyReferralReward = async (
+  supabaseAdmin: ReturnType<typeof createClient>,
+  referredUserId: string,
+  purchaseId: string,
+) => {
+  const { data: attribution, error: attributionError } = await supabaseAdmin
+    .from("referral_attributions")
+    .select("id, referrer_user_id, referred_user_id, converted_at, purchase_id")
+    .eq("referred_user_id", referredUserId)
+    .maybeSingle();
+
+  if (attributionError) {
+    console.error("stripe-webhook referral attribution lookup error:", attributionError.message);
+    return;
+  }
+
+  if (!attribution?.id || attribution.converted_at) {
+    return;
+  }
+
+  const { error: convertError } = await supabaseAdmin
+    .from("referral_attributions")
+    .update({
+      converted_at: new Date().toISOString(),
+      purchase_id: purchaseId,
+    })
+    .eq("id", attribution.id)
+    .is("converted_at", null);
+
+  if (convertError) {
+    console.error("stripe-webhook referral conversion update error:", convertError.message);
+    return;
+  }
+
+  const { error: rewardError } = await supabaseAdmin
+    .from("referral_rewards")
+    .upsert(
+      {
+        referrer_user_id: attribution.referrer_user_id,
+        referred_user_id: attribution.referred_user_id,
+        attribution_id: attribution.id,
+        purchase_id: purchaseId,
+        amount_eur: 30,
+        status: "pending",
+      },
+      { onConflict: "purchase_id" },
+    );
+
+  if (rewardError) {
+    console.error("stripe-webhook referral reward upsert error:", rewardError.message);
+  }
+};
+
 
 const fetchStripeJson = async (path: string) => {
   const response = await fetch(`https://api.stripe.com/v1/${path}`, {
@@ -150,13 +219,17 @@ serve(async (req) => {
     return json({ error: "Unknown plan" }, 400);
   }
 
-  const userId = session.metadata?.userId || null;
+  let userId = session.metadata?.userId || null;
   const userEmail = session.customer_email || session.customer_details?.email || null;
 
   const redeemToken = generateRedeemToken(16);
   const redeemExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
   const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  if (!userId && userEmail) {
+    userId = await findUserIdByEmail(supabaseAdmin, userEmail);
+  }
+
   const { data: inserted, error } = await supabaseAdmin
     .from("purchases")
     .upsert(
@@ -174,9 +247,23 @@ serve(async (req) => {
     .select()
     .maybeSingle();
 
-  if (error) {
+  if (error || !inserted?.id) {
     console.error("Insert purchase error:", error);
     return json({ error: "DB error" }, 500);
+  }
+
+  if (userId && !inserted.user_id) {
+    const { error: userPatchError } = await supabaseAdmin
+      .from("purchases")
+      .update({ user_id: userId })
+      .eq("id", inserted.id);
+    if (userPatchError) {
+      console.error("stripe-webhook purchase user patch error:", userPatchError.message);
+    }
+  }
+
+  if (userId) {
+    await applyReferralReward(supabaseAdmin, userId, inserted.id);
   }
 
   if (userEmail) {

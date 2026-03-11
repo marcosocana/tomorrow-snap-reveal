@@ -71,6 +71,18 @@ interface MediaUsageTagProps {
   className?: string;
 }
 
+interface ReferralSummary {
+  code: string | null;
+  active: boolean;
+  link: string | null;
+  stats: {
+    totalSignups: number;
+    totalConversions: number;
+    totalRewards: number;
+    pendingRewards: number;
+  };
+}
+
 const MediaUsageTag = ({
   photoCount,
   photoLimit,
@@ -134,6 +146,9 @@ const EventManagement = () => {
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
   const [marketingOptIn, setMarketingOptIn] = useState(true);
   const [marketingSaving, setMarketingSaving] = useState(false);
+  const [referralInfo, setReferralInfo] = useState<ReferralSummary | null>(null);
+  const [referralLoading, setReferralLoading] = useState(false);
+  const [referralSaving, setReferralSaving] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [previewEvent, setPreviewEvent] = useState<Event | null>(null);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
@@ -307,9 +322,33 @@ const EventManagement = () => {
         .eq("id", user.id)
         .maybeSingle();
       setMarketingOptIn(profile?.marketing_opt_in ?? true);
+      loadReferralInfo();
     };
     loadUserEmail();
   }, []);
+
+  const loadReferralInfo = async () => {
+    try {
+      setReferralLoading(true);
+      const { data, error } = await supabase.functions.invoke("referrals", { method: "GET" });
+      if (error) throw error;
+      setReferralInfo({
+        code: data?.code ?? null,
+        active: Boolean(data?.active),
+        link: data?.link ?? null,
+        stats: {
+          totalSignups: Number(data?.stats?.totalSignups ?? 0),
+          totalConversions: Number(data?.stats?.totalConversions ?? 0),
+          totalRewards: Number(data?.stats?.totalRewards ?? 0),
+          pendingRewards: Number(data?.stats?.pendingRewards ?? 0),
+        },
+      });
+    } catch (error) {
+      console.error("Error loading referral info:", error);
+    } finally {
+      setReferralLoading(false);
+    }
+  };
 
   const handleMarketingToggle = async (checked: boolean) => {
     if (!currentUserId) return;
@@ -339,6 +378,46 @@ const EventManagement = () => {
       });
     } finally {
       setMarketingSaving(false);
+    }
+  };
+
+  const handleReferralToggle = async (checked: boolean) => {
+    try {
+      setReferralSaving(true);
+      const { data, error } = await supabase.functions.invoke("referrals", {
+        method: "POST",
+        body: { active: checked },
+      });
+      if (error) throw error;
+      setReferralInfo((prev) => ({
+        code: data?.code ?? prev?.code ?? null,
+        active: Boolean(data?.active),
+        link: data?.link ?? prev?.link ?? null,
+        stats: prev?.stats ?? {
+          totalSignups: 0,
+          totalConversions: 0,
+          totalRewards: 0,
+          pendingRewards: 0,
+        },
+      }));
+      toast({
+        title: "Plan de referidos actualizado",
+        description: checked
+          ? "Ya puedes compartir tu enlace y generar comisiones."
+          : "Has desactivado temporalmente tu enlace de referidos.",
+      });
+      if (checked) {
+        await loadReferralInfo();
+      }
+    } catch (error) {
+      console.error("Error updating referral preference:", error);
+      toast({
+        title: "Error",
+        description: "No se pudo actualizar el plan de referidos.",
+        variant: "destructive",
+      });
+    } finally {
+      setReferralSaving(false);
     }
   };
 
@@ -1596,6 +1675,64 @@ const EventManagement = () => {
                 </span>
               </span>
             </label>
+            <label className="flex items-start gap-3 rounded-md border border-border bg-muted/30 px-3 py-2 text-sm">
+              <input
+                type="checkbox"
+                className="mt-1 h-4 w-4 rounded border-border"
+                checked={Boolean(referralInfo?.active)}
+                disabled={referralSaving || referralLoading}
+                onChange={(e) => handleReferralToggle(e.target.checked)}
+              />
+              <span>
+                Activar plan de referidos
+                <span className="block text-xs text-muted-foreground">
+                  Si alguien se registra con tu enlace y compra un plan, generas 30€.
+                </span>
+              </span>
+            </label>
+            {referralLoading ? (
+              <div className="rounded-md border border-border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                Cargando datos de referidos...
+              </div>
+            ) : referralInfo?.active ? (
+              <div className="space-y-2 rounded-md border border-border bg-muted/20 px-3 py-2 text-xs">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-muted-foreground">Código:</span>
+                  <span className="font-medium">{referralInfo.code || "-"}</span>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-muted-foreground">Registros:</span>
+                  <span className="font-medium">{referralInfo.stats.totalSignups}</span>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-muted-foreground">Compras:</span>
+                  <span className="font-medium">{referralInfo.stats.totalConversions}</span>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-muted-foreground">Acumulado:</span>
+                  <span className="font-medium">{referralInfo.stats.totalRewards.toFixed(2)}€</span>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-muted-foreground">Pendiente:</span>
+                  <span className="font-medium">{referralInfo.stats.pendingRewards.toFixed(2)}€</span>
+                </div>
+                <Button
+                  className="w-full"
+                  variant="outline"
+                  onClick={() => {
+                    if (!referralInfo.link) return;
+                    navigator.clipboard.writeText(referralInfo.link);
+                    toast({
+                      title: "Enlace copiado",
+                      description: "Tu enlace de referidos está en el portapapeles.",
+                    });
+                  }}
+                >
+                  <Copy className="w-4 h-4 mr-2" />
+                  Copiar enlace de referidos
+                </Button>
+              </div>
+            ) : null}
             <Button
               className="w-full"
               variant="outline"
