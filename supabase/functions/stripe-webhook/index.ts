@@ -84,60 +84,6 @@ const findUserIdByEmail = async (supabaseAdmin: any, email: string) => {
   return data?.id ?? null;
 };
 
-const applyReferralReward = async (
-  supabaseAdmin: any,
-  referredUserId: string,
-  purchaseId: string,
-) => {
-  const { data: attribution, error: attributionError } = await supabaseAdmin
-    .from("referral_attributions")
-    .select("id, referrer_user_id, referred_user_id, converted_at, purchase_id")
-    .eq("referred_user_id", referredUserId)
-    .maybeSingle();
-
-  if (attributionError) {
-    console.error("stripe-webhook referral attribution lookup error:", attributionError.message);
-    return;
-  }
-
-  if (!attribution?.id || attribution.converted_at) {
-    return;
-  }
-
-  const { error: convertError } = await supabaseAdmin
-    .from("referral_attributions")
-    .update({
-      converted_at: new Date().toISOString(),
-      purchase_id: purchaseId,
-    })
-    .eq("id", attribution.id)
-    .is("converted_at", null);
-
-  if (convertError) {
-    console.error("stripe-webhook referral conversion update error:", convertError.message);
-    return;
-  }
-
-  const { error: rewardError } = await supabaseAdmin
-    .from("referral_rewards")
-    .upsert(
-      {
-        referrer_user_id: attribution.referrer_user_id,
-        referred_user_id: attribution.referred_user_id,
-        attribution_id: attribution.id,
-        purchase_id: purchaseId,
-        amount_eur: 30,
-        status: "pending",
-      },
-      { onConflict: "purchase_id" },
-    );
-
-  if (rewardError) {
-    console.error("stripe-webhook referral reward upsert error:", rewardError.message);
-  }
-};
-
-
 const fetchStripeJson = async (path: string) => {
   const response = await fetch(`https://api.stripe.com/v1/${path}`, {
     method: "GET",
@@ -260,10 +206,6 @@ serve(async (req) => {
     if (userPatchError) {
       console.error("stripe-webhook purchase user patch error:", userPatchError.message);
     }
-  }
-
-  if (userId) {
-    await applyReferralReward(supabaseAdmin, userId, inserted.id);
   }
 
   if (userEmail) {
