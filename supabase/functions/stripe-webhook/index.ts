@@ -68,7 +68,7 @@ const generateRedeemToken = (length = 16) => {
   return token;
 };
 
-const findUserIdByEmail = async (supabaseAdmin: ReturnType<typeof createClient>, email: string) => {
+const findUserIdByEmail = async (supabaseAdmin: any, email: string) => {
   const normalizedEmail = email.trim().toLowerCase();
   if (!normalizedEmail) return null;
   const { data, error } = await supabaseAdmin
