@@ -82,7 +82,7 @@ const isUserExistsError = (message: string) => {
 };
 
 const findUserIdByEmail = async (
-  supabaseAdmin: ReturnType<typeof createClient>,
+  supabaseAdmin: any,
   ownerEmail: string,
 ): Promise<string | null> => {
   const normalizedEmail = ownerEmail.trim().toLowerCase();
