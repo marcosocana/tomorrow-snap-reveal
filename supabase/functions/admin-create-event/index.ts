@@ -62,6 +62,23 @@ type AdminEventPayload = {
 const isEmail = (value: string) =>
   /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
+const generateTempPassword = (length = 18) => {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%";
+  const random = new Uint8Array(length);
+  crypto.getRandomValues(random);
+  return Array.from(random, (n) => chars[n % chars.length]).join("");
+};
+
+const isUserExistsError = (message: string) => {
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes("already been registered") ||
+    normalized.includes("user already registered") ||
+    normalized.includes("email already") ||
+    normalized.includes("already exists")
+  );
+};
+
 const getPlanMeta = (maxPhotos: number | null | undefined) => {
   if (maxPhotos === 10) return { label: "Evento Demo", type: "demo", planId: "demo" };
   if (maxPhotos === 50 || maxPhotos === 200) return { label: "Evento Start", type: "paid", planId: "small" };
@@ -115,19 +132,59 @@ serve(async (req) => {
       SUPABASE_SERVICE_ROLE_KEY,
     );
 
-    const { data: listData, error: listError } =
-      await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+    let ownerId: string | null = null;
+    const { data: existingOwner, error: ownerLookupError } = await supabaseAdmin
+      .schema("auth")
+      .from("users")
+      .select("id")
+      .eq("email", ownerEmail)
+      .maybeSingle();
 
-    if (listError) {
-      return json({ error: "OWNER_LOOKUP_FAILED", detail: listError.message }, 500);
+    if (ownerLookupError) {
+      return json({ error: "OWNER_LOOKUP_FAILED", detail: ownerLookupError.message }, 500);
     }
 
-    const existingUser = (listData?.users || []).find(
-      (u) => (u.email || "").toLowerCase() === ownerEmail
-    );
+    if (existingOwner?.id) {
+      ownerId = existingOwner.id;
+    } else {
+      const { data: createdUserData, error: createdUserError } =
+        await supabaseAdmin.auth.admin.createUser({
+          email: ownerEmail,
+          password: generateTempPassword(),
+          email_confirm: true,
+        });
 
-    if (!existingUser?.id) {
-      return json({ error: "USER_NOT_FOUND" }, 404);
+      if (createdUserError || !createdUserData?.user?.id) {
+        const detail = createdUserError?.message ?? "unknown_error";
+        if (isUserExistsError(detail)) {
+          const { data: fallbackOwner, error: fallbackError } = await supabaseAdmin
+            .schema("auth")
+            .from("users")
+            .select("id")
+            .eq("email", ownerEmail)
+            .maybeSingle();
+          if (fallbackError || !fallbackOwner?.id) {
+            return json({ error: "CREATE_USER_FAILED", detail: fallbackError?.message ?? detail }, 500);
+          }
+          ownerId = fallbackOwner.id;
+        } else {
+          return json({ error: "CREATE_USER_FAILED", detail }, 500);
+        }
+      } else {
+        ownerId = createdUserData.user.id;
+      }
+    }
+
+    if (!ownerId) {
+      return json({ error: "OWNER_NOT_RESOLVED" }, 500);
+    }
+
+    const { error: profileError } = await supabaseAdmin
+      .from("user_profiles")
+      .upsert({ id: ownerId }, { onConflict: "id" });
+
+    if (profileError) {
+      return json({ error: "CREATE_PROFILE_FAILED", detail: profileError.message }, 500);
     }
 
     const planMeta = getPlanMeta(event.max_photos ?? null);
@@ -174,7 +231,7 @@ serve(async (req) => {
         max_audios: event.max_audios ?? null,
         max_audio_duration: event.max_audio_duration ?? 30,
         header_style: event.header_style ?? "modern",
-        owner_id: existingUser.id,
+        owner_id: ownerId,
       })
       .select()
       .single();
