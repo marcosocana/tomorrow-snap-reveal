@@ -20,6 +20,8 @@ const json = (body: unknown, status = 200) =>
     headers: { "Content-Type": "application/json", ...corsHeaders },
   });
 
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 type AdminEventPayload = {
   ownerEmail: string;
   event: {
@@ -79,6 +81,36 @@ const isUserExistsError = (message: string) => {
   );
 };
 
+const findUserIdByEmail = async (
+  supabaseAdmin: ReturnType<typeof createClient>,
+  ownerEmail: string,
+): Promise<string | null> => {
+  const normalizedEmail = ownerEmail.trim().toLowerCase();
+  let page = 1;
+  const perPage = 1000;
+
+  while (page <= 10) {
+    const { data, error } = await supabaseAdmin.auth.admin.listUsers({ page, perPage });
+    if (error) throw error;
+    const users = data?.users ?? [];
+    const match = users.find((u) => (u.email || "").toLowerCase() === normalizedEmail);
+    if (match?.id) return match.id;
+    if (users.length < perPage) break;
+    page += 1;
+  }
+
+  return null;
+};
+
+const normalizeIso = (value: unknown): string | null => {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const parsed = new Date(trimmed);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed.toISOString();
+};
+
 const getPlanMeta = (maxPhotos: number | null | undefined) => {
   if (maxPhotos === 10) return { label: "Evento Demo", type: "demo", planId: "demo" };
   if (maxPhotos === 50 || maxPhotos === 200) return { label: "Evento Start", type: "paid", planId: "small" };
@@ -126,6 +158,16 @@ serve(async (req) => {
     if (!event?.name || !event.password_hash || !event.admin_password) {
       return json({ error: "INVALID_EVENT" }, 400);
     }
+    const uploadStartTime = normalizeIso(event.upload_start_time);
+    const uploadEndTime = normalizeIso(event.upload_end_time);
+    const revealTime = normalizeIso(event.reveal_time);
+    if (!uploadStartTime || !uploadEndTime || !revealTime) {
+      return json({ error: "INVALID_DATETIME" }, 400);
+    }
+    const expiryDate = event.expiry_date == null ? null : normalizeIso(event.expiry_date);
+    if (event.expiry_date != null && expiryDate == null) {
+      return json({ error: "INVALID_EXPIRY_DATE" }, 400);
+    }
 
     const supabaseAdmin = createClient(
       SUPABASE_URL,
@@ -133,20 +175,13 @@ serve(async (req) => {
     );
 
     let ownerId: string | null = null;
-    const { data: existingOwner, error: ownerLookupError } = await supabaseAdmin
-      .schema("auth")
-      .from("users")
-      .select("id")
-      .eq("email", ownerEmail)
-      .maybeSingle();
-
-    if (ownerLookupError) {
-      return json({ error: "OWNER_LOOKUP_FAILED", detail: ownerLookupError.message }, 500);
+    try {
+      ownerId = await findUserIdByEmail(supabaseAdmin, ownerEmail);
+    } catch {
+      ownerId = null;
     }
 
-    if (existingOwner?.id) {
-      ownerId = existingOwner.id;
-    } else {
+    if (!ownerId) {
       const { data: createdUserData, error: createdUserError } =
         await supabaseAdmin.auth.admin.createUser({
           email: ownerEmail,
@@ -157,16 +192,14 @@ serve(async (req) => {
       if (createdUserError || !createdUserData?.user?.id) {
         const detail = createdUserError?.message ?? "unknown_error";
         if (isUserExistsError(detail)) {
-          const { data: fallbackOwner, error: fallbackError } = await supabaseAdmin
-            .schema("auth")
-            .from("users")
-            .select("id")
-            .eq("email", ownerEmail)
-            .maybeSingle();
-          if (fallbackError || !fallbackOwner?.id) {
-            return json({ error: "CREATE_USER_FAILED", detail: fallbackError?.message ?? detail }, 500);
+          try {
+            ownerId = await findUserIdByEmail(supabaseAdmin, ownerEmail);
+          } catch (fallbackError) {
+            return json({ error: "CREATE_USER_FAILED", detail: fallbackError instanceof Error ? fallbackError.message : detail }, 500);
           }
-          ownerId = fallbackOwner.id;
+          if (!ownerId) {
+            return json({ error: "OWNER_ALREADY_EXISTS_BUT_NOT_RESOLVED", detail }, 409);
+          }
         } else {
           return json({ error: "CREATE_USER_FAILED", detail }, 500);
         }
@@ -179,12 +212,21 @@ serve(async (req) => {
       return json({ error: "OWNER_NOT_RESOLVED" }, 500);
     }
 
-    const { error: profileError } = await supabaseAdmin
-      .from("user_profiles")
-      .upsert({ id: ownerId }, { onConflict: "id" });
+    let profileErrorMessage: string | null = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const { error: profileError } = await supabaseAdmin
+        .from("user_profiles")
+        .upsert({ id: ownerId }, { onConflict: "id" });
+      if (!profileError) {
+        profileErrorMessage = null;
+        break;
+      }
+      profileErrorMessage = profileError.message;
+      await sleep(150 * (attempt + 1));
+    }
 
-    if (profileError) {
-      return json({ error: "CREATE_PROFILE_FAILED", detail: profileError.message }, 500);
+    if (profileErrorMessage) {
+      return json({ error: "CREATE_PROFILE_FAILED", detail: profileErrorMessage }, 500);
     }
 
     const planMeta = getPlanMeta(event.max_photos ?? null);
@@ -197,9 +239,9 @@ serve(async (req) => {
         name: event.name,
         password_hash: event.password_hash,
         admin_password: event.admin_password,
-        upload_start_time: event.upload_start_time,
-        upload_end_time: event.upload_end_time,
-        reveal_time: event.reveal_time,
+        upload_start_time: uploadStartTime,
+        upload_end_time: uploadEndTime,
+        reveal_time: revealTime,
         max_photos: event.max_photos ?? null,
         custom_image_url: resolvedCustomImageUrl,
         background_image_url: event.background_image_url ?? null,
@@ -214,7 +256,7 @@ serve(async (req) => {
         timezone: event.timezone ?? "Europe/Madrid",
         language: event.language ?? "es",
         description: event.description ?? null,
-        expiry_date: event.expiry_date ?? null,
+        expiry_date: expiryDate,
         expiry_redirect_url: event.expiry_redirect_url ?? null,
         allow_photo_deletion: event.allow_photo_deletion ?? true,
         allow_photo_sharing: event.allow_photo_sharing ?? true,
