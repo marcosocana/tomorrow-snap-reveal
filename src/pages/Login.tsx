@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import logoRevelao from "@/assets/logo__revelao.png";
+import { persistGuestEventPassword } from "@/lib/guestEventAccess";
 
 const Login = () => {
   const [password, setPassword] = useState("");
@@ -17,39 +18,6 @@ const Login = () => {
     setIsLoading(true);
 
     try {
-      // Check for event management password
-      if (password === "CreateEvent01") {
-        localStorage.removeItem("isDemoMode");
-        navigate("/event-management");
-        return;
-      }
-
-      // Check for demo mode password
-      if (password === "Demo0000_") {
-        localStorage.setItem("isDemoMode", "true");
-        navigate("/event-management");
-        return;
-      }
-
-      // Check for admin password
-      if (password === "123") {
-        // Admin mode - set flag and get all events
-        const { data: events, error } = await supabase
-          .from("events")
-          .select("*")
-          .limit(1);
-
-        if (error) throw error;
-
-        if (events && events.length > 0) {
-          localStorage.setItem("eventId", events[0].id);
-          localStorage.setItem("eventName", events[0].name);
-          localStorage.setItem("isAdmin", "true");
-          navigate("/gallery");
-          return;
-        }
-      }
-
       // Check if password ends with "x2" for bulk upload mode
       const isBulkMode = password.endsWith("x2");
       const actualPassword = isBulkMode ? password.slice(0, -2) : password;
@@ -88,8 +56,11 @@ const Login = () => {
 
       if (events && events.length > 0) {
         // Store event ID in localStorage
+        persistGuestEventPassword(actualPassword);
         localStorage.setItem("eventId", events[0].id);
         localStorage.setItem("eventName", events[0].name);
+        localStorage.setItem("eventLanguage", events[0].language || "es");
+        localStorage.setItem("eventTimezone", events[0].timezone || "Europe/Madrid");
         localStorage.removeItem("isAdmin");
         
         if (isBulkMode) {

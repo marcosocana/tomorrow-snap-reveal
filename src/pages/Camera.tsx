@@ -14,6 +14,7 @@ import ShareDialog from "@/components/ShareDialog";
 import { PricingPreview } from "@/components/PricingPreview";
 import { getTranslations, getEventLanguage, getEventTimezone, getLocalDateInTimezone, Language } from "@/lib/translations";
 import { EventFontFamily, getEventFontFamily } from "@/lib/eventFonts";
+import { clearPersistedGuestEventPassword, getPersistedGuestEventPassword } from "@/lib/guestEventAccess";
 import {
   Dialog,
   DialogContent,
@@ -175,13 +176,24 @@ const Camera = () => {
 
   useEffect(() => {
     if (!eventId) {
-      navigate("/");
+      const guestEventPassword = getPersistedGuestEventPassword();
+      if (guestEventPassword) {
+        const params = new URLSearchParams();
+        if (isDemoEnvironmentFromQuery) {
+          params.set("demo_env", "1");
+        }
+        navigate(`/events/${guestEventPassword}${params.toString() ? `?${params.toString()}` : ""}`, {
+          replace: true,
+        });
+        return;
+      }
+      navigate("/event-login", { replace: true });
       return;
     }
     loadEventData();
     loadMediaCounts();
     window.scrollTo(0, 0);
-  }, [eventId, navigate]);
+  }, [eventId, isDemoEnvironmentFromQuery, navigate]);
 
   useEffect(() => {
     return () => {
@@ -936,7 +948,8 @@ const Camera = () => {
     localStorage.removeItem("eventName");
     localStorage.removeItem("eventLanguage");
     localStorage.removeItem("eventTimezone");
-    navigate("/");
+    clearPersistedGuestEventPassword();
+    navigate("/event-login", { replace: true });
   };
 
   // Check if event has ended or hasn't started

@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { persistGuestEventPassword } from "@/lib/guestEventAccess";
 
 const EventAccess = () => {
   const { password } = useParams<{ password: string }>();
@@ -62,6 +63,7 @@ const EventAccess = () => {
         if (error) throw error;
 
         if (events && events.length > 0) {
+          persistGuestEventPassword(actualPassword);
           localStorage.setItem("eventId", events[0].id);
           localStorage.setItem("eventName", events[0].name);
           localStorage.setItem("eventLanguage", events[0].language || "es");

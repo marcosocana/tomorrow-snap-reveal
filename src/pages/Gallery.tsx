@@ -24,6 +24,7 @@ import { FilterType, getFilterClass, getGrainClass, applyFilterToCanvas } from "
 import { getTranslations, getEventLanguage, getEventTimezone, getLocalDateInTimezone, Language } from "@/lib/translations";
 import { EventFontFamily, getEventFontFamily } from "@/lib/eventFonts";
 import { getDeviceId } from "@/lib/deviceId";
+import { clearPersistedGuestEventPassword, getPersistedGuestEventPassword } from "@/lib/guestEventAccess";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface Photo {
@@ -523,7 +524,18 @@ const Gallery = () => {
 
   useEffect(() => {
     if (!eventId) {
-      navigate("/");
+      const guestEventPassword = getPersistedGuestEventPassword();
+      if (guestEventPassword) {
+        const params = new URLSearchParams();
+        if (isDemoEnvironmentFromQuery) {
+          params.set("demo_env", "1");
+        }
+        navigate(`/events/${guestEventPassword}${params.toString() ? `?${params.toString()}` : ""}`, {
+          replace: true,
+        });
+        return;
+      }
+      navigate("/event-login", { replace: true });
       return;
     }
 
@@ -595,7 +607,7 @@ const Gallery = () => {
     loadPhotos(0);
     loadVideos();
     loadAudios();
-  }, [eventId, navigate, loadPhotos, loadVideos, loadAudios]);
+  }, [eventId, isDemoEnvironmentFromQuery, navigate, loadPhotos, loadVideos, loadAudios]);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(min-width: 1024px)");
@@ -657,7 +669,8 @@ const Gallery = () => {
     localStorage.removeItem("eventName");
     localStorage.removeItem("eventLanguage");
     localStorage.removeItem("eventTimezone");
-    navigate("/");
+    clearPersistedGuestEventPassword();
+    navigate("/event-login", { replace: true });
   };
 
   const handleDeletePhoto = async (photoId: string, imageUrl: string) => {
@@ -1204,6 +1217,7 @@ const Gallery = () => {
     localStorage.removeItem("eventName");
     localStorage.removeItem("eventLanguage");
     localStorage.removeItem("eventTimezone");
+    clearPersistedGuestEventPassword();
     window.location.href = "https://acceso.revelao.cam";
   };
 
