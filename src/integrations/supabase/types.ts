@@ -154,8 +154,10 @@ export type Database = {
         Row: {
           admin_password: string | null
           allow_audio_recording: boolean
+          allow_image_attachment: boolean
           allow_photo_deletion: boolean
           allow_photo_sharing: boolean
+          allow_video_attachment: boolean
           allow_video_recording: boolean
           background_image_url: string | null
           country_code: string
@@ -198,8 +200,10 @@ export type Database = {
         Insert: {
           admin_password?: string | null
           allow_audio_recording?: boolean
+          allow_image_attachment?: boolean
           allow_photo_deletion?: boolean
           allow_photo_sharing?: boolean
+          allow_video_attachment?: boolean
           allow_video_recording?: boolean
           background_image_url?: string | null
           country_code?: string
@@ -242,8 +246,10 @@ export type Database = {
         Update: {
           admin_password?: string | null
           allow_audio_recording?: boolean
+          allow_image_attachment?: boolean
           allow_photo_deletion?: boolean
           allow_photo_sharing?: boolean
+          allow_video_attachment?: boolean
           allow_video_recording?: boolean
           background_image_url?: string | null
           country_code?: string
