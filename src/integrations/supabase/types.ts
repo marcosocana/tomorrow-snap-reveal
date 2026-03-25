@@ -155,7 +155,6 @@ export type Database = {
           admin_password: string | null
           allow_image_attachment: boolean
           allow_audio_recording: boolean
-          allow_image_attachment: boolean
           allow_photo_deletion: boolean
           allow_photo_sharing: boolean
           allow_video_attachment: boolean
@@ -202,7 +201,6 @@ export type Database = {
           admin_password?: string | null
           allow_image_attachment?: boolean
           allow_audio_recording?: boolean
-          allow_image_attachment?: boolean
           allow_photo_deletion?: boolean
           allow_photo_sharing?: boolean
           allow_video_attachment?: boolean

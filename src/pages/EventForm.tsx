@@ -389,8 +389,12 @@ const EventForm = () => {
         allowAudioRecording: (event as any).allow_audio_recording === true,
         maxAudios: event.max_audios ? String(event.max_audios) : "",
         maxAudioDuration: event.max_audio_duration ? String(event.max_audio_duration) : "30",
-        allowImageAttachment: (event as any).allow_image_attachment === true,
-        allowVideoAttachment: (event as any).allow_video_attachment === true,
+        allowImageAttachment:
+          (event as any).allow_image_attachment === true ||
+          (event as any).allow_video_attachment === true,
+        allowVideoAttachment:
+          (event as any).allow_image_attachment === true ||
+          (event as any).allow_video_attachment === true,
         headerStyle: ((event as any).header_style || "modern") as HeaderStyle,
       });
       await loadEventMediaCounts(event.id);
@@ -748,7 +752,7 @@ const EventForm = () => {
             max_audios: maxAudiosValue,
             max_audio_duration: resolvedAudioDuration,
             allow_image_attachment: formData.allowImageAttachment,
-            allow_video_attachment: formData.allowVideoAttachment,
+            allow_video_attachment: formData.allowImageAttachment,
             header_style: formData.headerStyle,
           } as any)
           .eq("id", eventId);
@@ -797,7 +801,7 @@ const EventForm = () => {
             max_audios: maxAudiosValue,
             max_audio_duration: resolvedAudioDuration,
             allow_image_attachment: formData.allowImageAttachment,
-            allow_video_attachment: formData.allowVideoAttachment,
+            allow_video_attachment: formData.allowImageAttachment,
             header_style: formData.headerStyle,
           },
         };
@@ -878,7 +882,7 @@ const EventForm = () => {
           max_audios: maxAudiosValue,
           max_audio_duration: resolvedAudioDuration,
           allow_image_attachment: formData.allowImageAttachment,
-          allow_video_attachment: formData.allowVideoAttachment,
+          allow_video_attachment: formData.allowImageAttachment,
           header_style: formData.headerStyle,
         } as any).select().single();
 
@@ -1924,40 +1928,28 @@ const EventForm = () => {
                   {showGalleryAttachmentSettings && (
                     <div className="space-y-3 border-t border-border pt-4">
                       <div>
-                        <Label className="text-sm font-semibold">Adjuntos desde galeria</Label>
+                        <Label className="text-sm font-semibold">Adjuntar</Label>
                         <p className="text-xs text-muted-foreground">
-                          Permite a los invitados subir archivos ya guardados en su movil. Solo se muestra al crear eventos Pro y despues puede editarse desde el detalle del evento.
+                          Permite a los invitados subir fotos o vídeos ya guardados en su movil. Solo se muestra al crear eventos Pro y despues puede editarse desde el detalle del evento.
                         </p>
                       </div>
 
                       <div className="flex items-center justify-between">
                         <div className="space-y-0.5">
-                          <Label htmlFor="allowImageAttachment">Anadir opcion de adjuntar imagen</Label>
+                          <Label htmlFor="allowImageAttachment">Activar opcion de adjuntar</Label>
                           <p className="text-xs text-muted-foreground">
-                            Muestra un boton para seleccionar fotos desde la galeria del movil.
+                            Muestra un unico boton "Adjuntar" valido para fotos y vídeos desde la galeria del movil.
                           </p>
                         </div>
                         <Switch
                           id="allowImageAttachment"
                           checked={formData.allowImageAttachment}
                           onCheckedChange={(checked) =>
-                            setFormData({ ...formData, allowImageAttachment: checked })
-                          }
-                        />
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-0.5">
-                          <Label htmlFor="allowVideoAttachment">Anadir opcion de adjuntar video</Label>
-                          <p className="text-xs text-muted-foreground">
-                            Muestra un boton para seleccionar videos desde la galeria del movil.
-                          </p>
-                        </div>
-                        <Switch
-                          id="allowVideoAttachment"
-                          checked={formData.allowVideoAttachment}
-                          onCheckedChange={(checked) =>
-                            setFormData({ ...formData, allowVideoAttachment: checked })
+                            setFormData({
+                              ...formData,
+                              allowImageAttachment: checked,
+                              allowVideoAttachment: checked,
+                            })
                           }
                         />
                       </div>

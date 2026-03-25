@@ -125,8 +125,7 @@ const Camera = () => {
   const uploadTimestampsRef = useRef<number[]>([]);
   const cooldownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const photoAttachmentInputRef = useRef<HTMLInputElement>(null);
-  const videoAttachmentInputRef = useRef<HTMLInputElement>(null);
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
   const [allowVideoRecording, setAllowVideoRecording] = useState(false);
   const [maxVideos, setMaxVideos] = useState<number | null>(null);
   const [videoDurationSeconds, setVideoDurationSeconds] = useState(15);
@@ -135,6 +134,7 @@ const Camera = () => {
   const [audioDurationSeconds, setAudioDurationSeconds] = useState(30);
   const [allowImageAttachment, setAllowImageAttachment] = useState(false);
   const [allowVideoAttachment, setAllowVideoAttachment] = useState(false);
+  const [isUploadingAttachments, setIsUploadingAttachments] = useState(false);
   const [maxPhotos, setMaxPhotos] = useState<number | null>(null);
   const [headerStyle, setHeaderStyle] = useState<"gradient" | "modern">("modern");
   const [isDemoEvent, setIsDemoEvent] = useState(false);
@@ -1010,82 +1010,53 @@ const Camera = () => {
     }
   };
 
-  const handlePhotoAttachmentChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAttachmentChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = getSelectedFiles(event.target.files);
-    if (!files.length || !allowImageAttachment) return;
+    const allowAttachments = allowImageAttachment || allowVideoAttachment;
+    if (!files.length || !allowAttachments) return;
 
-    const remainingSlots = maxPhotos !== null ? Math.max(0, maxPhotos - photoCount) : null;
-    const uploadableFiles = remainingSlots === null ? files : files.slice(0, remainingSlots);
+    const photoFiles = files.filter((file) => file.type.startsWith("image/"));
+    const videoFiles = files.filter((file) => file.type.startsWith("video/"));
+    const remainingPhotoSlots = maxPhotos !== null ? Math.max(0, maxPhotos - photoCount) : null;
+    const remainingVideoSlots = maxVideos !== null ? Math.max(0, maxVideos - videoCount) : null;
+    const uploadablePhotoFiles =
+      remainingPhotoSlots === null ? photoFiles : photoFiles.slice(0, remainingPhotoSlots);
+    const uploadableVideoFiles =
+      remainingVideoSlots === null ? videoFiles : videoFiles.slice(0, remainingVideoSlots);
 
-    if (remainingSlots === 0) {
+    if (!uploadablePhotoFiles.length && !uploadableVideoFiles.length) {
       toast({
-        title: t.camera.limitReached,
-        description: t.camera.limitReachedDesc,
+        title: language === "en" ? "Nothing to upload" : language === "it" ? "Nessun file da caricare" : "Nada que subir",
+        description:
+          language === "en"
+            ? "This event has already reached its photo and video limits."
+            : language === "it"
+            ? "Questo evento ha già raggiunto i limiti di foto e video."
+            : "Este evento ya ha alcanzado sus límites de fotos y vídeos.",
         variant: "destructive",
       });
       event.target.value = "";
       return;
     }
 
-    setIsUploading(true);
+    setIsUploadingAttachments(true);
     setFailedUpload(null);
     try {
-      let uploadedCount = 0;
-      for (const file of uploadableFiles) {
+      let uploadedPhotos = 0;
+      let uploadedVideos = 0;
+
+      for (const file of uploadablePhotoFiles) {
         const uploaded = await uploadPhoto(file, {
           silentSuccess: true,
           skipReload: true,
           skipFailedState: true,
         });
         if (uploaded) {
-          uploadedCount += 1;
+          uploadedPhotos += 1;
         }
       }
-      await loadEventData();
-      await loadMediaCounts();
-      if (uploadedCount > 0) {
-        toast({
-          title: language === "en" ? "Photos uploaded" : language === "it" ? "Foto caricate" : "Fotos subidas",
-          description:
-            language === "en"
-              ? `${uploadedCount} photo${uploadedCount === 1 ? "" : "s"} added from the gallery.`
-              : language === "it"
-              ? `${uploadedCount} foto aggiunte dalla galleria.`
-              : `${uploadedCount} foto${uploadedCount === 1 ? "" : "s"} añadidas desde la galería.`,
-        });
-      }
-    } finally {
-      setIsUploading(false);
-      event.target.value = "";
-    }
-  };
 
-  const handleVideoAttachmentChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = getSelectedFiles(event.target.files);
-    if (!files.length || !allowVideoAttachment) return;
-
-    const remainingSlots = maxVideos !== null ? Math.max(0, maxVideos - videoCount) : null;
-    const uploadableFiles = remainingSlots === null ? files : files.slice(0, remainingSlots);
-
-    if (remainingSlots === 0) {
-      toast({
-        title: language === "en" ? "Limit reached" : language === "it" ? "Limite raggiunto" : "Límite alcanzado",
-        description:
-          language === "en"
-            ? "You've uploaded the maximum number of videos."
-            : language === "it"
-            ? "Hai raggiunto il numero massimo di video."
-            : "Ya alcanzaste el número máximo de vídeos.",
-        variant: "destructive",
-      });
-      event.target.value = "";
-      return;
-    }
-
-    setIsUploadingMedia(true);
-    try {
-      let uploadedCount = 0;
-      for (const file of uploadableFiles) {
+      for (const file of uploadableVideoFiles) {
         const duration = await getVideoDurationFromFile(file);
         if (duration && duration > videoDurationSeconds) {
           toast({
@@ -1106,23 +1077,26 @@ const Camera = () => {
           skipReload: true,
         });
         if (uploaded) {
-          uploadedCount += 1;
+          uploadedVideos += 1;
         }
       }
+
+      await loadEventData();
       await loadMediaCounts();
-      if (uploadedCount > 0) {
+      if (uploadedPhotos > 0 || uploadedVideos > 0) {
+        const summary =
+          language === "en"
+            ? `${uploadedPhotos} photo${uploadedPhotos === 1 ? "" : "s"} and ${uploadedVideos} video${uploadedVideos === 1 ? "" : "s"} added.`
+            : language === "it"
+            ? `${uploadedPhotos} foto e ${uploadedVideos} video aggiunti.`
+            : `${uploadedPhotos} foto y ${uploadedVideos} vídeo${uploadedVideos === 1 ? "" : "s"} añadidos.`;
         toast({
-          title: language === "en" ? "Videos uploaded" : language === "it" ? "Video caricati" : "Vídeos subidos",
-          description:
-            language === "en"
-              ? `${uploadedCount} video${uploadedCount === 1 ? "" : "s"} added from the gallery.`
-              : language === "it"
-              ? `${uploadedCount} video aggiunti dalla galleria.`
-              : `${uploadedCount} vídeo${uploadedCount === 1 ? "" : "s"} añadidos desde la galería.`,
+          title: language === "en" ? "Attachments uploaded" : language === "it" ? "Allegati caricati" : "Adjuntos subidos",
+          description: summary,
         });
       }
     } finally {
-      setIsUploadingMedia(false);
+      setIsUploadingAttachments(false);
       event.target.value = "";
     }
   };
@@ -1671,7 +1645,7 @@ const Camera = () => {
   const showVideoAction = allowVideoRecording && !videoLimitReached;
   const showAudioAction = allowAudioRecording && !audioLimitReached;
   const visibleActionCount = Number(showPhotoAction) + Number(showVideoAction) + Number(showAudioAction);
-  const mediaButtonDisabled = isRecordingMedia || isUploadingMedia;
+  const mediaButtonDisabled = isRecordingMedia || isUploadingMedia || isUploadingAttachments;
   const recordVideoText = "Vídeo";
   const recordAudioText = "Audio";
   const actionQuestionText = "¿Que quieres hacer?";
@@ -1681,8 +1655,15 @@ const Camera = () => {
       : language === "it"
       ? "Oppure vuoi aggiungerlo dalla tua galleria?"
       : "¿O quieres añadirlo desde tu galería?";
-  const attachPhotoText = language === "en" ? "Attach photo" : language === "it" ? "Allega foto" : "Adjuntar foto";
-  const attachVideoText = language === "en" ? "Attach video" : language === "it" ? "Allega video" : "Adjuntar vídeo";
+  const attachText = language === "en" ? "Attach" : language === "it" ? "Allega" : "Adjuntar";
+  const attachmentHintText =
+    language === "en"
+      ? "Maximum 5 photos or videos each time."
+      : language === "it"
+      ? "Massimo 5 foto o video ogni volta."
+      : "Máximo 5 fotos o vídeos por cada vez.";
+  const uploadingAttachmentText =
+    language === "en" ? "Uploading..." : language === "it" ? "Caricando..." : "Subiendo...";
   const showGalleryAttachmentSection = allowImageAttachment || allowVideoAttachment;
   const showOnlyPhotoAction = isPhotoOnlyConfigured;
   const audioWaveBars = 28;
@@ -1755,33 +1736,19 @@ const Camera = () => {
       {showGalleryAttachmentSection && (
         <div className="w-full space-y-3">
           <h3 className="mt-2 text-xl md:text-2xl font-semibold text-foreground">{attachmentQuestionText}</h3>
-          <div className={`grid w-full gap-3 ${allowImageAttachment && allowVideoAttachment ? "grid-cols-2 max-w-2xl mx-auto" : "grid-cols-1 max-w-sm mx-auto"}`}>
-            {allowImageAttachment && (
-              <button
-                type="button"
-                onClick={() => photoAttachmentInputRef.current?.click()}
-                disabled={isUploading || isUploadingMedia}
-                className="flex h-28 w-full flex-col items-center justify-center gap-2 rounded-3xl border border-border bg-card p-4 text-sm font-semibold text-foreground transition hover:border-primary focus-visible:ring focus-visible:ring-primary/60 disabled:cursor-not-allowed disabled:border-border disabled:bg-muted/60 disabled:text-muted-foreground"
-              >
-                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-black text-white">
-                  <Paperclip className="w-5 h-5" />
-                </div>
-                <span>{attachPhotoText}</span>
-              </button>
-            )}
-            {allowVideoAttachment && (
-              <button
-                type="button"
-                onClick={() => videoAttachmentInputRef.current?.click()}
-                disabled={isUploading || isUploadingMedia}
-                className="flex h-28 w-full flex-col items-center justify-center gap-2 rounded-3xl border border-border bg-card p-4 text-sm font-semibold text-foreground transition hover:border-primary focus-visible:ring focus-visible:ring-primary/60 disabled:cursor-not-allowed disabled:border-border disabled:bg-muted/60 disabled:text-muted-foreground"
-              >
-                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-black text-white">
-                  <Paperclip className="w-5 h-5" />
-                </div>
-                <span>{attachVideoText}</span>
-              </button>
-            )}
+          <div className="w-full max-w-sm mx-auto space-y-2">
+            <button
+              type="button"
+              onClick={() => attachmentInputRef.current?.click()}
+              disabled={isUploadingAttachments}
+              className="flex h-28 w-full flex-col items-center justify-center gap-2 rounded-3xl border border-border bg-card p-4 text-sm font-semibold text-foreground transition hover:border-primary focus-visible:ring focus-visible:ring-primary/60 disabled:cursor-not-allowed disabled:border-border disabled:bg-muted/60 disabled:text-muted-foreground"
+            >
+              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-black text-white">
+                <Paperclip className={`w-5 h-5 ${isUploadingAttachments ? "animate-spin" : ""}`} />
+              </div>
+              <span>{isUploadingAttachments ? uploadingAttachmentText : attachText}</span>
+            </button>
+            <p className="text-xs text-muted-foreground">{attachmentHintText}</p>
           </div>
         </div>
       )}
@@ -2132,19 +2099,11 @@ const Camera = () => {
         className="hidden"
       />
       <input
-        ref={photoAttachmentInputRef}
+        ref={attachmentInputRef}
         type="file"
-        accept="image/*"
+        accept="image/*,video/*"
         multiple
-        onChange={handlePhotoAttachmentChange}
-        className="hidden"
-      />
-      <input
-        ref={videoAttachmentInputRef}
-        type="file"
-        accept="video/*"
-        multiple
-        onChange={handleVideoAttachmentChange}
+        onChange={handleAttachmentChange}
         className="hidden"
       />
       <Dialog open={pricingOpen} onOpenChange={setPricingOpen}>
