@@ -76,7 +76,7 @@ const getExtensionForMimeType = (mimeType: string | null | undefined, mode: "vid
 };
 
 const MAX_ATTACHMENT_FILES = 5;
-const MAX_ATTACHMENT_VIDEO_SIZE_BYTES = 25 * 1024 * 1024;
+const MAX_ATTACHMENT_VIDEO_SIZE_BYTES = 50 * 1024 * 1024;
 
 const CameraLoadingSkeleton = () => (
   <div className="app-screen bg-background flex flex-col">
@@ -927,10 +927,10 @@ const Camera = () => {
         title: language === "en" ? "Video too large" : language === "it" ? "Video troppo pesante" : "Vídeo demasiado pesado",
         description:
           language === "en"
-            ? "The maximum allowed size is 25 MB."
+            ? "The maximum allowed size is 50 MB."
             : language === "it"
-            ? "La dimensione massima consentita è 25 MB."
-            : "El tamaño máximo permitido es 25 MB.",
+            ? "La dimensione massima consentita è 50 MB."
+            : "El tamaño máximo permitido es 50 MB.",
         variant: "destructive",
       });
       return false;
@@ -1687,10 +1687,10 @@ const Camera = () => {
       : "Añadir desde galeria";
   const attachmentHintText =
     language === "en"
-      ? "Maximum 5 files each time. Videos up to 15 seconds and 25 MB."
+      ? "Maximum 5 files each time. Videos up to 15 seconds and 50 MB."
       : language === "it"
-      ? "Massimo 5 file ogni volta. Video fino a 15 secondi e 25 MB."
-      : "Máximo 5 archivos por vez. Vídeos de hasta 15 segundos y 25 MB.";
+      ? "Massimo 5 file ogni volta. Video fino a 15 secondi e 50 MB."
+      : "Máximo 5 archivos por vez. Vídeos de hasta 15 segundos y 50 MB.";
   const uploadingAttachmentText =
     language === "en" ? "Uploading..." : language === "it" ? "Caricando..." : "Subiendo...";
   const showGalleryAttachmentSection = allowImageAttachment || allowVideoAttachment;

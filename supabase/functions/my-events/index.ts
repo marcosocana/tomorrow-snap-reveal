@@ -15,7 +15,13 @@ const corsHeaders = {
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
-    headers: { "Content-Type": "application/json", ...corsHeaders },
+    headers: {
+      "Content-Type": "application/json",
+      "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+      "Pragma": "no-cache",
+      "Expires": "0",
+      ...corsHeaders,
+    },
   });
 
 serve(async (req) => {
