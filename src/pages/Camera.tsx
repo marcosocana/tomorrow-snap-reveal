@@ -1626,7 +1626,7 @@ const Camera = () => {
 
   const retryText = language === "en" ? "Retry" : language === "it" ? "Riprova" : "Reintentar";
   const isButtonDisabled = isUploading || rateLimitCooldown > 0;
-  const photoActionText = "Foto";
+  const photoActionText = "Hacer foto";
   const photoButtonText = rateLimitCooldown > 0
     ? language === "en"
       ? `Wait ${rateLimitCooldown}s`
@@ -1646,16 +1646,15 @@ const Camera = () => {
   const showAudioAction = allowAudioRecording && !audioLimitReached;
   const visibleActionCount = Number(showPhotoAction) + Number(showVideoAction) + Number(showAudioAction);
   const mediaButtonDisabled = isRecordingMedia || isUploadingMedia || isUploadingAttachments;
-  const recordVideoText = "Vídeo";
-  const recordAudioText = "Audio";
-  const actionQuestionText = "¿Que quieres hacer?";
-  const attachmentQuestionText =
+  const recordVideoText = "Grabar vídeo";
+  const recordAudioText = "Grabar audio";
+  const actionQuestionText = "¿Qué quieres hacer?";
+  const attachText =
     language === "en"
-      ? "Or do you want to add it from your gallery?"
+      ? "Add from gallery"
       : language === "it"
-      ? "Oppure vuoi aggiungerlo dalla tua galleria?"
-      : "¿O quieres añadirlo desde tu galería?";
-  const attachText = language === "en" ? "Attach" : language === "it" ? "Allega" : "Adjuntar";
+      ? "Aggiungi dalla galleria"
+      : "Añadir desde galeria";
   const attachmentHintText =
     language === "en"
       ? "Maximum 5 photos or videos each time."
@@ -1735,7 +1734,6 @@ const Camera = () => {
       )}
       {showGalleryAttachmentSection && (
         <div className="w-full space-y-3">
-          <h3 className="mt-2 text-xl md:text-2xl font-semibold text-foreground">{attachmentQuestionText}</h3>
           <div className="w-full max-w-sm mx-auto space-y-2">
             <button
               type="button"

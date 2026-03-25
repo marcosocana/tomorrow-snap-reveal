@@ -26,6 +26,7 @@ import { EventFontFamily, getEventFontFamily } from "@/lib/eventFonts";
 import { getDeviceId } from "@/lib/deviceId";
 import { clearPersistedGuestEventPassword, getPersistedGuestEventPassword } from "@/lib/guestEventAccess";
 import { Skeleton } from "@/components/ui/skeleton";
+import { compressImage } from "@/lib/imageCompression";
 
 interface Photo {
   id: string;
@@ -108,6 +109,12 @@ const getDateLocale = (language: Language) => {
   }
 };
 
+const generateHash = () => {
+  return Array.from(crypto.getRandomValues(new Uint8Array(4)))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+};
+
 const Gallery = () => {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [totalPhotos, setTotalPhotos] = useState(0);
@@ -122,6 +129,7 @@ const Gallery = () => {
   const [selectedMedia, setSelectedMedia] = useState<MixedMediaItem | null>(null);
   
   const observerTarget = useRef<HTMLDivElement>(null);
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const isDemoEnvironmentFromQuery = searchParams.get("demo_env") === "1";
@@ -155,6 +163,12 @@ const Gallery = () => {
   const [likeCountingEnabled, setLikeCountingEnabled] = useState<boolean>(false);
   const [allowVideoRecording, setAllowVideoRecording] = useState(false);
   const [allowAudioRecording, setAllowAudioRecording] = useState(false);
+  const [allowImageAttachment, setAllowImageAttachment] = useState(false);
+  const [allowVideoAttachment, setAllowVideoAttachment] = useState(false);
+  const [isUploadingAttachments, setIsUploadingAttachments] = useState(false);
+  const [maxPhotos, setMaxPhotos] = useState<number | null>(null);
+  const [maxVideos, setMaxVideos] = useState<number | null>(null);
+  const [videoDurationSeconds, setVideoDurationSeconds] = useState(15);
   const [headerStyle, setHeaderStyle] = useState<"gradient" | "modern">("modern");
   const [isDemoEvent, setIsDemoEvent] = useState(false);
 
@@ -543,7 +557,7 @@ const Gallery = () => {
     const loadEventData = async () => {
       const { data } = await supabase
         .from("events")
-      .select("password_hash, filter_type, custom_image_url, description, background_image_url, expiry_date, expiry_redirect_url, font_family, font_size, allow_photo_deletion, allow_photo_sharing, like_counting_enabled, allow_video_recording, allow_audio_recording, header_style, is_demo")
+      .select("password_hash, filter_type, custom_image_url, description, background_image_url, expiry_date, expiry_redirect_url, font_family, font_size, allow_photo_deletion, allow_photo_sharing, like_counting_enabled, allow_video_recording, allow_audio_recording, allow_image_attachment, allow_video_attachment, max_photos, max_videos, max_video_duration, header_style, is_demo")
         .eq("id", eventId)
         .maybeSingle();
       if (data) {
@@ -558,6 +572,13 @@ const Gallery = () => {
         setAllowPhotoSharing((data as any).allow_photo_sharing !== false);
         setAllowVideoRecording((data as any).allow_video_recording === true);
         setAllowAudioRecording((data as any).allow_audio_recording === true);
+        setAllowImageAttachment((data as any).allow_image_attachment === true);
+        setAllowVideoAttachment((data as any).allow_video_attachment === true);
+        setMaxPhotos(data.max_photos ?? null);
+        const rawMaxVideos = Number((data as any).max_videos);
+        const rawVideoDuration = Number((data as any).max_video_duration);
+        setMaxVideos(Number.isFinite(rawMaxVideos) && rawMaxVideos > 0 ? rawMaxVideos : null);
+        setVideoDurationSeconds(Number.isFinite(rawVideoDuration) && rawVideoDuration > 0 ? rawVideoDuration : 15);
         setHeaderStyle(((data as any).header_style || "modern") as "gradient" | "modern");
         setIsDemoEvent((data as any).is_demo === true);
         setLikeCountingEnabled((data as any).like_counting_enabled === true);
@@ -671,6 +692,228 @@ const Gallery = () => {
     localStorage.removeItem("eventTimezone");
     clearPersistedGuestEventPassword();
     navigate("/event-login", { replace: true });
+  };
+
+  const getSelectedFiles = (files: FileList | null, maxFiles = 5) => {
+    const selectedFiles = Array.from(files || []);
+    if (selectedFiles.length > maxFiles) {
+      toast({
+        title: language === "en" ? "Maximum 5 files" : language === "it" ? "Massimo 5 file" : "Máximo 5 archivos",
+        description:
+          language === "en"
+            ? "Only the first 5 files will be uploaded."
+            : language === "it"
+            ? "Verranno caricati solo i primi 5 file."
+            : "Solo se subirán los primeros 5 archivos.",
+      });
+    }
+    return selectedFiles.slice(0, maxFiles);
+  };
+
+  const getVideoDurationFromFile = async (file: File) => {
+    return await new Promise<number | null>((resolve) => {
+      const objectUrl = URL.createObjectURL(file);
+      const video = document.createElement("video");
+      video.preload = "metadata";
+      video.onloadedmetadata = () => {
+        const duration = Number.isFinite(video.duration) ? Math.round(video.duration) : null;
+        URL.revokeObjectURL(objectUrl);
+        resolve(duration);
+      };
+      video.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        resolve(null);
+      };
+      video.src = objectUrl;
+    });
+  };
+
+  const uploadPhotoAttachment = async (file: File) => {
+    if (!eventId) return false;
+
+    const { data: eventData } = await supabase
+      .from("events")
+      .select("max_photos")
+      .eq("id", eventId)
+      .single();
+
+    if (eventData?.max_photos) {
+      const { count } = await supabase
+        .from("photos")
+        .select("*", { count: "exact", head: true })
+        .eq("event_id", eventId);
+
+      if (count && count >= eventData.max_photos) {
+        toast({
+          title: language === "en" ? "Limit reached" : language === "it" ? "Limite raggiunto" : "Límite alcanzado",
+          description:
+            language === "en"
+              ? "This event has already reached the maximum number of photos."
+              : language === "it"
+              ? "Questo evento ha già raggiunto il numero massimo di foto."
+              : "Este evento ya ha alcanzado el número máximo de fotos.",
+          variant: "destructive",
+        });
+        return false;
+      }
+    }
+
+    const compressedFile = await compressImage(file, 1);
+    const fileName = `${eventId}/${generateHash()}_${Date.now()}.jpg`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("event-photos")
+      .upload(fileName, compressedFile);
+    if (uploadError) {
+      throw uploadError;
+    }
+
+    const { error: dbError } = await supabase.from("photos").insert({
+      event_id: eventId,
+      image_url: fileName,
+    });
+    if (dbError) {
+      throw dbError;
+    }
+
+    return true;
+  };
+
+  const uploadVideoAttachment = async (file: File, duration: number) => {
+    if (!eventId) return false;
+
+    const fileExtension = file.name.split(".").pop()?.trim().toLowerCase();
+    const fallbackExtension = file.type.includes("mp4") ? "mp4" : "webm";
+    const extension = fileExtension || fallbackExtension;
+    const fileName = `${eventId}/${generateHash()}_${Date.now()}.${extension}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("event-videos")
+      .upload(fileName, file, {
+        contentType: file.type || undefined,
+      });
+    if (uploadError) {
+      throw uploadError;
+    }
+
+    const { error: dbError } = await supabase.from("videos").insert({
+      event_id: eventId,
+      video_url: fileName,
+      duration_seconds: Math.max(1, Math.round(duration)),
+    });
+    if (dbError) {
+      throw dbError;
+    }
+
+    return true;
+  };
+
+  const refreshGalleryAfterAttachments = async () => {
+    setPage(0);
+    setHasMore(true);
+    setIsLoading(true);
+    await Promise.all([loadPhotos(0), loadVideos(), loadAudios()]);
+  };
+
+  const handleAttachmentChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = getSelectedFiles(event.target.files);
+    const allowAttachments = allowImageAttachment || allowVideoAttachment;
+
+    if (!files.length || !allowAttachments) {
+      event.target.value = "";
+      return;
+    }
+
+    const photoFiles = files.filter((file) => file.type.startsWith("image/"));
+    const videoFiles = files.filter((file) => file.type.startsWith("video/"));
+    const remainingPhotoSlots = maxPhotos !== null ? Math.max(0, maxPhotos - totalPhotos) : null;
+    const remainingVideoSlots = maxVideos !== null ? Math.max(0, maxVideos - totalVideos) : null;
+    const uploadablePhotoFiles =
+      remainingPhotoSlots === null ? photoFiles : photoFiles.slice(0, remainingPhotoSlots);
+    const uploadableVideoFiles =
+      remainingVideoSlots === null ? videoFiles : videoFiles.slice(0, remainingVideoSlots);
+
+    if (!uploadablePhotoFiles.length && !uploadableVideoFiles.length) {
+      toast({
+        title: language === "en" ? "Nothing to upload" : language === "it" ? "Nessun file da caricare" : "Nada que subir",
+        description:
+          language === "en"
+            ? "This event has already reached its photo and video limits."
+            : language === "it"
+            ? "Questo evento ha già raggiunto i limiti di foto e video."
+            : "Este evento ya ha alcanzado sus límites de fotos y vídeos.",
+        variant: "destructive",
+      });
+      event.target.value = "";
+      return;
+    }
+
+    setIsUploadingAttachments(true);
+
+    try {
+      let uploadedPhotos = 0;
+      let uploadedVideos = 0;
+
+      for (const file of uploadablePhotoFiles) {
+        const uploaded = await uploadPhotoAttachment(file);
+        if (uploaded) {
+          uploadedPhotos += 1;
+        }
+      }
+
+      for (const file of uploadableVideoFiles) {
+        const duration = await getVideoDurationFromFile(file);
+        if (duration && duration > videoDurationSeconds) {
+          toast({
+            title: language === "en" ? "Video too long" : language === "it" ? "Video troppo lungo" : "Vídeo demasiado largo",
+            description:
+              language === "en"
+                ? `Maximum allowed duration is ${videoDurationSeconds}s.`
+                : language === "it"
+                ? `La durata massima consentita è ${videoDurationSeconds}s.`
+                : `La duración máxima permitida es ${videoDurationSeconds}s.`,
+            variant: "destructive",
+          });
+          continue;
+        }
+
+        const uploaded = await uploadVideoAttachment(file, duration || 1);
+        if (uploaded) {
+          uploadedVideos += 1;
+        }
+      }
+
+      await refreshGalleryAfterAttachments();
+
+      if (uploadedPhotos > 0 || uploadedVideos > 0) {
+        const description =
+          language === "en"
+            ? `Your content was added at the very bottom. ${uploadedPhotos} photo${uploadedPhotos === 1 ? "" : "s"} and ${uploadedVideos} video${uploadedVideos === 1 ? "" : "s"} uploaded.`
+            : language === "it"
+            ? `Il contenuto è stato aggiunto in fondo. ${uploadedPhotos} foto e ${uploadedVideos} video caricati.`
+            : `El contenido se ha añadido abajo del todo. ${uploadedPhotos} foto${uploadedPhotos === 1 ? "" : "s"} y ${uploadedVideos} vídeo${uploadedVideos === 1 ? "" : "s"} añadidos.`;
+
+        toast({
+          title: language === "en" ? "Content added" : language === "it" ? "Contenuto aggiunto" : "Contenido añadido",
+          description,
+        });
+      }
+    } catch (error) {
+      console.error("Error uploading gallery attachments:", error);
+      toast({
+        title: t.common.error,
+        description:
+          language === "en"
+            ? "We couldn't upload the selected files. Please try again."
+            : language === "it"
+            ? "Non è stato possibile caricare i file selezionati. Riprova."
+            : "No se pudieron subir los archivos seleccionados. Inténtalo de nuevo.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploadingAttachments(false);
+      event.target.value = "";
+    }
   };
 
   const handleDeletePhoto = async (photoId: string, imageUrl: string) => {
@@ -1324,6 +1567,15 @@ const Gallery = () => {
   }
 
   const effectiveGalleryViewMode = isDesktopView ? "grid" : galleryViewMode;
+  const showGalleryAttachmentButton = allowImageAttachment || allowVideoAttachment;
+  const attachButtonText =
+    language === "en"
+      ? "Add from gallery"
+      : language === "it"
+      ? "Aggiungi dalla galleria"
+      : "Añadir desde galeria";
+  const uploadingAttachmentText =
+    language === "en" ? "Uploading..." : language === "it" ? "Caricamento..." : "Subiendo...";
 
   return (
     <>
@@ -1491,6 +1743,18 @@ const Gallery = () => {
 
       <main className={eventBackgroundImage ? "pt-4 pb-6" : "py-12 pt-36 pb-6"}>
         <div className="max-w-7xl mx-auto px-6">
+          {showGalleryAttachmentButton && (
+            <div className="mb-4 flex justify-center">
+              <Button
+                type="button"
+                onClick={() => attachmentInputRef.current?.click()}
+                disabled={isUploadingAttachments}
+                className="bg-black px-6 text-white hover:bg-black/90 disabled:bg-black/70"
+              >
+                {isUploadingAttachments ? uploadingAttachmentText : attachButtonText}
+              </Button>
+            </div>
+          )}
           {!isDesktopView && (
             <div className="mb-4">
               <div className="mx-auto flex w-full max-w-2xl rounded-2xl bg-muted p-1">
@@ -1836,6 +2100,14 @@ const Gallery = () => {
           <span>Volver al menú</span>
         </button>
       )}
+      <input
+        ref={attachmentInputRef}
+        type="file"
+        accept="image/*,video/*"
+        multiple
+        className="hidden"
+        onChange={handleAttachmentChange}
+      />
       </div>
     </>
   );
