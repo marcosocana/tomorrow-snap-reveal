@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -182,6 +182,10 @@ const Gallery = () => {
   const [maxPhotos, setMaxPhotos] = useState<number | null>(null);
   const [maxVideos, setMaxVideos] = useState<number | null>(null);
   const [videoDurationSeconds, setVideoDurationSeconds] = useState(15);
+  const [uploadStartTime, setUploadStartTime] = useState<string>("");
+  const [uploadEndTime, setUploadEndTime] = useState<string>("");
+  const [revealTime, setRevealTime] = useState<string>("");
+  const [eventConfigReady, setEventConfigReady] = useState(false);
   const [headerStyle, setHeaderStyle] = useState<"gradient" | "modern">("modern");
   const [isDemoEvent, setIsDemoEvent] = useState(false);
 
@@ -549,28 +553,12 @@ const Gallery = () => {
     }
   }, [isDemoEnvironmentFromQuery]);
 
-  useEffect(() => {
-    if (!eventId) {
-      const guestEventPassword = getPersistedGuestEventPassword();
-      if (guestEventPassword) {
-        const params = new URLSearchParams();
-        if (isDemoEnvironmentFromQuery) {
-          params.set("demo_env", "1");
-        }
-        navigate(`/events/${guestEventPassword}${params.toString() ? `?${params.toString()}` : ""}`, {
-          replace: true,
-        });
-        return;
-      }
-      navigate("/event-login", { replace: true });
-      return;
-    }
-
-    // Load event password, filter type, custom image, description, background, expiry and sharing settings
-    const loadEventData = async () => {
+  const loadEventData = useCallback(async () => {
+    if (!eventId) return;
+    try {
       const { data } = await supabase
         .from("events")
-      .select("name, password_hash, filter_type, custom_image_url, description, background_image_url, expiry_date, expiry_redirect_url, font_family, font_size, allow_photo_deletion, allow_photo_sharing, like_counting_enabled, allow_video_recording, allow_audio_recording, allow_image_attachment, allow_video_attachment, max_photos, max_videos, max_video_duration, header_style, is_demo")
+      .select("name, password_hash, filter_type, custom_image_url, description, background_image_url, upload_start_time, upload_end_time, reveal_time, expiry_date, expiry_redirect_url, font_family, font_size, allow_photo_deletion, allow_photo_sharing, like_counting_enabled, allow_video_recording, allow_audio_recording, allow_image_attachment, allow_video_attachment, max_photos, max_videos, max_video_duration, header_style, is_demo")
         .eq("id", eventId)
         .maybeSingle();
       if (data) {
@@ -590,6 +578,9 @@ const Gallery = () => {
         setAllowImageAttachment((data as any).allow_image_attachment === true);
         setAllowVideoAttachment((data as any).allow_video_attachment === true);
         setMaxPhotos(data.max_photos ?? null);
+        setUploadStartTime(data.upload_start_time || "");
+        setUploadEndTime(data.upload_end_time || "");
+        setRevealTime(data.reveal_time || "");
         const rawMaxVideos = Number((data as any).max_videos);
         const rawVideoDuration = Number((data as any).max_video_duration);
         setMaxVideos(Number.isFinite(rawMaxVideos) && rawMaxVideos > 0 ? rawMaxVideos : null);
@@ -597,6 +588,8 @@ const Gallery = () => {
         setHeaderStyle(((data as any).header_style || "modern") as "gradient" | "modern");
         setIsDemoEvent((data as any).is_demo === true);
         setLikeCountingEnabled((data as any).like_counting_enabled === true);
+        setIsExpired(false);
+        setExpiryRedirectUrl(null);
         
         // Check if event is expired
         if (data.expiry_date) {
@@ -608,7 +601,28 @@ const Gallery = () => {
           }
         }
       }
-    };
+    } finally {
+      setEventConfigReady(true);
+    }
+  }, [eventId]);
+
+  useEffect(() => {
+    if (!eventId) {
+      const guestEventPassword = getPersistedGuestEventPassword();
+      if (guestEventPassword) {
+        const params = new URLSearchParams();
+        if (isDemoEnvironmentFromQuery) {
+          params.set("demo_env", "1");
+        }
+        navigate(`/events/${guestEventPassword}${params.toString() ? `?${params.toString()}` : ""}`, {
+          replace: true,
+        });
+        return;
+      }
+      navigate("/event-login", { replace: true });
+      return;
+    }
+
     loadEventData();
 
     // Always scroll to top when gallery loads
@@ -643,7 +657,15 @@ const Gallery = () => {
     loadPhotos(0);
     loadVideos();
     loadAudios();
-  }, [eventId, isDemoEnvironmentFromQuery, navigate, loadPhotos, loadVideos, loadAudios]);
+  }, [eventId, isDemoEnvironmentFromQuery, navigate, loadEventData, loadPhotos, loadVideos, loadAudios]);
+
+  useEffect(() => {
+    if (!eventId) return;
+    const interval = window.setInterval(() => {
+      loadEventData();
+    }, 15000);
+    return () => window.clearInterval(interval);
+  }, [eventId, loadEventData]);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(min-width: 1024px)");
@@ -1621,6 +1643,19 @@ const Gallery = () => {
         </div>
       </>
     );
+  }
+
+  if (!eventConfigReady) {
+    return <GalleryLoadingSkeleton />;
+  }
+
+  const demoEnvSuffix = isDemoEnvironmentFromQuery ? "?demo_env=1" : "";
+  const now = new Date();
+  const revealDate = revealTime ? new Date(revealTime) : null;
+  const hasRevealed = revealDate ? now >= revealDate : false;
+
+  if (!hasRevealed) {
+    return <Navigate to={`/camera${demoEnvSuffix}`} replace />;
   }
 
   const effectiveGalleryViewMode = isDesktopView ? "grid" : galleryViewMode;

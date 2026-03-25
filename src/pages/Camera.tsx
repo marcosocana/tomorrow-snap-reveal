@@ -185,27 +185,6 @@ const Camera = () => {
   }, [isDemoEnvironmentFromQuery]);
 
   useEffect(() => {
-    if (!eventId) {
-      const guestEventPassword = getPersistedGuestEventPassword();
-      if (guestEventPassword) {
-        const params = new URLSearchParams();
-        if (isDemoEnvironmentFromQuery) {
-          params.set("demo_env", "1");
-        }
-        navigate(`/events/${guestEventPassword}${params.toString() ? `?${params.toString()}` : ""}`, {
-          replace: true,
-        });
-        return;
-      }
-      navigate("/event-login", { replace: true });
-      return;
-    }
-    loadEventData();
-    loadMediaCounts();
-    window.scrollTo(0, 0);
-  }, [eventId, isDemoEnvironmentFromQuery, navigate]);
-
-  useEffect(() => {
     return () => {
       cleanupMediaStream();
     };
@@ -268,7 +247,7 @@ const Camera = () => {
     }
   }, [searchParams]);
 
-  const loadEventData = async () => {
+  const loadEventData = useCallback(async () => {
     if (!eventId) return;
     try {
       const { data, error } = await supabase
@@ -311,7 +290,36 @@ const Camera = () => {
     } finally {
       setEventConfigReady(true);
     }
-  };
+  }, [eventId]);
+
+  useEffect(() => {
+    if (!eventId) {
+      const guestEventPassword = getPersistedGuestEventPassword();
+      if (guestEventPassword) {
+        const params = new URLSearchParams();
+        if (isDemoEnvironmentFromQuery) {
+          params.set("demo_env", "1");
+        }
+        navigate(`/events/${guestEventPassword}${params.toString() ? `?${params.toString()}` : ""}`, {
+          replace: true,
+        });
+        return;
+      }
+      navigate("/event-login", { replace: true });
+      return;
+    }
+    loadEventData();
+    loadMediaCounts();
+    window.scrollTo(0, 0);
+  }, [eventId, isDemoEnvironmentFromQuery, loadEventData, navigate]);
+
+  useEffect(() => {
+    if (!eventId) return;
+    const interval = window.setInterval(() => {
+      loadEventData();
+    }, 15000);
+    return () => window.clearInterval(interval);
+  }, [eventId, loadEventData]);
 
   // Helper to format date in local timezone
   const formatLocalDate = (dateStr: string, formatStr: string) => {
