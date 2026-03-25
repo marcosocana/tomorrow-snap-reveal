@@ -115,6 +115,9 @@ const generateHash = () => {
     .join("");
 };
 
+const MAX_ATTACHMENT_FILES = 5;
+const MAX_ATTACHMENT_VIDEO_SIZE_BYTES = 25 * 1024 * 1024;
+
 const getVideoExtensionForMimeType = (mimeType: string | null | undefined) => {
   const mime = (mimeType || "").toLowerCase();
   if (mime.includes("mp4")) return "mp4";
@@ -705,7 +708,7 @@ const Gallery = () => {
     navigate("/event-login", { replace: true });
   };
 
-  const getSelectedFiles = (files: FileList | null, maxFiles = 5) => {
+  const getSelectedFiles = (files: FileList | null, maxFiles = MAX_ATTACHMENT_FILES) => {
     const selectedFiles = Array.from(files || []);
     if (selectedFiles.length > maxFiles) {
       toast({
@@ -737,6 +740,24 @@ const Gallery = () => {
       };
       video.src = objectUrl;
     });
+  };
+
+  const validateAttachmentVideoFile = (file: File) => {
+    if (file.size > MAX_ATTACHMENT_VIDEO_SIZE_BYTES) {
+      toast({
+        title: language === "en" ? "Video too large" : language === "it" ? "Video troppo pesante" : "Vídeo demasiado pesado",
+        description:
+          language === "en"
+            ? "The maximum allowed size is 25 MB."
+            : language === "it"
+            ? "La dimensione massima consentita è 25 MB."
+            : "El tamaño máximo permitido es 25 MB.",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    return true;
   };
 
   const uploadPhotoAttachment = async (file: File) => {
@@ -871,6 +892,10 @@ const Gallery = () => {
       }
 
       for (const file of uploadableVideoFiles) {
+        if (!validateAttachmentVideoFile(file)) {
+          continue;
+        }
+
         const duration = await getVideoDurationFromFile(file);
         if (duration && duration > videoDurationSeconds) {
           toast({
@@ -1605,6 +1630,12 @@ const Gallery = () => {
       : language === "it"
       ? "Aggiungi dalla galleria"
       : "Añadir desde galeria";
+  const attachmentHintText =
+    language === "en"
+      ? "Maximum 5 files each time. Videos up to 15 seconds and 25 MB."
+      : language === "it"
+      ? "Massimo 5 file ogni volta. Video fino a 15 secondi e 25 MB."
+      : "Máximo 5 archivos por vez. Vídeos de hasta 15 segundos y 25 MB.";
   const uploadingAttachmentText =
     language === "en" ? "Uploading..." : language === "it" ? "Caricamento..." : "Subiendo...";
 
@@ -1776,14 +1807,17 @@ const Gallery = () => {
         <div className="max-w-7xl mx-auto px-6">
           {showGalleryAttachmentButton && (
             <div className="mb-4 flex justify-center">
-              <Button
-                type="button"
-                onClick={() => attachmentInputRef.current?.click()}
-                disabled={isUploadingAttachments}
-                className="bg-black px-6 text-white hover:bg-black/90 disabled:bg-black/70"
-              >
-                {isUploadingAttachments ? uploadingAttachmentText : attachButtonText}
-              </Button>
+              <div className="w-full max-w-md text-center">
+                <Button
+                  type="button"
+                  onClick={() => attachmentInputRef.current?.click()}
+                  disabled={isUploadingAttachments}
+                  className="bg-black px-6 text-white hover:bg-black/90 disabled:bg-black/70"
+                >
+                  {isUploadingAttachments ? uploadingAttachmentText : attachButtonText}
+                </Button>
+                <p className="mt-2 text-xs text-muted-foreground">{attachmentHintText}</p>
+              </div>
             </div>
           )}
           {!isDesktopView && (

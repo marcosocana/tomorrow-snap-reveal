@@ -75,6 +75,9 @@ const getExtensionForMimeType = (mimeType: string | null | undefined, mode: "vid
   return mode === "audio" ? "webm" : "webm";
 };
 
+const MAX_ATTACHMENT_FILES = 5;
+const MAX_ATTACHMENT_VIDEO_SIZE_BYTES = 25 * 1024 * 1024;
+
 const CameraLoadingSkeleton = () => (
   <div className="app-screen bg-background flex flex-col">
     <div className="relative h-[50vh] min-h-[320px] max-h-[450px] w-full overflow-hidden rounded-b-3xl">
@@ -884,7 +887,7 @@ const Camera = () => {
     closeRecordingOverlay();
   };
 
-  const getSelectedFiles = (files: FileList | null, maxFiles = 5) => {
+  const getSelectedFiles = (files: FileList | null, maxFiles = MAX_ATTACHMENT_FILES) => {
     const selectedFiles = Array.from(files || []);
     if (selectedFiles.length > maxFiles) {
       toast({
@@ -916,6 +919,24 @@ const Camera = () => {
       };
       video.src = objectUrl;
     });
+  };
+
+  const validateAttachmentVideoFile = (file: File) => {
+    if (file.size > MAX_ATTACHMENT_VIDEO_SIZE_BYTES) {
+      toast({
+        title: language === "en" ? "Video too large" : language === "it" ? "Video troppo pesante" : "Vídeo demasiado pesado",
+        description:
+          language === "en"
+            ? "The maximum allowed size is 25 MB."
+            : language === "it"
+            ? "La dimensione massima consentita è 25 MB."
+            : "El tamaño máximo permitido es 25 MB.",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    return true;
   };
 
   const uploadMediaFile = async (
@@ -1062,6 +1083,10 @@ const Camera = () => {
       }
 
       for (const file of uploadableVideoFiles) {
+        if (!validateAttachmentVideoFile(file)) {
+          continue;
+        }
+
         const duration = await getVideoDurationFromFile(file);
         if (duration && duration > videoDurationSeconds) {
           toast({
@@ -1662,10 +1687,10 @@ const Camera = () => {
       : "Añadir desde galeria";
   const attachmentHintText =
     language === "en"
-      ? "Maximum 5 photos or videos each time."
+      ? "Maximum 5 files each time. Videos up to 15 seconds and 25 MB."
       : language === "it"
-      ? "Massimo 5 foto o video ogni volta."
-      : "Máximo 5 fotos o vídeos por cada vez.";
+      ? "Massimo 5 file ogni volta. Video fino a 15 secondi e 25 MB."
+      : "Máximo 5 archivos por vez. Vídeos de hasta 15 segundos y 25 MB.";
   const uploadingAttachmentText =
     language === "en" ? "Uploading..." : language === "it" ? "Caricando..." : "Subiendo...";
   const showGalleryAttachmentSection = allowImageAttachment || allowVideoAttachment;
