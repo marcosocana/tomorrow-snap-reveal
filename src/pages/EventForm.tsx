@@ -63,6 +63,8 @@ interface Event {
   allow_audio_recording?: boolean;
   max_audios?: number | null;
   max_audio_duration?: number | null;
+  allow_image_attachment?: boolean;
+  allow_video_attachment?: boolean;
   header_style?: string | null;
 }
 
@@ -192,6 +194,8 @@ const EventForm = () => {
       allowAudioRecording: false,
       maxAudios: "",
       maxAudioDuration: "30",
+      allowImageAttachment: false,
+      allowVideoAttachment: false,
       headerStyle: "modern" as HeaderStyle,
     };
   });
@@ -228,6 +232,15 @@ const EventForm = () => {
     return Number.isNaN(parsed.getTime()) ? null : parsed;
   };
   const timezoneOffsetLabel = formatTimezoneOffset(formData.timezone);
+
+  const isMissingGalleryAttachmentColumnsError = (error: unknown) => {
+    if (!error || typeof error !== "object") return false;
+    const message = "message" in error ? String((error as { message?: unknown }).message || "") : "";
+    const details = "details" in error ? String((error as { details?: unknown }).details || "") : "";
+    const hint = "hint" in error ? String((error as { hint?: unknown }).hint || "") : "";
+    const combined = `${message} ${details} ${hint}`.toLowerCase();
+    return combined.includes("allow_image_attachment") || combined.includes("allow_video_attachment");
+  };
 
   const getEventQrUrl = (id: string) =>
     localStorage.getItem(`event-qr-url-${id}`) ||
@@ -376,6 +389,8 @@ const EventForm = () => {
         allowAudioRecording: (event as any).allow_audio_recording === true,
         maxAudios: event.max_audios ? String(event.max_audios) : "",
         maxAudioDuration: event.max_audio_duration ? String(event.max_audio_duration) : "30",
+        allowImageAttachment: (event as any).allow_image_attachment === true,
+        allowVideoAttachment: (event as any).allow_video_attachment === true,
         headerStyle: ((event as any).header_style || "modern") as HeaderStyle,
       });
       await loadEventMediaCounts(event.id);
@@ -732,6 +747,8 @@ const EventForm = () => {
             allow_audio_recording: effectiveAllowAudioRecording,
             max_audios: maxAudiosValue,
             max_audio_duration: resolvedAudioDuration,
+            allow_image_attachment: formData.allowImageAttachment,
+            allow_video_attachment: formData.allowVideoAttachment,
             header_style: formData.headerStyle,
           } as any)
           .eq("id", eventId);
@@ -779,6 +796,8 @@ const EventForm = () => {
             allow_audio_recording: effectiveAllowAudioRecording,
             max_audios: maxAudiosValue,
             max_audio_duration: resolvedAudioDuration,
+            allow_image_attachment: formData.allowImageAttachment,
+            allow_video_attachment: formData.allowVideoAttachment,
             header_style: formData.headerStyle,
           },
         };
@@ -858,6 +877,8 @@ const EventForm = () => {
           allow_audio_recording: effectiveAllowAudioRecording,
           max_audios: maxAudiosValue,
           max_audio_duration: resolvedAudioDuration,
+          allow_image_attachment: formData.allowImageAttachment,
+          allow_video_attachment: formData.allowVideoAttachment,
           header_style: formData.headerStyle,
         } as any).select().single();
 
@@ -882,7 +903,11 @@ const EventForm = () => {
       console.error("Error saving event:", error);
       toast({
         title: t("form.errorTitle"),
-        description: isEditing ? t("form.updateError") : t("form.createError"),
+        description: isMissingGalleryAttachmentColumnsError(error)
+          ? "Falta aplicar la migracion de Supabase para los adjuntos desde galeria. Ejecuta la migracion 20260325120000_add_gallery_attachment_options.sql y vuelve a intentarlo."
+          : isEditing
+          ? t("form.updateError")
+          : t("form.createError"),
         variant: "destructive",
       });
     } finally {
@@ -955,6 +980,11 @@ const EventForm = () => {
       </div>
     );
   }
+
+  const showGalleryAttachmentSettings =
+    isSuperAdmin &&
+    !isDemoEvent &&
+    (isEditing || planType === "xxl");
 
   return (
     <div
@@ -1890,6 +1920,49 @@ const EventForm = () => {
                       </div>
                     </div>
                   </div>
+
+                  {showGalleryAttachmentSettings && (
+                    <div className="space-y-3 border-t border-border pt-4">
+                      <div>
+                        <Label className="text-sm font-semibold">Adjuntos desde galeria</Label>
+                        <p className="text-xs text-muted-foreground">
+                          Permite a los invitados subir archivos ya guardados en su movil. Solo se muestra al crear eventos Pro y despues puede editarse desde el detalle del evento.
+                        </p>
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label htmlFor="allowImageAttachment">Anadir opcion de adjuntar imagen</Label>
+                          <p className="text-xs text-muted-foreground">
+                            Muestra un boton para seleccionar fotos desde la galeria del movil.
+                          </p>
+                        </div>
+                        <Switch
+                          id="allowImageAttachment"
+                          checked={formData.allowImageAttachment}
+                          onCheckedChange={(checked) =>
+                            setFormData({ ...formData, allowImageAttachment: checked })
+                          }
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label htmlFor="allowVideoAttachment">Anadir opcion de adjuntar video</Label>
+                          <p className="text-xs text-muted-foreground">
+                            Muestra un boton para seleccionar videos desde la galeria del movil.
+                          </p>
+                        </div>
+                        <Switch
+                          id="allowVideoAttachment"
+                          checked={formData.allowVideoAttachment}
+                          onCheckedChange={(checked) =>
+                            setFormData({ ...formData, allowVideoAttachment: checked })
+                          }
+                        />
+                      </div>
+                    </div>
+                  )}
               </div>
             )}
 

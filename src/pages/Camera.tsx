@@ -3,7 +3,7 @@ import { useNavigate, Navigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { LogOut, Image, Share2, RefreshCw, Mic, Video, X, ArrowLeft } from "lucide-react";
+import { LogOut, Image, Share2, RefreshCw, Mic, Video, X, ArrowLeft, Paperclip } from "lucide-react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { es, enUS, it } from "date-fns/locale";
@@ -125,12 +125,16 @@ const Camera = () => {
   const uploadTimestampsRef = useRef<number[]>([]);
   const cooldownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const photoAttachmentInputRef = useRef<HTMLInputElement>(null);
+  const videoAttachmentInputRef = useRef<HTMLInputElement>(null);
   const [allowVideoRecording, setAllowVideoRecording] = useState(false);
   const [maxVideos, setMaxVideos] = useState<number | null>(null);
   const [videoDurationSeconds, setVideoDurationSeconds] = useState(15);
   const [allowAudioRecording, setAllowAudioRecording] = useState(false);
   const [maxAudios, setMaxAudios] = useState<number | null>(null);
   const [audioDurationSeconds, setAudioDurationSeconds] = useState(30);
+  const [allowImageAttachment, setAllowImageAttachment] = useState(false);
+  const [allowVideoAttachment, setAllowVideoAttachment] = useState(false);
   const [maxPhotos, setMaxPhotos] = useState<number | null>(null);
   const [headerStyle, setHeaderStyle] = useState<"gradient" | "modern">("modern");
   const [isDemoEvent, setIsDemoEvent] = useState(false);
@@ -263,7 +267,7 @@ const Camera = () => {
     try {
       const { data, error } = await supabase
         .from("events")
-        .select("reveal_time, upload_start_time, upload_end_time, password_hash, max_photos, custom_image_url, background_image_url, description, font_family, font_size, show_legal_text, legal_text_type, allow_video_recording, max_videos, max_video_duration, allow_audio_recording, max_audios, max_audio_duration, header_style, is_demo")
+        .select("reveal_time, upload_start_time, upload_end_time, password_hash, max_photos, custom_image_url, background_image_url, description, font_family, font_size, show_legal_text, legal_text_type, allow_video_recording, max_videos, max_video_duration, allow_audio_recording, max_audios, max_audio_duration, allow_image_attachment, allow_video_attachment, header_style, is_demo")
         .eq("id", eventId)
         .single();
       if (data && !error) {
@@ -290,6 +294,8 @@ const Camera = () => {
         setAllowAudioRecording((data as any).allow_audio_recording === true);
         setMaxAudios(Number.isFinite(rawMaxAudios) && rawMaxAudios > 0 ? rawMaxAudios : null);
         setAudioDurationSeconds(Number.isFinite(rawAudioDuration) && rawAudioDuration > 0 ? rawAudioDuration : 30);
+        setAllowImageAttachment((data as any).allow_image_attachment === true);
+        setAllowVideoAttachment((data as any).allow_video_attachment === true);
         setHeaderStyle(((data as any).header_style || "modern") as "gradient" | "modern");
         setIsDemoEvent((data as any).is_demo === true);
         
@@ -459,10 +465,11 @@ const Camera = () => {
     fileInputRef.current?.click();
   };
 
-  const uploadPhoto = async (file: File) => {
+  const uploadPhoto = async (
+    file: File,
+    options?: { silentSuccess?: boolean; skipReload?: boolean; skipFailedState?: boolean }
+  ) => {
     if (!eventId) return;
-    setIsUploading(true);
-    setFailedUpload(null);
     try {
       // Check max photos limit before uploading
       const { data: eventData } = await supabase
@@ -483,7 +490,7 @@ const Camera = () => {
             description: t.camera.limitReachedDesc,
             variant: "destructive",
           });
-          return;
+          return false;
         }
       }
 
@@ -498,7 +505,9 @@ const Camera = () => {
         .from("event-photos")
         .upload(fileName, compressedFile);
       if (uploadError) {
-        setFailedUpload({ file });
+        if (!options?.skipFailedState) {
+          setFailedUpload({ file });
+        }
         toast({
           title: t.common.error,
           description: language === "en"
@@ -508,7 +517,7 @@ const Camera = () => {
             : "No se ha podido subir la foto. Inténtalo de nuevo.",
           variant: "destructive",
         });
-        return;
+        return false;
       }
 
       // Save photo record
@@ -517,7 +526,9 @@ const Camera = () => {
         image_url: fileName,
       });
       if (dbError) {
-        setFailedUpload({ file });
+        if (!options?.skipFailedState) {
+          setFailedUpload({ file });
+        }
         toast({
           title: t.common.error,
           description: language === "en"
@@ -527,24 +538,30 @@ const Camera = () => {
             : "No se ha podido guardar la foto. Inténtalo de nuevo.",
           variant: "destructive",
         });
-        return;
+        return false;
       }
       
       // Track successful upload timestamp for rate limiting
       uploadTimestampsRef.current.push(Date.now());
       
       setPhotoCount((prev) => prev + 1);
-      toast({
-        title: t.camera.uploadSuccess,
-        description: t.camera.uploadSuccessDesc,
-      });
+      if (!options?.silentSuccess) {
+        toast({
+          title: t.camera.uploadSuccess,
+          description: t.camera.uploadSuccessDesc,
+        });
+      }
 
-      // Reload event data to check if max photos reached
-      await loadEventData();
-      await loadMediaCounts();
+      if (!options?.skipReload) {
+        await loadEventData();
+        await loadMediaCounts();
+      }
+      return true;
     } catch (error) {
       console.error("Error uploading photo:", error);
-      setFailedUpload({ file });
+      if (!options?.skipFailedState) {
+        setFailedUpload({ file });
+      }
       toast({
         title: t.common.error,
         description: language === "en"
@@ -554,15 +571,20 @@ const Camera = () => {
           : "Ha ocurrido un error inesperado. Inténtalo de nuevo.",
         variant: "destructive",
       });
-    } finally {
-      setIsUploading(false);
+      return false;
     }
   };
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file || !eventId) return;
-    await uploadPhoto(file);
+    setIsUploading(true);
+    setFailedUpload(null);
+    try {
+      await uploadPhoto(file);
+    } finally {
+      setIsUploading(false);
+    }
     // Reset input
     if (event.target) {
       event.target.value = "";
@@ -848,18 +870,57 @@ const Camera = () => {
     if (!recordingBlob || !recordingMode) return;
     const durationSeconds =
       recordingDuration || (recordingMode === "video" ? videoDurationSeconds : audioDurationSeconds);
-    await uploadMediaFile(recordingBlob, recordingMode, durationSeconds, recordingMimeTypeRef.current);
+    setIsUploadingMedia(true);
+    try {
+      await uploadMediaFile(recordingBlob, recordingMode, durationSeconds, recordingMimeTypeRef.current);
+    } finally {
+      setIsUploadingMedia(false);
+    }
     closeRecordingOverlay();
+  };
+
+  const getSelectedFiles = (files: FileList | null, maxFiles = 5) => {
+    const selectedFiles = Array.from(files || []);
+    if (selectedFiles.length > maxFiles) {
+      toast({
+        title: language === "en" ? "Maximum 5 files" : language === "it" ? "Massimo 5 file" : "Máximo 5 archivos",
+        description:
+          language === "en"
+            ? "Only the first 5 files will be uploaded."
+            : language === "it"
+            ? "Verranno caricati solo i primi 5 file."
+            : "Solo se subirán los primeros 5 archivos.",
+      });
+    }
+    return selectedFiles.slice(0, maxFiles);
+  };
+
+  const getVideoDurationFromFile = async (file: File) => {
+    return await new Promise<number | null>((resolve) => {
+      const objectUrl = URL.createObjectURL(file);
+      const video = document.createElement("video");
+      video.preload = "metadata";
+      video.onloadedmetadata = () => {
+        const duration = Number.isFinite(video.duration) ? Math.round(video.duration) : null;
+        URL.revokeObjectURL(objectUrl);
+        resolve(duration);
+      };
+      video.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        resolve(null);
+      };
+      video.src = objectUrl;
+    });
   };
 
   const uploadMediaFile = async (
     blob: Blob,
     mode: "video" | "audio",
     duration: number,
-    mimeType?: string | null
+    mimeType?: string | null,
+    options?: { silentSuccess?: boolean; skipReload?: boolean }
   ) => {
     if (!eventId) return;
-    setIsUploadingMedia(true);
     try {
       const bucket = mode === "video" ? "event-videos" : "event-audios";
       const hash = generateHash();
@@ -915,11 +976,16 @@ const Camera = () => {
           ? "Vídeo subido con éxito"
           : "Audio subido con éxito";
 
-      toast({
-        title,
-        description,
-      });
-      await loadMediaCounts();
+      if (!options?.silentSuccess) {
+        toast({
+          title,
+          description,
+        });
+      }
+      if (!options?.skipReload) {
+        await loadMediaCounts();
+      }
+      return true;
     } catch (error) {
       console.error("Error uploading media:", error);
       toast({
@@ -932,14 +998,132 @@ const Camera = () => {
             : "No se pudo subir la grabación. Inténtalo de nuevo.",
         variant: "destructive",
       });
-    } finally {
-      setIsUploadingMedia(false);
+      return false;
     }
   };
 
   const handleRetryUpload = () => {
     if (failedUpload) {
-      uploadPhoto(failedUpload.file);
+      setIsUploading(true);
+      setFailedUpload(null);
+      uploadPhoto(failedUpload.file).finally(() => setIsUploading(false));
+    }
+  };
+
+  const handlePhotoAttachmentChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = getSelectedFiles(event.target.files);
+    if (!files.length || !allowImageAttachment) return;
+
+    const remainingSlots = maxPhotos !== null ? Math.max(0, maxPhotos - photoCount) : null;
+    const uploadableFiles = remainingSlots === null ? files : files.slice(0, remainingSlots);
+
+    if (remainingSlots === 0) {
+      toast({
+        title: t.camera.limitReached,
+        description: t.camera.limitReachedDesc,
+        variant: "destructive",
+      });
+      event.target.value = "";
+      return;
+    }
+
+    setIsUploading(true);
+    setFailedUpload(null);
+    try {
+      let uploadedCount = 0;
+      for (const file of uploadableFiles) {
+        const uploaded = await uploadPhoto(file, {
+          silentSuccess: true,
+          skipReload: true,
+          skipFailedState: true,
+        });
+        if (uploaded) {
+          uploadedCount += 1;
+        }
+      }
+      await loadEventData();
+      await loadMediaCounts();
+      if (uploadedCount > 0) {
+        toast({
+          title: language === "en" ? "Photos uploaded" : language === "it" ? "Foto caricate" : "Fotos subidas",
+          description:
+            language === "en"
+              ? `${uploadedCount} photo${uploadedCount === 1 ? "" : "s"} added from the gallery.`
+              : language === "it"
+              ? `${uploadedCount} foto aggiunte dalla galleria.`
+              : `${uploadedCount} foto${uploadedCount === 1 ? "" : "s"} añadidas desde la galería.`,
+        });
+      }
+    } finally {
+      setIsUploading(false);
+      event.target.value = "";
+    }
+  };
+
+  const handleVideoAttachmentChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = getSelectedFiles(event.target.files);
+    if (!files.length || !allowVideoAttachment) return;
+
+    const remainingSlots = maxVideos !== null ? Math.max(0, maxVideos - videoCount) : null;
+    const uploadableFiles = remainingSlots === null ? files : files.slice(0, remainingSlots);
+
+    if (remainingSlots === 0) {
+      toast({
+        title: language === "en" ? "Limit reached" : language === "it" ? "Limite raggiunto" : "Límite alcanzado",
+        description:
+          language === "en"
+            ? "You've uploaded the maximum number of videos."
+            : language === "it"
+            ? "Hai raggiunto il numero massimo di video."
+            : "Ya alcanzaste el número máximo de vídeos.",
+        variant: "destructive",
+      });
+      event.target.value = "";
+      return;
+    }
+
+    setIsUploadingMedia(true);
+    try {
+      let uploadedCount = 0;
+      for (const file of uploadableFiles) {
+        const duration = await getVideoDurationFromFile(file);
+        if (duration && duration > videoDurationSeconds) {
+          toast({
+            title: language === "en" ? "Video too long" : language === "it" ? "Video troppo lungo" : "Vídeo demasiado largo",
+            description:
+              language === "en"
+                ? `Maximum allowed duration is ${videoDurationSeconds}s.`
+                : language === "it"
+                ? `La durata massima consentita es ${videoDurationSeconds}s.`
+                : `La duración máxima permitida es ${videoDurationSeconds}s.`,
+            variant: "destructive",
+          });
+          continue;
+        }
+
+        const uploaded = await uploadMediaFile(file, "video", duration || 1, file.type, {
+          silentSuccess: true,
+          skipReload: true,
+        });
+        if (uploaded) {
+          uploadedCount += 1;
+        }
+      }
+      await loadMediaCounts();
+      if (uploadedCount > 0) {
+        toast({
+          title: language === "en" ? "Videos uploaded" : language === "it" ? "Video caricati" : "Vídeos subidos",
+          description:
+            language === "en"
+              ? `${uploadedCount} video${uploadedCount === 1 ? "" : "s"} added from the gallery.`
+              : language === "it"
+              ? `${uploadedCount} video aggiunti dalla galleria.`
+              : `${uploadedCount} vídeo${uploadedCount === 1 ? "" : "s"} añadidos desde la galería.`,
+        });
+      }
+    } finally {
+      setIsUploadingMedia(false);
+      event.target.value = "";
     }
   };
 
@@ -1491,6 +1675,15 @@ const Camera = () => {
   const recordVideoText = "Vídeo";
   const recordAudioText = "Audio";
   const actionQuestionText = "¿Que quieres hacer?";
+  const attachmentQuestionText =
+    language === "en"
+      ? "Or do you want to add it from your gallery?"
+      : language === "it"
+      ? "Oppure vuoi aggiungerlo dalla tua galleria?"
+      : "¿O quieres añadirlo desde tu galería?";
+  const attachPhotoText = language === "en" ? "Attach photo" : language === "it" ? "Allega foto" : "Adjuntar foto";
+  const attachVideoText = language === "en" ? "Attach video" : language === "it" ? "Allega video" : "Adjuntar vídeo";
+  const showGalleryAttachmentSection = allowImageAttachment || allowVideoAttachment;
   const showOnlyPhotoAction = isPhotoOnlyConfigured;
   const audioWaveBars = 28;
   const audioRecordingProgress =
@@ -1557,6 +1750,39 @@ const Camera = () => {
               <span>{recordAudioText}</span>
             </button>
           )}
+        </div>
+      )}
+      {showGalleryAttachmentSection && (
+        <div className="w-full space-y-3">
+          <h3 className="mt-2 text-xl md:text-2xl font-semibold text-foreground">{attachmentQuestionText}</h3>
+          <div className={`grid w-full gap-3 ${allowImageAttachment && allowVideoAttachment ? "grid-cols-2 max-w-2xl mx-auto" : "grid-cols-1 max-w-sm mx-auto"}`}>
+            {allowImageAttachment && (
+              <button
+                type="button"
+                onClick={() => photoAttachmentInputRef.current?.click()}
+                disabled={isUploading || isUploadingMedia}
+                className="flex h-28 w-full flex-col items-center justify-center gap-2 rounded-3xl border border-border bg-card p-4 text-sm font-semibold text-foreground transition hover:border-primary focus-visible:ring focus-visible:ring-primary/60 disabled:cursor-not-allowed disabled:border-border disabled:bg-muted/60 disabled:text-muted-foreground"
+              >
+                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-black text-white">
+                  <Paperclip className="w-5 h-5" />
+                </div>
+                <span>{attachPhotoText}</span>
+              </button>
+            )}
+            {allowVideoAttachment && (
+              <button
+                type="button"
+                onClick={() => videoAttachmentInputRef.current?.click()}
+                disabled={isUploading || isUploadingMedia}
+                className="flex h-28 w-full flex-col items-center justify-center gap-2 rounded-3xl border border-border bg-card p-4 text-sm font-semibold text-foreground transition hover:border-primary focus-visible:ring focus-visible:ring-primary/60 disabled:cursor-not-allowed disabled:border-border disabled:bg-muted/60 disabled:text-muted-foreground"
+              >
+                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-black text-white">
+                  <Paperclip className="w-5 h-5" />
+                </div>
+                <span>{attachVideoText}</span>
+              </button>
+            )}
+          </div>
         </div>
       )}
       {failedUpload && !isUploading && (
@@ -1903,6 +2129,22 @@ const Camera = () => {
         accept="image/*"
         capture="environment"
         onChange={handleFileChange}
+        className="hidden"
+      />
+      <input
+        ref={photoAttachmentInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        onChange={handlePhotoAttachmentChange}
+        className="hidden"
+      />
+      <input
+        ref={videoAttachmentInputRef}
+        type="file"
+        accept="video/*"
+        multiple
+        onChange={handleVideoAttachmentChange}
         className="hidden"
       />
       <Dialog open={pricingOpen} onOpenChange={setPricingOpen}>

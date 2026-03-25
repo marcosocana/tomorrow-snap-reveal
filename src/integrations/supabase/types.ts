@@ -153,6 +153,7 @@ export type Database = {
       events: {
         Row: {
           admin_password: string | null
+          allow_image_attachment: boolean
           allow_audio_recording: boolean
           allow_image_attachment: boolean
           allow_photo_deletion: boolean
@@ -199,6 +200,7 @@ export type Database = {
         }
         Insert: {
           admin_password?: string | null
+          allow_image_attachment?: boolean
           allow_audio_recording?: boolean
           allow_image_attachment?: boolean
           allow_photo_deletion?: boolean
@@ -245,6 +247,7 @@ export type Database = {
         }
         Update: {
           admin_password?: string | null
+          allow_image_attachment?: boolean
           allow_audio_recording?: boolean
           allow_image_attachment?: boolean
           allow_photo_deletion?: boolean
