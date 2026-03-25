@@ -115,6 +115,15 @@ const generateHash = () => {
     .join("");
 };
 
+const getVideoExtensionForMimeType = (mimeType: string | null | undefined) => {
+  const mime = (mimeType || "").toLowerCase();
+  if (mime.includes("mp4")) return "mp4";
+  if (mime.includes("quicktime")) return "mov";
+  if (mime.includes("ogg")) return "ogg";
+  if (mime.includes("webm")) return "webm";
+  return "mp4";
+};
+
 const Gallery = () => {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [totalPhotos, setTotalPhotos] = useState(0);
@@ -135,7 +144,7 @@ const Gallery = () => {
   const isDemoEnvironmentFromQuery = searchParams.get("demo_env") === "1";
   const { toast } = useToast();
   const eventId = localStorage.getItem("eventId");
-  const eventName = localStorage.getItem("eventName");
+  const [eventName, setEventName] = useState<string>(() => localStorage.getItem("eventName") || "");
   const [eventPassword, setEventPassword] = useState<string>("");
   const [filterType, setFilterType] = useState<FilterType>("vintage");
   const [showShareDialog, setShowShareDialog] = useState(false);
@@ -557,10 +566,12 @@ const Gallery = () => {
     const loadEventData = async () => {
       const { data } = await supabase
         .from("events")
-      .select("password_hash, filter_type, custom_image_url, description, background_image_url, expiry_date, expiry_redirect_url, font_family, font_size, allow_photo_deletion, allow_photo_sharing, like_counting_enabled, allow_video_recording, allow_audio_recording, allow_image_attachment, allow_video_attachment, max_photos, max_videos, max_video_duration, header_style, is_demo")
+      .select("name, password_hash, filter_type, custom_image_url, description, background_image_url, expiry_date, expiry_redirect_url, font_family, font_size, allow_photo_deletion, allow_photo_sharing, like_counting_enabled, allow_video_recording, allow_audio_recording, allow_image_attachment, allow_video_attachment, max_photos, max_videos, max_video_duration, header_style, is_demo")
         .eq("id", eventId)
         .maybeSingle();
       if (data) {
+        setEventName(data.name || "");
+        localStorage.setItem("eventName", data.name || "");
         setEventPassword(data.password_hash);
         setFilterType((data.filter_type as FilterType) || "vintage");
         setEventCustomImage(data.custom_image_url);
@@ -782,9 +793,7 @@ const Gallery = () => {
   const uploadVideoAttachment = async (file: File, duration: number) => {
     if (!eventId) return false;
 
-    const fileExtension = file.name.split(".").pop()?.trim().toLowerCase();
-    const fallbackExtension = file.type.includes("mp4") ? "mp4" : "webm";
-    const extension = fileExtension || fallbackExtension;
+    const extension = getVideoExtensionForMimeType(file.type);
     const fileName = `${eventId}/${generateHash()}_${Date.now()}.${extension}`;
 
     const { error: uploadError } = await supabase.storage
@@ -1483,13 +1492,35 @@ const Gallery = () => {
   const photoCount = totalPhotos;
   const videoCount = totalVideos;
   const audioCount = totalAudios;
-
-  const mediaStatsText =
+  const mediaStatsParts = [
     language === "en"
-      ? `📷 ${totalPhotos} photos / 📹 ${totalVideos} videos / 🔈 ${totalAudios} audios`
+      ? `📷 ${totalPhotos} photos`
       : language === "it"
-      ? `📷 ${totalPhotos} foto / 📹 ${totalVideos} video / 🔈 ${totalAudios} audio`
-      : `📷 ${totalPhotos} fotos / 📹 ${totalVideos} vídeos / 🔈 ${totalAudios} audios`;
+      ? `📷 ${totalPhotos} foto`
+      : `📷 ${totalPhotos} fotos`,
+  ];
+
+  if (allowVideoRecording) {
+    mediaStatsParts.push(
+      language === "en"
+        ? `📹 ${totalVideos} videos`
+        : language === "it"
+        ? `📹 ${totalVideos} video`
+        : `📹 ${totalVideos} vídeos`
+    );
+  }
+
+  if (allowAudioRecording) {
+    mediaStatsParts.push(
+      language === "en"
+        ? `🔈 ${totalAudios} audios`
+        : language === "it"
+        ? `🔈 ${totalAudios} audio`
+        : `🔈 ${totalAudios} audios`
+    );
+  }
+
+  const mediaStatsText = mediaStatsParts.join(" / ");
   const videosLabel = language === "en" ? "Videos" : language === "it" ? "Video" : "Vídeos";
   const audioLabel = language === "en" ? "Audio notes" : language === "it" ? "Note audio" : "Notas de audio";
   const isPhotoOnlyConfigured = !allowVideoRecording && !allowAudioRecording;
