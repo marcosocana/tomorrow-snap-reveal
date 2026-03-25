@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { LogOut, Film, Trash2, Download, Share2, Play, Image, Mic, Video, LayoutGrid, LayoutList, ArrowLeft } from "lucide-react";
+import { LogOut, Film, Trash2, Download, Share2, Play, Image, Mic, Video, LayoutGrid, LayoutList, ArrowLeft, Plus } from "lucide-react";
 import StoriesViewer from "@/components/StoriesViewer";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
@@ -139,6 +139,7 @@ const Gallery = () => {
   const [page, setPage] = useState(0);
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
   const [selectedMedia, setSelectedMedia] = useState<MixedMediaItem | null>(null);
+  const [isAttachModalOpen, setIsAttachModalOpen] = useState(false);
   
   const observerTarget = useRef<HTMLDivElement>(null);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
@@ -1638,6 +1639,28 @@ const Gallery = () => {
       : "Máximo 5 archivos por vez. Vídeos de hasta 15 segundos y 25 MB.";
   const uploadingAttachmentText =
     language === "en" ? "Uploading..." : language === "it" ? "Caricamento..." : "Subiendo...";
+  const attachModalTitle =
+    language === "en"
+      ? "Add from gallery"
+      : language === "it"
+      ? "Aggiungi dalla galleria"
+      : "Añadir desde galeria";
+  const attachModalText =
+    language === "en"
+      ? "Maximum 5 files each time. Videos up to 15 seconds and 25 MB."
+      : language === "it"
+      ? "Massimo 5 file ogni volta. Video fino a 15 secondi e 25 MB."
+      : "Máximo 5 archivos por vez. Vídeos de hasta 15 segundos y 25 MB.";
+  const confirmAttachText =
+    language === "en"
+      ? "I want to attach"
+      : language === "it"
+      ? "Voglio allegare"
+      : "Quiero adjuntar";
+  const openAttachmentPicker = () => {
+    setIsAttachModalOpen(false);
+    attachmentInputRef.current?.click();
+  };
 
   return (
     <>
@@ -1667,6 +1690,21 @@ const Gallery = () => {
               </Button>
             </div>
             <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
+              {showGalleryAttachmentButton && (
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  onClick={() => setIsAttachModalOpen(true)}
+                  disabled={isUploadingAttachments}
+                  className="bg-black/45 text-white backdrop-blur-sm hover:bg-black/60"
+                  aria-label={attachButtonText}
+                >
+                  <span className="relative flex h-5 w-5 items-center justify-center">
+                    <Image className="h-5 w-5" />
+                    <Plus className="absolute -right-1.5 -top-1.5 h-3.5 w-3.5 rounded-full bg-black/80 p-[1px]" />
+                  </span>
+                </Button>
+              )}
               <Button
                 variant="secondary"
                 size="icon"
@@ -1754,6 +1792,21 @@ const Gallery = () => {
                 <LogOut className="w-5 h-5" />
               </Button>
               <div className="flex items-center gap-2">
+                {showGalleryAttachmentButton && (
+                  <Button
+                    variant="secondary"
+                    size="icon"
+                    onClick={() => setIsAttachModalOpen(true)}
+                    disabled={isUploadingAttachments}
+                    className="bg-black/45 text-white backdrop-blur-sm hover:bg-black/60"
+                    aria-label={attachButtonText}
+                  >
+                    <span className="relative flex h-5 w-5 items-center justify-center">
+                      <Image className="h-5 w-5" />
+                      <Plus className="absolute -right-1.5 -top-1.5 h-3.5 w-3.5 rounded-full bg-black/80 p-[1px]" />
+                    </span>
+                  </Button>
+                )}
                 <Button
                   variant="secondary"
                   size="icon"
@@ -1805,21 +1858,6 @@ const Gallery = () => {
 
       <main className={eventBackgroundImage ? "pt-4 pb-6" : "py-12 pt-36 pb-6"}>
         <div className="max-w-7xl mx-auto px-6">
-          {showGalleryAttachmentButton && (
-            <div className="mb-4 flex justify-center">
-              <div className="w-full max-w-md text-center">
-                <Button
-                  type="button"
-                  onClick={() => attachmentInputRef.current?.click()}
-                  disabled={isUploadingAttachments}
-                  className="bg-black px-6 text-white hover:bg-black/90 disabled:bg-black/70"
-                >
-                  {isUploadingAttachments ? uploadingAttachmentText : attachButtonText}
-                </Button>
-                <p className="mt-2 text-xs text-muted-foreground">{attachmentHintText}</p>
-              </div>
-            </div>
-          )}
           {!isDesktopView && (
             <div className="mb-4">
               <div className="mx-auto flex w-full max-w-2xl rounded-2xl bg-muted p-1">
@@ -2150,6 +2188,24 @@ const Gallery = () => {
             <div className="mx-auto w-full max-w-6xl">
               <PricingPreview showHeader={false} mobileLayout="stack" hideDemo />
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={isAttachModalOpen} onOpenChange={setIsAttachModalOpen}>
+        <DialogContent className="max-w-md bg-card p-6">
+          <DialogHeader>
+            <DialogTitle>{attachModalTitle}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">{attachModalText}</p>
+            <Button
+              type="button"
+              onClick={openAttachmentPicker}
+              disabled={isUploadingAttachments}
+              className="w-full bg-black text-white hover:bg-black/90 disabled:bg-black/70"
+            >
+              {isUploadingAttachments ? uploadingAttachmentText : confirmAttachText}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
