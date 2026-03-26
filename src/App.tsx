@@ -23,6 +23,7 @@ import PricingPlans from "./pages/PricingPlans";
 import { AdminI18nProvider } from "@/lib/adminI18n";
 import RedeemEvent from "./pages/RedeemEvent";
 import PaidEventSummary from "./pages/PaidEventSummary";
+import Register from "./pages/Register";
 
 const queryClient = new QueryClient();
 
@@ -161,6 +162,7 @@ const App = () => {
               <Route path="/camera" element={<Camera />} />
               <Route path="/gallery" element={<Gallery />} />
               <Route path="/admin-login" element={<AdminLogin />} />
+              <Route path="/register" element={<Register />} />
               <Route path="/reset-password" element={<AdminResetPassword />} />
               <Route path="/event-management" element={<EventManagement />} />
               <Route path="/event-form" element={<EventForm />} />
@@ -179,6 +181,7 @@ const App = () => {
               {/* Admin translations via URL prefix */}
               <Route path="/en/login" element={<AdminLogin />} />
               <Route path="/en/admin-login" element={<AdminLogin />} />
+              <Route path="/en/register" element={<Register />} />
               <Route path="/en/reset-password" element={<AdminResetPassword />} />
               <Route path="/en/event-management" element={<EventManagement />} />
               <Route path="/en/event-form" element={<EventForm />} />
@@ -195,6 +198,7 @@ const App = () => {
 
               <Route path="/it/login" element={<AdminLogin />} />
               <Route path="/it/admin-login" element={<AdminLogin />} />
+              <Route path="/it/register" element={<Register />} />
               <Route path="/it/reset-password" element={<AdminResetPassword />} />
               <Route path="/it/event-management" element={<EventManagement />} />
               <Route path="/it/event-form" element={<EventForm />} />

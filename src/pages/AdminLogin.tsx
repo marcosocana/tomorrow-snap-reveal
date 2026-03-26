@@ -46,6 +46,15 @@ const AdminLogin = () => {
         setEmail(prefEmail);
       }
     }
+    if (reason === "registered") {
+      toast({
+        title: "Registro completado",
+        description: "Tu cuenta ya está lista. Inicia sesión para entrar al área privada.",
+      });
+      if (prefEmail) {
+        setEmail(prefEmail);
+      }
+    }
   }, [navigate, pathPrefix, redirectTo, reason, prefEmail, checkoutStatus, toast, t]);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -148,6 +157,13 @@ const AdminLogin = () => {
           {t("login.signupPrefix")}{" "}
           <a href={`${pathPrefix}/nuevoeventodemo`} className="text-primary hover:underline font-semibold">
             {t("login.signupLink")}
+          </a>
+          .
+        </p>
+        <p className="text-center text-sm text-muted-foreground">
+          ¿Aún no tienes cuenta?{" "}
+          <a href={`${pathPrefix}/register`} className="text-primary hover:underline font-semibold">
+            Regístrate aquí
           </a>
           .
         </p>
