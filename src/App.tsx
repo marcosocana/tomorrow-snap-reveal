@@ -175,6 +175,7 @@ const App = () => {
               <Route path="/nuevoeventodemo" element={<PublicDemoEventForm />} />
               <Route path="/nuevoeventodemo/resumen" element={<DemoEventSummary />} />
               <Route path="/evento-pago/resumen" element={<PaidEventSummary />} />
+              <Route path="/register" element={<Register />} />
               <Route path="/planes" element={<PricingPlans />} />
 
               {/* Admin translations via URL prefix */}
