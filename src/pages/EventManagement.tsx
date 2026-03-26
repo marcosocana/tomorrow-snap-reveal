@@ -526,6 +526,8 @@ const EventManagement = () => {
     }
   };
 
+  const shouldHideDemoPlan = events.length > 0;
+
   // Get events organized by folder, sorted by sort_order
   const eventsByFolder = useMemo(() => {
     const result: Record<string, Event[]> = { unfiled: [] };
@@ -1507,7 +1509,11 @@ const EventManagement = () => {
             {pricingStep === "plans" ? (
               <>
                 <div className="mx-auto w-full max-w-6xl">
-                  <PricingPreview showHeader={false} mobileLayout="stack" hideDemo />
+                  <PricingPreview
+                    showHeader={false}
+                    mobileLayout="stack"
+                    hideDemo={shouldHideDemoPlan}
+                  />
                 </div>
                 <div className="mt-6 space-y-3 text-sm text-muted-foreground text-center">
                   <p>
