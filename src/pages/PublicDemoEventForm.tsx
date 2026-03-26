@@ -396,6 +396,82 @@ const PublicDemoEventForm = () => {
     }
   };
 
+  const createPrivateDemoEventFallback = async (params: {
+    customImageUrl: string;
+    backgroundImageUrl: string;
+    uploadStartDateTime: Date;
+    uploadEndDateTime: Date;
+    revealDateTime: Date;
+  }) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user?.id || !user.email) {
+      throw new Error("PRIVATE_DEMO_USER_MISSING");
+    }
+
+    await supabase.from("user_profiles").upsert(
+      {
+        id: user.id,
+        phone: formData.contactPhone || null,
+        marketing_opt_in: formData.acceptMarketing,
+      },
+      { onConflict: "id" }
+    );
+
+    const expiryDate = new Date(params.revealDateTime);
+    expiryDate.setUTCDate(expiryDate.getUTCDate() + 10);
+    expiryDate.setUTCHours(23, 59, 0, 0);
+
+    const { data: createdEvent, error: insertError } = await supabase
+      .from("events")
+      .insert({
+        name: formData.name,
+        password_hash: formData.password,
+        admin_password: formData.adminPassword,
+        upload_start_time: params.uploadStartDateTime.toISOString(),
+        upload_end_time: params.uploadEndDateTime.toISOString(),
+        reveal_time: params.revealDateTime.toISOString(),
+        max_photos: 10,
+        custom_image_url: params.customImageUrl,
+        background_image_url: params.backgroundImageUrl,
+        filter_type: formData.filterType,
+        font_family: formData.fontFamily,
+        font_size: formData.fontSize,
+        is_demo: true,
+        type: "demo",
+        plan_id: "demo",
+        limits_json: { max_photos: 10, max_videos: 3, max_audios: 6 },
+        country_code: formData.countryCode,
+        timezone: formData.timezone,
+        language: formData.language,
+        description: formData.description || null,
+        expiry_date: expiryDate.toISOString(),
+        expiry_redirect_url: null,
+        allow_photo_deletion: true,
+        allow_video_recording: true,
+        max_videos: 3,
+        max_video_duration: 15,
+        allow_audio_recording: true,
+        max_audios: 6,
+        max_audio_duration: 30,
+        show_legal_text: true,
+        owner_id: user.id,
+      })
+      .select()
+      .single();
+
+    if (insertError || !createdEvent) {
+      throw insertError ?? new Error("PRIVATE_DEMO_INSERT_FAILED");
+    }
+
+    return {
+      event: createdEvent,
+      contactInfo: {
+        email: user.email,
+        phone: formData.contactPhone,
+      },
+    };
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateEventDates()) {
@@ -491,7 +567,7 @@ const PublicDemoEventForm = () => {
         }
       }
 
-      const { data, error } = await supabase.functions.invoke("create-demo-event", {
+      let invocationResult = await supabase.functions.invoke("create-demo-event", {
         body: {
           contactEmail: formData.contactEmail,
           password: demoRequestPassword,
@@ -520,10 +596,10 @@ const PublicDemoEventForm = () => {
         },
       });
 
-      if (error) {
-        let errorCode = (error as any)?.message || "";
+      if (invocationResult.error) {
+        let errorCode = (invocationResult.error as any)?.message || "";
         try {
-          const res = (error as any)?.context;
+          const res = (invocationResult.error as any)?.context;
           if (res && typeof res.json === "function") {
             const body = await res.json();
             errorCode = body?.error || errorCode;
@@ -532,7 +608,16 @@ const PublicDemoEventForm = () => {
           // ignore
         }
 
-        if (errorCode === "DEMO_ALREADY_EXISTS") {
+        if (errorCode === "USER_EXISTS" && usesSingleStepFlow) {
+          const fallbackData = await createPrivateDemoEventFallback({
+            customImageUrl,
+            backgroundImageUrl,
+            uploadStartDateTime,
+            uploadEndDateTime,
+            revealDateTime,
+          });
+          invocationResult = { data: fallbackData, error: null };
+        } else if (errorCode === "DEMO_ALREADY_EXISTS") {
           toast({
             title: t("form.errors.demoExistsTitle"),
             description: t("form.errors.demoExistsDesc"),
@@ -540,8 +625,7 @@ const PublicDemoEventForm = () => {
           });
           navigate(`${pathPrefix}/admin-login?reason=exists&email=${encodeURIComponent(formData.contactEmail)}`);
           return;
-        }
-        if (errorCode === "USER_EXISTS" || `${errorCode}`.includes("USER_EXISTS")) {
+        } else if (errorCode === "USER_EXISTS" || `${errorCode}`.includes("USER_EXISTS")) {
           toast({
             title: t("form.errors.userExistsTitle"),
             description: t("form.errors.userExistsDesc"),
@@ -550,7 +634,7 @@ const PublicDemoEventForm = () => {
           navigate(`${pathPrefix}/admin-login?reason=exists&email=${encodeURIComponent(formData.contactEmail)}`);
           return;
         }
-        if (errorCode === "INVALID_PASSWORD") {
+        if (invocationResult.error && errorCode === "INVALID_PASSWORD") {
           toast({
             title: t("summary.copyErrorTitle"),
             description: "No se ha podido crear el evento demo con la configuración actual. Actualiza las funciones de Supabase e inténtalo de nuevo.",
@@ -558,7 +642,7 @@ const PublicDemoEventForm = () => {
           });
           return;
         }
-        if (errorCode === "UNAUTHORIZED") {
+        if (invocationResult.error && errorCode === "UNAUTHORIZED") {
           toast({
             title: t("summary.copyErrorTitle"),
             description: "Tu sesión ha caducado. Vuelve a iniciar sesión para crear el evento demo.",
@@ -567,10 +651,12 @@ const PublicDemoEventForm = () => {
           navigate(`${pathPrefix}/admin-login`);
           return;
         }
-        throw error;
+        if (invocationResult.error) {
+          throw invocationResult.error;
+        }
       }
 
-      const newEvent = data?.event;
+      const newEvent = invocationResult.data?.event;
       if (!newEvent) throw new Error("No se pudo crear el evento");
 
       const eventUrl = `https://acceso.revelao.cam/events/${newEvent.password_hash}`;
@@ -587,7 +673,7 @@ const PublicDemoEventForm = () => {
         state: { 
           event: newEvent,
           qrUrl,
-          contactInfo: {
+          contactInfo: invocationResult.data?.contactInfo ?? {
             email: formData.contactEmail,
             phone: formData.contactPhone,
           }
