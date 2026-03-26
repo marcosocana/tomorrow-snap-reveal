@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Trash2 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -40,6 +40,7 @@ const PublicDemoEventForm = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [pricingOpen, setPricingOpen] = useState(false);
+  const [privateFlowReady, setPrivateFlowReady] = useState(false);
   const { lang, t, pathPrefix } = useDemoI18n();
   const [formData, setFormData] = useState(() => {
     const now = new Date();
@@ -80,6 +81,10 @@ const PublicDemoEventForm = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
+  const isPrivateDemoFlow = useMemo(
+    () => new URLSearchParams(location.search).get("from_private") === "1",
+    [location.search]
+  );
   const now = new Date();
   const nowTz = toZonedTime(now, formData.timezone);
   const todayStr = format(nowTz, "yyyy-MM-dd");
@@ -139,6 +144,54 @@ const PublicDemoEventForm = () => {
     const hasConfirm = formData.contactPasswordConfirm.trim().length > 0;
     return hasEmail && hasPassword && hasConfirm && formData.acceptLegal;
   };
+  const usesSingleStepFlow = isPrivateDemoFlow && privateFlowReady;
+
+  useEffect(() => {
+    if (!isPrivateDemoFlow) return;
+
+    let isMounted = true;
+
+    const hydratePrivateFlow = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user?.email) {
+        if (isMounted) {
+          toast({
+            title: t("form.errorTitle"),
+            description: "Necesitas iniciar sesión para crear este evento demo desde tu área privada.",
+            variant: "destructive",
+          });
+          navigate(`${pathPrefix}/admin-login`, { replace: true });
+        }
+        return;
+      }
+
+      const { data: profile } = await supabase
+        .from("user_profiles")
+        .select("phone, marketing_opt_in")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (!isMounted) return;
+
+      setFormData((prev) => ({
+        ...prev,
+        contactEmail: user.email ?? prev.contactEmail,
+        contactPhone: profile?.phone ?? prev.contactPhone,
+        acceptMarketing: profile?.marketing_opt_in ?? prev.acceptMarketing,
+        acceptLegal: true,
+      }));
+      setPrivateFlowReady(true);
+    };
+
+    hydratePrivateFlow();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isPrivateDemoFlow, navigate, pathPrefix, t, toast]);
 
   const getEndTimeMin = (overrideDate?: string) => {
     const date = overrideDate ?? formData.uploadEndDate;
@@ -286,6 +339,10 @@ const PublicDemoEventForm = () => {
       });
       return;
     }
+    if (usesSingleStepFlow) {
+      void handleSubmit(e);
+      return;
+    }
     setCurrentStep(2);
   };
 
@@ -371,7 +428,7 @@ const PublicDemoEventForm = () => {
       return;
     }
 
-    if (!formData.contactPassword || formData.contactPassword.length < 8) {
+    if (!usesSingleStepFlow && (!formData.contactPassword || formData.contactPassword.length < 8)) {
       toast({
         title: t("summary.copyErrorTitle"),
         description: t("form.errors.passwordMin"),
@@ -380,7 +437,7 @@ const PublicDemoEventForm = () => {
       return;
     }
 
-    if (formData.contactPassword !== formData.contactPasswordConfirm) {
+    if (!usesSingleStepFlow && formData.contactPassword !== formData.contactPasswordConfirm) {
       toast({
         title: t("summary.copyErrorTitle"),
         description: t("form.errors.passwordMismatch"),
@@ -388,7 +445,7 @@ const PublicDemoEventForm = () => {
       });
       return;
     }
-    if (!formData.acceptLegal) {
+    if (!usesSingleStepFlow && !formData.acceptLegal) {
       toast({
         title: t("summary.copyErrorTitle"),
         description: t("form.errors.legalRequired"),
@@ -437,6 +494,7 @@ const PublicDemoEventForm = () => {
           password: formData.contactPassword,
           phone: formData.contactPhone,
           marketingConsent: formData.acceptMarketing,
+          useAuthenticatedUser: usesSingleStepFlow,
           
           event: {
             name: formData.name,
@@ -941,7 +999,7 @@ const PublicDemoEventForm = () => {
                 </>
               )}
 
-              {currentStep === 2 && (
+              {currentStep === 2 && !usesSingleStepFlow && (
                 <>
                   <div className="space-y-4">
                     <Label className="text-base font-semibold">{t("form.step2.title")}</Label>
@@ -1053,7 +1111,7 @@ const PublicDemoEventForm = () => {
               )}
 
               <div className="pt-4 flex gap-3">
-                {currentStep === 2 && (
+                {currentStep === 2 && !usesSingleStepFlow && (
                   <Button type="button" variant="outline" className="flex-1" onClick={handleStepBack}>
                     {t("form.actions.back")}
                   </Button>
@@ -1062,18 +1120,22 @@ const PublicDemoEventForm = () => {
                   type="submit"
                   className={`flex-1 ${
                     (currentStep === 1
-                      ? !isStep1Complete() || uploadingImage
+                      ? !isStep1Complete() || uploadingImage || (isPrivateDemoFlow && !privateFlowReady)
                       : !isStep2Complete() || isSubmitting || uploadingImage)
                       ? "opacity-50 cursor-not-allowed"
                       : ""
                   }`}
                   aria-disabled={currentStep === 1
-                    ? !isStep1Complete() || uploadingImage
+                    ? !isStep1Complete() || uploadingImage || (isPrivateDemoFlow && !privateFlowReady)
                     : !isStep2Complete() || isSubmitting || uploadingImage}
                   onClick={handleNextClick}
                 >
                   {currentStep === 1
-                    ? t("form.actions.next")
+                    ? usesSingleStepFlow
+                      ? isSubmitting
+                        ? t("form.actions.creating")
+                        : t("form.actions.create")
+                      : t("form.actions.next")
                     : uploadingImage
                       ? t("form.actions.uploading")
                       : isSubmitting

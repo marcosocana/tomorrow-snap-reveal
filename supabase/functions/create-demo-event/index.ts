@@ -24,6 +24,7 @@ type DemoEventPayload = {
   password: string;
   phone?: string | null;
   marketingConsent?: boolean;
+  useAuthenticatedUser?: boolean;
   event: {
     name: string;
     password_hash: string;
@@ -67,19 +68,36 @@ serve(async (req) => {
   }
 
   const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    global: {
+      headers: {
+        Authorization: req.headers.get("Authorization") ?? "",
+      },
+    },
+  });
 
   try {
     const payload = (await req.json()) as DemoEventPayload;
-    const email = payload?.contactEmail?.trim().toLowerCase() ?? "";
+    const requestedEmail = payload?.contactEmail?.trim().toLowerCase() ?? "";
     const password = payload?.password ?? "";
     const phone = payload?.phone?.trim() || null;
     const marketingConsent = payload?.marketingConsent ?? true;
+    const useAuthenticatedUser = payload?.useAuthenticatedUser === true;
     const event = payload?.event;
+    const {
+      data: { user: authenticatedUser },
+    } = await supabaseClient.auth.getUser();
+    const email = useAuthenticatedUser
+      ? authenticatedUser?.email?.trim().toLowerCase() ?? ""
+      : requestedEmail;
 
     if (!email || !isEmail(email)) {
       return json({ error: "INVALID_EMAIL" }, 400);
     }
-    if (!password || password.length < 8) {
+    if (useAuthenticatedUser && !authenticatedUser?.id) {
+      return json({ error: "UNAUTHORIZED" }, 401);
+    }
+    if (!useAuthenticatedUser && (!password || password.length < 8)) {
       return json({ error: "INVALID_PASSWORD" }, 400);
     }
     if (!event?.name || !event.password_hash || !event.admin_password) {
@@ -98,7 +116,7 @@ serve(async (req) => {
       console.error("create-demo-event user lookup error:", existingUserError.message);
     }
 
-    let userId = existingAuthUser?.id || null;
+    let userId = useAuthenticatedUser ? authenticatedUser?.id ?? null : existingAuthUser?.id || null;
 
     if (!userId) {
       const { data: newUser, error: createUserError } =

@@ -46,6 +46,7 @@ type PricingPreviewProps = {
   onSelectPlan?: (planId: string) => void;
   mobileLayout?: "carousel" | "stack";
   hideDemo?: boolean;
+  demoUrl?: string;
 };
 
 export const PricingPreview = ({
@@ -53,6 +54,7 @@ export const PricingPreview = ({
   onSelectPlan,
   mobileLayout = "carousel",
   hideDemo = false,
+  demoUrl,
 }: PricingPreviewProps) => {
   const { t, pathPrefix } = useAdminI18n();
   const navigate = useNavigate();
@@ -118,7 +120,7 @@ export const PricingPreview = ({
     }
 
     if (planId === "demo") {
-      navigate(`${pathPrefix}/nuevoeventodemo`);
+      navigate(demoUrl ?? `${pathPrefix}/nuevoeventodemo`);
       return;
     }
 

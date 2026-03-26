@@ -1513,6 +1513,7 @@ const EventManagement = () => {
                     showHeader={false}
                     mobileLayout="carousel"
                     hideDemo={shouldHideDemoPlan}
+                    demoUrl={`${pathPrefix}/nuevoeventodemo?from_private=1`}
                   />
                 </div>
                 <div className="mt-6 space-y-3 text-sm text-muted-foreground text-center">
