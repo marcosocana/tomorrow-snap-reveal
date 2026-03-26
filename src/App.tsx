@@ -203,6 +203,7 @@ const App = () => {
               <Route path="/it/event-form" element={<EventForm />} />
               <Route path="/it/event-form/:eventId" element={<EventForm />} />
               <Route path="/it/bulk-upload" element={<BulkUpload />} />
+              <Route path="/it/register" element={<Register />} />
               <Route path="/it/planes" element={<PricingPlans />} />
               <Route path="/it/nuevoeventodemo" element={<PublicDemoEventForm />} />
               <Route path="/it/nuevoeventodemo/resumen" element={<DemoEventSummary />} />
