@@ -60,6 +60,7 @@ export const PricingPreview = ({
   const navigate = useNavigate();
   const { toast } = useToast();
   const visiblePlans = hideDemo ? plans.filter((plan) => plan.planId !== "demo") : plans;
+  const usesThreePlanDesktopLayout = visiblePlans.length === 3;
   const checkoutUrlMap: Record<string, string | undefined> = {
     small: import.meta.env.VITE_STRIPE_CHECKOUT_URL_SMALL ?? "https://buy.stripe.com/dRmdR2fCVbTMgIv0nl3ks06",
     medium: import.meta.env.VITE_STRIPE_CHECKOUT_URL_MEDIUM ?? "https://buy.stripe.com/00w9AM3UdaPIfEr4DB3ks05",
@@ -251,7 +252,14 @@ export const PricingPreview = ({
         </div>
       )}
 
-      <div className="hidden md:grid md:grid-cols-2 xl:grid-cols-4 gap-6 justify-items-center">
+      <div
+        className={[
+          "hidden md:grid gap-6 justify-items-center",
+          usesThreePlanDesktopLayout
+            ? "mx-auto md:grid-cols-2 lg:grid-cols-3 max-w-[1128px]"
+            : "md:grid-cols-2 xl:grid-cols-4",
+        ].join(" ")}
+      >
         {visiblePlans.map((plan) => renderPlanCard(plan))}
       </div>
 

@@ -1487,7 +1487,11 @@ const EventManagement = () => {
       />
 
       <Dialog open={pricingOpen} onOpenChange={setPricingOpen}>
-        <DialogContent className="w-screen h-[100dvh] max-h-[100dvh] rounded-none p-4 sm:p-6 sm:rounded-lg sm:h-auto sm:max-h-[90vh] sm:w-full sm:max-w-7xl xl:max-w-[1480px]">
+        <DialogContent
+          className={`w-screen h-[100dvh] max-h-[100dvh] rounded-none p-4 sm:p-6 sm:rounded-lg sm:h-auto sm:max-h-[90vh] sm:w-full ${
+            shouldHideDemoPlan ? "sm:max-w-6xl xl:max-w-[1220px]" : "sm:max-w-7xl xl:max-w-[1480px]"
+          }`}
+        >
           <div className="flex items-center gap-2 sm:hidden">
             <Button
               variant="ghost"
