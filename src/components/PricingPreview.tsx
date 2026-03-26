@@ -58,6 +58,12 @@ export const PricingPreview = ({
   const navigate = useNavigate();
   const { toast } = useToast();
   const visiblePlans = hideDemo ? plans.filter((plan) => plan.planId !== "demo") : plans;
+  const checkoutUrlMap: Record<string, string | undefined> = {
+    small: import.meta.env.VITE_STRIPE_CHECKOUT_URL_SMALL ?? "https://buy.stripe.com/dRmdR2fCVbTMgIv0nl3ks06",
+    medium: import.meta.env.VITE_STRIPE_CHECKOUT_URL_MEDIUM ?? "https://buy.stripe.com/00w9AM3UdaPIfEr4DB3ks05",
+    large: import.meta.env.VITE_STRIPE_CHECKOUT_URL_LARGE,
+    xxl: import.meta.env.VITE_STRIPE_CHECKOUT_URL_XXL ?? "https://buy.stripe.com/7sY3co8at3ngfErc633ks04",
+  };
 
   const formatEur = (amount: number) =>
     new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR", maximumFractionDigits: 2 }).format(amount);
@@ -116,17 +122,12 @@ export const PricingPreview = ({
       return;
     }
 
+    const fallbackCheckoutUrl = checkoutUrlMap[planId];
+
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
-      const testUrlMap: Record<string, string | undefined> = {
-        small: import.meta.env.VITE_STRIPE_CHECKOUT_URL_SMALL ?? "https://buy.stripe.com/dRmdR2fCVbTMgIv0nl3ks06",
-        medium: import.meta.env.VITE_STRIPE_CHECKOUT_URL_MEDIUM ?? "https://buy.stripe.com/00w9AM3UdaPIfEr4DB3ks05",
-        large: import.meta.env.VITE_STRIPE_CHECKOUT_URL_LARGE,
-        xxl: import.meta.env.VITE_STRIPE_CHECKOUT_URL_XXL ?? "https://buy.stripe.com/7sY3co8at3ngfErc633ks04",
-      };
-      const testUrl = testUrlMap[planId];
-      if (testUrl) {
-        window.location.href = testUrl;
+      if (fallbackCheckoutUrl) {
+        window.location.href = fallbackCheckoutUrl;
         return;
       }
       navigate(`${pathPrefix}/admin-login`);
@@ -138,6 +139,14 @@ export const PricingPreview = ({
     });
 
     if (error || !data?.url) {
+      if (fallbackCheckoutUrl) {
+        toast({
+          title: "Redirigiendo al checkout",
+          description: "El checkout avanzado ha fallado, abrimos el enlace directo de pago.",
+        });
+        window.location.href = fallbackCheckoutUrl;
+        return;
+      }
       toast({
         title: t("form.errorTitle"),
         description: t("pricing.errorCheckout") ?? "No se pudo iniciar el pago",
