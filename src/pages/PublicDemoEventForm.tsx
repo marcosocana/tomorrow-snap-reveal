@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { DateTimeField } from "@/components/DateTimeField";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { addDays, format, subHours } from "date-fns";
 import { fromZonedTime, formatInTimeZone, toZonedTime } from "date-fns-tz";
@@ -465,6 +465,9 @@ const PublicDemoEventForm = () => {
     setIsSubmitting(true);
 
     try {
+      const demoRequestPassword = usesSingleStepFlow
+        ? "PrivateDemoTemp1"
+        : formData.contactPassword;
       const eventTz = formData.timezone;
       const effectiveStartDate = getEffectiveStartDate();
       const effectiveStartTime = getEffectiveStartTime();
@@ -491,7 +494,7 @@ const PublicDemoEventForm = () => {
       const { data, error } = await supabase.functions.invoke("create-demo-event", {
         body: {
           contactEmail: formData.contactEmail,
-          password: formData.contactPassword,
+          password: demoRequestPassword,
           phone: formData.contactPhone,
           marketingConsent: formData.acceptMarketing,
           useAuthenticatedUser: usesSingleStepFlow,
@@ -545,6 +548,23 @@ const PublicDemoEventForm = () => {
             variant: "destructive",
           });
           navigate(`${pathPrefix}/admin-login?reason=exists&email=${encodeURIComponent(formData.contactEmail)}`);
+          return;
+        }
+        if (errorCode === "INVALID_PASSWORD") {
+          toast({
+            title: t("summary.copyErrorTitle"),
+            description: "No se ha podido crear el evento demo con la configuración actual. Actualiza las funciones de Supabase e inténtalo de nuevo.",
+            variant: "destructive",
+          });
+          return;
+        }
+        if (errorCode === "UNAUTHORIZED") {
+          toast({
+            title: t("summary.copyErrorTitle"),
+            description: "Tu sesión ha caducado. Vuelve a iniciar sesión para crear el evento demo.",
+            variant: "destructive",
+          });
+          navigate(`${pathPrefix}/admin-login`);
           return;
         }
         throw error;
@@ -1181,6 +1201,9 @@ const PublicDemoEventForm = () => {
         <DialogContent className="w-screen h-[100dvh] max-h-[100dvh] rounded-none p-4 sm:p-6 sm:rounded-lg sm:h-auto sm:max-h-[90vh] sm:w-full sm:max-w-6xl">
           <DialogHeader>
             <DialogTitle>Elige tu plan</DialogTitle>
+            <DialogDescription>
+              Selecciona el plan que mejor encaje con tu evento.
+            </DialogDescription>
           </DialogHeader>
           <div className="max-h-[calc(100dvh-80px)] sm:max-h-[80vh] overflow-y-auto pr-1">
             <div className="mx-auto w-full max-w-6xl">
