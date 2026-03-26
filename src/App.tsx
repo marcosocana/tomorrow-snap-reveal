@@ -23,6 +23,7 @@ import PricingPlans from "./pages/PricingPlans";
 import { AdminI18nProvider } from "@/lib/adminI18n";
 import RedeemEvent from "./pages/RedeemEvent";
 import PaidEventSummary from "./pages/PaidEventSummary";
+import Register from "./pages/Register";
 
 const queryClient = new QueryClient();
 
@@ -174,6 +175,7 @@ const App = () => {
               <Route path="/nuevoeventodemo" element={<PublicDemoEventForm />} />
               <Route path="/nuevoeventodemo/resumen" element={<DemoEventSummary />} />
               <Route path="/evento-pago/resumen" element={<PaidEventSummary />} />
+              <Route path="/register" element={<Register />} />
               <Route path="/planes" element={<PricingPlans />} />
 
               {/* Admin translations via URL prefix */}
@@ -184,6 +186,7 @@ const App = () => {
               <Route path="/en/event-form" element={<EventForm />} />
               <Route path="/en/event-form/:eventId" element={<EventForm />} />
               <Route path="/en/bulk-upload" element={<BulkUpload />} />
+              <Route path="/en/register" element={<Register />} />
               <Route path="/en/planes" element={<PricingPlans />} />
               <Route path="/en/nuevoeventodemo" element={<PublicDemoEventForm />} />
               <Route path="/en/nuevoeventodemo/resumen" element={<DemoEventSummary />} />
@@ -200,6 +203,7 @@ const App = () => {
               <Route path="/it/event-form" element={<EventForm />} />
               <Route path="/it/event-form/:eventId" element={<EventForm />} />
               <Route path="/it/bulk-upload" element={<BulkUpload />} />
+              <Route path="/it/register" element={<Register />} />
               <Route path="/it/planes" element={<PricingPlans />} />
               <Route path="/it/nuevoeventodemo" element={<PublicDemoEventForm />} />
               <Route path="/it/nuevoeventodemo/resumen" element={<DemoEventSummary />} />
