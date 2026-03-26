@@ -23,6 +23,7 @@ import PricingPlans from "./pages/PricingPlans";
 import { AdminI18nProvider } from "@/lib/adminI18n";
 import RedeemEvent from "./pages/RedeemEvent";
 import PaidEventSummary from "./pages/PaidEventSummary";
+import Register from "./pages/Register";
 
 const queryClient = new QueryClient();
 
