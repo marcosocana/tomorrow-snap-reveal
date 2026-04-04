@@ -483,7 +483,12 @@ const Camera = () => {
 
   const uploadPhoto = async (
     file: File,
-    options?: { silentSuccess?: boolean; skipReload?: boolean; skipFailedState?: boolean }
+    options?: {
+      silentSuccess?: boolean;
+      skipReload?: boolean;
+      skipFailedState?: boolean;
+      trackRateLimit?: boolean;
+    }
   ) => {
     if (!eventId) return;
     try {
@@ -557,8 +562,10 @@ const Camera = () => {
         return false;
       }
       
-      // Track successful upload timestamp for rate limiting
-      uploadTimestampsRef.current.push(Date.now());
+      // Only direct camera captures should count toward the short cooldown.
+      if (options?.trackRateLimit !== false) {
+        uploadTimestampsRef.current.push(Date.now());
+      }
       
       setPhotoCount((prev) => prev + 1);
       if (!options?.silentSuccess) {
@@ -1084,6 +1091,7 @@ const Camera = () => {
           silentSuccess: true,
           skipReload: true,
           skipFailedState: true,
+          trackRateLimit: false,
         });
         if (uploaded) {
           uploadedPhotos += 1;
