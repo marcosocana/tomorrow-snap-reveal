@@ -476,6 +476,11 @@ const Camera = () => {
     return mode === "photo" ? "Has excedido el número de fotos" : mode === "video" ? "Has excedido el número de vídeos" : "Has excedido el número de audios";
   };
 
+  const getRateLimitConfig = (mode: DirectCaptureMode) => ({
+    maxUploads: mode === "photo" ? 5 : 1,
+    cooldownSeconds: mode === "photo" ? 30 : 60,
+  });
+
   const startCooldown = (mode: DirectCaptureMode, seconds: number) => {
     getUploadTimestampsRef(mode).current = [];
     const setCooldown = getCooldownSetter(mode);
@@ -499,8 +504,7 @@ const Camera = () => {
     const now = Date.now();
     const uploadTimestampsRef = getUploadTimestampsRef(mode);
     uploadTimestampsRef.current = uploadTimestampsRef.current.filter(ts => now - ts < 60000);
-    const maxUploads = mode === "photo" ? 5 : 1;
-    const cooldownSeconds = mode === "photo" ? 30 : 60;
+    const { maxUploads, cooldownSeconds } = getRateLimitConfig(mode);
     if (uploadTimestampsRef.current.length >= maxUploads) {
       toast({
         title: getCooldownToastTitle(mode),
@@ -511,6 +515,36 @@ const Camera = () => {
       return false;
     }
     return true;
+  };
+
+  const registerDirectCaptureUpload = (mode: DirectCaptureMode) => {
+    const now = Date.now();
+    const uploadTimestampsRef = getUploadTimestampsRef(mode);
+    uploadTimestampsRef.current = uploadTimestampsRef.current.filter(ts => now - ts < 60000);
+    uploadTimestampsRef.current.push(now);
+    const { maxUploads, cooldownSeconds } = getRateLimitConfig(mode);
+    if (uploadTimestampsRef.current.length >= maxUploads) {
+      startCooldown(mode, cooldownSeconds);
+    }
+  };
+
+  const getAttachmentSummary = (uploadedPhotos: number, uploadedVideos: number) => {
+    if (language === "en") {
+      const parts = [];
+      if (uploadedPhotos > 0) parts.push(`${uploadedPhotos} photo${uploadedPhotos === 1 ? "" : "s"}`);
+      if (uploadedVideos > 0) parts.push(`${uploadedVideos} video${uploadedVideos === 1 ? "" : "s"}`);
+      return parts.join(" and ");
+    }
+    if (language === "it") {
+      const parts = [];
+      if (uploadedPhotos > 0) parts.push(`${uploadedPhotos} foto`);
+      if (uploadedVideos > 0) parts.push(`${uploadedVideos} video`);
+      return parts.join(" e ");
+    }
+    const parts = [];
+    if (uploadedPhotos > 0) parts.push(`${uploadedPhotos} foto${uploadedPhotos === 1 ? "" : "s"}`);
+    if (uploadedVideos > 0) parts.push(`${uploadedVideos} vídeo${uploadedVideos === 1 ? "" : "s"}`);
+    return parts.join(" y ");
   };
 
   const handleTakePhoto = () => {
@@ -625,9 +659,8 @@ const Camera = () => {
         return false;
       }
       
-      // Only direct camera captures should count toward the short cooldown.
       if (options?.trackRateLimit !== false) {
-        photoUploadTimestampsRef.current.push(Date.now());
+        registerDirectCaptureUpload("photo");
       }
       
       setPhotoCount((prev) => prev + 1);
@@ -1065,8 +1098,7 @@ const Camera = () => {
       if (dbError) throw dbError;
 
       if (options?.trackRateLimit !== false) {
-        const uploadTimestampsRef = getUploadTimestampsRef(mode);
-        uploadTimestampsRef.current.push(Date.now());
+        registerDirectCaptureUpload(mode);
       }
 
       const description =
@@ -1161,10 +1193,9 @@ const Camera = () => {
     setIsUploadingAttachments(true);
     setFailedUpload(null);
     const attachmentLockStartedAt = Date.now();
+    let uploadedPhotos = 0;
+    let uploadedVideos = 0;
     try {
-      let uploadedPhotos = 0;
-      let uploadedVideos = 0;
-
       for (const file of uploadablePhotoFiles) {
         const uploaded = await uploadPhoto(file, {
           silentSuccess: true,
@@ -1209,18 +1240,6 @@ const Camera = () => {
 
       await loadEventData();
       await loadMediaCounts();
-      if (uploadedPhotos > 0 || uploadedVideos > 0) {
-        const summary =
-          language === "en"
-            ? `${uploadedPhotos} photo${uploadedPhotos === 1 ? "" : "s"} and ${uploadedVideos} video${uploadedVideos === 1 ? "" : "s"} added.`
-            : language === "it"
-            ? `${uploadedPhotos} foto e ${uploadedVideos} video aggiunti.`
-            : `${uploadedPhotos} foto y ${uploadedVideos} vídeo${uploadedVideos === 1 ? "" : "s"} añadidos.`;
-        toast({
-          title: language === "en" ? "Attachments uploaded" : language === "it" ? "Allegati caricati" : "Adjuntos subidos",
-          description: summary,
-        });
-      }
     } finally {
       const remainingLockTime = ATTACHMENT_BUTTON_LOCK_MS - (Date.now() - attachmentLockStartedAt);
       if (remainingLockTime > 0) {
@@ -1228,6 +1247,12 @@ const Camera = () => {
       }
       setIsUploadingAttachments(false);
       event.target.value = "";
+    }
+    if (uploadedPhotos > 0 || uploadedVideos > 0) {
+      toast({
+        title: language === "en" ? "Attachments uploaded" : language === "it" ? "Allegati caricati" : "Adjuntos subidos",
+        description: getAttachmentSummary(uploadedPhotos, uploadedVideos),
+      });
     }
   };
 
