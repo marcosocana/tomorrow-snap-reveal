@@ -478,7 +478,7 @@ const Camera = () => {
 
   const getRateLimitConfig = (mode: DirectCaptureMode) => ({
     maxUploads: mode === "photo" ? 5 : 1,
-    cooldownSeconds: mode === "photo" ? 30 : 60,
+    cooldownSeconds: 30,
   });
 
   const startCooldown = (mode: DirectCaptureMode, seconds: number) => {
