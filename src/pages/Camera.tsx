@@ -77,6 +77,8 @@ const getExtensionForMimeType = (mimeType: string | null | undefined, mode: "vid
 
 const MAX_ATTACHMENT_FILES = 5;
 const MAX_ATTACHMENT_VIDEO_SIZE_BYTES = 50 * 1024 * 1024;
+const ATTACHMENT_BUTTON_LOCK_MS = 10_000;
+type DirectCaptureMode = "photo" | "video" | "audio";
 
 const CameraLoadingSkeleton = () => (
   <div className="app-screen bg-background flex flex-col">
@@ -126,10 +128,18 @@ const Camera = () => {
   const [startCountdown, setStartCountdown] = useState<string>("");
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [pricingOpen, setPricingOpen] = useState(false);
-  const [rateLimitCooldown, setRateLimitCooldown] = useState(0);
+  const [photoCooldown, setPhotoCooldown] = useState(0);
+  const [videoCooldown, setVideoCooldown] = useState(0);
+  const [audioCooldown, setAudioCooldown] = useState(0);
   const [failedUpload, setFailedUpload] = useState<{ file: File } | null>(null);
-  const uploadTimestampsRef = useRef<number[]>([]);
-  const cooldownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const photoUploadTimestampsRef = useRef<number[]>([]);
+  const videoUploadTimestampsRef = useRef<number[]>([]);
+  const audioUploadTimestampsRef = useRef<number[]>([]);
+  const cooldownIntervalsRef = useRef<Record<DirectCaptureMode, ReturnType<typeof setInterval> | null>>({
+    photo: null,
+    video: null,
+    audio: null,
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
   const [allowVideoRecording, setAllowVideoRecording] = useState(false);
@@ -187,6 +197,9 @@ const Camera = () => {
   useEffect(() => {
     return () => {
       cleanupMediaStream();
+      Object.values(cooldownIntervalsRef.current).forEach((interval) => {
+        if (interval) clearInterval(interval);
+      });
     };
   }, []);
 
@@ -415,16 +428,66 @@ const Camera = () => {
       .join('');
   };
 
-  const startCooldown = () => {
-    // Reset the rolling window so the user can take photos again once the cooldown ends.
-    uploadTimestampsRef.current = [];
-    setRateLimitCooldown(30);
-    if (cooldownIntervalRef.current) clearInterval(cooldownIntervalRef.current);
-    cooldownIntervalRef.current = setInterval(() => {
-      setRateLimitCooldown(prev => {
+  const getUploadTimestampsRef = (mode: DirectCaptureMode) => {
+    switch (mode) {
+      case "video":
+        return videoUploadTimestampsRef;
+      case "audio":
+        return audioUploadTimestampsRef;
+      default:
+        return photoUploadTimestampsRef;
+    }
+  };
+
+  const getCooldownSetter = (mode: DirectCaptureMode) => {
+    switch (mode) {
+      case "video":
+        return setVideoCooldown;
+      case "audio":
+        return setAudioCooldown;
+      default:
+        return setPhotoCooldown;
+    }
+  };
+
+  const getCooldownToastDescription = (mode: DirectCaptureMode, seconds: number) => {
+    if (language === "en") {
+      if (mode === "video") return `You must wait ${seconds} seconds before recording another video.`;
+      if (mode === "audio") return `You must wait ${seconds} seconds before recording another audio note.`;
+      return `You must wait ${seconds} seconds before taking another photo.`;
+    }
+    if (language === "it") {
+      if (mode === "video") return `Devi aspettare ${seconds} secondi prima di registrare un altro video.`;
+      if (mode === "audio") return `Devi aspettare ${seconds} secondi prima di registrare un'altra nota audio.`;
+      return `Devi aspettare ${seconds} secondi prima di scattare un'altra foto.`;
+    }
+    if (mode === "video") return `Debes esperar ${seconds} segundos para poder volver a grabar otro vídeo.`;
+    if (mode === "audio") return `Debes esperar ${seconds} segundos para poder volver a grabar otro audio.`;
+    return `Debes esperar ${seconds} segundos para poder volver a echar una foto.`;
+  };
+
+  const getCooldownToastTitle = (mode: DirectCaptureMode) => {
+    if (language === "en") {
+      return mode === "photo" ? "Photo limit exceeded" : mode === "video" ? "Video limit exceeded" : "Audio limit exceeded";
+    }
+    if (language === "it") {
+      return mode === "photo" ? "Limite foto superato" : mode === "video" ? "Limite video superato" : "Limite audio superato";
+    }
+    return mode === "photo" ? "Has excedido el número de fotos" : mode === "video" ? "Has excedido el número de vídeos" : "Has excedido el número de audios";
+  };
+
+  const startCooldown = (mode: DirectCaptureMode, seconds: number) => {
+    getUploadTimestampsRef(mode).current = [];
+    const setCooldown = getCooldownSetter(mode);
+    setCooldown(seconds);
+    const currentInterval = cooldownIntervalsRef.current[mode];
+    if (currentInterval) clearInterval(currentInterval);
+    cooldownIntervalsRef.current[mode] = setInterval(() => {
+      setCooldown((prev) => {
         if (prev <= 1) {
-          if (cooldownIntervalRef.current) clearInterval(cooldownIntervalRef.current);
-          cooldownIntervalRef.current = null;
+          const intervalToClear = cooldownIntervalsRef.current[mode];
+          if (intervalToClear) clearInterval(intervalToClear);
+          cooldownIntervalsRef.current[mode] = null;
           return 0;
         }
         return prev - 1;
@@ -432,21 +495,19 @@ const Camera = () => {
     }, 1000);
   };
 
-  const checkRateLimit = (): boolean => {
+  const checkRateLimit = (mode: DirectCaptureMode): boolean => {
     const now = Date.now();
-    // Keep only timestamps within last 60 seconds
+    const uploadTimestampsRef = getUploadTimestampsRef(mode);
     uploadTimestampsRef.current = uploadTimestampsRef.current.filter(ts => now - ts < 60000);
-    if (uploadTimestampsRef.current.length >= 5) {
+    const maxUploads = mode === "photo" ? 5 : 1;
+    const cooldownSeconds = mode === "photo" ? 30 : 60;
+    if (uploadTimestampsRef.current.length >= maxUploads) {
       toast({
-        title: language === "en" ? "Upload limit exceeded" : language === "it" ? "Limite di upload superato" : "Has excedido el número de fotos",
-        description: language === "en" 
-          ? "You must wait 30 seconds before taking another photo." 
-          : language === "it"
-          ? "Devi aspettare 30 secondi prima di scattare un'altra foto."
-          : "Debes esperar 30 segundos para poder volver a echar una foto.",
+        title: getCooldownToastTitle(mode),
+        description: getCooldownToastDescription(mode, cooldownSeconds),
         variant: "destructive",
       });
-      startCooldown();
+      startCooldown(mode, cooldownSeconds);
       return false;
     }
     return true;
@@ -478,8 +539,8 @@ const Camera = () => {
       return;
     }
     // Check rate limit
-    if (rateLimitCooldown > 0) return;
-    if (!checkRateLimit()) return;
+    if (photoCooldown > 0) return;
+    if (!checkRateLimit("photo")) return;
     fileInputRef.current?.click();
   };
 
@@ -566,7 +627,7 @@ const Camera = () => {
       
       // Only direct camera captures should count toward the short cooldown.
       if (options?.trackRateLimit !== false) {
-        uploadTimestampsRef.current.push(Date.now());
+        photoUploadTimestampsRef.current.push(Date.now());
       }
       
       setPhotoCount((prev) => prev + 1);
@@ -673,6 +734,9 @@ const Camera = () => {
     async (mode: "video" | "audio") => {
       if (!eventId) return;
       if (mode === "video") {
+        if (videoCooldown > 0 || !checkRateLimit("video")) {
+          return;
+        }
         if (!allowVideoRecording) return;
         if (maxVideos !== null && videoCount >= maxVideos) {
           const title = language === "en" ? "Limit reached" : language === "it" ? "Limite raggiunto" : "Límite alcanzado";
@@ -687,6 +751,9 @@ const Camera = () => {
         }
       }
       if (mode === "audio") {
+        if (audioCooldown > 0 || !checkRateLimit("audio")) {
+          return;
+        }
         if (!allowAudioRecording) return;
         if (maxAudios !== null && audioCount >= maxAudios) {
           const title = language === "en" ? "Limit reached" : language === "it" ? "Limite raggiunto" : "Límite alcanzado";
@@ -773,6 +840,7 @@ const Camera = () => {
     },
     [
       audioCount,
+      audioCooldown,
       audioDurationSeconds,
       allowAudioRecording,
       allowVideoRecording,
@@ -783,6 +851,7 @@ const Camera = () => {
       t,
       toast,
       videoCount,
+      videoCooldown,
       videoDurationSeconds,
     ]
   );
@@ -893,6 +962,8 @@ const Camera = () => {
 
   const handleUseRecording = async () => {
     if (!recordingBlob || !recordingMode) return;
+    if (recordingMode === "video" && (videoCooldown > 0 || !checkRateLimit("video"))) return;
+    if (recordingMode === "audio" && (audioCooldown > 0 || !checkRateLimit("audio"))) return;
     const durationSeconds =
       recordingDuration || (recordingMode === "video" ? videoDurationSeconds : audioDurationSeconds);
     setIsUploadingMedia(true);
@@ -961,7 +1032,7 @@ const Camera = () => {
     mode: "video" | "audio",
     duration: number,
     mimeType?: string | null,
-    options?: { silentSuccess?: boolean; skipReload?: boolean }
+    options?: { silentSuccess?: boolean; skipReload?: boolean; trackRateLimit?: boolean }
   ) => {
     if (!eventId) return;
     try {
@@ -992,6 +1063,11 @@ const Camera = () => {
         dbError = result.error;
       }
       if (dbError) throw dbError;
+
+      if (options?.trackRateLimit !== false) {
+        const uploadTimestampsRef = getUploadTimestampsRef(mode);
+        uploadTimestampsRef.current.push(Date.now());
+      }
 
       const description =
         language === "en"
@@ -1084,6 +1160,7 @@ const Camera = () => {
 
     setIsUploadingAttachments(true);
     setFailedUpload(null);
+    const attachmentLockStartedAt = Date.now();
     try {
       let uploadedPhotos = 0;
       let uploadedVideos = 0;
@@ -1123,6 +1200,7 @@ const Camera = () => {
         const uploaded = await uploadMediaFile(file, "video", duration || 1, file.type, {
           silentSuccess: true,
           skipReload: true,
+          trackRateLimit: false,
         });
         if (uploaded) {
           uploadedVideos += 1;
@@ -1144,6 +1222,10 @@ const Camera = () => {
         });
       }
     } finally {
+      const remainingLockTime = ATTACHMENT_BUTTON_LOCK_MS - (Date.now() - attachmentLockStartedAt);
+      if (remainingLockTime > 0) {
+        await new Promise((resolve) => window.setTimeout(resolve, remainingLockTime));
+      }
       setIsUploadingAttachments(false);
       event.target.value = "";
     }
@@ -1673,27 +1755,43 @@ const Camera = () => {
     : `${revealDateLabel.charAt(0).toUpperCase() + revealDateLabel.slice(1)} a las ${revealTimeFormatted} todo será revelado en este mismo espacio 📸✨`;
 
   const retryText = language === "en" ? "Retry" : language === "it" ? "Riprova" : "Reintentar";
-  const isButtonDisabled = isUploading || rateLimitCooldown > 0;
+  const isButtonDisabled = isUploading || photoCooldown > 0;
   const photoActionText = "Hacer foto";
-  const photoButtonText = rateLimitCooldown > 0
+  const photoButtonText = photoCooldown > 0
     ? language === "en"
-      ? `Wait ${rateLimitCooldown}s`
+      ? `Wait ${photoCooldown}s`
       : language === "it"
-      ? `Attendi ${rateLimitCooldown}s`
-      : `${rateLimitCooldown}s`
+      ? `Attendi ${photoCooldown}s`
+      : `${photoCooldown}s`
     : "Hacer foto";
-  const photoOptionText = rateLimitCooldown > 0
+  const photoOptionText = photoCooldown > 0
     ? language === "en"
-      ? `${rateLimitCooldown}s`
+      ? `${photoCooldown}s`
       : language === "it"
-      ? `${rateLimitCooldown}s`
-      : `${rateLimitCooldown}s`
+      ? `${photoCooldown}s`
+      : `${photoCooldown}s`
     : photoActionText;
+  const videoButtonText = videoCooldown > 0
+    ? language === "en"
+      ? `${videoCooldown}s`
+      : language === "it"
+      ? `${videoCooldown}s`
+      : `${videoCooldown}s`
+    : "Grabar vídeo";
+  const audioButtonText = audioCooldown > 0
+    ? language === "en"
+      ? `${audioCooldown}s`
+      : language === "it"
+      ? `${audioCooldown}s`
+      : `${audioCooldown}s`
+    : "Grabar audio";
   const showPhotoAction = !photoLimitReached;
   const showVideoAction = allowVideoRecording && !videoLimitReached;
   const showAudioAction = allowAudioRecording && !audioLimitReached;
   const visibleActionCount = Number(showPhotoAction) + Number(showVideoAction) + Number(showAudioAction);
   const mediaButtonDisabled = isRecordingMedia || isUploadingMedia || isUploadingAttachments;
+  const videoButtonDisabled = mediaButtonDisabled || videoCooldown > 0;
+  const audioButtonDisabled = mediaButtonDisabled || audioCooldown > 0;
   const recordVideoText = "Grabar vídeo";
   const recordAudioText = "Grabar audio";
   const actionQuestionText = "¿Qué quieres hacer?";
@@ -1756,26 +1854,26 @@ const Camera = () => {
             <button
               type="button"
               onClick={() => openRecordingSession("video")}
-              disabled={mediaButtonDisabled}
+              disabled={videoButtonDisabled}
               className="flex h-36 w-full flex-col items-center justify-center gap-2 rounded-3xl border border-border bg-card p-4 text-sm font-semibold text-foreground transition hover:border-primary focus-visible:ring focus-visible:ring-primary/60 disabled:cursor-not-allowed disabled:border-border disabled:bg-muted/60 disabled:text-muted-foreground"
             >
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black text-white">
                 <Video className="w-6 h-6" />
               </div>
-              <span>{recordVideoText}</span>
+              <span>{videoButtonText}</span>
             </button>
           )}
           {showAudioAction && (
             <button
               type="button"
               onClick={() => openRecordingSession("audio")}
-              disabled={mediaButtonDisabled}
+              disabled={audioButtonDisabled}
               className="flex h-36 w-full flex-col items-center justify-center gap-2 rounded-3xl border border-border bg-card p-4 text-sm font-semibold text-foreground transition hover:border-primary focus-visible:ring focus-visible:ring-primary/60 disabled:cursor-not-allowed disabled:border-border disabled:bg-muted/60 disabled:text-muted-foreground"
             >
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black text-white">
                 <Mic className="w-6 h-6" />
               </div>
-              <span>{recordAudioText}</span>
+              <span>{audioButtonText}</span>
             </button>
           )}
         </div>
