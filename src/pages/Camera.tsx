@@ -416,6 +416,8 @@ const Camera = () => {
   };
 
   const startCooldown = () => {
+    // Reset the rolling window so the user can take photos again once the cooldown ends.
+    uploadTimestampsRef.current = [];
     setRateLimitCooldown(30);
     if (cooldownIntervalRef.current) clearInterval(cooldownIntervalRef.current);
     cooldownIntervalRef.current = setInterval(() => {
