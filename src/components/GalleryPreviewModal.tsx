@@ -82,10 +82,23 @@ export const GalleryPreviewModal = ({
   const [selectedAudio, setSelectedAudio] = useState<AudioItem | null>(null);
   const [sortBy, setSortBy] = useState<SortBy>("chronological");
   const [activeTab, setActiveTab] = useState<MediaTab>("photos");
+  const [isDeletingAll, setIsDeletingAll] = useState(false);
   const { toast } = useToast();
   const { t, lang } = useAdminI18n();
 
   const totalPages = Math.ceil(totalPhotos / PHOTOS_PER_PAGE);
+  const bulkDeleteText = lang === "en" ? "Delete all" : lang === "it" ? "Elimina tutto" : "Eliminar todo";
+  const deletingAllText = lang === "en" ? "Deleting..." : lang === "it" ? "Eliminando..." : "Eliminando...";
+  const deleteAllConfirmText =
+    lang === "en"
+      ? "This will permanently delete all items in this tab. Do you want to continue?"
+      : lang === "it"
+        ? "Questo eliminerà definitivamente tutti gli elementi di questa scheda. Vuoi continuare?"
+        : "Esto eliminará permanentemente todos los elementos de esta pestaña. ¿Quieres continuar?";
+
+  const selectedPhotoIndex = selectedPhoto ? photos.findIndex((photo) => photo.id === selectedPhoto.id) : -1;
+  const selectedVideoIndex = selectedVideo ? videos.findIndex((video) => video.id === selectedVideo.id) : -1;
+  const selectedAudioIndex = selectedAudio ? audios.findIndex((audio) => audio.id === selectedAudio.id) : -1;
 
   // Load font
   useEffect(() => {
@@ -401,6 +414,101 @@ export const GalleryPreviewModal = ({
     }
   };
 
+  const handleDeleteAll = async () => {
+    if (isDeletingAll) return;
+    if (!confirm(deleteAllConfirmText)) return;
+
+    setIsDeletingAll(true);
+    try {
+      if (activeTab === "photos") {
+        const { data, error } = await supabase
+          .from("photos")
+          .select("id, image_url")
+          .eq("event_id", eventId);
+        if (error) throw error;
+
+        const imageUrls = (data || []).map((photo) => photo.image_url).filter(Boolean);
+        const photoIds = (data || []).map((photo) => photo.id);
+
+        if (imageUrls.length > 0) {
+          const { error: storageError } = await supabase.storage.from("event-photos").remove(imageUrls);
+          if (storageError) throw storageError;
+        }
+        if (photoIds.length > 0) {
+          const { error: dbError } = await supabase.from("photos").delete().in("id", photoIds);
+          if (dbError) throw dbError;
+        }
+
+        setPhotos([]);
+        setTotalPhotos(0);
+        setSelectedPhoto(null);
+        setCurrentPage(0);
+      }
+
+      if (activeTab === "videos") {
+        const { data, error } = await supabase
+          .from("videos")
+          .select("id, video_url")
+          .eq("event_id", eventId);
+        if (error) throw error;
+
+        const videoUrls = (data || []).map((video) => video.video_url).filter(Boolean);
+        const videoIds = (data || []).map((video) => video.id);
+
+        if (videoUrls.length > 0) {
+          const { error: storageError } = await supabase.storage.from("event-videos").remove(videoUrls);
+          if (storageError) throw storageError;
+        }
+        if (videoIds.length > 0) {
+          const { error: dbError } = await supabase.from("videos").delete().in("id", videoIds);
+          if (dbError) throw dbError;
+        }
+
+        setVideos([]);
+        setTotalVideos(0);
+        setSelectedVideo(null);
+      }
+
+      if (activeTab === "audios") {
+        const { data, error } = await supabase
+          .from("audios")
+          .select("id, audio_url")
+          .eq("event_id", eventId);
+        if (error) throw error;
+
+        const audioUrls = (data || []).map((audio) => audio.audio_url).filter(Boolean);
+        const audioIds = (data || []).map((audio) => audio.id);
+
+        if (audioUrls.length > 0) {
+          const { error: storageError } = await supabase.storage.from("event-audios").remove(audioUrls);
+          if (storageError) throw storageError;
+        }
+        if (audioIds.length > 0) {
+          const { error: dbError } = await supabase.from("audios").delete().in("id", audioIds);
+          if (dbError) throw dbError;
+        }
+
+        setAudios([]);
+        setTotalAudios(0);
+        setSelectedAudio(null);
+      }
+
+      toast({
+        title: t("gallery.photoDeletedTitle"),
+        description: t("gallery.photoDeletedDesc"),
+      });
+    } catch (error) {
+      console.error("Error deleting all media:", error);
+      toast({
+        title: t("form.errorTitle"),
+        description: t("gallery.photoDeleteError"),
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeletingAll(false);
+    }
+  };
+
   const handleDownload = async (photo: Photo) => {
     if (!photo.fullQualityUrl) return;
     
@@ -495,14 +603,18 @@ export const GalleryPreviewModal = ({
   };
 
   const fontStyle = getEventFontFamily(fontFamily as any);
+  const canDeleteAll =
+    (activeTab === "photos" && totalPhotos > 0) ||
+    (activeTab === "videos" && totalVideos > 0) ||
+    (activeTab === "audios" && totalAudios > 0);
 
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
-            <DialogTitle className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
+            <DialogTitle className="flex items-start justify-between gap-4">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span>{t("gallery.title")}</span>
                 <span className="text-sm font-normal text-muted-foreground">
                   {totalPhotos} fotos / {totalVideos} vídeos / {totalAudios} audios
@@ -532,7 +644,16 @@ export const GalleryPreviewModal = ({
                   </DropdownMenu>
                 )}
               </div>
-              <span />
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                onClick={handleDeleteAll}
+                disabled={!canDeleteAll || isDeletingAll}
+              >
+                <Trash2 className="w-4 h-4 sm:mr-2" />
+                <span>{isDeletingAll ? deletingAllText : bulkDeleteText}</span>
+              </Button>
             </DialogTitle>
           </DialogHeader>
 
@@ -727,6 +848,28 @@ export const GalleryPreviewModal = ({
         <Dialog open={!!selectedPhoto} onOpenChange={() => setSelectedPhoto(null)}>
           <DialogContent className="max-w-3xl p-0 overflow-hidden">
             <div className="relative">
+              {selectedPhotoIndex > 0 && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="icon"
+                  className="absolute left-4 top-1/2 z-10 -translate-y-1/2 rounded-full"
+                  onClick={() => setSelectedPhoto(photos[selectedPhotoIndex - 1])}
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </Button>
+              )}
+              {selectedPhotoIndex >= 0 && selectedPhotoIndex < photos.length - 1 && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="icon"
+                  className="absolute right-4 top-1/2 z-10 -translate-y-1/2 rounded-full"
+                  onClick={() => setSelectedPhoto(photos[selectedPhotoIndex + 1])}
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </Button>
+              )}
               <img
                 src={selectedPhoto.fullQualityUrl}
                 alt=""
@@ -775,13 +918,37 @@ export const GalleryPreviewModal = ({
       {selectedVideo && (
         <Dialog open={!!selectedVideo} onOpenChange={() => setSelectedVideo(null)}>
           <DialogContent className="max-w-3xl p-0 overflow-hidden">
-            <video
-              src={selectedVideo.signedUrl || ""}
-              controls
-              autoPlay
-              playsInline
-              className="w-full max-h-[70vh] bg-black object-contain"
-            />
+            <div className="relative">
+              {selectedVideoIndex > 0 && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="icon"
+                  className="absolute left-4 top-1/2 z-10 -translate-y-1/2 rounded-full"
+                  onClick={() => setSelectedVideo(videos[selectedVideoIndex - 1])}
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </Button>
+              )}
+              {selectedVideoIndex >= 0 && selectedVideoIndex < videos.length - 1 && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="icon"
+                  className="absolute right-4 top-1/2 z-10 -translate-y-1/2 rounded-full"
+                  onClick={() => setSelectedVideo(videos[selectedVideoIndex + 1])}
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </Button>
+              )}
+              <video
+                src={selectedVideo.signedUrl || ""}
+                controls
+                autoPlay
+                playsInline
+                className="w-full max-h-[70vh] bg-black object-contain"
+              />
+            </div>
             <div className="p-4 flex items-center justify-between">
               <p className="text-sm text-muted-foreground">
                 {new Date(selectedVideo.captured_at).toLocaleString(
@@ -822,6 +989,28 @@ export const GalleryPreviewModal = ({
           <DialogContent className="max-w-3xl p-0 overflow-hidden">
             <div className="p-6 space-y-4">
               <div className="relative h-44 w-full overflow-hidden rounded-lg bg-red-950/90">
+                {selectedAudioIndex > 0 && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="icon"
+                    className="absolute left-4 top-1/2 z-10 -translate-y-1/2 rounded-full"
+                    onClick={() => setSelectedAudio(audios[selectedAudioIndex - 1])}
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </Button>
+                )}
+                {selectedAudioIndex >= 0 && selectedAudioIndex < audios.length - 1 && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="icon"
+                    className="absolute right-4 top-1/2 z-10 -translate-y-1/2 rounded-full"
+                    onClick={() => setSelectedAudio(audios[selectedAudioIndex + 1])}
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </Button>
+                )}
                 <div className="absolute inset-0 flex items-center justify-center">
                   <Mic className="w-12 h-12 text-white/90" />
                 </div>
