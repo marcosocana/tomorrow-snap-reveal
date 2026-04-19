@@ -66,6 +66,8 @@ interface Event {
   allow_image_attachment?: boolean;
   allow_video_attachment?: boolean;
   header_style?: string | null;
+  plan_id?: string | null;
+  type?: string | null;
 }
 
 type HeaderStyle = "gradient" | "modern";
@@ -202,7 +204,7 @@ const EventForm = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { t, pathPrefix } = useAdminI18n();
-  const isDemoEvent = formData.maxPhotos === "10";
+  const isDemoEvent = planType === "demo";
   const eventUrl = eventId ? `https://acceso.revelao.cam/events/${formData.password}` : "";
   const mediaLimits = {
     photos: formData.maxPhotos?.trim() ? formData.maxPhotos : "∞",
@@ -221,6 +223,29 @@ const EventForm = () => {
     const hours = String(Math.floor(absMinutes / 60)).padStart(2, "0");
     const minutes = String(absMinutes % 60).padStart(2, "0");
     return `GMT${sign}${hours}:${minutes}`;
+  };
+
+  const getPlanPersistence = (value: PlanType) => ({
+    is_demo: value === "demo",
+    type: value === "demo" ? "demo" : "paid",
+    plan_id: value,
+  });
+
+  const applyPlanPreset = (value: PlanType) => {
+    setPlanType(value);
+    if (value === "custom") return;
+
+    const limits = PLAN_LIMITS[value];
+    setFormData((prev) => ({
+      ...prev,
+      maxPhotos: limits.maxPhotos,
+      allowVideoRecording: limits.allowVideoRecording,
+      maxVideos: limits.maxVideos,
+      maxVideoDuration: "15",
+      allowAudioRecording: limits.allowAudioRecording,
+      maxAudios: limits.maxAudios,
+      maxAudioDuration: "30",
+    }));
   };
 
   const hasValidDateTimeParts = (dateValue: string, timeValue: string) =>
@@ -400,10 +425,11 @@ const EventForm = () => {
       await loadEventMediaCounts(event.id);
 
       const resolvedPlanType =
-        event.max_photos === 10 ? "demo" :
-        event.max_photos === 200 ? "small" :
-        event.max_photos === 1200 ? "medium" :
-        event.max_photos == null ? "custom" :
+        event.plan_id === "demo" || event.max_photos === 10 ? "demo" :
+        event.plan_id === "small" || event.max_photos === 200 ? "small" :
+        event.plan_id === "medium" || event.plan_id === "large" || event.max_photos === 1200 ? "medium" :
+        event.plan_id === "xxl" ? "xxl" :
+        event.max_photos == null ? "xxl" :
         "custom";
       setPlanType(resolvedPlanType);
 
@@ -647,24 +673,11 @@ const EventForm = () => {
         return;
       }
 
-      const selectedPlanLimits =
-        isSuperAdmin && !isEditing && planType !== "custom"
-          ? PLAN_LIMITS[planType]
-          : null;
-      const resolvedMaxPhotos =
-        selectedPlanLimits?.maxPhotos ?? formData.maxPhotos;
-      const effectiveAllowVideoRecording = selectedPlanLimits
-        ? selectedPlanLimits.allowVideoRecording
-        : formData.allowVideoRecording;
-      const effectiveAllowAudioRecording = selectedPlanLimits
-        ? selectedPlanLimits.allowAudioRecording
-        : formData.allowAudioRecording;
-      const effectiveMaxVideos = selectedPlanLimits
-        ? selectedPlanLimits.maxVideos
-        : formData.maxVideos;
-      const effectiveMaxAudios = selectedPlanLimits
-        ? selectedPlanLimits.maxAudios
-        : formData.maxAudios;
+      const resolvedMaxPhotos = formData.maxPhotos;
+      const effectiveAllowVideoRecording = formData.allowVideoRecording;
+      const effectiveAllowAudioRecording = formData.allowAudioRecording;
+      const effectiveMaxVideos = formData.maxVideos;
+      const effectiveMaxAudios = formData.maxAudios;
       const parseOptionalPositiveInt = (value: string) => {
         const parsed = Number.parseInt(value, 10);
         return Number.isNaN(parsed) || parsed <= 0 ? null : parsed;
@@ -726,6 +739,7 @@ const EventForm = () => {
             upload_end_time: uploadEndDateTime.toISOString(),
             reveal_time: revealDateTime.toISOString(),
             max_photos: isRestrictedAdmin ? 10 : (resolvedMaxPhotos ? parseInt(resolvedMaxPhotos) : null),
+            ...(isSuperAdmin ? getPlanPersistence(planType) : {}),
             custom_image_url: customImageUrl,
             background_image_url: backgroundImageUrl,
             filter_type: formData.filterType,
@@ -803,6 +817,7 @@ const EventForm = () => {
             allow_image_attachment: formData.allowImageAttachment,
             allow_video_attachment: formData.allowImageAttachment,
             header_style: formData.headerStyle,
+            ...getPlanPersistence(planType),
           },
         };
 
@@ -860,6 +875,8 @@ const EventForm = () => {
           font_family: formData.fontFamily,
           font_size: formData.fontSize,
           is_demo: isDemoMode || planType === "demo",
+          type: isDemoMode || planType === "demo" ? "demo" : "paid",
+          plan_id: isDemoMode ? "demo" : planType,
           owner_id: user?.id || null,
           country_code: formData.countryCode,
           timezone: formData.timezone,
@@ -950,6 +967,24 @@ const EventForm = () => {
         : { ...prev, customImageUrl: isDemoMode ? defaultDemoLogo : defaultQrLogo }
     );
   }, [isSuperAdmin, isEditing, isDemoMode]);
+
+  useEffect(() => {
+    if (!isSuperAdmin || isEditing || planType === "custom") return;
+    const limits = PLAN_LIMITS[planType];
+    setFormData((prev) => {
+      if (prev.maxPhotos || prev.maxVideos || prev.maxAudios) return prev;
+      return {
+        ...prev,
+        maxPhotos: limits.maxPhotos,
+        allowVideoRecording: limits.allowVideoRecording,
+        maxVideos: limits.maxVideos,
+        maxVideoDuration: "15",
+        allowAudioRecording: limits.allowAudioRecording,
+        maxAudios: limits.maxAudios,
+        maxAudioDuration: "30",
+      };
+    });
+  }, [isSuperAdmin, isEditing, planType]);
 
   const getExpiryDays = () => {
     if (planType === "custom") return null;
@@ -1053,42 +1088,13 @@ const EventForm = () => {
               </div>
             )}
 
-            {isSuperAdmin && !isEditing && (
+            {isSuperAdmin && (
               <div className="space-y-2">
                 <Label htmlFor="planType">{t("events.planType")}</Label>
                 <select
                   id="planType"
                   value={planType}
-                  onChange={(e) => {
-                    const value = e.target.value as typeof planType;
-                    setPlanType(value);
-                    if (value !== "custom") {
-                      const limits = PLAN_LIMITS[value];
-                      setFormData((prev) => ({
-                        ...prev,
-                        maxPhotos: limits.maxPhotos,
-                        allowVideoRecording: limits.allowVideoRecording,
-                        maxVideos: limits.maxVideos,
-                        maxVideoDuration: "15",
-                        allowAudioRecording: limits.allowAudioRecording,
-                        maxAudios: limits.maxAudios,
-                        maxAudioDuration: "30",
-                      }));
-                    } else {
-                      setFormData((prev) => ({
-                        ...prev,
-                        maxPhotos: "",
-                        allowVideoRecording: false,
-                        maxVideos: "",
-                        maxVideoDuration: "15",
-                        allowAudioRecording: false,
-                        maxAudios: "",
-                        maxAudioDuration: "30",
-                        expiryDate: "",
-                        expiryTime: "",
-                      }));
-                    }
-                  }}
+                  onChange={(e) => applyPlanPreset(e.target.value as PlanType)}
                   className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
                 >
                   <option value="demo">{t("events.planDemo")}</option>
@@ -1172,6 +1178,7 @@ const EventForm = () => {
               </>
             )}
 
+            {!isSuperAdmin && (
             <div className="space-y-2">
               <Label htmlFor="maxPhotos">
                 {t("form.maxPhotos")}
@@ -1185,10 +1192,10 @@ const EventForm = () => {
                     setFormData({ ...formData, maxPhotos: e.target.value })
                   }
                   placeholder={isDemoMode ? t("form.maxPhotosDemoDefault") : t("form.maxPhotosUnlimited")}
-                  disabled={!isSuperAdmin || planType !== "custom"}
-                  className={!isSuperAdmin || planType !== "custom" ? "bg-muted cursor-not-allowed" : ""}
+                  disabled={!isSuperAdmin}
+                  className={!isSuperAdmin ? "bg-muted cursor-not-allowed" : ""}
                 />
-              {((!isSuperAdmin) || (isEditing && isDemoEvent)) && (
+              {!isSuperAdmin && isDemoEvent && (
                 <p className="text-xs text-muted-foreground">
                   {t("form.maxPhotosFixedDemo")}
                 </p>
@@ -1199,6 +1206,7 @@ const EventForm = () => {
                 </p>
               )}
             </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="filterType">
@@ -1794,11 +1802,25 @@ const EventForm = () => {
               </div>
             )}
 
-            {isSuperAdmin && !isDemoEvent && (
+            {isSuperAdmin && (
               <div className="mt-4 space-y-4 border-t border-border pt-4">
                 <div>
                   <Label className="text-base font-semibold">{t("form.mediaSection")}</Label>
                   <p className="text-xs text-muted-foreground">{t("form.mediaSectionHint")}</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="maxPhotos">{t("form.maxPhotos")}</Label>
+                  <Input
+                    id="maxPhotos"
+                    type="number"
+                    min="1"
+                    value={formData.maxPhotos}
+                    onChange={(e) =>
+                      setFormData({ ...formData, maxPhotos: e.target.value })
+                    }
+                    placeholder={t("form.maxPhotosUnlimited")}
+                  />
                 </div>
 
                 <div className="space-y-2">
@@ -1958,7 +1980,7 @@ const EventForm = () => {
               </div>
             )}
 
-            {isEditing && !isDemoEvent && (
+            {isEditing && !isSuperAdmin && (
               <div className="mt-4 rounded-lg border border-border bg-muted/40 p-4">
                 <p className="text-sm font-semibold text-foreground">Incluido en el plan</p>
                 <p className="mt-1 text-sm text-muted-foreground">

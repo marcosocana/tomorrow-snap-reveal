@@ -58,6 +58,9 @@ type AdminEventPayload = {
     max_audios?: number | null;
     max_audio_duration?: number;
     header_style?: string | null;
+    is_demo?: boolean;
+    type?: string | null;
+    plan_id?: string | null;
   };
 };
 
@@ -117,6 +120,18 @@ const getPlanMeta = (maxPhotos: number | null | undefined) => {
   if (maxPhotos === 300 || maxPhotos === 1200) return { label: "Evento Plus", type: "paid", planId: "medium" };
   if (maxPhotos === 500 || maxPhotos === 1000 || maxPhotos == null) return { label: "Evento Pro", type: "paid", planId: "xxl" };
   return { label: "Evento personalizado", type: "paid", planId: "custom" };
+};
+
+const getPlanMetaByPlanId = (
+  planId: string | null | undefined,
+  maxPhotos: number | null | undefined,
+) => {
+  if (planId === "demo") return { label: "Evento Demo", type: "demo", planId: "demo" };
+  if (planId === "small") return { label: "Evento Start", type: "paid", planId: "small" };
+  if (planId === "medium" || planId === "large") return { label: "Evento Plus", type: "paid", planId: "medium" };
+  if (planId === "xxl") return { label: "Evento Pro", type: "paid", planId: "xxl" };
+  if (planId === "custom") return { label: "Evento personalizado", type: "paid", planId: "custom" };
+  return getPlanMeta(maxPhotos);
 };
 
 serve(async (req) => {
@@ -229,7 +244,7 @@ serve(async (req) => {
       return json({ error: "CREATE_PROFILE_FAILED", detail: profileErrorMessage }, 500);
     }
 
-    const planMeta = getPlanMeta(event.max_photos ?? null);
+    const planMeta = getPlanMetaByPlanId(event.plan_id, event.max_photos ?? null);
     const resolvedCustomImageUrl =
       event.custom_image_url ?? (planMeta.type === "demo" ? DEMO_LOGO_URL : null);
 
@@ -248,9 +263,9 @@ serve(async (req) => {
         filter_type: event.filter_type ?? "none",
         font_family: event.font_family ?? "system",
         font_size: event.font_size ?? "text-3xl",
-        is_demo: planMeta.type === "demo",
-        type: planMeta.type,
-        plan_id: planMeta.planId,
+        is_demo: event.is_demo ?? (planMeta.type === "demo"),
+        type: event.type ?? planMeta.type,
+        plan_id: event.plan_id ?? planMeta.planId,
         limits_json: event.max_photos ? { max_photos: event.max_photos } : null,
         country_code: event.country_code ?? "ES",
         timezone: event.timezone ?? "Europe/Madrid",
