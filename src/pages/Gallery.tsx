@@ -3,7 +3,7 @@ import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { LogOut, Film, Trash2, Download, Share2, Play, Image, Mic, Video, LayoutGrid, LayoutList, ArrowLeft, Plus } from "lucide-react";
+import { LogOut, Film, Trash2, Download, Share2, Play, Image, ArrowLeft, Plus } from "lucide-react";
 import StoriesViewer from "@/components/StoriesViewer";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
@@ -73,7 +73,8 @@ interface MixedMediaItem {
   hasLiked?: boolean;
 }
 
-const PHOTOS_PER_PAGE = 12;
+const MEDIA_BATCH_SIZE = 18;
+const PHOTOS_PER_PAGE = MEDIA_BATCH_SIZE;
 
 const GalleryLoadingSkeleton = () => (
   <div className="w-full">
@@ -127,6 +128,21 @@ const getVideoExtensionForMimeType = (mimeType: string | null | undefined) => {
   return "mp4";
 };
 
+const getExtensionFromStoragePath = (path: string, fallback: string) => {
+  const cleanPath = path.split("?")[0].split("#")[0];
+  const fileName = cleanPath.split("/").pop() || "";
+  const extension = fileName.includes(".") ? fileName.split(".").pop() : "";
+  return extension && /^[a-z0-9]+$/i.test(extension) ? extension.toLowerCase() : fallback;
+};
+
+const sanitizeZipFileName = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80) || "evento";
+
 const Gallery = () => {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [totalPhotos, setTotalPhotos] = useState(0);
@@ -165,14 +181,7 @@ const Gallery = () => {
   const [eventFontSize, setEventFontSize] = useState<string>("text-3xl");
   const [allowPhotoDeletion, setAllowPhotoDeletion] = useState<boolean>(true);
   const [allowPhotoSharing, setAllowPhotoSharing] = useState<boolean>(true);
-  const [galleryViewMode, setGalleryViewMode] = useState<"normal" | "grid">("normal");
-  const [isDesktopView, setIsDesktopView] = useState(false);
-  const [hasManualViewSelection, setHasManualViewSelection] = useState(false);
-  const [viewToggleOrder, setViewToggleOrder] = useState<["normal", "grid"] | ["grid", "normal"]>([
-    "normal",
-    "grid",
-  ]);
-  const [defaultViewLocked, setDefaultViewLocked] = useState(false);
+  const [visibleMediaLimit, setVisibleMediaLimit] = useState(MEDIA_BATCH_SIZE);
   const [likeCountingEnabled, setLikeCountingEnabled] = useState<boolean>(false);
   const [allowVideoRecording, setAllowVideoRecording] = useState(false);
   const [allowAudioRecording, setAllowAudioRecording] = useState(false);
@@ -200,70 +209,6 @@ const Gallery = () => {
     const localDate = getLocalDateInTimezone(dateStr, timezone);
     return format(localDate, formatStr, { locale: dateLocale });
   };
-
-  const createVideoThumbnail = useCallback(async (videoUrl: string): Promise<string | null> => {
-    return new Promise((resolve) => {
-      const video = document.createElement("video");
-      video.crossOrigin = "anonymous";
-      video.muted = true;
-      video.playsInline = true;
-      video.preload = "metadata";
-
-      const cleanup = () => {
-        video.pause();
-        video.removeAttribute("src");
-        video.load();
-      };
-
-      const fail = () => {
-        cleanup();
-        resolve(null);
-      };
-
-      const capture = () => {
-        try {
-          if (!video.videoWidth || !video.videoHeight) {
-            fail();
-            return;
-          }
-          const canvas = document.createElement("canvas");
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
-          const context = canvas.getContext("2d");
-          if (!context) {
-            fail();
-            return;
-          }
-          context.drawImage(video, 0, 0, canvas.width, canvas.height);
-          const dataUrl = canvas.toDataURL("image/jpeg", 0.82);
-          cleanup();
-          resolve(dataUrl);
-        } catch (error) {
-          console.error("Error generating video thumbnail:", error);
-          fail();
-        }
-      };
-
-      const timeoutId = window.setTimeout(fail, 5000);
-
-      video.onloadeddata = () => {
-        window.clearTimeout(timeoutId);
-        const onSeeked = () => {
-          video.onseeked = null;
-          capture();
-        };
-        video.onseeked = onSeeked;
-        try {
-          video.currentTime = 0.01;
-        } catch {
-          capture();
-        }
-      };
-      video.onerror = fail;
-      video.src = videoUrl;
-      video.load();
-    });
-  }, []);
 
   const loadPhotos = useCallback(async (pageNum: number) => {
     if (!eventId) return;
@@ -303,9 +248,9 @@ const Gallery = () => {
             .from("event-photos")
             .createSignedUrl(photo.image_url, 3600, {
               transform: {
-                width: 560,
-                height: 560,
-                quality: 75
+                width: 360,
+                height: 360,
+                quality: 60
               }
             });
 
@@ -339,17 +284,15 @@ const Gallery = () => {
       console.error("Error loading photos:", error);
       // Silently handle errors (like 416 when reaching end of data)
       setHasMore(false);
-    } finally {
-      setIsLoading(false);
     }
   }, [eventId, toast]);
 
   const loadVideos = useCallback(async () => {
     if (!eventId) return;
     try {
-      const { data, error } = await supabase
+      const { data, error, count } = await supabase
         .from("videos")
-        .select("id,video_url,captured_at,duration_seconds")
+        .select("id,video_url,captured_at,duration_seconds", { count: "exact" })
         .eq("event_id", eventId)
         .order("captured_at", { ascending: true });
       if (error) throw error;
@@ -372,11 +315,10 @@ const Gallery = () => {
             .from("event-videos")
             .createSignedUrl(video.video_url, 3600);
           const signedUrl = signedData?.signedUrl || "";
-          const thumbnailUrl = signedUrl ? await createVideoThumbnail(signedUrl) : null;
           return {
             ...video,
             signedUrl,
-            thumbnailUrl: thumbnailUrl || "",
+            thumbnailUrl: signedUrl ? `${signedUrl}#t=0,2` : "",
             likeCount: likeCounts[video.id] || 0,
             hasLiked: likedVideos.includes(video.id),
           };
@@ -384,7 +326,7 @@ const Gallery = () => {
       );
 
       setVideos(enriched as VideoItem[]);
-      setTotalVideos((enriched || []).length);
+      setTotalVideos(count ?? (enriched || []).length);
     } catch (error) {
       console.error("Error loading videos:", error);
     }
@@ -393,9 +335,9 @@ const Gallery = () => {
   const loadAudios = useCallback(async () => {
     if (!eventId) return;
     try {
-      const { data, error } = await supabase
+      const { data, error, count } = await supabase
         .from("audios")
-        .select("id,audio_url,captured_at,duration_seconds")
+        .select("id,audio_url,captured_at,duration_seconds", { count: "exact" })
         .eq("event_id", eventId)
         .order("captured_at", { ascending: true });
       if (error) throw error;
@@ -427,7 +369,7 @@ const Gallery = () => {
       );
 
       setAudios(enriched as AudioItem[]);
-      setTotalAudios((enriched || []).length);
+      setTotalAudios(count ?? (enriched || []).length);
     } catch (error) {
       console.error("Error loading audio notes:", error);
     }
@@ -471,6 +413,18 @@ const Gallery = () => {
     });
     return items.sort((a, b) => new Date(a.captured_at).getTime() - new Date(b.captured_at).getTime());
   }, [audios, photos, videos]);
+
+  const totalMediaCount = totalPhotos + totalVideos + totalAudios;
+  const effectiveGalleryViewMode: "normal" | "grid" = totalMediaCount > 30 ? "grid" : "normal";
+  const displayedMedia = effectiveGalleryViewMode === "grid"
+    ? mixedMedia.slice(0, visibleMediaLimit)
+    : mixedMedia;
+  const hasMoreVisibleMedia = effectiveGalleryViewMode === "grid" && visibleMediaLimit < mixedMedia.length;
+  const hasMoreGalleryMedia = hasMoreVisibleMedia || hasMore;
+
+  useEffect(() => {
+    setVisibleMediaLimit(MEDIA_BATCH_SIZE);
+  }, [eventId, effectiveGalleryViewMode]);
 
   const photoLookup = useMemo(() => {
     const map = new Map<string, Photo>();
@@ -529,12 +483,17 @@ const Gallery = () => {
       return (
         <div className="relative h-full w-full bg-black">
           <video
-            src={item.signedUrl || ""}
+            src={view === "grid" ? item.thumbnailUrl || item.signedUrl || "" : item.signedUrl || ""}
             muted
             playsInline
             autoPlay
             loop
             preload={view === "grid" ? "metadata" : "auto"}
+            onTimeUpdate={(event) => {
+              if (view === "grid" && event.currentTarget.currentTime >= 2) {
+                event.currentTarget.currentTime = 0;
+              }
+            }}
             className="w-full h-full object-cover bg-black"
           />
         </div>
@@ -654,9 +613,20 @@ const Gallery = () => {
     };
     frame();
 
-    loadPhotos(0);
-    loadVideos();
-    loadAudios();
+    let isCancelled = false;
+    setPage(0);
+    setHasMore(true);
+    setVisibleMediaLimit(MEDIA_BATCH_SIZE);
+    setIsLoading(true);
+    Promise.all([loadPhotos(0), loadVideos(), loadAudios()]).finally(() => {
+      if (!isCancelled) {
+        setIsLoading(false);
+      }
+    });
+
+    return () => {
+      isCancelled = true;
+    };
   }, [eventId, isDemoEnvironmentFromQuery, navigate, loadEventData, loadPhotos, loadVideos, loadAudios]);
 
   useEffect(() => {
@@ -667,46 +637,18 @@ const Gallery = () => {
     return () => window.clearInterval(interval);
   }, [eventId, loadEventData]);
 
-  useEffect(() => {
-    const mediaQuery = window.matchMedia("(min-width: 1024px)");
-    const updateDesktopMode = () => {
-      const isDesktop = mediaQuery.matches;
-      setIsDesktopView(isDesktop);
-      if (isDesktop) {
-        setGalleryViewMode("grid");
-      }
-    };
-
-    updateDesktopMode();
-
-    if (typeof mediaQuery.addEventListener === "function") {
-      mediaQuery.addEventListener("change", updateDesktopMode);
-      return () => mediaQuery.removeEventListener("change", updateDesktopMode);
-    }
-
-    mediaQuery.addListener(updateDesktopMode);
-    return () => mediaQuery.removeListener(updateDesktopMode);
-  }, []);
-
-  useEffect(() => {
-    if (hasManualViewSelection || defaultViewLocked || isLoading) return;
-    if (isDesktopView) {
-      setGalleryViewMode("grid");
-      return;
-    }
-
-    const totalMediaCount = totalPhotos + totalVideos + totalAudios;
-    const defaultMode: "normal" | "grid" = totalMediaCount > 30 ? "grid" : "normal";
-    setGalleryViewMode(defaultMode);
-    setViewToggleOrder(defaultMode === "grid" ? ["grid", "normal"] : ["normal", "grid"]);
-    setDefaultViewLocked(true);
-  }, [totalPhotos, totalVideos, totalAudios, isDesktopView, hasManualViewSelection, defaultViewLocked, isLoading]);
-
   // Infinite scroll observer
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && hasMore && !isLoading) {
+        if (!entries[0].isIntersecting || isLoading) return;
+
+        if (hasMoreVisibleMedia) {
+          setVisibleMediaLimit((current) => Math.min(current + MEDIA_BATCH_SIZE, mixedMedia.length));
+          return;
+        }
+
+        if (hasMore) {
           const nextPage = page + 1;
           setPage(nextPage);
           loadPhotos(nextPage);
@@ -720,7 +662,7 @@ const Gallery = () => {
     }
 
     return () => observer.disconnect();
-  }, [hasMore, isLoading, page, loadPhotos]);
+  }, [hasMore, hasMoreVisibleMedia, isLoading, loadPhotos, mixedMedia.length, page]);
 
   const handleLogout = () => {
     localStorage.removeItem("eventId");
@@ -864,8 +806,13 @@ const Gallery = () => {
   const refreshGalleryAfterAttachments = async () => {
     setPage(0);
     setHasMore(true);
+    setVisibleMediaLimit(MEDIA_BATCH_SIZE);
     setIsLoading(true);
-    await Promise.all([loadPhotos(0), loadVideos(), loadAudios()]);
+    try {
+      await Promise.all([loadPhotos(0), loadVideos(), loadAudios()]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleAttachmentChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -991,6 +938,7 @@ const Gallery = () => {
       if (dbError) throw dbError;
 
       setPhotos(photos.filter(p => p.id !== photoId));
+      setTotalPhotos((current) => Math.max(0, current - 1));
       setSelectedPhoto(null);
       
       toast({
@@ -1431,32 +1379,47 @@ const Gallery = () => {
     try {
       const preparingText = language === "en" ? "Preparing download" : language === "it" ? "Preparando download" : "Preparando descarga";
       const downloadingAllText = language === "en" 
-        ? `Downloading all photos${withFilter && filterType !== 'none' ? ' with filter' : ' (originals)'}...`
+        ? `Downloading all content${withFilter && filterType !== 'none' ? ' with photo filters' : ''}...`
         : language === "it"
-        ? `Scaricando tutte le foto${withFilter && filterType !== 'none' ? ' con filtro' : ' originali'}...`
-        : `Descargando todas las fotos${withFilter && filterType !== 'none' ? ' con filtro' : ' originales'}...`;
+        ? `Scaricando tutti i contenuti${withFilter && filterType !== 'none' ? ' con filtri sulle foto' : ''}...`
+        : `Descargando todo el contenido${withFilter && filterType !== 'none' ? ' con filtros en las fotos' : ''}...`;
       
       toast({
         title: preparingText,
         description: downloadingAllText,
       });
 
-      // Fetch ALL photos from the event
-      const { data: allPhotos, error } = await supabase
-        .from("photos")
-        .select("*")
-        .eq("event_id", eventId)
-        .order("captured_at", { ascending: true });
+      const [
+        { data: allPhotos, error: photosError },
+        { data: allVideos, error: videosError },
+        { data: allAudios, error: audiosError },
+      ] = await Promise.all([
+        supabase
+          .from("photos")
+          .select("id,image_url,captured_at")
+          .eq("event_id", eventId)
+          .order("captured_at", { ascending: true }),
+        supabase
+          .from("videos")
+          .select("id,video_url,captured_at")
+          .eq("event_id", eventId)
+          .order("captured_at", { ascending: true }),
+        supabase
+          .from("audios")
+          .select("id,audio_url,captured_at")
+          .eq("event_id", eventId)
+          .order("captured_at", { ascending: true }),
+      ]);
 
-      if (error) throw error;
+      if (photosError) throw photosError;
+      if (videosError) throw videosError;
+      if (audiosError) throw audiosError;
 
       const zip = new JSZip();
+      let exportedCount = 0;
       
-      // Download all photos and add to zip
       for (let i = 0; i < (allPhotos || []).length; i++) {
         const photo = allPhotos![i];
-        
-        // Get signed URL for full quality
         const { data: signedUrlData } = await supabase.storage
           .from("event-photos")
           .createSignedUrl(photo.image_url, 3600);
@@ -1472,8 +1435,41 @@ const Gallery = () => {
           }
           
           const suffix = withFilter && filterType !== 'none' ? `-${filterType}` : '-original';
-          const filename = `foto-${format(new Date(photo.captured_at), "dd-MM-yyyy-HHmm")}${suffix}.jpg`;
+          const filename = `fotos/${String(i + 1).padStart(4, "0")}-foto-${format(new Date(photo.captured_at), "dd-MM-yyyy-HHmmss")}-${photo.id.slice(0, 8)}${suffix}.jpg`;
           zip.file(filename, blob);
+          exportedCount += 1;
+        }
+      }
+
+      for (let i = 0; i < (allVideos || []).length; i++) {
+        const video = allVideos![i];
+        const { data: signedUrlData } = await supabase.storage
+          .from("event-videos")
+          .createSignedUrl(video.video_url, 3600);
+
+        if (signedUrlData?.signedUrl) {
+          const response = await fetch(signedUrlData.signedUrl);
+          const blob = await response.blob();
+          const extension = getExtensionFromStoragePath(video.video_url, "webm");
+          const filename = `videos/${String(i + 1).padStart(4, "0")}-video-${format(new Date(video.captured_at), "dd-MM-yyyy-HHmmss")}-${video.id.slice(0, 8)}.${extension}`;
+          zip.file(filename, blob);
+          exportedCount += 1;
+        }
+      }
+
+      for (let i = 0; i < (allAudios || []).length; i++) {
+        const audio = allAudios![i];
+        const { data: signedUrlData } = await supabase.storage
+          .from("event-audios")
+          .createSignedUrl(audio.audio_url, 3600);
+
+        if (signedUrlData?.signedUrl) {
+          const response = await fetch(signedUrlData.signedUrl);
+          const blob = await response.blob();
+          const extension = getExtensionFromStoragePath(audio.audio_url, "webm");
+          const filename = `audios/${String(i + 1).padStart(4, "0")}-audio-${format(new Date(audio.captured_at), "dd-MM-yyyy-HHmmss")}-${audio.id.slice(0, 8)}.${extension}`;
+          zip.file(filename, blob);
+          exportedCount += 1;
         }
       }
 
@@ -1485,7 +1481,7 @@ const Gallery = () => {
       const a = document.createElement('a');
       a.href = url;
       const suffix = withFilter && filterType !== 'none' ? `-${filterType}` : '-originales';
-      a.download = `${eventName}-fotos${suffix}.zip`;
+      a.download = `${sanitizeZipFileName(eventName || "revelao")}-contenido${suffix}.zip`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -1493,17 +1489,17 @@ const Gallery = () => {
 
       const completedText = language === "en" ? "Download complete" : language === "it" ? "Download completato" : "Descarga completada";
       const completedDescText = language === "en" 
-        ? `${allPhotos?.length || 0} photos downloaded successfully`
+        ? `${exportedCount} files downloaded successfully`
         : language === "it"
-        ? `${allPhotos?.length || 0} foto scaricate con successo`
-        : `${allPhotos?.length || 0} fotos descargadas correctamente`;
+        ? `${exportedCount} file scaricati correttamente`
+        : `${exportedCount} archivos descargados correctamente`;
 
       toast({
         title: completedText,
         description: completedDescText,
       });
     } catch (error) {
-      console.error("Error downloading all photos:", error);
+      console.error("Error downloading all gallery content:", error);
       toast({
         title: t.common.error,
         description: t.gallery.downloadError,
@@ -1658,7 +1654,6 @@ const Gallery = () => {
     return <Navigate to={`/camera${demoEnvSuffix}`} replace />;
   }
 
-  const effectiveGalleryViewMode = isDesktopView ? "grid" : galleryViewMode;
   const showGalleryAttachmentButton = allowImageAttachment || allowVideoAttachment;
   const attachButtonText =
     language === "en"
@@ -1892,34 +1887,6 @@ const Gallery = () => {
       )}
 
       <main className={eventBackgroundImage ? "pt-4 pb-6" : "py-12 pt-36 pb-6"}>
-        <div className="max-w-7xl mx-auto px-6">
-          {!isDesktopView && (
-            <div className="mb-4">
-              <div className="mx-auto flex w-full max-w-2xl rounded-2xl bg-muted p-1">
-            {viewToggleOrder.map((mode) => {
-              return (
-                <button
-                  key={mode}
-                  type="button"
-                  onClick={() => {
-                    setHasManualViewSelection(true);
-                    setGalleryViewMode(mode);
-                  }}
-                  className={`flex flex-1 items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold transition ${
-                    galleryViewMode === mode
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                  aria-label={`${mode} view`}
-                >
-                  {mode === "normal" ? <LayoutList className="h-4 w-4" /> : <LayoutGrid className="h-4 w-4" />}
-                </button>
-              );
-            })}
-              </div>
-            </div>
-          )}
-        </div>
         <div className={effectiveGalleryViewMode === "grid" ? "w-full" : "max-w-7xl mx-auto px-6"}>
           {isLoading ? (
             <GalleryLoadingSkeleton />
@@ -1938,7 +1905,7 @@ const Gallery = () => {
           ) : effectiveGalleryViewMode === "grid" ? (
             <div className="px-0">
               <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-8 gap-[2px] bg-white">
-                {mixedMedia.map((item) => (
+                {displayedMedia.map((item) => (
                   <button
                     key={`${item.type}-${item.id}`}
                     type="button"
@@ -1973,7 +1940,7 @@ const Gallery = () => {
             </div>
           ) : (
             <div className="space-y-3 pb-3">
-              {mixedMedia.map((item) => (
+              {displayedMedia.map((item) => (
                 <div
                   key={`${item.type}-${item.id}`}
                   className="relative overflow-hidden rounded-2xl"
@@ -2010,7 +1977,7 @@ const Gallery = () => {
               ))}
             </div>
           )}
-          {hasMore && (
+          {hasMoreGalleryMedia && (
             <div ref={observerTarget} className="flex justify-center py-8">
               <p className="text-muted-foreground uppercase tracking-wide text-sm">
                 {loadingMoreText}
