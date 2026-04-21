@@ -127,6 +127,21 @@ const getVideoExtensionForMimeType = (mimeType: string | null | undefined) => {
   return "mp4";
 };
 
+const getExtensionFromStoragePath = (path: string, fallback: string) => {
+  const cleanPath = path.split("?")[0].split("#")[0];
+  const fileName = cleanPath.split("/").pop() || "";
+  const extension = fileName.includes(".") ? fileName.split(".").pop() : "";
+  return extension && /^[a-z0-9]+$/i.test(extension) ? extension.toLowerCase() : fallback;
+};
+
+const sanitizeZipFileName = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80) || "revelao";
+
 const Gallery = () => {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [totalPhotos, setTotalPhotos] = useState(0);
@@ -1431,32 +1446,47 @@ const Gallery = () => {
     try {
       const preparingText = language === "en" ? "Preparing download" : language === "it" ? "Preparando download" : "Preparando descarga";
       const downloadingAllText = language === "en" 
-        ? `Downloading all photos${withFilter && filterType !== 'none' ? ' with filter' : ' (originals)'}...`
+        ? `Downloading all content${withFilter && filterType !== 'none' ? ' with photo filters' : ''}...`
         : language === "it"
-        ? `Scaricando tutte le foto${withFilter && filterType !== 'none' ? ' con filtro' : ' originali'}...`
-        : `Descargando todas las fotos${withFilter && filterType !== 'none' ? ' con filtro' : ' originales'}...`;
+        ? `Scaricando tutti i contenuti${withFilter && filterType !== 'none' ? ' con filtri sulle foto' : ''}...`
+        : `Descargando todo el contenido${withFilter && filterType !== 'none' ? ' con filtros en las fotos' : ''}...`;
       
       toast({
         title: preparingText,
         description: downloadingAllText,
       });
 
-      // Fetch ALL photos from the event
-      const { data: allPhotos, error } = await supabase
-        .from("photos")
-        .select("*")
-        .eq("event_id", eventId)
-        .order("captured_at", { ascending: true });
+      const [
+        { data: allPhotos, error: photosError },
+        { data: allVideos, error: videosError },
+        { data: allAudios, error: audiosError },
+      ] = await Promise.all([
+        supabase
+          .from("photos")
+          .select("id,image_url,captured_at")
+          .eq("event_id", eventId)
+          .order("captured_at", { ascending: true }),
+        supabase
+          .from("videos")
+          .select("id,video_url,captured_at")
+          .eq("event_id", eventId)
+          .order("captured_at", { ascending: true }),
+        supabase
+          .from("audios")
+          .select("id,audio_url,captured_at")
+          .eq("event_id", eventId)
+          .order("captured_at", { ascending: true }),
+      ]);
 
-      if (error) throw error;
+      if (photosError) throw photosError;
+      if (videosError) throw videosError;
+      if (audiosError) throw audiosError;
 
       const zip = new JSZip();
+      let exportedCount = 0;
       
-      // Download all photos and add to zip
       for (let i = 0; i < (allPhotos || []).length; i++) {
         const photo = allPhotos![i];
-        
-        // Get signed URL for full quality
         const { data: signedUrlData } = await supabase.storage
           .from("event-photos")
           .createSignedUrl(photo.image_url, 3600);
@@ -1472,8 +1502,43 @@ const Gallery = () => {
           }
           
           const suffix = withFilter && filterType !== 'none' ? `-${filterType}` : '-original';
-          const filename = `foto-${format(new Date(photo.captured_at), "dd-MM-yyyy-HHmm")}${suffix}.jpg`;
+          const filename = `fotos/${String(i + 1).padStart(4, "0")}-foto-${format(new Date(photo.captured_at), "dd-MM-yyyy-HHmmss")}-${photo.id.slice(0, 8)}${suffix}.jpg`;
           zip.file(filename, blob);
+          exportedCount += 1;
+        }
+      }
+
+      for (let i = 0; i < (allVideos || []).length; i++) {
+        const video = allVideos![i];
+        const { data: signedUrlData } = await supabase.storage
+          .from("event-videos")
+          .createSignedUrl(video.video_url, 3600);
+
+        if (signedUrlData?.signedUrl) {
+          const response = await fetch(signedUrlData.signedUrl);
+          if (!response.ok) throw new Error(`Video download failed: ${response.status}`);
+          const blob = await response.blob();
+          const extension = getExtensionFromStoragePath(video.video_url, "webm");
+          const filename = `videos/${String(i + 1).padStart(4, "0")}-video-${format(new Date(video.captured_at), "dd-MM-yyyy-HHmmss")}-${video.id.slice(0, 8)}.${extension}`;
+          zip.file(filename, blob);
+          exportedCount += 1;
+        }
+      }
+
+      for (let i = 0; i < (allAudios || []).length; i++) {
+        const audio = allAudios![i];
+        const { data: signedUrlData } = await supabase.storage
+          .from("event-audios")
+          .createSignedUrl(audio.audio_url, 3600);
+
+        if (signedUrlData?.signedUrl) {
+          const response = await fetch(signedUrlData.signedUrl);
+          if (!response.ok) throw new Error(`Audio download failed: ${response.status}`);
+          const blob = await response.blob();
+          const extension = getExtensionFromStoragePath(audio.audio_url, "webm");
+          const filename = `audios/${String(i + 1).padStart(4, "0")}-audio-${format(new Date(audio.captured_at), "dd-MM-yyyy-HHmmss")}-${audio.id.slice(0, 8)}.${extension}`;
+          zip.file(filename, blob);
+          exportedCount += 1;
         }
       }
 
@@ -1485,7 +1550,7 @@ const Gallery = () => {
       const a = document.createElement('a');
       a.href = url;
       const suffix = withFilter && filterType !== 'none' ? `-${filterType}` : '-originales';
-      a.download = `${eventName}-fotos${suffix}.zip`;
+      a.download = `${sanitizeZipFileName(eventName || "revelao")}-contenido${suffix}.zip`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -1493,17 +1558,17 @@ const Gallery = () => {
 
       const completedText = language === "en" ? "Download complete" : language === "it" ? "Download completato" : "Descarga completada";
       const completedDescText = language === "en" 
-        ? `${allPhotos?.length || 0} photos downloaded successfully`
+        ? `${exportedCount} files downloaded successfully`
         : language === "it"
-        ? `${allPhotos?.length || 0} foto scaricate con successo`
-        : `${allPhotos?.length || 0} fotos descargadas correctamente`;
+        ? `${exportedCount} file scaricati correttamente`
+        : `${exportedCount} archivos descargados correctamente`;
 
       toast({
         title: completedText,
         description: completedDescText,
       });
     } catch (error) {
-      console.error("Error downloading all photos:", error);
+      console.error("Error downloading all gallery content:", error);
       toast({
         title: t.common.error,
         description: t.gallery.downloadError,
