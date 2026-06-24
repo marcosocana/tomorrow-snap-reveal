@@ -1311,15 +1311,25 @@ const Camera = () => {
   ) : null;
   const mediaCountsHeaderText = isPhotoOnlyConfigured
     ? language === "en"
-      ? `📷 ${photoCount} photos`
-      : language === "it"
-      ? `📷 ${photoCount} foto`
+    ? `📷 ${photoCount} photos`
+    : language === "it"
+    ? `📷 ${photoCount} foto`
       : `📷 ${photoCount} fotos`
     : language === "en"
     ? `📷 ${photoCount} photos / 📹 ${videoCount} videos / 🔈 ${audioCount} audios`
     : language === "it"
     ? `📷 ${photoCount} foto / 📹 ${videoCount} video / 🔈 ${audioCount} audio`
     : `📷 ${photoCount} fotos / 📹 ${videoCount} vídeos / 🔈 ${audioCount} audios`;
+
+  const customEventLogo = customImageUrl ? (
+    <div className="flex justify-center py-2">
+      <img
+        src={customImageUrl}
+        alt={eventName || "Logo del evento"}
+        className="max-w-[220px] max-h-[90px] object-contain"
+      />
+    </div>
+  ) : null;
 
   if (!eventConfigReady) {
     return <CameraLoadingSkeleton />;
@@ -1391,6 +1401,9 @@ const Camera = () => {
                     {eventDescription && (
                       <p className="text-white/90 text-base md:text-lg max-w-xl mb-2 whitespace-pre-line">{eventDescription}</p>
                     )}
+                    {customEventLogo ? (
+                      <div className="flex justify-start">{customEventLogo}</div>
+                    ) : null}
                     <p className="text-sm text-white/90 mt-1">{mediaCountsHeaderText}</p>
                   </div>
                 )}
@@ -1407,6 +1420,7 @@ const Camera = () => {
                   {eventDescription && (
                     <p className="text-muted-foreground text-base md:text-lg max-w-xl mx-auto mb-2 whitespace-pre-line">{eventDescription}</p>
                   )}
+                  {customEventLogo}
                 </div>
               )}
             </header>
@@ -1425,6 +1439,7 @@ const Camera = () => {
                 <p className="text-muted-foreground text-lg">
                   {t.camera.periodNotStarted}
                 </p>
+                {customEventLogo}
                 {uploadStartTime && (
                   <>
                     <div className="bg-card border border-border rounded-lg p-6 space-y-2">
@@ -1444,16 +1459,6 @@ const Camera = () => {
                 )}
               </div>
               
-              {/* Custom image at bottom - only if set */}
-              {customImageUrl && (
-                <div className="flex-1 flex items-end justify-center pt-6">
-                  <img
-                    src={customImageUrl}
-                    alt="Imagen personalizada"
-                    className="max-w-[240px] max-h-[100px] object-contain"
-                  />
-                </div>
-              )}
             </div>
           </>
         ) : (
@@ -1506,6 +1511,7 @@ const Camera = () => {
                 <p className="text-muted-foreground text-lg">
                   {t.camera.periodNotStarted}
                 </p>
+                {customEventLogo}
                 {uploadStartTime && (
                   <>
                     <div className="bg-card border border-border rounded-lg p-6 space-y-2">
@@ -1525,16 +1531,6 @@ const Camera = () => {
                 )}
               </div>
               
-              {/* Custom image at bottom - only if set */}
-              {customImageUrl && (
-                <div className="flex-1 flex items-end justify-center pt-6">
-                  <img
-                    src={customImageUrl}
-                    alt="Imagen personalizada"
-                    className="max-w-[240px] max-h-[100px] object-contain"
-                  />
-                </div>
-              )}
             </div>
           </>
         )}
@@ -1612,6 +1608,9 @@ const Camera = () => {
                     {eventDescription && (
                       <p className="text-white/90 text-base md:text-lg max-w-xl mb-2 whitespace-pre-line">{eventDescription}</p>
                     )}
+                    {customEventLogo ? (
+                      <div className="flex justify-start">{customEventLogo}</div>
+                    ) : null}
                     <p className="text-sm text-white/90 mt-1">{mediaCountsHeaderText}</p>
                   </div>
                 )}
@@ -1628,6 +1627,7 @@ const Camera = () => {
                   {eventDescription && (
                     <p className="text-muted-foreground text-base md:text-lg max-w-xl mx-auto mb-2 whitespace-pre-line">{eventDescription}</p>
                   )}
+                  {customEventLogo}
                 </div>
               )}
             </header>
@@ -1646,6 +1646,7 @@ const Camera = () => {
                 <p className="text-muted-foreground text-lg">
                   {t.camera.eventEndedDesc}
                 </p>
+                {customEventLogo}
                 {revealTime && (
                   <>
                     <div className="bg-card border border-border rounded-lg p-6 space-y-2">
@@ -1665,16 +1666,6 @@ const Camera = () => {
                 )}
               </div>
               
-              {/* Custom image at bottom - only if set */}
-              {customImageUrl && (
-                <div className="flex-1 flex items-end justify-center pt-6">
-                  <img
-                    src={customImageUrl}
-                    alt="Imagen personalizada"
-                    className="max-w-[240px] max-h-[100px] object-contain"
-                  />
-                </div>
-              )}
             </div>
           </>
         ) : (
@@ -1732,6 +1723,7 @@ const Camera = () => {
                 <p className="text-muted-foreground text-lg">
                   {t.camera.eventEndedDesc}
                 </p>
+                {customEventLogo}
                 {revealTime && (
                   <>
                     <div className="bg-card border border-border rounded-lg p-6 space-y-2">
@@ -1751,16 +1743,6 @@ const Camera = () => {
                 )}
               </div>
               
-              {/* Custom image at bottom - only if set */}
-              {customImageUrl && (
-                <div className="flex-1 flex items-end justify-center pt-6">
-                  <img
-                    src={customImageUrl}
-                    alt="Imagen personalizada"
-                    className="max-w-[240px] max-h-[100px] object-contain"
-                  />
-                </div>
-              )}
             </div>
           </>
         )}
@@ -1946,15 +1928,7 @@ const Camera = () => {
   const renderCameraBody = (
     <div className={cameraContentClass}>
       {cameraActionButtons}
-      {customImageUrl && (
-        <div className="flex items-end justify-center pt-6">
-          <img
-            src={customImageUrl}
-            alt="Imagen personalizada"
-            className="max-w-[240px] max-h-[100px] object-contain"
-          />
-        </div>
-      )}
+      {customEventLogo}
       {showLegalText && (
         <div className="flex items-end justify-center pt-4 pb-2">
           <p className="text-xs text-muted-foreground text-center max-w-sm">
