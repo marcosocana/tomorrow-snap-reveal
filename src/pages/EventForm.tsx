@@ -42,6 +42,7 @@ import weddingPreview from "@/assets/testimonial-wedding.jpg";
 
 interface Event {
   id: string;
+  event_number?: number | null;
   name: string;
   password_hash: string;
   admin_password: string | null;
@@ -129,6 +130,7 @@ const EventForm = () => {
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [ownerEmail, setOwnerEmail] = useState<string | null>(null);
   const [ownerPhone, setOwnerPhone] = useState<string | null>(null);
+  const [eventNumber, setEventNumber] = useState<number | null>(null);
   const [ownerEmailInput, setOwnerEmailInput] = useState("");
   const [qrPreview, setQrPreview] = useState<{ src?: string; value: string } | null>(null);
   const [galleryPreviewOpen, setGalleryPreviewOpen] = useState(false);
@@ -377,6 +379,7 @@ const EventForm = () => {
       if (error) throw error;
       
       const event = data as Event;
+      setEventNumber(event.event_number ?? null);
       const eventTz = event.timezone || "Europe/Madrid";
       const uploadStartDate = event.upload_start_time ? toZonedTime(new Date(event.upload_start_time), eventTz) : new Date();
       const uploadEndDate = event.upload_end_time ? toZonedTime(new Date(event.upload_end_time), eventTz) : new Date();
@@ -1093,14 +1096,22 @@ const EventForm = () => {
             </span>
           )}
         </div>
-        {isEditing && isSuperAdmin && (ownerEmail || ownerPhone) && (
+        {isEditing && isSuperAdmin && (eventNumber || ownerEmail || ownerPhone) && (
           <div className="text-sm text-muted-foreground">
-            {ownerEmail && (
-              <p>
-                <span className="font-medium">{t("events.ownerEmail")}:</span>{" "}
-                {ownerEmail}
-              </p>
-            )}
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+              {ownerEmail && (
+                <p>
+                  <span className="font-medium">{t("events.ownerEmail")}:</span>{" "}
+                  {ownerEmail}
+                </p>
+              )}
+              {eventNumber ? (
+                <p>
+                  <span className="font-medium">ID:</span>{" "}
+                  {eventNumber}
+                </p>
+              ) : null}
+            </div>
             {ownerPhone && (
               <p>
                 <span className="font-medium">{t("events.ownerPhone")}:</span>{" "}

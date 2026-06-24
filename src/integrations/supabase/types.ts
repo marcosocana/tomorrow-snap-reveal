@@ -168,6 +168,7 @@ export type Database = {
           description: string | null
           expiry_date: string | null
           expiry_redirect_url: string | null
+          event_number: number
           filter_type: string
           folder_id: string | null
           font_family: string
@@ -214,6 +215,7 @@ export type Database = {
           description?: string | null
           expiry_date?: string | null
           expiry_redirect_url?: string | null
+          event_number?: number
           filter_type?: string
           folder_id?: string | null
           font_family?: string
@@ -260,6 +262,7 @@ export type Database = {
           description?: string | null
           expiry_date?: string | null
           expiry_redirect_url?: string | null
+          event_number?: number
           filter_type?: string
           folder_id?: string | null
           font_family?: string

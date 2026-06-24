@@ -28,6 +28,7 @@ import { PricingPreview } from "@/components/PricingPreview";
 
 interface Event {
   id: string;
+  event_number?: number | null;
   name: string;
   password_hash: string;
   admin_password: string | null;
@@ -1411,7 +1412,7 @@ const EventManagement = () => {
                           />
                         </td>
                         <td className="py-3 pr-4 text-muted-foreground">
-                          {(adminPage - 1) * pageSize + index + 1}
+                          {event.event_number ?? "-"}
                         </td>
                         <td className="py-3 pr-4 font-medium">
                           <span className="inline-flex items-center gap-1.5">
