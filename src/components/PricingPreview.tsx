@@ -127,16 +127,6 @@ export const PricingPreview = ({
 
     const fallbackCheckoutUrl = checkoutUrlMap[planId];
 
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      if (fallbackCheckoutUrl) {
-        window.location.href = fallbackCheckoutUrl;
-        return;
-      }
-      navigate(`${pathPrefix}/admin-login`);
-      return;
-    }
-
     const { data, error } = await supabase.functions.invoke("stripe-create-checkout-session", {
       body: { planId },
     });

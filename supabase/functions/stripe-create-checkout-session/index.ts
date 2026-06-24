@@ -33,12 +33,6 @@ serve(async (req) => {
     return json({ error: "Missing env" }, 500);
   }
 
-  const authHeader = req.headers.get("Authorization") || "";
-  const token = authHeader.replace("Bearer ", "").trim();
-  if (!token) {
-    return json({ error: "UNAUTHORIZED" }, 401);
-  }
-
   try {
     const { planId } = (await req.json()) as { planId?: string };
     const plan = getPlanById(planId ?? "");
@@ -51,10 +45,18 @@ serve(async (req) => {
       return json({ error: "MISSING_PRICE_ID" }, 500);
     }
 
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    const { data: userData, error: userError } = await supabase.auth.getUser(token);
-    if (userError || !userData?.user) {
-      return json({ error: "UNAUTHORIZED" }, 401);
+    const authHeader = req.headers.get("Authorization") || "";
+    const token = authHeader.replace("Bearer ", "").trim();
+    let userId: string | null = null;
+    let userEmail: string | null = null;
+
+    if (token) {
+      const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      const { data: userData, error: userError } = await supabase.auth.getUser(token);
+      if (!userError && userData?.user) {
+        userId = userData.user.id;
+        userEmail = userData.user.email ?? null;
+      }
     }
 
     const params = new URLSearchParams();
@@ -64,11 +66,13 @@ serve(async (req) => {
     params.append("line_items[0][price]", priceId);
     params.append("line_items[0][quantity]", "1");
 
-    if (userData.user.email) {
-      params.set("customer_email", userData.user.email);
+    if (userEmail) {
+      params.set("customer_email", userEmail);
     }
     params.append("metadata[planId]", plan.id);
-    params.append("metadata[userId]", userData.user.id);
+    if (userId) {
+      params.append("metadata[userId]", userId);
+    }
 
     const response = await fetch("https://api.stripe.com/v1/checkout/sessions", {
       method: "POST",
