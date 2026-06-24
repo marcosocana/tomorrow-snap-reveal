@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -6,18 +6,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, ArrowRight, Check, ImagePlus, Sparkles, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Asterisk, CalendarDays, Check, Clock, ImagePlus, Trash2 } from "lucide-react";
 import { addDays, format } from "date-fns";
 import { fromZonedTime, formatInTimeZone } from "date-fns-tz";
 import CountrySelect from "@/components/CountrySelect";
 import LanguageSelect from "@/components/LanguageSelect";
-import FontSelect from "@/components/FontSelect";
 import EventPreview from "@/components/EventPreview";
 import { Language } from "@/lib/translations";
-import { EventFontFamily } from "@/lib/eventFonts";
-import { FilterType, FILTER_LABELS, FILTER_ORDER } from "@/lib/photoFilters";
+import { EventFontFamily, FONT_OPTIONS, getFontById, loadGoogleFont } from "@/lib/eventFonts";
+import { FilterType, FILTER_LABELS, FILTER_ORDER, getFilterClass } from "@/lib/photoFilters";
+import weddingPreview from "@/assets/testimonial-wedding.jpg";
 
-type StepId = "name" | "place" | "upload" | "reveal" | "style" | "contact" | "review";
+type StepId = "name" | "place" | "upload" | "reveal" | "style" | "contact";
 
 const steps: Array<{ id: StepId; label: string }> = [
   { id: "name", label: "Evento" },
@@ -26,8 +26,15 @@ const steps: Array<{ id: StepId; label: string }> = [
   { id: "reveal", label: "Revelado" },
   { id: "style", label: "Estilo" },
   { id: "contact", label: "Contacto" },
-  { id: "review", label: "Revisión" },
 ];
+
+const REVELAO_RED = "#f06a5f";
+const DEFAULT_LOGO_URL = "/marca_revelao_qr_evento.png";
+const inputPillClass = "h-12 min-w-0 rounded-full px-4 text-base [color-scheme:light]";
+
+const RequiredMark = () => (
+  <Asterisk className="h-3.5 w-3.5 text-[#f06a5f]" aria-hidden="true" />
+);
 
 const generateHash = (): string =>
   Math.random().toString(36).substring(2, 10) + Math.random().toString(36).substring(2, 4);
@@ -59,7 +66,7 @@ const PublicDemoEventWizard = () => {
     uploadEndTime: "23:59",
     revealDate: format(addDays(today, 2), "yyyy-MM-dd"),
     revealTime: "12:00",
-    fontFamily: "system" as EventFontFamily,
+    fontFamily: "great-vibes" as EventFontFamily,
     filterType: "none" as FilterType,
     customImage: null as File | null,
     backgroundImage: null as File | null,
@@ -71,7 +78,15 @@ const PublicDemoEventWizard = () => {
   const currentStep = steps[stepIndex];
   const progress = Math.round(((stepIndex + 1) / steps.length) * 100);
   const backgroundPreview = formData.backgroundImage ? URL.createObjectURL(formData.backgroundImage) : undefined;
-  const logoPreview = formData.customImage ? URL.createObjectURL(formData.customImage) : undefined;
+  const selectedFont = getFontById(formData.fontFamily);
+
+  useEffect(() => {
+    FONT_OPTIONS.forEach((font) => {
+      if (font.googleFont) {
+        loadGoogleFont(font);
+      }
+    });
+  }, []);
 
   const update = <K extends keyof typeof formData>(key: K, value: (typeof formData)[K]) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
@@ -124,7 +139,33 @@ const PublicDemoEventWizard = () => {
         return false;
       }
     }
+    if (step === "style" && !formData.backgroundImage) {
+      showError("Sube una imagen de fondo para continuar.");
+      return false;
+    }
     return true;
+  };
+
+  const isStepComplete = (step: StepId) => {
+    if (step === "name") return !!formData.name.trim();
+    if (step === "place") return !!formData.countryCode && !!formData.language;
+    if (step === "upload") {
+      if (!formData.uploadStartDate || !formData.uploadStartTime || !formData.uploadEndDate || !formData.uploadEndTime) return false;
+      return new Date(`${formData.uploadEndDate}T${formData.uploadEndTime}`) > new Date(`${formData.uploadStartDate}T${formData.uploadStartTime}`);
+    }
+    if (step === "reveal") {
+      if (!formData.revealDate || !formData.revealTime) return false;
+      return new Date(`${formData.revealDate}T${formData.revealTime}`) >= new Date(`${formData.uploadEndDate}T${formData.uploadEndTime}`);
+    }
+    if (step === "style") return !!formData.fontFamily && !!formData.filterType && !!formData.backgroundImage;
+    if (step === "contact") {
+      return (
+        !!formData.contactName.trim() &&
+        /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.contactEmail.trim()) &&
+        !!formData.contactPhone.trim()
+      );
+    }
+    return false;
   };
 
   const goNext = () => {
@@ -169,7 +210,7 @@ const PublicDemoEventWizard = () => {
       const uploadStartDateTime = fromZonedTime(`${formData.uploadStartDate}T${formData.uploadStartTime}:00`, eventTz);
       const uploadEndDateTime = fromZonedTime(`${formData.uploadEndDate}T${formData.uploadEndTime}:00`, eventTz);
       const revealDateTime = fromZonedTime(`${formData.revealDate}T${formData.revealTime}:00`, eventTz);
-      const customImageUrl = formData.customImage ? await handleImageUpload(formData.customImage) : "";
+      const customImageUrl = DEFAULT_LOGO_URL;
       const backgroundImageUrl = formData.backgroundImage ? await handleImageUpload(formData.backgroundImage) : "";
 
       const { data: newEvent, error } = await supabase
@@ -182,7 +223,7 @@ const PublicDemoEventWizard = () => {
           upload_end_time: uploadEndDateTime.toISOString(),
           reveal_time: revealDateTime.toISOString(),
           max_photos: 10,
-          custom_image_url: customImageUrl || null,
+          custom_image_url: customImageUrl,
           background_image_url: backgroundImageUrl || null,
           filter_type: formData.filterType,
           font_family: formData.fontFamily,
@@ -238,13 +279,17 @@ const PublicDemoEventWizard = () => {
         return (
           <div className="space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="name">¿Cómo se llama el evento?</Label>
+              <Label htmlFor="name" className="flex items-center gap-1.5">
+                ¿Cómo se llama el evento?
+                <RequiredMark />
+              </Label>
               <Input
                 id="name"
                 value={formData.name}
                 onChange={(event) => update("name", event.target.value)}
                 placeholder="Ej: Boda María y Juan"
                 autoFocus
+                className="h-12 rounded-full px-4 text-base"
               />
             </div>
             <div className="space-y-2">
@@ -257,16 +302,19 @@ const PublicDemoEventWizard = () => {
                 rows={4}
               />
             </div>
-            <div className="rounded-md border border-border bg-muted/40 px-3 py-3 text-sm text-muted-foreground">
-              La demo permite probar Revelao con hasta 10 fotos.
-            </div>
+            <p className="text-sm text-muted-foreground">
+              Crearemos un espacio demo para que pruebes la experiencia Revelao antes de tu evento real.
+            </p>
           </div>
         );
       case "place":
         return (
           <div className="space-y-5">
             <div className="space-y-2">
-              <Label>¿Dónde será?</Label>
+              <Label className="flex items-center gap-1.5">
+                ¿Dónde será?
+                <RequiredMark />
+              </Label>
               <CountrySelect
                 value={formData.countryCode}
                 onChange={(countryCode, timezone) =>
@@ -275,7 +323,10 @@ const PublicDemoEventWizard = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label>Idioma del evento</Label>
+              <Label className="flex items-center gap-1.5">
+                Idioma del evento
+                <RequiredMark />
+              </Label>
               <LanguageSelect
                 value={formData.language as Language}
                 onChange={(language) => update("language", language)}
@@ -289,24 +340,40 @@ const PublicDemoEventWizard = () => {
       case "upload":
         return (
           <div className="space-y-5">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="uploadStartDate">Empieza</Label>
-                <Input id="uploadStartDate" type="date" value={formData.uploadStartDate} onChange={(event) => update("uploadStartDate", event.target.value)} />
+                <Label htmlFor="uploadStartDate" className="flex items-center gap-1.5">
+                  <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                  Empieza
+                  <RequiredMark />
+                </Label>
+                <Input id="uploadStartDate" type="date" value={formData.uploadStartDate} onChange={(event) => update("uploadStartDate", event.target.value)} className={inputPillClass} />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="uploadStartTime">Hora</Label>
-                <Input id="uploadStartTime" type="time" value={formData.uploadStartTime} onChange={(event) => update("uploadStartTime", event.target.value)} />
+                <Label htmlFor="uploadStartTime" className="flex items-center gap-1.5">
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                  Hora
+                  <RequiredMark />
+                </Label>
+                <Input id="uploadStartTime" type="time" value={formData.uploadStartTime} onChange={(event) => update("uploadStartTime", event.target.value)} className={inputPillClass} />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="uploadEndDate">Termina</Label>
-                <Input id="uploadEndDate" type="date" value={formData.uploadEndDate} onChange={(event) => update("uploadEndDate", event.target.value)} />
+                <Label htmlFor="uploadEndDate" className="flex items-center gap-1.5">
+                  <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                  Termina
+                  <RequiredMark />
+                </Label>
+                <Input id="uploadEndDate" type="date" value={formData.uploadEndDate} onChange={(event) => update("uploadEndDate", event.target.value)} className={inputPillClass} />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="uploadEndTime">Hora</Label>
-                <Input id="uploadEndTime" type="time" value={formData.uploadEndTime} onChange={(event) => update("uploadEndTime", event.target.value)} />
+                <Label htmlFor="uploadEndTime" className="flex items-center gap-1.5">
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                  Hora
+                  <RequiredMark />
+                </Label>
+                <Input id="uploadEndTime" type="time" value={formData.uploadEndTime} onChange={(event) => update("uploadEndTime", event.target.value)} className={inputPillClass} />
               </div>
             </div>
             {formData.countryCode !== "ES" ? (
@@ -319,19 +386,27 @@ const PublicDemoEventWizard = () => {
       case "reveal":
         return (
           <div className="space-y-5">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="revealDate">Fecha</Label>
-                <Input id="revealDate" type="date" value={formData.revealDate} onChange={(event) => update("revealDate", event.target.value)} />
+                <Label htmlFor="revealDate" className="flex items-center gap-1.5">
+                  <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                  Fecha
+                  <RequiredMark />
+                </Label>
+                <Input id="revealDate" type="date" value={formData.revealDate} onChange={(event) => update("revealDate", event.target.value)} className={inputPillClass} />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="revealTime">Hora</Label>
-                <Input id="revealTime" type="time" value={formData.revealTime} onChange={(event) => update("revealTime", event.target.value)} />
+                <Label htmlFor="revealTime" className="flex items-center gap-1.5">
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                  Hora
+                  <RequiredMark />
+                </Label>
+                <Input id="revealTime" type="time" value={formData.revealTime} onChange={(event) => update("revealTime", event.target.value)} className={inputPillClass} />
               </div>
             </div>
-            <div className="rounded-md border border-border bg-muted/40 px-3 py-3 text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               Hasta este momento, las fotos quedarán ocultas. Después se podrán ver en la galería.
-            </div>
+            </p>
             {formData.countryCode !== "ES" ? (
               <p className="text-xs text-muted-foreground">En España: {spainTime(formData.revealDate, formData.revealTime)}</p>
             ) : null}
@@ -341,91 +416,120 @@ const PublicDemoEventWizard = () => {
         return (
           <div className="space-y-5">
             <div className="space-y-2">
-              <Label>Tipografía</Label>
-              <FontSelect
+              <Label htmlFor="fontFamily" className="flex items-center gap-1.5">
+                Tipografía
+                <RequiredMark />
+              </Label>
+              <select
+                id="fontFamily"
                 value={formData.fontFamily}
-                onChange={(fontFamily) => update("fontFamily", fontFamily)}
-                previewText={formData.name || "Nombre del evento"}
-              />
+                onChange={(event) => update("fontFamily", event.target.value as EventFontFamily)}
+                className="h-12 w-full rounded-full border border-input bg-background px-4 text-base"
+              >
+                {FONT_OPTIONS.map((font) => (
+                  <option key={font.id} value={font.id}>
+                    {font.name}
+                  </option>
+                ))}
+              </select>
+              <div className="rounded-md border border-border bg-muted/30 px-4 py-3">
+                <p
+                  className="text-2xl text-foreground"
+                  style={{ fontFamily: selectedFont.fontFamily }}
+                >
+                  {formData.name || "Nombre del evento"}
+                </p>
+              </div>
             </div>
             <div className="space-y-2">
-              <Label>Filtro de fotos</Label>
-              <div className="grid grid-cols-2 gap-2">
+              <Label className="flex items-center gap-1.5">
+                Filtro de fotos
+                <RequiredMark />
+              </Label>
+              <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">
                 {FILTER_ORDER.map((filter) => (
                   <button
                     key={filter}
                     type="button"
                     onClick={() => update("filterType", filter)}
-                    className={`min-h-10 rounded-md border px-3 text-sm font-medium ${
+                    className={`w-32 shrink-0 overflow-hidden rounded-md border text-left transition-colors ${
                       formData.filterType === filter
-                        ? "border-primary bg-primary text-primary-foreground"
+                        ? "border-[#f06a5f] bg-[#f06a5f]/10"
                         : "border-border bg-background text-foreground"
                     }`}
                   >
-                    {FILTER_LABELS[filter]}
+                    <div className="relative aspect-[4/3] overflow-hidden bg-muted">
+                      <img
+                        src={weddingPreview}
+                        alt=""
+                        className={`h-full w-full object-cover ${getFilterClass(filter)}`}
+                      />
+                    </div>
+                    <span className="block px-2 py-2 text-xs font-medium">
+                      {FILTER_LABELS[filter]}
+                    </span>
                   </button>
                 ))}
               </div>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1.5">
+                Imagen de fondo
+                <RequiredMark />
+              </Label>
+              {backgroundPreview ? (
+                <img
+                  src={backgroundPreview}
+                  alt="Vista previa del fondo"
+                  className="aspect-video w-full rounded-md border border-border object-cover"
+                />
+              ) : null}
               <label className="flex min-h-24 cursor-pointer flex-col items-center justify-center rounded-md border border-dashed border-border bg-muted/30 px-3 py-4 text-center text-sm">
                 <ImagePlus className="mb-2 h-5 w-5" />
-                Fondo opcional
+                {formData.backgroundImage ? formData.backgroundImage.name : "Subir imagen de fondo"}
                 <input type="file" accept="image/*" className="sr-only" onChange={(event) => update("backgroundImage", event.target.files?.[0] || null)} />
               </label>
-              <label className="flex min-h-24 cursor-pointer flex-col items-center justify-center rounded-md border border-dashed border-border bg-muted/30 px-3 py-4 text-center text-sm">
-                <ImagePlus className="mb-2 h-5 w-5" />
-                Logo opcional
-                <input type="file" accept="image/*" className="sr-only" onChange={(event) => update("customImage", event.target.files?.[0] || null)} />
-              </label>
             </div>
-            {(formData.backgroundImage || formData.customImage) ? (
+            {formData.backgroundImage ? (
               <div className="flex flex-wrap gap-2">
-                {formData.backgroundImage ? (
-                  <Button type="button" variant="outline" size="sm" onClick={() => update("backgroundImage", null)}>
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Quitar fondo
-                  </Button>
-                ) : null}
-                {formData.customImage ? (
-                  <Button type="button" variant="outline" size="sm" onClick={() => update("customImage", null)}>
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Quitar logo
-                  </Button>
-                ) : null}
+                <Button type="button" variant="outline" size="sm" onClick={() => update("backgroundImage", null)}>
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Quitar fondo
+                </Button>
               </div>
             ) : null}
+            <p className="text-sm text-muted-foreground">
+              El logo de Revelao aparecerá por defecto en esta demo.
+            </p>
           </div>
         );
       case "contact":
         return (
           <div className="space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="contactName">Tu nombre</Label>
-              <Input id="contactName" value={formData.contactName} onChange={(event) => update("contactName", event.target.value)} placeholder="Tu nombre" />
+              <Label htmlFor="contactName" className="flex items-center gap-1.5">
+                Tu nombre
+                <RequiredMark />
+              </Label>
+              <Input id="contactName" value={formData.contactName} onChange={(event) => update("contactName", event.target.value)} placeholder="Tu nombre" className="h-12 rounded-full px-4 text-base" />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="contactEmail">Email</Label>
-              <Input id="contactEmail" type="email" value={formData.contactEmail} onChange={(event) => update("contactEmail", event.target.value)} placeholder="tu@email.com" />
+              <Label htmlFor="contactEmail" className="flex items-center gap-1.5">
+                Email
+                <RequiredMark />
+              </Label>
+              <Input id="contactEmail" type="email" value={formData.contactEmail} onChange={(event) => update("contactEmail", event.target.value)} placeholder="tu@email.com" className="h-12 rounded-full px-4 text-base" />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="contactPhone">Teléfono</Label>
-              <Input id="contactPhone" type="tel" value={formData.contactPhone} onChange={(event) => update("contactPhone", event.target.value)} placeholder="+34 600 000 000" />
+              <Label htmlFor="contactPhone" className="flex items-center gap-1.5">
+                Teléfono
+                <RequiredMark />
+              </Label>
+              <Input id="contactPhone" type="tel" value={formData.contactPhone} onChange={(event) => update("contactPhone", event.target.value)} placeholder="+34 600 000 000" className="h-12 rounded-full px-4 text-base" />
             </div>
-          </div>
-        );
-      case "review":
-        return (
-          <div className="space-y-4">
-            <div className="rounded-md border border-border p-4 text-sm">
-              <p className="font-semibold text-foreground">{formData.name || "Evento demo"}</p>
-              <p className="text-muted-foreground">Subida: {formData.uploadStartDate} {formData.uploadStartTime} - {formData.uploadEndDate} {formData.uploadEndTime}</p>
-              <p className="text-muted-foreground">Revelado: {formData.revealDate} {formData.revealTime}</p>
-              <p className="text-muted-foreground">Contacto: {formData.contactName} · {formData.contactEmail}</p>
-            </div>
-            <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm text-emerald-800">
-              Listo. Crearemos una demo gratuita limitada a 10 fotos.
-            </div>
+            <p className="text-sm text-muted-foreground">
+              Al crear la demo te llevaremos al resumen del evento con el enlace de acceso.
+            </p>
           </div>
         );
     }
@@ -436,20 +540,16 @@ const PublicDemoEventWizard = () => {
       <div className="mx-auto flex min-h-screen w-full max-w-5xl flex-col px-4 py-5 sm:px-6 lg:grid lg:grid-cols-[1fr_320px] lg:gap-8 lg:py-8">
         <section className="flex flex-1 flex-col">
           <div className="mb-5 space-y-3">
-            <div className="flex items-center gap-2 text-sm font-semibold text-primary">
-              <Sparkles className="h-4 w-4" />
-              Demo Revelao
+            <div className="flex justify-center sm:justify-start">
+              <img src="/logo-revelao.png" alt="Revelao" className="h-7 w-auto" />
             </div>
             <div className="space-y-1">
               <h1 className="text-2xl font-bold text-foreground sm:text-3xl">
                 Crea tu evento de prueba
               </h1>
-              <p className="text-sm text-muted-foreground">
-                Paso {stepIndex + 1} de {steps.length}: {currentStep.label}
-              </p>
             </div>
             <div className="h-2 overflow-hidden rounded-full bg-muted">
-              <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${progress}%` }} />
+              <div className="h-full rounded-full transition-all" style={{ width: `${progress}%`, backgroundColor: REVELAO_RED }} />
             </div>
           </div>
 
@@ -457,7 +557,7 @@ const PublicDemoEventWizard = () => {
             className="flex flex-1 flex-col"
             onSubmit={(event) => {
               event.preventDefault();
-              currentStep.id === "review" ? handleSubmit() : goNext();
+              currentStep.id === "contact" ? handleSubmit() : goNext();
             }}
           >
             <div className="flex-1 rounded-lg border border-border bg-card p-4 shadow-sm sm:p-6">
@@ -474,15 +574,20 @@ const PublicDemoEventWizard = () => {
                 <Button
                   type="button"
                   variant="outline"
-                  className="flex-1"
+                  className="h-12 flex-1 rounded-full"
                   onClick={goBack}
                   disabled={stepIndex === 0 || isSubmitting || uploadingImage}
                 >
                   <ArrowLeft className="mr-2 h-4 w-4" />
                   Atrás
                 </Button>
-                <Button type="submit" className="flex-1" disabled={isSubmitting || uploadingImage}>
-                  {currentStep.id === "review" ? (
+                <Button
+                  type="submit"
+                  className="h-12 flex-1 rounded-full text-white hover:opacity-90"
+                  style={{ backgroundColor: REVELAO_RED }}
+                  disabled={!isStepComplete(currentStep.id) || isSubmitting || uploadingImage}
+                >
+                  {currentStep.id === "contact" ? (
                     <>
                       <Check className="mr-2 h-4 w-4" />
                       {uploadingImage ? "Subiendo..." : isSubmitting ? "Creando..." : "Crear demo"}
@@ -507,7 +612,7 @@ const PublicDemoEventWizard = () => {
               fontFamily={formData.fontFamily}
               fontSize="text-3xl"
               backgroundImageUrl={backgroundPreview}
-              customImageUrl={logoPreview}
+              customImageUrl={DEFAULT_LOGO_URL}
               filterType={formData.filterType}
               language={formData.language}
             />
