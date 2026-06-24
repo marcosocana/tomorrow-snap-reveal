@@ -11,8 +11,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, Plus, Edit, Copy, Download, Eye, LogOut, ArrowLeft, User, Lock, Camera, Video, Mic, MoveRight, ChevronDown } from "lucide-react";
+import { Calendar, Plus, Edit, Copy, Download, Eye, LogOut, ArrowLeft, User, Lock, Camera, Video, Mic, MoveRight, ChevronDown, MessageSquareText } from "lucide-react";
 import { format } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 import { getCountryByCode } from "@/lib/countries";
@@ -71,6 +72,7 @@ type AdminEventTab = "upcoming" | "past" | "tests" | "others";
 type ManualAdminEventTab = Exclude<AdminEventTab, "others">;
 
 const ADMIN_EVENT_TAB_KEY = "admin_event_tab";
+const ADMIN_EVENT_NOTE_KEY = "admin_note";
 const ADMIN_EVENT_TABS: Array<{ value: AdminEventTab; label: string }> = [
   { value: "upcoming", label: "Próximos" },
   { value: "past", label: "Pasados" },
@@ -101,6 +103,11 @@ const getManualAdminEventTab = (event: Event): ManualAdminEventTab | null => {
 
 const getAdminEventTabLabel = (value: AdminEventTab) =>
   ADMIN_EVENT_TABS.find((tab) => tab.value === value)?.label || value;
+
+const getAdminEventNote = (event: Event): string => {
+  const note = parseEventLimits(event.limits_json)[ADMIN_EVENT_NOTE_KEY];
+  return typeof note === "string" ? note : "";
+};
 
 interface MediaUsageTagProps {
   photoCount: number | string;
@@ -179,6 +186,9 @@ const EventManagement = () => {
   const [marketingSaving, setMarketingSaving] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [previewEvent, setPreviewEvent] = useState<Event | null>(null);
+  const [noteEvent, setNoteEvent] = useState<Event | null>(null);
+  const [adminNoteDraft, setAdminNoteDraft] = useState("");
+  const [adminNoteSaving, setAdminNoteSaving] = useState(false);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [pricingOpen, setPricingOpen] = useState(false);
   const [pricingStep, setPricingStep] = useState<"plans" | "redeem">("plans");
@@ -921,6 +931,52 @@ const EventManagement = () => {
     }
   };
 
+  const openAdminNote = (event: Event) => {
+    setNoteEvent(event);
+    setAdminNoteDraft(getAdminEventNote(event));
+  };
+
+  const handleSaveAdminNote = async () => {
+    if (!noteEvent) return;
+    const normalizedNote = adminNoteDraft.trim();
+    const nextLimits = parseEventLimits(noteEvent.limits_json);
+    if (normalizedNote) {
+      nextLimits[ADMIN_EVENT_NOTE_KEY] = normalizedNote;
+    } else {
+      delete nextLimits[ADMIN_EVENT_NOTE_KEY];
+    }
+
+    try {
+      setAdminNoteSaving(true);
+      const { error } = await supabase
+        .from("events")
+        .update({ limits_json: nextLimits })
+        .eq("id", noteEvent.id);
+      if (error) throw error;
+
+      setEvents((prev) =>
+        prev.map((event) =>
+          event.id === noteEvent.id ? { ...event, limits_json: nextLimits } : event,
+        ),
+      );
+      setNoteEvent(null);
+      setAdminNoteDraft("");
+      toast({
+        title: "Nota guardada",
+        description: "La nota interna del evento se ha actualizado.",
+      });
+    } catch (error) {
+      console.error("Error saving admin note:", error);
+      toast({
+        title: "No se pudo guardar",
+        description: "Hubo un problema al guardar la nota del evento.",
+        variant: "destructive",
+      });
+    } finally {
+      setAdminNoteSaving(false);
+    }
+  };
+
   const handleCopyUrl = async (password: string) => {
     const eventUrl = `https://acceso.revelao.cam/events/${password}`;
     try {
@@ -1456,14 +1512,25 @@ const EventManagement = () => {
                           />
                         </td>
                         <td className="py-3">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="gap-1"
-                            onClick={() => navigate(`${pathPrefix}/event-form/${event.id}`)}
-                          >
-                            <span>{t("events.more")}</span>
-                          </Button>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="gap-1"
+                              onClick={() => navigate(`${pathPrefix}/event-form/${event.id}`)}
+                            >
+                              <span>{t("events.more")}</span>
+                            </Button>
+                            <Button
+                              variant={getAdminEventNote(event) ? "default" : "outline"}
+                              size="icon"
+                              className="h-8 w-8"
+                              aria-label="Notas del evento"
+                              onClick={() => openAdminNote(event)}
+                            >
+                              <MessageSquareText className="w-4 h-4" />
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -1750,6 +1817,47 @@ const EventManagement = () => {
                 </Button>
               </div>
             ) : null}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!noteEvent}
+        onOpenChange={(open) => {
+          if (!open) {
+            setNoteEvent(null);
+            setAdminNoteDraft("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg w-[92vw] sm:w-full">
+          <DialogHeader>
+            <DialogTitle>
+              Nota interna{noteEvent ? ` · ${noteEvent.name}` : ""}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Textarea
+              value={adminNoteDraft}
+              onChange={(event) => setAdminNoteDraft(event.target.value)}
+              placeholder="Añade una nota interna para este evento..."
+              className="min-h-[180px]"
+            />
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setNoteEvent(null);
+                  setAdminNoteDraft("");
+                }}
+                disabled={adminNoteSaving}
+              >
+                Cancelar
+              </Button>
+              <Button onClick={handleSaveAdminNote} disabled={adminNoteSaving}>
+                {adminNoteSaving ? "Guardando..." : "Guardar nota"}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
