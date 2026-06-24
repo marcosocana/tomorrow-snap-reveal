@@ -18,6 +18,7 @@ import NotFound from "./pages/NotFound";
 import TermsAndConditions from "./pages/TermsAndConditions";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import PublicDemoEventForm from "./pages/PublicDemoEventForm";
+import PublicDemoEventWizard from "./pages/PublicDemoEventWizard";
 import DemoEventSummary from "./pages/DemoEventSummary";
 import PricingPlans from "./pages/PricingPlans";
 import { AdminI18nProvider } from "@/lib/adminI18n";
@@ -172,6 +173,7 @@ const App = () => {
               <Route path="/terms" element={<TermsAndConditions />} />
               <Route path="/privacy" element={<PrivacyPolicy />} />
               <Route path="/nuevoeventodemo" element={<PublicDemoEventForm />} />
+              <Route path="/nuevoeventodemo2" element={<PublicDemoEventWizard />} />
               <Route path="/nuevoeventodemo/resumen" element={<DemoEventSummary />} />
               <Route path="/evento-pago/resumen" element={<PaidEventSummary />} />
               <Route path="/planes" element={<PricingPlans />} />
@@ -187,6 +189,7 @@ const App = () => {
               <Route path="/en/bulk-upload" element={<BulkUpload />} />
               <Route path="/en/planes" element={<PricingPlans />} />
               <Route path="/en/nuevoeventodemo" element={<PublicDemoEventForm />} />
+              <Route path="/en/nuevoeventodemo2" element={<PublicDemoEventWizard />} />
               <Route path="/en/nuevoeventodemo/resumen" element={<DemoEventSummary />} />
               <Route path="/en/logout" element={<Logout />} />
               <Route path="/en/redeem/:token" element={<RedeemEvent />} />
@@ -204,6 +207,7 @@ const App = () => {
               <Route path="/it/bulk-upload" element={<BulkUpload />} />
               <Route path="/it/planes" element={<PricingPlans />} />
               <Route path="/it/nuevoeventodemo" element={<PublicDemoEventForm />} />
+              <Route path="/it/nuevoeventodemo2" element={<PublicDemoEventWizard />} />
               <Route path="/it/nuevoeventodemo/resumen" element={<DemoEventSummary />} />
               <Route path="/it/logout" element={<Logout />} />
               <Route path="/it/redeem/:token" element={<RedeemEvent />} />
