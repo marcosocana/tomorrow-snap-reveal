@@ -18,7 +18,10 @@ const json = (body: unknown, status = 200) =>
   });
 
 const sendRedeemEmail = async (to: string, redeemUrl: string, planLabel: string, redeemCode: string) => {
-  if (!RESEND_API_KEY || !FROM_EMAIL) return;
+  if (!RESEND_API_KEY || !FROM_EMAIL) {
+    throw new Error("Missing RESEND_API_KEY or FROM_EMAIL");
+  }
+
   const html = `
     <div style="font-family:sans-serif;max-width:480px;margin:auto;padding:24px;">
       ${LOGO_URL ? `<p style="text-align:center;"><img src="${LOGO_URL}" alt="Logo" style="height:48px;" /></p>` : ""}
@@ -42,7 +45,7 @@ const sendRedeemEmail = async (to: string, redeemUrl: string, planLabel: string,
     </div>
   `;
 
-  await fetch("https://api.resend.com/emails", {
+  const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -55,6 +58,11 @@ const sendRedeemEmail = async (to: string, redeemUrl: string, planLabel: string,
       html,
     }),
   });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Resend error (${response.status}): ${errorText}`);
+  }
 };
 
 const generateRedeemToken = (length = 16) => {
@@ -68,7 +76,9 @@ const generateRedeemToken = (length = 16) => {
   return token;
 };
 
-const findUserIdByEmail = async (supabaseAdmin: any, email: string) => {
+type SupabaseAdminClient = ReturnType<typeof createClient>;
+
+const findUserIdByEmail = async (supabaseAdmin: SupabaseAdminClient, email: string) => {
   const normalizedEmail = email.trim().toLowerCase();
   if (!normalizedEmail) return null;
   const { data, error } = await supabaseAdmin
@@ -168,18 +178,30 @@ serve(async (req) => {
   let userId = session.metadata?.userId || null;
   const userEmail = session.customer_email || session.customer_details?.email || null;
 
-  const redeemToken = generateRedeemToken(16);
-  const redeemExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-
   const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
   if (!userId && userEmail) {
     userId = await findUserIdByEmail(supabaseAdmin, userEmail);
   }
 
-  const { data: inserted, error } = await supabaseAdmin
+  const { data: existingPurchase, error: existingPurchaseError } = await supabaseAdmin
     .from("purchases")
-    .upsert(
-      {
+    .select("id,user_id,user_email,redeem_token,status")
+    .eq("stripe_session_id", session.id)
+    .maybeSingle();
+
+  if (existingPurchaseError) {
+    console.error("Find purchase error:", existingPurchaseError);
+    return json({ error: "DB error" }, 500);
+  }
+
+  const redeemToken = existingPurchase?.redeem_token ?? generateRedeemToken(16);
+  const redeemExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+  let purchase = existingPurchase;
+  if (!purchase) {
+    const { data: inserted, error } = await supabaseAdmin
+      .from("purchases")
+      .insert({
         user_id: userId,
         user_email: userEmail,
         stripe_session_id: session.id,
@@ -187,30 +209,38 @@ serve(async (req) => {
         status: "paid",
         redeem_token: redeemToken,
         redeem_token_expires_at: redeemExpiresAt,
-      },
-      { onConflict: "stripe_session_id" },
-    )
-    .select()
-    .maybeSingle();
+      })
+      .select("id,user_id,user_email,redeem_token,status")
+      .maybeSingle();
 
-  if (error || !inserted?.id) {
-    console.error("Insert purchase error:", error);
-    return json({ error: "DB error" }, 500);
+    if (error || !inserted?.id) {
+      console.error("Insert purchase error:", error);
+      return json({ error: "DB error" }, 500);
+    }
+
+    purchase = inserted;
   }
 
-  if (userId && !inserted.user_id) {
+  if (userId && purchase && !purchase.user_id) {
     const { error: userPatchError } = await supabaseAdmin
       .from("purchases")
       .update({ user_id: userId })
-      .eq("id", inserted.id);
+      .eq("id", purchase.id);
     if (userPatchError) {
       console.error("stripe-webhook purchase user patch error:", userPatchError.message);
     }
   }
 
   if (userEmail) {
-    const redeemUrl = `${APP_ORIGIN}/redeem/${inserted?.redeem_token || redeemToken}`;
-    await sendRedeemEmail(userEmail, redeemUrl, plan.label, redeemToken);
+    const redeemUrl = `${APP_ORIGIN}/redeem/${purchase?.redeem_token || redeemToken}`;
+    try {
+      await sendRedeemEmail(userEmail, redeemUrl, plan.label, purchase?.redeem_token || redeemToken);
+    } catch (emailError) {
+      console.error("stripe-webhook redeem email error:", emailError);
+      return json({ error: "EMAIL_SEND_FAILED" }, 500);
+    }
+  } else {
+    console.error("stripe-webhook missing customer email for session:", session.id);
   }
 
   return json({ received: true });

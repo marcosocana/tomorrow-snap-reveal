@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { DateTimeField } from "@/components/DateTimeField";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { Trash2 } from "lucide-react";
 import { addDays, format, subHours, differenceInMinutes } from "date-fns";
@@ -30,6 +31,8 @@ import logoDemo from "@/assets/Frame 626035.png";
 import weddingPreview from "@/assets/testimonial-wedding.jpg";
 import { useAdminI18n } from "@/lib/adminI18n";
 import { getTimezoneOffset } from "@/lib/countries";
+import { hashPassword } from "@/lib/hashPassword";
+import { withEventQrPasswordSettings } from "@/lib/eventQrPassword";
 
 const generateHash = (): string => Math.random().toString(36).substring(2, 10);
 
@@ -72,6 +75,8 @@ const RedeemEvent = () => {
       name: "",
       password: generateHash(),
       adminPassword: generateHash(),
+      qrPasswordEnabled: false,
+      qrPassword: "",
       uploadStartDate: format(now, "yyyy-MM-dd"),
       uploadStartTime: currentTime,
       uploadEndDate: format(addDays(now, 1), "yyyy-MM-dd"),
@@ -308,7 +313,8 @@ const RedeemEvent = () => {
     const hasStart = Boolean(formData.uploadStartDate && formData.uploadStartTime);
     const hasEnd = Boolean(formData.uploadEndDate && formData.uploadEndTime);
     const hasReveal = Boolean(formData.revealDate && formData.revealTime);
-    return hasName && hasStart && hasEnd && hasReveal;
+    const hasQrPassword = !formData.qrPasswordEnabled || formData.qrPassword.trim().length > 0;
+    return hasName && hasStart && hasEnd && hasReveal && hasQrPassword;
   };
 
   const handleImageUpload = async (file: File): Promise<string | null> => {
@@ -376,7 +382,29 @@ const RedeemEvent = () => {
     setIsSubmitting(true);
 
     try {
+      if (formData.qrPasswordEnabled && !formData.qrPassword.trim()) {
+        toast({
+          title: "Faltan campos obligatorios",
+          description: "Introduce la contraseña para proteger el acceso por QR.",
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
       const eventTz = formData.timezone;
+      const qrPasswordHash = formData.qrPasswordEnabled
+        ? await hashPassword(formData.qrPassword.trim())
+        : null;
+      const eventLimitsJson = withEventQrPasswordSettings(
+        {
+          max_photos: plan?.maxPhotos ?? null,
+          max_videos: plan?.maxVideos ?? null,
+          max_audios: plan?.maxAudios ?? null,
+        },
+        formData.qrPasswordEnabled,
+        qrPasswordHash
+      );
       const uploadStartDateTime = fromZonedTime(`${formData.uploadStartDate}T${formData.uploadStartTime}:00`, eventTz);
       const uploadEndDateTime = fromZonedTime(`${formData.uploadEndDate}T${formData.uploadEndTime}:00`, eventTz);
       const revealDateTime = fromZonedTime(`${formData.revealDate}T${formData.revealTime}:00`, eventTz);
@@ -408,6 +436,7 @@ const RedeemEvent = () => {
             name: formData.name,
             password_hash: formData.password,
             admin_password: formData.adminPassword,
+            limits_json: eventLimitsJson,
             upload_start_time: uploadStartDateTime.toISOString(),
             upload_end_time: uploadEndDateTime.toISOString(),
             reveal_time: revealDateTime.toISOString(),
@@ -459,8 +488,23 @@ const RedeemEvent = () => {
 
       const newEvent = data?.event;
       if (!newEvent) throw new Error("No se pudo crear el evento");
+      const limitsJsonValue = withEventQrPasswordSettings(
+        (newEvent as any).limits_json || null,
+        formData.qrPasswordEnabled,
+        qrPasswordHash
+      );
+      if (formData.qrPasswordEnabled) {
+        await supabase
+          .from("events")
+          .update({ limits_json: limitsJsonValue } as any)
+          .eq("id", newEvent.id);
+      }
+      const eventForSummary = {
+        ...newEvent,
+        limits_json: limitsJsonValue,
+      };
 
-      const eventUrl = `https://acceso.revelao.cam/events/${newEvent.password_hash}`;
+      const eventUrl = `https://acceso.revelao.cam/events/${eventForSummary.password_hash}`;
       const qrUrl = await uploadQrImage(eventUrl, newEvent.id);
       if (qrUrl) {
         localStorage.setItem(`event-qr-url-${newEvent.id}`, qrUrl);
@@ -488,7 +532,11 @@ const RedeemEvent = () => {
         description: "Tu evento de pago se ha creado correctamente.",
       });
       navigate(`${pathPrefix}/evento-pago/resumen`, {
-        state: { event: newEvent, qrUrl: qrUrl || localStorage.getItem(`event-qr-url-${newEvent.id}`) },
+        state: {
+          event: eventForSummary,
+          qrUrl: qrUrl || localStorage.getItem(`event-qr-url-${newEvent.id}`),
+          qrAccessPassword: formData.qrPasswordEnabled ? formData.qrPassword.trim() : null,
+        },
       });
     } catch (error) {
       console.error("Error creating paid event:", error);
@@ -930,6 +978,44 @@ const RedeemEvent = () => {
                       </p>
                     </div>
                   </div>
+
+                  <div className="rounded-lg border border-border bg-muted/40 p-4 space-y-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="space-y-1">
+                        <Label htmlFor="qrPasswordEnabled">Proteger acceso por QR</Label>
+                        <p className="text-xs text-muted-foreground">
+                          Si se activa, los invitados tendrán que introducir esta contraseña antes de acceder al evento desde su QR.
+                        </p>
+                      </div>
+                      <Switch
+                        id="qrPasswordEnabled"
+                        checked={formData.qrPasswordEnabled}
+                        onCheckedChange={(checked) =>
+                          setFormData({
+                            ...formData,
+                            qrPasswordEnabled: checked,
+                            qrPassword: checked ? formData.qrPassword : "",
+                          })
+                        }
+                      />
+                    </div>
+
+                    {formData.qrPasswordEnabled && (
+                      <div className="space-y-2">
+                        <Label htmlFor="qrPassword">
+                          Contraseña del QR<span className="text-red-500">*</span>
+                        </Label>
+                        <Input
+                          id="qrPassword"
+                          type="text"
+                          value={formData.qrPassword}
+                          onChange={(e) => setFormData({ ...formData, qrPassword: e.target.value })}
+                          placeholder="Contraseña para invitados"
+                          required={formData.qrPasswordEnabled}
+                        />
+                      </div>
+                    )}
+                  </div>
                 </>
               )}
 
@@ -1030,6 +1116,10 @@ const RedeemEvent = () => {
                           <p><strong>Máximo de fotos:</strong> {plan.maxPhotos ?? "Sin límite"}</p>
                           <p><strong>Máximo de vídeos:</strong> {plan.maxVideos ?? "Sin límite"}</p>
                           <p><strong>Máximo de audios:</strong> {plan.maxAudios ?? "Sin límite"}</p>
+                          <p>
+                            <strong>Acceso protegido por QR:</strong>{" "}
+                            {formData.qrPasswordEnabled ? "Activado" : "Desactivado"}
+                          </p>
                           <p><strong>Descripción:</strong> {formData.description?.trim() ? formData.description : "—"}</p>
                           <p>
                             <strong>Caducidad:</strong>{" "}

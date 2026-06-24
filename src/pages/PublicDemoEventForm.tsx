@@ -1,369 +1,87 @@
-import { useEffect, useMemo, useState } from "react";
-import { Trash2 } from "lucide-react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { DateTimeField } from "@/components/DateTimeField";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { addDays, format, subHours } from "date-fns";
-import { fromZonedTime, formatInTimeZone, toZonedTime } from "date-fns-tz";
-import { QRCodeSVG } from "qrcode.react";
-import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  CarouselNext,
-  CarouselPrevious,
-} from "@/components/ui/carousel";
+import { Globe, Trash2, ChevronLeft } from "lucide-react";
+import { format } from "date-fns";
+import { fromZonedTime, formatInTimeZone } from "date-fns-tz";
 import CountrySelect from "@/components/CountrySelect";
 import LanguageSelect from "@/components/LanguageSelect";
 import FontSelect from "@/components/FontSelect";
 import EventPreview from "@/components/EventPreview";
 import { Language } from "@/lib/translations";
-import { EventFontFamily } from "@/lib/eventFonts";
-import { FilterType, FILTER_ORDER, getFilterClass, getGrainClass } from "@/lib/photoFilters";
-import { PricingPreview } from "@/components/PricingPreview";
-const logoDemo = "/demo-logo.png";
-import weddingPreview from "@/assets/testimonial-wedding.jpg";
-import { useDemoI18n } from "@/lib/demoI18n";
-import { getTimezoneOffset } from "@/lib/countries";
+import { EventFontFamily, getEventFontFamily } from "@/lib/eventFonts";
+import { FilterType, FILTER_LABELS, FILTER_ORDER } from "@/lib/photoFilters";
 
-const generateHash = (): string => Math.random().toString(36).substring(2, 10);
+const MIN_BACKGROUND_WIDTH = 1280;
+const MIN_BACKGROUND_HEIGHT = 720;
+
+const BACKGROUND_IMAGE_SIZES = {
+  mobile: { width: 640, height: 360 },
+  tablet: { width: 1024, height: 576 },
+  desktop: { width: 1920, height: 1080 },
+} as const;
+
+// Generate a simple 8-character hash
+const generateHash = (): string => {
+  return Math.random().toString(36).substring(2, 10) + Math.random().toString(36).substring(2, 4);
+};
 
 const PublicDemoEventForm = () => {
-  const [currentStep, setCurrentStep] = useState(1);
+  const [currentStep, setCurrentStep] = useState(1); // Step 1 or 2
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
-  const [pricingOpen, setPricingOpen] = useState(false);
-  const [privateFlowReady, setPrivateFlowReady] = useState(false);
-  const { lang, t, pathPrefix } = useDemoI18n();
-  const [formData, setFormData] = useState(() => {
-    const now = new Date();
-    const currentTime = format(now, "HH:mm");
-
-    return {
-      // Contact info fields (required for public demo)
-      contactEmail: "",
-      contactPassword: "",
-      contactPasswordConfirm: "",
-      contactPhone: "",
-      acceptLegal: false,
-      acceptMarketing: true,
-      // Event fields
-      name: "",
-      password: generateHash(),
-      adminPassword: generateHash(),
-      uploadStartDate: format(now, "yyyy-MM-dd"),
-      uploadStartTime: currentTime,
-      uploadEndDate: format(addDays(now, 1), "yyyy-MM-dd"),
-      uploadEndTime: currentTime,
-      revealDate: format(addDays(now, 2), "yyyy-MM-dd"),
-      revealTime: currentTime,
-      customImage: null as File | null,
-      customImageUrl: "/demo-logo.png",
-      backgroundImage: null as File | null,
-      backgroundImageUrl: "",
-      filterType: "none" as FilterType,
-      fontFamily: "system" as EventFontFamily,
-      fontSize: "text-3xl",
-      countryCode: "ES",
-      timezone: "Europe/Madrid",
-      language: lang,
-      description: "",
-    };
+  const [formData, setFormData] = useState({
+    // Step 1: Event info
+    name: "",
+    fontFamily: "system" as EventFontFamily,
+    filterType: "none" as FilterType,
+    customImage: null as File | null,
+    customImageUrl: "",
+    backgroundImage: null as File | null,
+    backgroundImageUrl: "",
+    description: "",
+    uploadStartDate: "",
+    uploadStartTime: "00:00",
+    uploadEndDate: "",
+    uploadEndTime: "23:59",
+    revealDate: "",
+    revealTime: "12:00",
+    countryCode: "ES",
+    timezone: "Europe/Madrid",
+    language: "es",
+    // Step 2: Contact info
+    contactName: "",
+    contactEmail: "",
+    contactPhone: "",
+    // Auto-generated, never shown
+    password: "",
+    adminPassword: "",
   });
-  const [startMode, setStartMode] = useState<"now" | "schedule">("now");
+
+  // Auto-generate passwords when component mounts
+  const generatedPasswords = useMemo(() => ({
+    password: generateHash(),
+    adminPassword: generateHash(),
+  }), []);
+
   const navigate = useNavigate();
-  const location = useLocation();
   const { toast } = useToast();
-  const isPrivateDemoFlow = useMemo(
-    () => new URLSearchParams(location.search).get("from_private") === "1",
-    [location.search]
-  );
-  const now = new Date();
-  const nowTz = toZonedTime(now, formData.timezone);
-  const todayStr = format(nowTz, "yyyy-MM-dd");
-  const nowTimeStr = format(nowTz, "HH:mm");
-  const startMinTimeStr = format(subHours(nowTz, 2), "HH:mm");
-  const formatTimezoneOffset = (timezone: string) => {
-    const offsetMinutes = getTimezoneOffset(timezone);
-    const sign = offsetMinutes >= 0 ? "+" : "-";
-    const absMinutes = Math.abs(offsetMinutes);
-    const hours = String(Math.floor(absMinutes / 60)).padStart(2, "0");
-    const minutes = String(absMinutes % 60).padStart(2, "0");
-    return `GMT${sign}${hours}:${minutes}`;
-  };
-  const timezoneOffsetLabel = formatTimezoneOffset(formData.timezone);
 
-  const timeToMinutes = (value: string) => {
-    const [h, m] = value.split(":").map(Number);
-    return h * 60 + m;
-  };
+  // Initialize passwords on mount
+  useState(() => {
+    setFormData(prev => ({
+      ...prev,
+      password: generatedPasswords.password,
+      adminPassword: generatedPasswords.adminPassword,
+    }));
+  });
 
-  const maxTime = (...values: Array<string | null | undefined>) => {
-    const times = values.filter(Boolean) as string[];
-    if (times.length === 0) return undefined;
-    return times.reduce((max, current) =>
-      timeToMinutes(current) > timeToMinutes(max) ? current : max
-    );
-  };
-
-  const maxDate = (...values: Array<string | null | undefined>) => {
-    const dates = values.filter(Boolean) as string[];
-    if (dates.length === 0) return undefined;
-    return dates.reduce((max, current) => (current > max ? current : max));
-  };
-
-  const clampTime = (value: string, min?: string) => {
-    if (!min) return value;
-    return timeToMinutes(value) < timeToMinutes(min) ? min : value;
-  };
-
-  const getEffectiveStartDate = () =>
-    startMode === "now" ? format(nowTz, "yyyy-MM-dd") : formData.uploadStartDate;
-  const getEffectiveStartTime = () =>
-    startMode === "now" ? format(nowTz, "HH:mm") : formData.uploadStartTime;
-  const isStep1Complete = () => {
-    const hasName = formData.name.trim().length > 0;
-    const hasBackground = Boolean(formData.backgroundImage || formData.backgroundImageUrl);
-    const hasStart = startMode === "now"
-      ? true
-      : Boolean(formData.uploadStartDate && formData.uploadStartTime);
-    const hasEnd = Boolean(formData.uploadEndDate && formData.uploadEndTime);
-    const hasReveal = Boolean(formData.revealDate && formData.revealTime);
-    return hasName && hasBackground && hasStart && hasEnd && hasReveal;
-  };
-  const isStep2Complete = () => {
-    const hasEmail = formData.contactEmail.trim().length > 0;
-    const hasPassword = formData.contactPassword.trim().length > 0;
-    const hasConfirm = formData.contactPasswordConfirm.trim().length > 0;
-    return hasEmail && hasPassword && hasConfirm && formData.acceptLegal;
-  };
-  const usesSingleStepFlow = isPrivateDemoFlow && privateFlowReady;
-
-  useEffect(() => {
-    if (!isPrivateDemoFlow) return;
-
-    let isMounted = true;
-
-    const hydratePrivateFlow = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user?.email) {
-        if (isMounted) {
-          toast({
-            title: t("form.errorTitle"),
-            description: "Necesitas iniciar sesión para crear este evento demo desde tu área privada.",
-            variant: "destructive",
-          });
-          navigate(`${pathPrefix}/admin-login`, { replace: true });
-        }
-        return;
-      }
-
-      const { data: profile } = await supabase
-        .from("user_profiles")
-        .select("phone, marketing_opt_in")
-        .eq("id", user.id)
-        .maybeSingle();
-
-      if (!isMounted) return;
-
-      setFormData((prev) => ({
-        ...prev,
-        contactEmail: user.email ?? prev.contactEmail,
-        contactPhone: profile?.phone ?? prev.contactPhone,
-        acceptMarketing: profile?.marketing_opt_in ?? prev.acceptMarketing,
-        acceptLegal: true,
-      }));
-      setPrivateFlowReady(true);
-    };
-
-    hydratePrivateFlow();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [isPrivateDemoFlow, navigate, pathPrefix, t, toast]);
-
-  const getEndTimeMin = (overrideDate?: string) => {
-    const date = overrideDate ?? formData.uploadEndDate;
-    const startDate = getEffectiveStartDate();
-    const startTime = getEffectiveStartTime();
-    return maxTime(
-      date === todayStr ? nowTimeStr : undefined,
-      date === startDate ? startTime : undefined
-    );
-  };
-
-  const getRevealTimeMin = (overrideDate?: string) => {
-    const date = overrideDate ?? formData.revealDate;
-    const startDate = getEffectiveStartDate();
-    const startTime = getEffectiveStartTime();
-    return maxTime(
-      date === todayStr ? nowTimeStr : undefined,
-      date === startDate ? startTime : undefined,
-      date === formData.uploadEndDate ? formData.uploadEndTime : undefined
-    );
-  };
-
-  const validateEventDates = () => {
-    try {
-      const eventTz = formData.timezone;
-      const now = new Date();
-      const startDate = getEffectiveStartDate();
-      const startTime = getEffectiveStartTime();
-      const startUtc = fromZonedTime(`${startDate}T${startTime}:00`, eventTz);
-      const endUtc = fromZonedTime(`${formData.uploadEndDate}T${formData.uploadEndTime}:00`, eventTz);
-      const revealUtc = fromZonedTime(`${formData.revealDate}T${formData.revealTime}:00`, eventTz);
-
-      const nowTz = toZonedTime(now, eventTz);
-      if (endUtc < now || endUtc < startUtc) return false;
-      if (revealUtc < now || revealUtc < endUtc) return false;
-      return true;
-    } catch {
-      return false;
-    }
-  };
-
-  const generateQrBlob = async (eventUrl: string): Promise<Blob | null> => {
-    try {
-      const container = document.createElement("div");
-      container.style.position = "absolute";
-      container.style.left = "-9999px";
-      document.body.appendChild(container);
-
-      const qrSize = 1024;
-      const qrWrapper = document.createElement("div");
-      container.appendChild(qrWrapper);
-
-      const { createRoot } = await import("react-dom/client");
-      const root = createRoot(qrWrapper);
-
-      await new Promise<void>((resolve) => {
-        root.render(
-          <QRCodeSVG value={eventUrl} size={qrSize} level="H" includeMargin />
-        );
-        setTimeout(resolve, 100);
-      });
-
-      const svgElement = qrWrapper.querySelector("svg");
-      if (!svgElement) throw new Error("No se pudo generar el QR");
-
-      const canvas = document.createElement("canvas");
-      canvas.width = qrSize;
-      canvas.height = qrSize;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) throw new Error("No se pudo crear el canvas");
-
-      const svgData = new XMLSerializer().serializeToString(svgElement);
-      const svgBlob = new Blob([svgData], {
-        type: "image/svg+xml;charset=utf-8",
-      });
-      const url = URL.createObjectURL(svgBlob);
-
-      const blob = await new Promise<Blob | null>((resolve) => {
-        const img = new Image();
-        img.onload = () => {
-          ctx.fillStyle = "#ffffff";
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
-          ctx.drawImage(img, 0, 0);
-          URL.revokeObjectURL(url);
-          canvas.toBlob((result) => resolve(result), "image/png");
-        };
-        img.onerror = () => {
-          URL.revokeObjectURL(url);
-          resolve(null);
-        };
-        img.src = url;
-      });
-
-      root.unmount();
-      document.body.removeChild(container);
-      return blob;
-    } catch (error) {
-      console.error("Error generating QR:", error);
-      return null;
-    }
-  };
-
-  const uploadQrImage = async (eventUrl: string, eventId: string) => {
-    const qrBlob = await generateQrBlob(eventUrl);
-    if (!qrBlob) return null;
-
-    try {
-      const filePath = `event-qr/qr-${eventId}.png`;
-      const { error: uploadError } = await supabase.storage
-        .from("event-photos")
-        .upload(filePath, qrBlob, {
-          contentType: "image/png",
-          upsert: true,
-          cacheControl: "3600",
-        });
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from("event-photos")
-        .getPublicUrl(filePath);
-
-      return publicUrl;
-    } catch (error) {
-      console.error("Error uploading QR:", error);
-      return null;
-    }
-  };
-
-  const handleStepAdvance = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!isStep1Complete()) {
-      toast({
-        title: "Faltan campos obligatorios",
-        description: "Complétalos para poder continuar",
-        variant: "destructive",
-      });
-      return;
-    }
-    if (!validateEventDates()) {
-      toast({
-        title: t("form.errorTitle"),
-        description: t("form.errors.invalidDates"),
-        variant: "destructive",
-      });
-      return;
-    }
-    if (usesSingleStepFlow) {
-      void handleSubmit(e);
-      return;
-    }
-    setCurrentStep(2);
-  };
-
-  const handleStepBack = () => setCurrentStep(1);
-
-  const handleNextClick = () => {
-    if (currentStep === 1 && !isStep1Complete()) {
-      toast({
-        title: "Faltan campos obligatorios",
-        description: "Complétalos para poder continuar",
-        variant: "destructive",
-      });
-    }
-    if (currentStep === 2 && !isStep2Complete()) {
-      toast({
-        title: "Faltan campos obligatorios",
-        description: "Complétalos para poder continuar",
-        variant: "destructive",
-      });
-    }
-  };
 
   const handleImageUpload = async (file: File): Promise<string | null> => {
     try {
@@ -386,8 +104,8 @@ const PublicDemoEventForm = () => {
     } catch (error) {
       console.error("Error uploading image:", error);
       toast({
-        title: t("summary.copyErrorTitle"),
-        description: t("form.errors.imageUpload"),
+        title: "Error",
+        description: "No se pudo subir la imagen",
         variant: "destructive",
       });
       return null;
@@ -396,98 +114,40 @@ const PublicDemoEventForm = () => {
     }
   };
 
-  const createPrivateDemoEventFallback = async (params: {
-    customImageUrl: string;
-    backgroundImageUrl: string;
-    uploadStartDateTime: Date;
-    uploadEndDateTime: Date;
-    revealDateTime: Date;
-  }) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user?.id || !user.email) {
-      throw new Error("PRIVATE_DEMO_USER_MISSING");
+  const handleStepChange = (step: number) => {
+    if (step === 1) {
+      // Going back to step 1
+      setCurrentStep(step);
+    } else if (step === 2) {
+      // Validating Step 1 before going to Step 2
+      if (!formData.name.trim()) {
+        toast({
+          title: "Error",
+          description: "El nombre del evento es obligatorio",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (!formData.uploadStartDate || !formData.uploadEndDate || !formData.revealDate) {
+        toast({
+          title: "Error",
+          description: "Las fechas de inicio, fin y revelado son obligatorias",
+          variant: "destructive",
+        });
+        return;
+      }
+      setCurrentStep(step);
     }
-
-    await supabase.from("user_profiles").upsert(
-      {
-        id: user.id,
-        phone: formData.contactPhone || null,
-        marketing_opt_in: formData.acceptMarketing,
-      },
-      { onConflict: "id" }
-    );
-
-    const expiryDate = new Date(params.revealDateTime);
-    expiryDate.setUTCDate(expiryDate.getUTCDate() + 10);
-    expiryDate.setUTCHours(23, 59, 0, 0);
-
-    const { data: createdEvent, error: insertError } = await supabase
-      .from("events")
-      .insert({
-        name: formData.name,
-        password_hash: formData.password,
-        admin_password: formData.adminPassword,
-        upload_start_time: params.uploadStartDateTime.toISOString(),
-        upload_end_time: params.uploadEndDateTime.toISOString(),
-        reveal_time: params.revealDateTime.toISOString(),
-        max_photos: 10,
-        custom_image_url: params.customImageUrl,
-        background_image_url: params.backgroundImageUrl,
-        filter_type: formData.filterType,
-        font_family: formData.fontFamily,
-        font_size: formData.fontSize,
-        is_demo: true,
-        type: "demo",
-        plan_id: "demo",
-        limits_json: { max_photos: 10, max_videos: 3, max_audios: 6 },
-        country_code: formData.countryCode,
-        timezone: formData.timezone,
-        language: formData.language,
-        description: formData.description || null,
-        expiry_date: expiryDate.toISOString(),
-        expiry_redirect_url: null,
-        allow_photo_deletion: true,
-        allow_video_recording: true,
-        max_videos: 3,
-        max_video_duration: 15,
-        allow_audio_recording: true,
-        max_audios: 6,
-        max_audio_duration: 30,
-        show_legal_text: true,
-        owner_id: user.id,
-      })
-      .select()
-      .single();
-
-    if (insertError || !createdEvent) {
-      throw insertError ?? new Error("PRIVATE_DEMO_INSERT_FAILED");
-    }
-
-    return {
-      event: createdEvent,
-      contactInfo: {
-        email: user.email,
-        phone: formData.contactPhone,
-      },
-    };
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validateEventDates()) {
-      toast({
-        title: t("form.errorTitle"),
-        description: t("form.errors.invalidDates"),
-        variant: "destructive",
-      });
-      return;
-    }
     
-    // Validate contact fields
-    if (!formData.contactEmail.trim()) {
+    // Validate Step 2 - contact fields
+    if (!formData.contactName.trim() || !formData.contactEmail.trim() || !formData.contactPhone.trim()) {
       toast({
-        title: t("summary.copyErrorTitle"),
-        description: t("form.errors.emailRequired"),
+        title: "Error",
+        description: "Todos los campos de contacto son obligatorios",
         variant: "destructive",
       });
       return;
@@ -497,42 +157,8 @@ const PublicDemoEventForm = () => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.contactEmail)) {
       toast({
-        title: t("summary.copyErrorTitle"),
-        description: t("form.errors.emailInvalid"),
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!usesSingleStepFlow && (!formData.contactPassword || formData.contactPassword.length < 8)) {
-      toast({
-        title: t("summary.copyErrorTitle"),
-        description: t("form.errors.passwordMin"),
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!usesSingleStepFlow && formData.contactPassword !== formData.contactPasswordConfirm) {
-      toast({
-        title: t("summary.copyErrorTitle"),
-        description: t("form.errors.passwordMismatch"),
-        variant: "destructive",
-      });
-      return;
-    }
-    if (!usesSingleStepFlow && !formData.acceptLegal) {
-      toast({
-        title: t("summary.copyErrorTitle"),
-        description: t("form.errors.legalRequired"),
-        variant: "destructive",
-      });
-      return;
-    }
-    if (!formData.backgroundImage && !formData.backgroundImageUrl) {
-      toast({
-        title: t("form.errors.invalidDateTitle"),
-        description: "La fotografía de fondo es obligatoria.",
+        title: "Error",
+        description: "Por favor, introduce un email válido",
         variant: "destructive",
       });
       return;
@@ -541,13 +167,8 @@ const PublicDemoEventForm = () => {
     setIsSubmitting(true);
 
     try {
-      const demoRequestPassword = usesSingleStepFlow
-        ? "PrivateDemoTemp1"
-        : formData.contactPassword;
       const eventTz = formData.timezone;
-      const effectiveStartDate = getEffectiveStartDate();
-      const effectiveStartTime = getEffectiveStartTime();
-      const uploadStartDateTime = fromZonedTime(`${effectiveStartDate}T${effectiveStartTime}:00`, eventTz);
+      const uploadStartDateTime = fromZonedTime(`${formData.uploadStartDate}T${formData.uploadStartTime}:00`, eventTz);
       const uploadEndDateTime = fromZonedTime(`${formData.uploadEndDate}T${formData.uploadEndTime}:00`, eventTz);
       const revealDateTime = fromZonedTime(`${formData.revealDate}T${formData.revealTime}:00`, eventTz);
 
@@ -567,113 +188,39 @@ const PublicDemoEventForm = () => {
         }
       }
 
-      let invocationResult = await supabase.functions.invoke("create-demo-event", {
-        body: {
-          contactEmail: formData.contactEmail,
-          password: demoRequestPassword,
-          phone: formData.contactPhone,
-          marketingConsent: formData.acceptMarketing,
-          useAuthenticatedUser: usesSingleStepFlow,
-          
-          event: {
-            name: formData.name,
-            password_hash: formData.password,
-            admin_password: formData.adminPassword,
-            upload_start_time: uploadStartDateTime.toISOString(),
-            upload_end_time: uploadEndDateTime.toISOString(),
-            reveal_time: revealDateTime.toISOString(),
-            max_photos: 10,
-            custom_image_url: customImageUrl,
-            background_image_url: backgroundImageUrl,
-            filter_type: formData.filterType,
-            font_family: formData.fontFamily,
-            font_size: formData.fontSize,
-            country_code: formData.countryCode,
-            timezone: formData.timezone,
-            language: formData.language,
-            description: formData.description || null,
-          },
-        },
-      });
+      // Create event with fixed 10 photo limit and is_demo = true
+      const { data: newEvent, error } = await supabase.from("events").insert({
+        name: formData.name,
+        password_hash: formData.password,
+        admin_password: formData.adminPassword,
+        upload_start_time: uploadStartDateTime.toISOString(),
+        upload_end_time: uploadEndDateTime.toISOString(),
+        reveal_time: revealDateTime.toISOString(),
+        max_photos: 10, // Fixed at 10 for public demo
+        custom_image_url: customImageUrl,
+        background_image_url: backgroundImageUrl,
+        filter_type: formData.filterType,
+        font_family: formData.fontFamily,
+        font_size: "text-3xl", // Fixed at M
+        is_demo: true, // All public demo events are demo events
+        country_code: formData.countryCode,
+        timezone: formData.timezone,
+        language: formData.language,
+        description: formData.description || null,
+        expiry_date: null,
+        expiry_redirect_url: null,
+        allow_photo_deletion: true, // Always true
+        show_legal_text: false, // Always false
+      } as any).select().single();
 
-      if (invocationResult.error) {
-        let errorCode = (invocationResult.error as any)?.message || "";
-        try {
-          const res = (invocationResult.error as any)?.context;
-          if (res && typeof res.json === "function") {
-            const body = await res.json();
-            errorCode = body?.error || errorCode;
-          }
-        } catch {
-          // ignore
-        }
-
-        if (errorCode === "USER_EXISTS" && usesSingleStepFlow) {
-          const fallbackData = await createPrivateDemoEventFallback({
-            customImageUrl,
-            backgroundImageUrl,
-            uploadStartDateTime,
-            uploadEndDateTime,
-            revealDateTime,
-          });
-          invocationResult = { data: fallbackData, error: null };
-        } else if (errorCode === "DEMO_ALREADY_EXISTS") {
-          toast({
-            title: t("form.errors.demoExistsTitle"),
-            description: t("form.errors.demoExistsDesc"),
-            variant: "destructive",
-          });
-          navigate(`${pathPrefix}/admin-login?reason=exists&email=${encodeURIComponent(formData.contactEmail)}`);
-          return;
-        } else if (errorCode === "USER_EXISTS" || `${errorCode}`.includes("USER_EXISTS")) {
-          toast({
-            title: t("form.errors.userExistsTitle"),
-            description: t("form.errors.userExistsDesc"),
-            variant: "destructive",
-          });
-          navigate(`${pathPrefix}/admin-login?reason=exists&email=${encodeURIComponent(formData.contactEmail)}`);
-          return;
-        }
-        if (invocationResult.error && errorCode === "INVALID_PASSWORD") {
-          toast({
-            title: t("summary.copyErrorTitle"),
-            description: "No se ha podido crear el evento demo con la configuración actual. Actualiza las funciones de Supabase e inténtalo de nuevo.",
-            variant: "destructive",
-          });
-          return;
-        }
-        if (invocationResult.error && errorCode === "UNAUTHORIZED") {
-          toast({
-            title: t("summary.copyErrorTitle"),
-            description: "Tu sesión ha caducado. Vuelve a iniciar sesión para crear el evento demo.",
-            variant: "destructive",
-          });
-          navigate(`${pathPrefix}/admin-login`);
-          return;
-        }
-        if (invocationResult.error) {
-          throw invocationResult.error;
-        }
-      }
-
-      const newEvent = invocationResult.data?.event;
-      if (!newEvent) throw new Error("No se pudo crear el evento");
-
-      const eventUrl = `https://acceso.revelao.cam/events/${newEvent.password_hash}`;
-      const qrUrl = await uploadQrImage(eventUrl, newEvent.id);
-      if (qrUrl) {
-        localStorage.setItem(`event-qr-url-${newEvent.id}`, qrUrl);
-      } else {
-        const fallbackQr = `https://quickchart.io/qr?size=220&margin=1&ecLevel=H&text=${encodeURIComponent(eventUrl)}`;
-        localStorage.setItem(`event-qr-url-${newEvent.id}`, fallbackQr);
-      }
+      if (error) throw error;
 
       // Navigate to summary page with event data
-      navigate(`${pathPrefix}/nuevoeventodemo/resumen`, { 
+      navigate("/nuevoeventodemo/resumen", { 
         state: { 
           event: newEvent,
-          qrUrl,
-          contactInfo: invocationResult.data?.contactInfo ?? {
+          contactInfo: {
+            name: formData.contactName,
             email: formData.contactEmail,
             phone: formData.contactPhone,
           }
@@ -683,8 +230,8 @@ const PublicDemoEventForm = () => {
     } catch (error) {
       console.error("Error creating event:", error);
       toast({
-        title: t("summary.copyErrorTitle"),
-        description: t("form.errors.eventCreate"),
+        title: "Error",
+        description: "No se pudo crear el evento",
         variant: "destructive",
       });
     } finally {
@@ -695,76 +242,84 @@ const PublicDemoEventForm = () => {
   return (
     <div className="min-h-screen bg-background p-4 md:p-6">
       <div className="max-w-6xl mx-auto space-y-4 md:space-y-6">
-        <div className="flex flex-col items-center gap-4 mb-6">
-          <img 
-            src={logoDemo} 
-            alt="Revelao.com" 
-            className="h-16 w-auto"
-          />
+        <div className="flex flex-col items-center gap-2 mb-6">
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground text-center">
-            {t("form.title")}
+            Crea tu evento de prueba
           </h1>
-          <p className="text-muted-foreground text-center max-w-md">
-            {t("form.subtitle")}
+          <p className="text-muted-foreground text-center max-w-md text-sm">
+            Crea un evento gratuito con hasta 10 fotos para probar Revelao
           </p>
-          <p className="text-sm font-medium text-[hsl(var(--revelao-red))] text-center">
-            {t("form.demoLimits")}
-          </p>
-          <Button
-            type="button"
-            className="bg-[#f06a5f] text-white hover:bg-[#e95f54] rounded-full px-6"
-            onClick={() => setPricingOpen(true)}
-          >
-            Elegir plan de pago
-          </Button>
         </div>
 
         <div className="grid lg:grid-cols-[1fr,280px] gap-6">
           <Card className="p-6">
-            <form onSubmit={currentStep === 1 ? handleStepAdvance : handleSubmit} className="space-y-6">
+            <form onSubmit={currentStep === 2 ? handleSubmit : (e) => { e.preventDefault(); handleStepChange(2); }} className="space-y-6">
+              {/* Step 1: Event Information */}
               {currentStep === 1 && (
                 <>
+                  {/* Event Name */}
                   <div className="space-y-2">
-                    <Label htmlFor="name">
-                      {t("form.step1.eventName")}
-                      <span className="text-red-500">*</span>
-                    </Label>
+                    <Label htmlFor="name">Nombre del evento *</Label>
                     <Input
                       id="name"
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      placeholder={t("form.step1.eventNamePlaceholder")}
                       required
+                      placeholder="Ej: Boda María y Juan"
                     />
                   </div>
 
+                  {/* Font Settings */}
                   <div className="space-y-2">
-                    <Label>{t("form.step1.font")}</Label>
+                    <Label>Tipografía *</Label>
                     <FontSelect
                       value={formData.fontFamily}
                       onChange={(fontFamily) => setFormData({ ...formData, fontFamily })}
-                      previewText={formData.name || t("form.step1.eventName")}
+                      previewText={formData.name || "Nombre del evento"}
                     />
                   </div>
 
+                  {/* Fixed Photo Limit - Read Only */}
                   <div className="space-y-2">
-                    <Label htmlFor="description">{t("form.step1.description")}</Label>
-                    <Textarea
-                      id="description"
-                      value={formData.description}
-                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                      placeholder={t("form.step1.descriptionPlaceholder")}
-                      rows={3}
+                    <Label htmlFor="maxPhotos">Máximo de fotos</Label>
+                    <Input
+                      id="maxPhotos"
+                      type="number"
+                      value="10"
+                      disabled
+                      className="bg-muted cursor-not-allowed"
                     />
+                    <p className="text-xs text-muted-foreground">
+                      Los eventos de prueba están limitados a 10 fotos
+                    </p>
                   </div>
 
+                  {/* Filter Type */}
                   <div className="space-y-2">
-                    <Label htmlFor="backgroundImage">
-                      {t("form.step1.background")}
-                      <span className="text-red-500"> *</span>
-                    </Label>
-                    <div className="text-xs text-muted-foreground mb-2 space-y-1">
-                      <p>{t("form.step1.backgroundHelp")}</p>
+                    <Label htmlFor="filterType">Filtro de fotos</Label>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {FILTER_ORDER.map((filter) => (
+                        <button
+                          key={filter}
+                          type="button"
+                          onClick={() => setFormData({ ...formData, filterType: filter })}
+                          className={`px-3 py-2 text-sm rounded-md border transition-colors ${
+                            formData.filterType === filter
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "bg-muted border-border hover:bg-muted/80"
+                          }`}
+                        >
+                          {FILTER_LABELS[filter]}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Background Image */}
+                  <div className="space-y-2">
+                    <Label htmlFor="backgroundImage">Fotografía de fondo (opcional)</Label>
+                    <div className="text-xs text-muted-foreground mb-2">
+                      <p>Imagen que aparecerá como fondo en la cabecera de la galería.</p>
                     </div>
                     {formData.backgroundImageUrl && !formData.backgroundImage && (
                       <div className="mb-2 relative inline-block">
@@ -806,7 +361,6 @@ const PublicDemoEventForm = () => {
                       id="backgroundImage"
                       type="file"
                       accept="image/*"
-                      required={!formData.backgroundImageUrl}
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) {
@@ -816,218 +370,123 @@ const PublicDemoEventForm = () => {
                     />
                   </div>
 
+                  {/* Custom Image - Renamed to Logo Personalizado */}
                   <div className="space-y-2">
-                    <Label>{t("form.filterLabel")}</Label>
-                    <div className="md:hidden">
-                      <Carousel opts={{ align: "start" }} className="w-full">
-                        <CarouselContent className="ml-0">
-                          {FILTER_ORDER.map((filter) => {
-                            const isActive = formData.filterType === filter;
-                            return (
-                              <CarouselItem key={filter} className="basis-[70%] sm:basis-1/3 pl-0 pr-3">
-                                <button
-                                  type="button"
-                                  onClick={() => setFormData({ ...formData, filterType: filter })}
-                                  className="w-full text-left"
-                                >
-                                  <div
-                                className={`relative overflow-hidden rounded-lg border ${
-                                  isActive
-                                    ? "border-[hsl(var(--revelao-red))] ring-2 ring-[hsl(var(--revelao-red)/0.5)]"
-                                    : "border-border"
-                                }`}
-                                  >
-                                    <img
-                                      src={weddingPreview}
-                                      alt={t(`form.filter.${filter}`)}
-                                      className={`h-32 w-full object-cover ${getFilterClass(filter)}`}
-                                    />
-                                    {getGrainClass(filter) ? (
-                                      <div className={`pointer-events-none absolute inset-0 ${getGrainClass(filter)}`} />
-                                    ) : null}
-                                  </div>
-                              <p className={`mt-2 text-xs ${isActive ? "text-[hsl(var(--revelao-red))] font-semibold" : "text-muted-foreground"}`}>
-                                {t(`form.filter.${filter}`)}
-                              </p>
-                                </button>
-                              </CarouselItem>
-                            );
-                          })}
-                        </CarouselContent>
-                        <CarouselPrevious className="hidden sm:inline-flex" />
-                        <CarouselNext className="hidden sm:inline-flex" />
-                      </Carousel>
+                    <Label htmlFor="customImage">Logo personalizado (opcional)</Label>
+                    <div className="text-xs text-muted-foreground mb-2">
+                      Se muestra como icono en las pantallas.
                     </div>
-
-                    <div className="hidden md:grid grid-cols-4 gap-4">
-                      {FILTER_ORDER.map((filter) => {
-                        const isActive = formData.filterType === filter;
-                        return (
-                          <button
-                            key={filter}
-                            type="button"
-                            onClick={() => setFormData({ ...formData, filterType: filter })}
-                            className="w-full text-left"
-                          >
-                            <div
-                          className={`relative overflow-hidden rounded-lg border ${
-                            isActive
-                              ? "border-[hsl(var(--revelao-red))] ring-2 ring-[hsl(var(--revelao-red)/0.5)]"
-                              : "border-border"
-                          }`}
-                            >
-                              <img
-                                src={weddingPreview}
-                                alt={t(`form.filter.${filter}`)}
-                                className={`h-32 w-full object-cover ${getFilterClass(filter)}`}
-                              />
-                              {getGrainClass(filter) ? (
-                                <div className={`pointer-events-none absolute inset-0 ${getGrainClass(filter)}`} />
-                              ) : null}
-                            </div>
-                          <p className={`mt-2 text-xs ${isActive ? "text-[hsl(var(--revelao-red))] font-semibold" : "text-muted-foreground"}`}>
-                            {t(`form.filter.${filter}`)}
-                          </p>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>{t("form.step1.country")}</Label>
-                      <CountrySelect
-                        value={formData.countryCode}
-                        onChange={(countryCode, timezone) =>
-                          setFormData({ ...formData, countryCode, timezone })
-                        }
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>{t("form.step1.language")}</Label>
-                      <LanguageSelect
-                        value={formData.language as Language}
-                        onChange={(language) => setFormData({ ...formData, language })}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-base font-semibold">{t("form.step1.duration")}</Label>
-                    <p className="text-xs text-muted-foreground">
-                      {t("form.step1.durationHelp")}
-                    </p>
-                    <Label>
-                      {t("form.step1.startDate")}
-                      <span className="text-red-500"> *</span>
-                    </Label>
-                    <div className="flex flex-col sm:flex-row gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setStartMode("now")}
-                        className={`flex-1 rounded-md border px-4 py-2 text-sm font-medium transition-colors ${
-                          startMode === "now"
-                            ? "border-[hsl(var(--revelao-red))] text-[hsl(var(--revelao-red))]"
-                            : "border-border bg-background text-foreground"
-                        }`}
-                      >
-                        Ahora
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setStartMode("schedule")}
-                        className={`flex-1 rounded-md border px-4 py-2 text-sm font-medium transition-colors ${
-                          startMode === "schedule"
-                            ? "border-[hsl(var(--revelao-red))] text-[hsl(var(--revelao-red))]"
-                            : "border-border bg-background text-foreground"
-                        }`}
-                      >
-                        Programar inicio
-                      </button>
-                    </div>
-                    {startMode === "schedule" ? (
-                      <DateTimeField
-                        dateId="uploadStartDate"
-                        timeId="uploadStartTime"
-                        dateLabel={
-                          <>
-                            {t("form.step1.startDate")}
-                            <span className="text-red-500"> *</span>
-                          </>
-                        }
-                        timeLabel={
-                          <>
-                            {t("form.step1.startTime")}
-                            <span className="text-red-500"> *</span>
-                          </>
-                        }
-                        dateValue={formData.uploadStartDate}
-                        timeValue={formData.uploadStartTime}
-                        required
-                        onDateChange={(nextDate) => {
-                          setFormData({
-                            ...formData,
-                            uploadStartDate: nextDate,
-                          });
-                        }}
-                        onTimeChange={(nextTime) =>
-                          setFormData({
-                            ...formData,
-                            uploadStartTime: nextTime,
-                          })
-                        }
-                      />
-                    ) : (
-                      <p className="text-xs text-muted-foreground">
-                        Se iniciará ahora ({format(nowTz, "dd/MM/yyyy HH:mm")} {timezoneOffsetLabel}).
-                      </p>
+                    {formData.customImageUrl && !formData.customImage && (
+                      <div className="mb-2 relative inline-block">
+                        <img 
+                          src={formData.customImageUrl} 
+                          alt="Preview" 
+                          className="max-w-[240px] max-h-[100px] object-contain border border-border rounded"
+                        />
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="icon"
+                          className="absolute -top-2 -right-2 h-6 w-6"
+                          onClick={() => setFormData({ ...formData, customImageUrl: "", customImage: null })}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
                     )}
+                    {formData.customImage && (
+                      <div className="mb-2 relative inline-block">
+                        <img 
+                          src={URL.createObjectURL(formData.customImage)} 
+                          alt="Preview" 
+                          className="max-w-[240px] max-h-[100px] object-contain border border-border rounded"
+                        />
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="icon"
+                          className="absolute -top-2 -right-2 h-6 w-6"
+                          onClick={() => setFormData({ ...formData, customImage: null })}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    )}
+                    <Input
+                      id="customImage"
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setFormData({ ...formData, customImage: file });
+                        }
+                      }}
+                    />
                   </div>
 
+                  {/* Description */}
                   <div className="space-y-2">
-                    <DateTimeField
-                      dateId="uploadEndDate"
-                      timeId="uploadEndTime"
-                      dateLabel={
-                        <>
-                          {t("form.step1.endDate")}
-                          <span className="text-red-500"> *</span>
-                        </>
-                      }
-                      timeLabel={
-                        <>
-                          {t("form.step1.endTime")}
-                          <span className="text-red-500"> *</span>
-                        </>
-                      }
-                      dateValue={formData.uploadEndDate}
-                      timeValue={formData.uploadEndTime}
-                      dateMin={maxDate(todayStr, getEffectiveStartDate())}
-                      timeMin={getEndTimeMin()}
-                      required
-                      onDateChange={(nextDate) => {
-                        const nextEndTime = clampTime(
-                          formData.uploadEndTime,
-                          getEndTimeMin(nextDate)
-                        );
-                        setFormData({
-                          ...formData,
-                          uploadEndDate: nextDate,
-                          uploadEndTime: nextEndTime,
-                        });
-                      }}
-                      onTimeChange={(nextTime) =>
-                        setFormData({
-                          ...formData,
-                          uploadEndTime: clampTime(nextTime, getEndTimeMin()),
-                        })
-                      }
+                    <Label htmlFor="description">Descripción del evento (opcional)</Label>
+                    <Textarea
+                      id="description"
+                      value={formData.description}
+                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                      placeholder="Cuéntanos sobre tu evento"
+                      rows={3}
                     />
-                    {formData.countryCode !== "ES" && formData.uploadStartDate && formData.uploadStartTime && formData.uploadEndDate && formData.uploadEndTime && (
+                  </div>
+
+                  {/* Upload Period */}
+                  <div className="space-y-2">
+                    <Label className="text-base font-semibold">Período de subida de fotos</Label>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="uploadStartDate">Fecha de inicio *</Label>
+                        <Input
+                          id="uploadStartDate"
+                          type="date"
+                          value={formData.uploadStartDate}
+                          onChange={(e) => setFormData({ ...formData, uploadStartDate: e.target.value })}
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="uploadStartTime">Hora de inicio *</Label>
+                        <Input
+                          id="uploadStartTime"
+                          type="time"
+                          value={formData.uploadStartTime}
+                          onChange={(e) => setFormData({ ...formData, uploadStartTime: e.target.value })}
+                          required
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="uploadEndDate">Fecha fin *</Label>
+                        <Input
+                          id="uploadEndDate"
+                          type="date"
+                          value={formData.uploadEndDate}
+                          onChange={(e) => setFormData({ ...formData, uploadEndDate: e.target.value })}
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="uploadEndTime">Hora fin *</Label>
+                        <Input
+                          id="uploadEndTime"
+                          type="time"
+                          value={formData.uploadEndTime}
+                          onChange={(e) => setFormData({ ...formData, uploadEndTime: e.target.value })}
+                          required
+                        />
+                      </div>
+                    </div>
+                    {formData.countryCode !== "ES" && formData.uploadStartDate && formData.uploadEndDate && (
                       <p className="text-xs text-muted-foreground">
-                        {t("form.step1.spainTime")} {(() => {
+                        🇪🇸 En España: {(() => {
                           try {
                             const eventTz = formData.timezone;
                             const spainTz = "Europe/Madrid";
@@ -1044,52 +503,34 @@ const PublicDemoEventForm = () => {
                     )}
                   </div>
 
+                  {/* Reveal Date */}
                   <div className="space-y-2">
-                    <Label className="text-base font-semibold">{t("form.step1.reveal")}</Label>
-                    <p className="text-xs text-muted-foreground">
-                      {t("form.step1.revealHelp")}
-                    </p>
-                    <DateTimeField
-                      dateId="revealDate"
-                      timeId="revealTime"
-                      dateLabel={
-                        <>
-                          {t("form.step1.revealDate")}
-                          <span className="text-red-500"> *</span>
-                        </>
-                      }
-                      timeLabel={
-                        <>
-                          {t("form.step1.revealTime")}
-                          <span className="text-red-500"> *</span>
-                        </>
-                      }
-                      dateValue={formData.revealDate}
-                      timeValue={formData.revealTime}
-                      dateMin={maxDate(todayStr, formData.uploadStartDate, formData.uploadEndDate)}
-                      timeMin={getRevealTimeMin()}
-                      required
-                      onDateChange={(nextDate) => {
-                        const nextRevealTime = clampTime(
-                          formData.revealTime,
-                          getRevealTimeMin(nextDate)
-                        );
-                        setFormData({
-                          ...formData,
-                          revealDate: nextDate,
-                          revealTime: nextRevealTime,
-                        });
-                      }}
-                      onTimeChange={(nextTime) =>
-                        setFormData({
-                          ...formData,
-                          revealTime: clampTime(nextTime, getRevealTimeMin()),
-                        })
-                      }
-                    />
-                    {formData.countryCode !== "ES" && formData.revealDate && formData.revealTime && (
+                    <Label className="text-base font-semibold">Fecha de revelado</Label>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="revealDate">Fecha *</Label>
+                        <Input
+                          id="revealDate"
+                          type="date"
+                          value={formData.revealDate}
+                          onChange={(e) => setFormData({ ...formData, revealDate: e.target.value })}
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="revealTime">Hora *</Label>
+                        <Input
+                          id="revealTime"
+                          type="time"
+                          value={formData.revealTime}
+                          onChange={(e) => setFormData({ ...formData, revealTime: e.target.value })}
+                          required
+                        />
+                      </div>
+                    </div>
+                    {formData.countryCode !== "ES" && formData.revealDate && (
                       <p className="text-xs text-muted-foreground">
-                        {t("form.step1.spainTime")} {(() => {
+                        🇪🇸 En España: {(() => {
                           try {
                             const eventTz = formData.timezone;
                             const spainTz = "Europe/Madrid";
@@ -1102,151 +543,112 @@ const PublicDemoEventForm = () => {
                       </p>
                     )}
                   </div>
-                </>
-              )}
 
-              {currentStep === 2 && !usesSingleStepFlow && (
-                <>
-                  <div className="space-y-4">
-                    <Label className="text-base font-semibold">{t("form.step2.title")}</Label>
-                    <p className="text-xs text-muted-foreground">
-                      {t("form.step2.subtitle")}
-                    </p>
-
+                  {/* Location & Language - At the end of Step 1 */}
+                  <div className="space-y-4 border-t border-border pt-6">
                     <div className="space-y-2">
-                      <Label htmlFor="contactEmail">
-                        {t("form.step2.email")}
-                        <span className="text-red-500"> *</span>
+                      <Label className="flex items-center gap-2">
+                        <Globe className="w-4 h-4" />
+                        ¿Dónde es el evento? *
                       </Label>
-                      <Input
-                        id="contactEmail"
-                        type="email"
-                        value={formData.contactEmail}
-                        onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })}
-                        required
-                        placeholder={t("form.step2.emailPlaceholder")}
+                      <CountrySelect
+                        value={formData.countryCode}
+                        onChange={(countryCode, timezone) =>
+                          setFormData({ ...formData, countryCode, timezone })
+                        }
                       />
+                      <p className="text-xs text-muted-foreground">
+                        Las horas se ajustarán a la zona horaria del país seleccionado
+                      </p>
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="contactPassword">
-                        {t("form.step2.password")}
-                        <span className="text-red-500"> *</span>
-                      </Label>
-                      <Input
-                        id="contactPassword"
-                        type="password"
-                        value={formData.contactPassword}
-                        onChange={(e) => setFormData({ ...formData, contactPassword: e.target.value })}
-                        required
-                        placeholder={t("form.step2.passwordPlaceholder")}
-                        autoComplete="new-password"
+                      <Label>Idioma del evento *</Label>
+                      <LanguageSelect
+                        value={formData.language as Language}
+                        onChange={(language) => setFormData({ ...formData, language })}
                       />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="contactPasswordConfirm">
-                        {t("form.step2.passwordConfirm")}
-                        <span className="text-red-500"> *</span>
-                      </Label>
-                      <Input
-                        id="contactPasswordConfirm"
-                        type="password"
-                        value={formData.contactPasswordConfirm}
-                        onChange={(e) => setFormData({ ...formData, contactPasswordConfirm: e.target.value })}
-                        required
-                        placeholder={t("form.step2.passwordConfirmPlaceholder")}
-                        autoComplete="new-password"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="contactPhone">{t("form.step2.phone")}</Label>
-                      <Input
-                        id="contactPhone"
-                        type="tel"
-                        value={formData.contactPhone}
-                        onChange={(e) => setFormData({ ...formData, contactPhone: e.target.value })}
-                        placeholder={t("form.step2.phonePlaceholder")}
-                      />
-                    </div>
-
-                    <div className="space-y-3 rounded-md border border-border p-3">
-                      <label className="flex items-start gap-3 text-sm text-foreground">
-                        <input
-                          type="checkbox"
-                          className="mt-1 h-4 w-4 rounded border-border"
-                          checked={formData.acceptLegal}
-                          onChange={(e) => setFormData({ ...formData, acceptLegal: e.target.checked })}
-                        />
-                        <span>
-                          {t("form.step2.acceptLegalPrefix")}{" "}
-                          <a
-                            href={`${pathPrefix}/terms`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="underline underline-offset-2"
-                          >
-                            {t("form.step2.terms")}
-                          </a>{" "}
-                          {t("form.step2.acceptLegalMiddle")}{" "}
-                          <a
-                            href={`${pathPrefix}/privacy`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="underline underline-offset-2"
-                          >
-                            {t("form.step2.privacy")}
-                          </a>
-                          <span className="text-red-500"> *</span>
-                        </span>
-                      </label>
-
-                      <label className="flex items-start gap-3 text-sm text-foreground">
-                        <input
-                          type="checkbox"
-                          className="mt-1 h-4 w-4 rounded border-border"
-                          checked={formData.acceptMarketing}
-                          onChange={(e) => setFormData({ ...formData, acceptMarketing: e.target.checked })}
-                        />
-                        <span>{t("form.step2.acceptMarketing")}</span>
-                      </label>
+                      <p className="text-xs text-muted-foreground">
+                        Las pantallas del evento se mostrarán en este idioma
+                      </p>
                     </div>
                   </div>
                 </>
               )}
 
+              {/* Step 2: Contact Information */}
+              {currentStep === 2 && (
+                <>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleStepChange(1)}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <h2 className="text-lg font-semibold">Información de contacto</h2>
+                  </div>
+                  <p className="text-xs text-muted-foreground mb-4">
+                    Necesitamos tus datos para poder contactarte si tienes algún problema con tu evento
+                  </p>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="contactName">Nombre completo *</Label>
+                    <Input
+                      id="contactName"
+                      value={formData.contactName}
+                      onChange={(e) => setFormData({ ...formData, contactName: e.target.value })}
+                      required
+                      placeholder="Tu nombre"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="contactPhone">Teléfono *</Label>
+                    <Input
+                      id="contactPhone"
+                      type="tel"
+                      value={formData.contactPhone}
+                      onChange={(e) => setFormData({ ...formData, contactPhone: e.target.value })}
+                      required
+                      placeholder="+34 600 000 000"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="contactEmail">Email *</Label>
+                    <Input
+                      id="contactEmail"
+                      type="email"
+                      value={formData.contactEmail}
+                      onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })}
+                      required
+                      placeholder="tu@email.com"
+                    />
+                  </div>
+                </>
+              )}
+
+              {/* Buttons */}
               <div className="pt-4 flex gap-3">
-                {currentStep === 2 && !usesSingleStepFlow && (
-                  <Button type="button" variant="outline" className="flex-1" onClick={handleStepBack}>
-                    {t("form.actions.back")}
+                {currentStep === 2 && (
+                  <Button 
+                    type="button"
+                    variant="outline" 
+                    className="flex-1"
+                    onClick={() => handleStepChange(1)}
+                  >
+                    Atrás
                   </Button>
                 )}
-                <Button
-                  type="submit"
-                  className={`flex-1 ${
-                    (currentStep === 1
-                      ? !isStep1Complete() || uploadingImage || (isPrivateDemoFlow && !privateFlowReady)
-                      : !isStep2Complete() || isSubmitting || uploadingImage)
-                      ? "opacity-50 cursor-not-allowed"
-                      : ""
-                  }`}
-                  aria-disabled={currentStep === 1
-                    ? !isStep1Complete() || uploadingImage || (isPrivateDemoFlow && !privateFlowReady)
-                    : !isStep2Complete() || isSubmitting || uploadingImage}
-                  onClick={handleNextClick}
+                <Button 
+                  type="submit" 
+                  className="flex-1" 
+                  disabled={isSubmitting || uploadingImage}
                 >
-                  {currentStep === 1
-                    ? usesSingleStepFlow
-                      ? isSubmitting
-                        ? t("form.actions.creating")
-                        : t("form.actions.create")
-                      : t("form.actions.next")
-                    : uploadingImage
-                      ? t("form.actions.uploading")
-                      : isSubmitting
-                        ? t("form.actions.creating")
-                        : t("form.actions.create")}
+                  {uploadingImage ? "Subiendo imagen..." : isSubmitting ? "Creando evento..." : currentStep === 1 ? "Siguiente" : "Crear evento de prueba"}
                 </Button>
               </div>
             </form>
@@ -1260,7 +662,7 @@ const PublicDemoEventForm = () => {
                   eventName={formData.name}
                   description={formData.description}
                   fontFamily={formData.fontFamily}
-                  fontSize={formData.fontSize}
+                  fontSize="text-3xl"
                   backgroundImageUrl={
                     formData.backgroundImage 
                       ? URL.createObjectURL(formData.backgroundImage) 
@@ -1273,31 +675,12 @@ const PublicDemoEventForm = () => {
                   }
                   filterType={formData.filterType}
                   language={formData.language}
-                  allowVideoRecording={false}
-                  allowAudioRecording={false}
-                  headerStyle="modern"
                 />
               </Card>
             </div>
           </div>
         </div>
       </div>
-
-      <Dialog open={pricingOpen} onOpenChange={setPricingOpen}>
-        <DialogContent className="w-screen h-[100dvh] max-h-[100dvh] rounded-none p-4 sm:p-6 sm:rounded-lg sm:h-auto sm:max-h-[90vh] sm:w-full sm:max-w-6xl">
-          <DialogHeader>
-            <DialogTitle>Elige tu plan</DialogTitle>
-            <DialogDescription>
-              Selecciona el plan que mejor encaje con tu evento.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="max-h-[calc(100dvh-80px)] sm:max-h-[80vh] overflow-y-auto pr-1">
-            <div className="mx-auto w-full max-w-6xl">
-              <PricingPreview showHeader={false} mobileLayout="stack" hideDemo />
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };

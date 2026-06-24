@@ -22,6 +22,9 @@ import { Language, getLanguageByCode } from "@/lib/translations";
 import { getCountryByCode, getTimezoneOffset } from "@/lib/countries";
 import { EventFontFamily, getEventFontFamily } from "@/lib/eventFonts";
 import { FilterType, FILTER_ORDER, getFilterClass, getGrainClass } from "@/lib/photoFilters";
+import { hashPassword } from "@/lib/hashPassword";
+import { getEventQrPasswordSettings, withEventQrPasswordSettings } from "@/lib/eventQrPassword";
+import { Json } from "@/integrations/supabase/types";
 import {
   Carousel,
   CarouselContent,
@@ -68,6 +71,7 @@ interface Event {
   header_style?: string | null;
   plan_id?: string | null;
   type?: string | null;
+  limits_json?: Json | null;
 }
 
 type HeaderStyle = "gradient" | "modern";
@@ -161,6 +165,10 @@ const EventForm = () => {
       name: "",
       password: initialPassword,
       adminPassword: initialAdminPassword,
+      qrPasswordEnabled: false,
+      qrPassword: "",
+      qrPasswordHash: "",
+      limitsJson: null as Json | null,
       uploadStartDate: initialUploadStartDate,
       uploadStartTime: initialUploadStartTime,
       uploadEndDate: initialUploadEndDate,
@@ -375,10 +383,16 @@ const EventForm = () => {
       const revealDate = toZonedTime(new Date(event.reveal_time), eventTz);
       const expiryDate = event.expiry_date ? toZonedTime(new Date(event.expiry_date), eventTz) : null;
       
+      const qrPasswordSettings = getEventQrPasswordSettings(event.limits_json);
+
       setFormData({
         name: event.name,
         password: event.password_hash,
         adminPassword: event.admin_password || "",
+        qrPasswordEnabled: qrPasswordSettings.enabled,
+        qrPassword: "",
+        qrPasswordHash: qrPasswordSettings.hash,
+        limitsJson: event.limits_json || null,
         uploadStartDate: format(uploadStartDate, "yyyy-MM-dd"),
         uploadStartTime: format(uploadStartDate, "HH:mm"),
         uploadEndDate: format(uploadEndDate, "yyyy-MM-dd"),
@@ -706,6 +720,25 @@ const EventForm = () => {
         setIsSubmitting(false);
         return;
       }
+      if (formData.qrPasswordEnabled && !formData.qrPassword.trim() && !formData.qrPasswordHash) {
+        toast({
+          title: t("form.errorTitle"),
+          description: "Introduce una contraseña para activar el acceso protegido por QR.",
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
+      }
+      const qrPasswordHashValue = formData.qrPasswordEnabled
+        ? formData.qrPassword.trim()
+          ? await hashPassword(formData.qrPassword.trim())
+          : formData.qrPasswordHash
+        : null;
+      const limitsJsonValue = withEventQrPasswordSettings(
+        formData.limitsJson,
+        formData.qrPasswordEnabled,
+        qrPasswordHashValue
+      );
 
       let customImageUrl = formData.customImageUrl;
       if (formData.customImage) {
@@ -735,6 +768,7 @@ const EventForm = () => {
             name: formData.name,
             password_hash: formData.password,
             admin_password: formData.adminPassword || null,
+            limits_json: limitsJsonValue,
             upload_start_time: uploadStartDateTime.toISOString(),
             upload_end_time: uploadEndDateTime.toISOString(),
             reveal_time: revealDateTime.toISOString(),
@@ -785,6 +819,7 @@ const EventForm = () => {
             name: formData.name,
             password_hash: formData.password,
             admin_password: formData.adminPassword || "",
+            limits_json: limitsJsonValue,
             upload_start_time: uploadStartDateTime.toISOString(),
             upload_end_time: uploadEndDateTime.toISOString(),
             reveal_time: revealDateTime.toISOString(),
@@ -832,6 +867,10 @@ const EventForm = () => {
         }
 
         const createdEvent = created.event;
+        await supabase
+          .from("events")
+          .update({ limits_json: limitsJsonValue } as any)
+          .eq("id", createdEvent.id);
         const eventUrl = `https://acceso.revelao.cam/events/${createdEvent.password_hash}`;
         const qrUrl = await uploadQrImage(eventUrl, createdEvent.id);
         if (qrUrl) {
@@ -865,6 +904,7 @@ const EventForm = () => {
           name: formData.name,
           password_hash: formData.password,
           admin_password: formData.adminPassword || null,
+          limits_json: limitsJsonValue,
           upload_start_time: uploadStartDateTime.toISOString(),
           upload_end_time: uploadEndDateTime.toISOString(),
           reveal_time: revealDateTime.toISOString(),
@@ -1177,6 +1217,51 @@ const EventForm = () => {
                 </div>
               </>
             )}
+
+            <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="space-y-1">
+                  <Label htmlFor="qrPasswordEnabled">Proteger acceso por QR</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Si se activa, los invitados tendrán que introducir esta contraseña antes de acceder al evento desde su QR.
+                  </p>
+                </div>
+                <Switch
+                  id="qrPasswordEnabled"
+                  checked={formData.qrPasswordEnabled}
+                  onCheckedChange={(checked) =>
+                    setFormData({
+                      ...formData,
+                      qrPasswordEnabled: checked,
+                      qrPassword: checked ? formData.qrPassword : "",
+                    })
+                  }
+                />
+              </div>
+
+              {formData.qrPasswordEnabled && (
+                <div className="space-y-2">
+                  <Label htmlFor="qrPassword">
+                    Contraseña del QR<span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="qrPassword"
+                    type="text"
+                    value={formData.qrPassword}
+                    onChange={(e) =>
+                      setFormData({ ...formData, qrPassword: e.target.value })
+                    }
+                    placeholder="Contraseña para invitados"
+                    required={formData.qrPasswordEnabled}
+                  />
+                  {formData.qrPasswordHash && !formData.qrPassword ? (
+                    <p className="text-xs text-muted-foreground">
+                      Ya hay una contraseña configurada. Deja este campo vacío para conservarla.
+                    </p>
+                  ) : null}
+                </div>
+              )}
+            </div>
 
             {!isSuperAdmin && (
             <div className="space-y-2">

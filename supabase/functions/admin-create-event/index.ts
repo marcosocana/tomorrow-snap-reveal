@@ -58,6 +58,7 @@ type AdminEventPayload = {
     max_audios?: number | null;
     max_audio_duration?: number;
     header_style?: string | null;
+    limits_json?: Record<string, unknown> | null;
     is_demo?: boolean;
     type?: string | null;
     plan_id?: string | null;
@@ -266,7 +267,7 @@ serve(async (req) => {
         is_demo: event.is_demo ?? (planMeta.type === "demo"),
         type: event.type ?? planMeta.type,
         plan_id: event.plan_id ?? planMeta.planId,
-        limits_json: event.max_photos ? { max_photos: event.max_photos } : null,
+        limits_json: event.limits_json ?? (event.max_photos ? { max_photos: event.max_photos } : null),
         country_code: event.country_code ?? "ES",
         timezone: event.timezone ?? "Europe/Madrid",
         language: event.language ?? "es",

@@ -42,6 +42,7 @@ type PaidEventPayload = {
     language?: string | null;
     description?: string | null;
     expiry_redirect_url?: string | null;
+    limits_json?: Record<string, unknown> | null;
   };
 };
 
@@ -68,7 +69,6 @@ serve(async (req) => {
     if (!redeemToken || !event?.name) {
       return json({ error: "INVALID_REQUEST" }, 400);
     }
-
     const authHeader = req.headers.get("Authorization") || "";
     const tokenAuth = authHeader.replace("Bearer ", "").trim();
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -220,7 +220,7 @@ serve(async (req) => {
         is_demo: false,
         type: "paid",
         plan_id: plan.id,
-        limits_json: {
+        limits_json: event.limits_json ?? {
           max_photos: maxPhotos,
           max_videos: maxVideos,
           max_audios: maxAudios,

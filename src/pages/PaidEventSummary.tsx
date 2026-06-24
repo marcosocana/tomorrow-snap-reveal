@@ -32,6 +32,7 @@ const PaidEventSummary = () => {
 
   const event = location.state?.event as EventData | undefined;
   const qrFromState = location.state?.qrUrl as string | undefined;
+  const qrAccessPassword = location.state?.qrAccessPassword as string | null | undefined;
 
   if (!event) {
     return <Navigate to="/event-management" replace />;
@@ -174,6 +175,13 @@ const PaidEventSummary = () => {
                 </Button>
               </div>
             </div>
+
+            {qrAccessPassword ? (
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-muted-foreground">Contraseña del QR</label>
+                <p className="text-sm font-mono">{qrAccessPassword}</p>
+              </div>
+            ) : null}
 
             <div className="grid sm:grid-cols-2 gap-4">
               <div className="space-y-1">
