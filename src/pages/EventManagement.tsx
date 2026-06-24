@@ -66,15 +66,15 @@ interface Event {
   limits_json?: any;
 }
 
-type AdminEventTab = "upcoming" | "past" | "all" | "tests";
-type ManualAdminEventTab = Exclude<AdminEventTab, "all">;
+type AdminEventTab = "upcoming" | "past" | "tests" | "others";
+type ManualAdminEventTab = Exclude<AdminEventTab, "others">;
 
 const ADMIN_EVENT_TAB_KEY = "admin_event_tab";
 const ADMIN_EVENT_TABS: Array<{ value: AdminEventTab; label: string }> = [
   { value: "upcoming", label: "Próximos" },
   { value: "past", label: "Pasados" },
-  { value: "all", label: "Todos" },
   { value: "tests", label: "Pruebas" },
+  { value: "others", label: "Otros" },
 ];
 const ADMIN_EVENT_MOVE_TARGETS: Array<{ value: AdminEventTab; label: string }> = ADMIN_EVENT_TABS;
 
@@ -190,7 +190,7 @@ const EventManagement = () => {
   const [adminSearch, setAdminSearch] = useState("");
   const [adminTypeFilter, setAdminTypeFilter] = useState<"all" | "Demo" | "Start" | "Plus" | "Pro">("all");
   const [adminPhoneFilter, setAdminPhoneFilter] = useState<"all" | "yes" | "no">("all");
-  const [adminActiveTab, setAdminActiveTab] = useState<AdminEventTab>("upcoming");
+  const [adminActiveTab, setAdminActiveTab] = useState<AdminEventTab>("others");
   const [adminSort, setAdminSort] = useState<{ key: "name" | "type" | "created_at" | "email" | "photos"; direction: "asc" | "desc" }>({
     key: "created_at",
     direction: "desc",
@@ -656,14 +656,16 @@ const EventManagement = () => {
     const counts: Record<AdminEventTab, number> = {
       upcoming: 0,
       past: 0,
-      all: events.length,
       tests: 0,
+      others: 0,
     };
 
     events.forEach((event) => {
       const manualTab = getManualAdminEventTab(event);
       if (manualTab) {
         counts[manualTab] += 1;
+      } else {
+        counts.others += 1;
       }
     });
 
@@ -684,7 +686,8 @@ const EventManagement = () => {
         adminPhoneFilter === "all" ||
         (adminPhoneFilter === "yes" && hasPhone) ||
         (adminPhoneFilter === "no" && !hasPhone);
-      const matchesTab = adminActiveTab === "all" || getManualAdminEventTab(event) === adminActiveTab;
+      const manualTab = getManualAdminEventTab(event);
+      const matchesTab = adminActiveTab === "others" ? !manualTab : manualTab === adminActiveTab;
       return matchesSearch && matchesType && matchesPhone && matchesTab;
     });
 
@@ -871,7 +874,7 @@ const EventManagement = () => {
       await Promise.all(
         selectedEvents.map((event) => {
           const nextLimits = parseEventLimits(event.limits_json);
-          if (targetTab === "all") {
+          if (targetTab === "others") {
             delete nextLimits[ADMIN_EVENT_TAB_KEY];
           } else {
             nextLimits[ADMIN_EVENT_TAB_KEY] = targetTab;
@@ -891,7 +894,7 @@ const EventManagement = () => {
         prev.map((event) => {
           if (!ids.includes(event.id)) return event;
           const nextLimits = parseEventLimits(event.limits_json);
-          if (targetTab === "all") {
+          if (targetTab === "others") {
             delete nextLimits[ADMIN_EVENT_TAB_KEY];
           } else {
             nextLimits[ADMIN_EVENT_TAB_KEY] = targetTab;
@@ -903,8 +906,8 @@ const EventManagement = () => {
       toast({
         title: "Eventos movidos",
         description:
-          targetTab === "all"
-            ? `${ids.length} evento(s) movidos a Todos.`
+          targetTab === "others"
+            ? `${ids.length} evento(s) movidos a Otros.`
             : `${ids.length} evento(s) movidos a ${getAdminEventTabLabel(targetTab)}.`,
       });
     } catch (error) {
