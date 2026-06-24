@@ -4,9 +4,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, Plus, Edit, Copy, Download, Eye, LogOut, ArrowLeft, User, Lock, Camera, Video, Mic } from "lucide-react";
+import { Calendar, Plus, Edit, Copy, Download, Eye, LogOut, ArrowLeft, User, Lock, Camera, Video, Mic, MoveRight, ChevronDown } from "lucide-react";
 import { format } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 import { getCountryByCode } from "@/lib/countries";
@@ -59,6 +65,41 @@ interface Event {
   max_audio_duration?: number | null;
   limits_json?: any;
 }
+
+type AdminEventTab = "upcoming" | "past" | "all" | "tests";
+type ManualAdminEventTab = Exclude<AdminEventTab, "all">;
+
+const ADMIN_EVENT_TAB_KEY = "admin_event_tab";
+const ADMIN_EVENT_TABS: Array<{ value: AdminEventTab; label: string }> = [
+  { value: "upcoming", label: "Próximos" },
+  { value: "past", label: "Pasados" },
+  { value: "all", label: "Todos" },
+  { value: "tests", label: "Pruebas" },
+];
+const ADMIN_EVENT_MOVE_TARGETS: Array<{ value: AdminEventTab; label: string }> = ADMIN_EVENT_TABS;
+
+const parseEventLimits = (raw: any): Record<string, unknown> => {
+  if (!raw) return {};
+  if (typeof raw === "string") {
+    try {
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+        ? (parsed as Record<string, unknown>)
+        : {};
+    } catch {
+      return {};
+    }
+  }
+  return typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
+};
+
+const getManualAdminEventTab = (event: Event): ManualAdminEventTab | null => {
+  const value = parseEventLimits(event.limits_json)[ADMIN_EVENT_TAB_KEY];
+  return value === "upcoming" || value === "past" || value === "tests" ? value : null;
+};
+
+const getAdminEventTabLabel = (value: AdminEventTab) =>
+  ADMIN_EVENT_TABS.find((tab) => tab.value === value)?.label || value;
 
 interface MediaUsageTagProps {
   photoCount: number | string;
@@ -149,6 +190,7 @@ const EventManagement = () => {
   const [adminSearch, setAdminSearch] = useState("");
   const [adminTypeFilter, setAdminTypeFilter] = useState<"all" | "Demo" | "Start" | "Plus" | "Pro">("all");
   const [adminPhoneFilter, setAdminPhoneFilter] = useState<"all" | "yes" | "no">("all");
+  const [adminActiveTab, setAdminActiveTab] = useState<AdminEventTab>("upcoming");
   const [adminSort, setAdminSort] = useState<{ key: "name" | "type" | "created_at" | "email" | "photos"; direction: "asc" | "desc" }>({
     key: "created_at",
     direction: "desc",
@@ -158,6 +200,7 @@ const EventManagement = () => {
   const [adminPageSize, setAdminPageSize] = useState<number | "all">(30);
   // pageSize computed after superAdminEvents below
   const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(new Set());
+  const [redeemGeneratorOpen, setRedeemGeneratorOpen] = useState(false);
   const [redeemPlan, setRedeemPlan] = useState<"demo" | "small" | "medium" | "xxl">("small");
   const [generatedRedeem, setGeneratedRedeem] = useState<string | null>(null);
   const [isGeneratingRedeem, setIsGeneratingRedeem] = useState(false);
@@ -609,6 +652,24 @@ const EventManagement = () => {
     }));
   };
 
+  const adminTabCounts = useMemo(() => {
+    const counts: Record<AdminEventTab, number> = {
+      upcoming: 0,
+      past: 0,
+      all: events.length,
+      tests: 0,
+    };
+
+    events.forEach((event) => {
+      const manualTab = getManualAdminEventTab(event);
+      if (manualTab) {
+        counts[manualTab] += 1;
+      }
+    });
+
+    return counts;
+  }, [events]);
+
   const superAdminEvents = useMemo(() => {
     const search = adminSearch.trim().toLowerCase();
     let list = events.filter((event) => {
@@ -623,7 +684,8 @@ const EventManagement = () => {
         adminPhoneFilter === "all" ||
         (adminPhoneFilter === "yes" && hasPhone) ||
         (adminPhoneFilter === "no" && !hasPhone);
-      return matchesSearch && matchesType && matchesPhone;
+      const matchesTab = adminActiveTab === "all" || getManualAdminEventTab(event) === adminActiveTab;
+      return matchesSearch && matchesType && matchesPhone && matchesTab;
     });
 
     list = [...list].sort((a, b) => {
@@ -653,13 +715,13 @@ const EventManagement = () => {
       return 0;
     });
     return list;
-  }, [events, adminSearch, adminTypeFilter, adminPhoneFilter, adminSort, eventPhotoCounts, eventMediaCounts]);
+  }, [events, adminSearch, adminTypeFilter, adminPhoneFilter, adminActiveTab, adminSort, eventPhotoCounts, eventMediaCounts]);
 
   const pageSize = adminPageSize === "all" ? superAdminEvents.length || 1 : adminPageSize;
 
   useEffect(() => {
     setAdminPage(1);
-  }, [adminSearch, adminTypeFilter, adminPhoneFilter, adminSort, adminPageSize]);
+  }, [adminSearch, adminTypeFilter, adminPhoneFilter, adminActiveTab, adminSort, adminPageSize]);
 
   useEffect(() => {
     if (selectedEventIds.size === 0) return;
@@ -699,24 +761,7 @@ const EventManagement = () => {
       return directPin.trim();
     }
 
-    const raw = event.limits_json;
-    if (!raw) return null;
-
-    let parsed: Record<string, unknown> | null = null;
-    if (typeof raw === "string") {
-      try {
-        const maybeParsed = JSON.parse(raw);
-        if (maybeParsed && typeof maybeParsed === "object" && !Array.isArray(maybeParsed)) {
-          parsed = maybeParsed as Record<string, unknown>;
-        }
-      } catch {
-        parsed = null;
-      }
-    } else if (typeof raw === "object" && !Array.isArray(raw)) {
-      parsed = raw as Record<string, unknown>;
-    }
-
-    if (!parsed) return null;
+    const parsed = parseEventLimits(event.limits_json);
     const pin = parsed.deletion_lock_pin;
     return typeof pin === "string" && pin.trim().length > 0 ? pin.trim() : null;
   };
@@ -812,6 +857,61 @@ const EventManagement = () => {
       toast({
         title: "No se pudo bloquear",
         description: "Hubo un problema al guardar el PIN de bloqueo.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleMoveSelection = async (targetTab: AdminEventTab) => {
+    const ids = Array.from(selectedEventIds);
+    if (ids.length === 0) return;
+    const selectedEvents = events.filter((event) => ids.includes(event.id));
+
+    try {
+      await Promise.all(
+        selectedEvents.map((event) => {
+          const nextLimits = parseEventLimits(event.limits_json);
+          if (targetTab === "all") {
+            delete nextLimits[ADMIN_EVENT_TAB_KEY];
+          } else {
+            nextLimits[ADMIN_EVENT_TAB_KEY] = targetTab;
+          }
+
+          return supabase
+            .from("events")
+            .update({ limits_json: nextLimits })
+            .eq("id", event.id)
+            .then(({ error }) => {
+              if (error) throw error;
+            });
+        }),
+      );
+
+      setEvents((prev) =>
+        prev.map((event) => {
+          if (!ids.includes(event.id)) return event;
+          const nextLimits = parseEventLimits(event.limits_json);
+          if (targetTab === "all") {
+            delete nextLimits[ADMIN_EVENT_TAB_KEY];
+          } else {
+            nextLimits[ADMIN_EVENT_TAB_KEY] = targetTab;
+          }
+          return { ...event, limits_json: nextLimits };
+        }),
+      );
+      setSelectedEventIds(new Set());
+      toast({
+        title: "Eventos movidos",
+        description:
+          targetTab === "all"
+            ? `${ids.length} evento(s) movidos a Todos.`
+            : `${ids.length} evento(s) movidos a ${getAdminEventTabLabel(targetTab)}.`,
+      });
+    } catch (error) {
+      console.error("Error moving selected events:", error);
+      toast({
+        title: "No se pudieron mover",
+        description: "Hubo un problema al guardar la organización de los eventos.",
         variant: "destructive",
       });
     }
@@ -1089,22 +1189,43 @@ const EventManagement = () => {
     <div className="min-h-screen bg-background p-4 md:p-6" data-scroll-container>
         <div className="max-w-6xl mx-auto space-y-4 md:space-y-6">
           <div className="flex flex-col gap-4">
-            <div className="flex items-start justify-between w-full">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 w-full">
               <h1
                 className="text-2xl sm:text-3xl font-bold text-foreground"
                 data-scroll-anchor
               >
                 {isDemoMode ? t("events.titleDemo") : t("events.title")}
               </h1>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setAccountOpen(true)}
-                aria-label="Cuenta"
-                className="rounded-full"
-              >
-                <User className="w-4 h-4" />
-              </Button>
+              <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                {isSuperAdmin ? (
+                  <>
+                    <Button
+                      className="gap-2"
+                      onClick={() => navigate(`${pathPrefix}/event-form`)}
+                    >
+                      <Plus className="w-4 h-4" />
+                      {t("events.new")}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="gap-2"
+                      onClick={() => setRedeemGeneratorOpen(true)}
+                    >
+                      <Plus className="w-4 h-4" />
+                      Generar código
+                    </Button>
+                  </>
+                ) : null}
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setAccountOpen(true)}
+                  aria-label="Cuenta"
+                  className="rounded-full"
+                >
+                  <User className="w-4 h-4" />
+                </Button>
+              </div>
             </div>
             <div className="flex gap-2 w-full sm:w-auto flex-wrap">
               {!adminEventId && !isSuperAdmin && (
@@ -1140,46 +1261,35 @@ const EventManagement = () => {
 
         {isSuperAdmin ? (
           <Card className="p-4 space-y-4">
-            <div className="flex flex-col lg:flex-row lg:items-center gap-3">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-foreground">Generar código de canje</span>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <select
-                  value={redeemPlan}
-                  onChange={(e) => setRedeemPlan(e.target.value as any)}
-                  className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                >
-                  <option value="demo">Demo</option>
-                  <option value="small">Start</option>
-                  <option value="medium">Plus</option>
-                  <option value="xxl">Pro</option>
-                </select>
-                <Button
-                  variant="default"
-                  className="gap-2"
-                  onClick={handleGenerateRedeem}
-                  disabled={isGeneratingRedeem}
-                >
-                  {isGeneratingRedeem ? "Generando..." : "Generar"}
-                </Button>
-                {generatedRedeem ? (
-                  <Button
-                    variant="outline"
-                    className="gap-2"
-                    onClick={handleCopyRedeem}
+            <div className="flex flex-wrap gap-2">
+              {ADMIN_EVENT_TABS.map((tab) => {
+                const isActive = adminActiveTab === tab.value;
+                return (
+                  <button
+                    key={tab.value}
+                    type="button"
+                    onClick={() => setAdminActiveTab(tab.value)}
+                    className={`inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm font-medium transition-colors ${
+                      isActive
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-border bg-background text-foreground hover:bg-muted"
+                    }`}
                   >
-                    Copiar enlace
-                  </Button>
-                ) : null}
-              </div>
+                    <span>{tab.label}</span>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs ${
+                        isActive
+                          ? "bg-primary-foreground/20 text-primary-foreground"
+                          : "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {adminTabCounts[tab.value]}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
-            {generatedRedeem ? (
-              <div className="rounded-md border border-border bg-muted/50 px-3 py-2 text-sm">
-                Código: <span className="font-semibold">{generatedRedeem}</span>
-              </div>
-            ) : null}
-            <div className="flex flex-col lg:flex-row lg:items-center gap-3">
+            <div className="flex flex-col lg:flex-row lg:items-center gap-3 pt-2">
               <div className="flex-1">
                 <Input
                   value={adminSearch}
@@ -1209,15 +1319,6 @@ const EventManagement = () => {
                   <option value="no">{t("events.filters.phoneNo")}</option>
                 </select>
               </div>
-              <div className="lg:ml-auto">
-                <Button
-                  className="gap-2"
-                  onClick={() => navigate(`${pathPrefix}/event-form`)}
-                >
-                  <Plus className="w-4 h-4" />
-                  {t("events.new")}
-                </Button>
-              </div>
             </div>
             {selectedEventIds.size > 0 ? (
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-muted/50 px-3 py-2">
@@ -1225,6 +1326,25 @@ const EventManagement = () => {
                   {selectedEventIds.size} seleccionados
                 </p>
                 <div className="flex items-center gap-2">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" className="gap-1">
+                        <MoveRight className="w-4 h-4" />
+                        Mover a...
+                        <ChevronDown className="w-3.5 h-3.5" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {ADMIN_EVENT_MOVE_TARGETS.map((target) => (
+                        <DropdownMenuItem
+                          key={target.value}
+                          onClick={() => handleMoveSelection(target.value)}
+                        >
+                          {target.label}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                   <Button
                     variant="outline"
                     size="sm"
@@ -1582,6 +1702,50 @@ const EventManagement = () => {
                 </div>
               </div>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={redeemGeneratorOpen} onOpenChange={setRedeemGeneratorOpen}>
+        <DialogContent className="max-w-md w-[92vw] sm:w-full">
+          <DialogHeader>
+            <DialogTitle>Generar código de canje</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">Tipo de evento</label>
+              <select
+                value={redeemPlan}
+                onChange={(e) => setRedeemPlan(e.target.value as any)}
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+              >
+                <option value="demo">Demo</option>
+                <option value="small">Start</option>
+                <option value="medium">Plus</option>
+                <option value="xxl">Pro</option>
+              </select>
+            </div>
+            <Button
+              className="w-full gap-2"
+              onClick={handleGenerateRedeem}
+              disabled={isGeneratingRedeem}
+            >
+              {isGeneratingRedeem ? "Generando..." : "Generar código"}
+            </Button>
+            {generatedRedeem ? (
+              <div className="space-y-3 rounded-md border border-border bg-muted/50 px-3 py-3 text-sm">
+                <div>
+                  Código: <span className="font-semibold">{generatedRedeem}</span>
+                </div>
+                <Button
+                  variant="outline"
+                  className="w-full gap-2"
+                  onClick={handleCopyRedeem}
+                >
+                  Copiar enlace
+                </Button>
+              </div>
+            ) : null}
           </div>
         </DialogContent>
       </Dialog>
