@@ -34,7 +34,7 @@ import {
 } from "@/components/ui/carousel";
 import { useAdminI18n } from "@/lib/adminI18n";
 import { QRCodeSVG } from "qrcode.react";
-import defaultQrLogo from "@/assets/marca_revelao_qr_evento.png";
+const defaultQrLogo = "/marca_revelao_qr_evento.png";
 const defaultDemoLogo = "/demo-logo.png";
 import weddingPreview from "@/assets/testimonial-wedding.jpg";
 
