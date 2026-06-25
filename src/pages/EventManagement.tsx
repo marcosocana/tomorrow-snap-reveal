@@ -222,8 +222,8 @@ const EventManagement = () => {
   const [adminTypeFilter, setAdminTypeFilter] = useState<"all" | "Demo" | "Start" | "Plus" | "Pro">("all");
   const [adminPhoneFilter, setAdminPhoneFilter] = useState<"all" | "yes" | "no">("all");
   const [adminActiveTab, setAdminActiveTab] = useState<AdminEventTab>("others");
-  const [adminSort, setAdminSort] = useState<{ key: "name" | "type" | "created_at" | "email" | "photos"; direction: "asc" | "desc" }>({
-    key: "created_at",
+  const [adminSort, setAdminSort] = useState<{ key: "name" | "type" | "start" | "email" | "photos"; direction: "asc" | "desc" }>({
+    key: "start",
     direction: "desc",
   });
   const [qrPreview, setQrPreview] = useState<{ src?: string; value: string } | null>(null);
@@ -676,7 +676,7 @@ const EventManagement = () => {
     return { photos, videos, audios };
   };
 
-  const handleAdminSort = (key: "name" | "type" | "created_at" | "email" | "photos") => {
+  const handleAdminSort = (key: "name" | "type" | "start" | "email" | "photos") => {
     setAdminSort((prev) => ({
       key,
       direction: prev.key === key && prev.direction === "asc" ? "desc" : "asc",
@@ -734,9 +734,9 @@ const EventManagement = () => {
             return (getAdminOwnerEmail(event) || "").toLowerCase();
           case "photos":
             return eventMediaCounts[event.id]?.photos ?? eventPhotoCounts[event.id] ?? 0;
-          case "created_at":
+          case "start":
           default:
-            return event.created_at || "";
+            return event.upload_start_time || "";
         }
       };
       const aValue = getValue(a);
@@ -1515,7 +1515,7 @@ const EventManagement = () => {
                     <th className="py-3 pr-4 font-medium cursor-pointer" onClick={() => handleAdminSort("type")}>
                       {t("events.table.type")}
                     </th>
-                    <th className="py-3 pr-4 font-medium cursor-pointer" onClick={() => handleAdminSort("created_at")}>
+                    <th className="py-3 pr-4 font-medium cursor-pointer" onClick={() => handleAdminSort("start")}>
                       {t("events.table.created")}
                     </th>
                     <th className="py-3 pr-4 font-medium cursor-pointer" onClick={() => handleAdminSort("email")}>
@@ -1565,8 +1565,8 @@ const EventManagement = () => {
                           </span>
                         </td>
                         <td className="py-3 pr-4">
-                          {event.created_at
-                            ? format(new Date(event.created_at), "dd/MM/yyyy")
+                          {event.upload_start_time
+                            ? formatInTimeZone(new Date(event.upload_start_time), event.timezone || "Europe/Madrid", "dd/MM/yyyy")
                             : "-"}
                         </td>
                         <td className="py-3 pr-4">
