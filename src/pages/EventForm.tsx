@@ -96,6 +96,11 @@ const getQrImageUrlFromLimits = (raw: Json | null | undefined) => {
   return typeof qrImageUrl === "string" && qrImageUrl.trim() ? qrImageUrl.trim() : null;
 };
 
+const isNuevoEventoDemo2 = (raw: Json | null | undefined) => {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return false;
+  return (raw as Record<string, Json | undefined>).created_from === "nuevoeventodemo2";
+};
+
 type HeaderStyle = "gradient" | "modern";
 type PlanType = "demo" | "small" | "medium" | "xxl" | "custom";
 
@@ -302,8 +307,12 @@ const EventForm = () => {
     return combined.includes("allow_image_attachment") || combined.includes("allow_video_attachment");
   };
 
-  const getEventQrUrl = (id: string) =>
-    getQrImageUrlFromLimits(formData.limitsJson) || localStorage.getItem(`event-qr-url-${id}`);
+  const getEventQrUrl = (id: string) => {
+    const storedQrUrl = getQrImageUrlFromLimits(formData.limitsJson) || localStorage.getItem(`event-qr-url-${id}`);
+    if (storedQrUrl) return storedQrUrl;
+    if (!isNuevoEventoDemo2(formData.limitsJson)) return null;
+    return supabase.storage.from("event-photos").getPublicUrl(`event-qr/qr-${id}.png`).data.publicUrl;
+  };
 
   const loadEventMediaCounts = async (id: string) => {
     try {

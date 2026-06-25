@@ -127,6 +127,7 @@ const getStoredQrImageUrl = (event: Event) => {
   const qrImageUrl = parseEventLimits(event.limits_json).qr_image_url;
   return typeof qrImageUrl === "string" && qrImageUrl.trim() ? qrImageUrl.trim() : null;
 };
+const isNuevoEventoDemo2 = (event: Event) => parseEventLimits(event.limits_json).created_from === "nuevoeventodemo2";
 
 interface MediaUsageTagProps {
   photoCount: number | string;
@@ -1009,8 +1010,12 @@ const EventManagement = () => {
     }
   };
 
-  const getEventQrUrl = (event: Event) =>
-    getStoredQrImageUrl(event) || localStorage.getItem(`event-qr-url-${event.id}`);
+  const getEventQrUrl = (event: Event) => {
+    const storedQrUrl = getStoredQrImageUrl(event) || localStorage.getItem(`event-qr-url-${event.id}`);
+    if (storedQrUrl) return storedQrUrl;
+    if (!isNuevoEventoDemo2(event)) return null;
+    return supabase.storage.from("event-photos").getPublicUrl(`event-qr/qr-${event.id}.png`).data.publicUrl;
+  };
 
   const downloadQrFromValue = async (eventUrl: string, eventName: string) => {
     const container = document.createElement("div");
