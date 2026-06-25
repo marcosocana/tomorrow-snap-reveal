@@ -174,6 +174,7 @@ const Camera = () => {
   const eventId = localStorage.getItem("eventId");
   const [eventName, setEventName] = useState<string>(() => localStorage.getItem("eventName") || "");
   const [eventPassword, setEventPassword] = useState<string>("");
+  const [eventLimitsJson, setEventLimitsJson] = useState<unknown>(null);
   const [searchParams] = useSearchParams();
   const isDemoEnvironmentFromQuery = searchParams.get("demo_env") === "1";
   const [queuedRecordingMode, setQueuedRecordingMode] = useState<"video" | "audio" | null>(() => {
@@ -265,7 +266,7 @@ const Camera = () => {
     try {
       const { data, error } = await supabase
         .from("events")
-        .select("name, reveal_time, upload_start_time, upload_end_time, password_hash, max_photos, custom_image_url, background_image_url, description, font_family, font_size, show_legal_text, legal_text_type, allow_video_recording, max_videos, max_video_duration, allow_audio_recording, max_audios, max_audio_duration, allow_image_attachment, allow_video_attachment, header_style, is_demo")
+        .select("name, reveal_time, upload_start_time, upload_end_time, password_hash, max_photos, custom_image_url, background_image_url, description, font_family, font_size, show_legal_text, legal_text_type, allow_video_recording, max_videos, max_video_duration, allow_audio_recording, max_audios, max_audio_duration, allow_image_attachment, allow_video_attachment, header_style, is_demo, limits_json")
         .eq("id", eventId)
         .single();
       if (data && !error) {
@@ -281,6 +282,7 @@ const Camera = () => {
         setUploadEndTime(data.upload_end_time || "");
         setMaxPhotos(data.max_photos ?? null);
         setEventPassword(data.password_hash || "");
+        setEventLimitsJson((data as any).limits_json || null);
         setCustomImageUrl(data.custom_image_url || "");
         setBackgroundImageUrl(data.background_image_url || "");
         setEventDescription(data.description || "");
@@ -1386,6 +1388,7 @@ const Camera = () => {
                       eventName={eventName || ""}
                       open={showShareDialog}
                       onOpenChange={setShowShareDialog}
+                      eventLimitsJson={eventLimitsJson}
                       language={language}
                     />
                   </>
@@ -1490,6 +1493,7 @@ const Camera = () => {
                       eventName={eventName || ""}
                       open={showShareDialog}
                       onOpenChange={setShowShareDialog}
+                      eventLimitsJson={eventLimitsJson}
                       language={language}
                     />
                   </>
@@ -1593,6 +1597,7 @@ const Camera = () => {
                       eventName={eventName || ""}
                       open={showShareDialog}
                       onOpenChange={setShowShareDialog}
+                      eventLimitsJson={eventLimitsJson}
                       language={language}
                     />
                   </>
@@ -1702,6 +1707,7 @@ const Camera = () => {
                       eventName={eventName || ""}
                       open={showShareDialog}
                       onOpenChange={setShowShareDialog}
+                      eventLimitsJson={eventLimitsJson}
                       language={language}
                     />
                   </>
@@ -1990,6 +1996,7 @@ const Camera = () => {
                       eventName={eventName || ""}
                       open={showShareDialog}
                       onOpenChange={setShowShareDialog}
+                      eventLimitsJson={eventLimitsJson}
                       language={language}
                     />
                   </>
@@ -2066,6 +2073,7 @@ const Camera = () => {
                     eventName={eventName || ""}
                     open={showShareDialog}
                     onOpenChange={setShowShareDialog}
+                    eventLimitsJson={eventLimitsJson}
                     language={language}
                   />
                 </>

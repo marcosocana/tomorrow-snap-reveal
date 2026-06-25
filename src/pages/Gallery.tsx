@@ -171,6 +171,7 @@ const Gallery = () => {
   const eventId = localStorage.getItem("eventId");
   const [eventName, setEventName] = useState<string>(() => localStorage.getItem("eventName") || "");
   const [eventPassword, setEventPassword] = useState<string>("");
+  const [eventLimitsJson, setEventLimitsJson] = useState<unknown>(null);
   const [filterType, setFilterType] = useState<FilterType>("vintage");
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [pricingOpen, setPricingOpen] = useState(false);
@@ -590,6 +591,7 @@ const Gallery = () => {
         setEventName(data.name || "");
         localStorage.setItem("eventName", data.name || "");
         setEventPassword(data.password_hash);
+        setEventLimitsJson((data as any).limits_json || null);
         setFilterType((data.filter_type as FilterType) || "vintage");
         setEventCustomImage(data.custom_image_url);
         setEventDescription(data.description);
@@ -2219,6 +2221,7 @@ const Gallery = () => {
                  open={showShareDialog}
                  onOpenChange={setShowShareDialog}
                  isRevealed={true}
+                 eventLimitsJson={eventLimitsJson}
                  language={language}
                />
       )}

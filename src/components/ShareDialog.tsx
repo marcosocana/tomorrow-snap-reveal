@@ -10,7 +10,8 @@ import {
 import { Share2, Copy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Language } from "@/lib/translations";
-import { supabase } from "@/integrations/supabase/client";
+import { getEventQrStorageUrl, getEventUrl, getFallbackQrUrl, getStoredEventQrUrl } from "@/lib/eventQr";
+import { useEffect, useMemo, useState } from "react";
 
 interface ShareDialogProps {
   eventId?: string | null;
@@ -20,17 +21,36 @@ interface ShareDialogProps {
   onOpenChange: (open: boolean) => void;
   isRevealed?: boolean;
   language?: Language;
+  eventLimitsJson?: unknown;
 }
 
-const ShareDialog = ({ eventId, eventPassword, eventName, open, onOpenChange, isRevealed = false, language = "es" }: ShareDialogProps) => {
+const ShareDialog = ({
+  eventId,
+  eventPassword,
+  eventName,
+  open,
+  onOpenChange,
+  isRevealed = false,
+  language = "es",
+  eventLimitsJson,
+}: ShareDialogProps) => {
   const { toast } = useToast();
-  const eventUrl = `https://acceso.revelao.cam/events/${eventPassword}`;
-  const qrUrl = eventId
-    ? localStorage.getItem(`event-qr-url-${eventId}`) ||
-      supabase.storage
-        .from("event-photos")
-        .getPublicUrl(`event-qr/qr-${eventId}.png`).data.publicUrl
-    : "";
+  const eventUrl = getEventUrl(eventPassword);
+  const qrUrlCandidates = useMemo(
+    () =>
+      [
+        getStoredEventQrUrl(eventId, eventLimitsJson),
+        getEventQrStorageUrl(eventId),
+        getFallbackQrUrl(eventUrl),
+      ].filter((url): url is string => Boolean(url)),
+    [eventId, eventLimitsJson, eventUrl]
+  );
+  const [qrUrlIndex, setQrUrlIndex] = useState(0);
+  const qrUrl = qrUrlCandidates[qrUrlIndex] || "";
+
+  useEffect(() => {
+    setQrUrlIndex(0);
+  }, [eventId, eventLimitsJson, eventUrl, open]);
 
   // Translations
   const texts = {
@@ -122,9 +142,14 @@ const ShareDialog = ({ eventId, eventPassword, eventName, open, onOpenChange, is
           {/* QR Code */}
           <div className="bg-white p-4 rounded-lg">
             {qrUrl ? (
-              <img src={qrUrl} alt="QR del evento" className="w-[200px] h-[200px]" />
+              <img
+                src={qrUrl}
+                alt="QR del evento"
+                className="w-[200px] h-[200px]"
+                onError={() => setQrUrlIndex((current) => current + 1)}
+              />
             ) : (
-              <QRCodeSVG value={eventUrl} size={200} />
+              <QRCodeSVG value={eventUrl} size={200} level="H" includeMargin />
             )}
           </div>
 
