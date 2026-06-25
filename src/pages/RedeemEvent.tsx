@@ -77,6 +77,10 @@ const RedeemEvent = () => {
       adminPassword: generateHash(),
       qrPasswordEnabled: false,
       qrPassword: "",
+      qrPasswordScope: {
+        camera: true,
+        gallery: true,
+      },
       uploadStartDate: format(now, "yyyy-MM-dd"),
       uploadStartTime: currentTime,
       uploadEndDate: format(addDays(now, 1), "yyyy-MM-dd"),
@@ -314,7 +318,9 @@ const RedeemEvent = () => {
     const hasEnd = Boolean(formData.uploadEndDate && formData.uploadEndTime);
     const hasReveal = Boolean(formData.revealDate && formData.revealTime);
     const hasQrPassword = !formData.qrPasswordEnabled || formData.qrPassword.trim().length > 0;
-    return hasName && hasStart && hasEnd && hasReveal && hasQrPassword;
+    const hasQrPasswordScope =
+      !formData.qrPasswordEnabled || formData.qrPasswordScope.camera || formData.qrPasswordScope.gallery;
+    return hasName && hasStart && hasEnd && hasReveal && hasQrPassword && hasQrPasswordScope;
   };
 
   const handleImageUpload = async (file: File): Promise<string | null> => {
@@ -391,6 +397,15 @@ const RedeemEvent = () => {
         setIsSubmitting(false);
         return;
       }
+      if (formData.qrPasswordEnabled && !formData.qrPasswordScope.camera && !formData.qrPasswordScope.gallery) {
+        toast({
+          title: "Faltan campos obligatorios",
+          description: "Elige si la contraseña se pedirá al echar fotos, al verlas o en ambas.",
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
+      }
 
       const eventTz = formData.timezone;
       const qrPasswordHash = formData.qrPasswordEnabled
@@ -403,7 +418,8 @@ const RedeemEvent = () => {
           max_audios: plan?.maxAudios ?? null,
         },
         formData.qrPasswordEnabled,
-        qrPasswordHash
+        qrPasswordHash,
+        formData.qrPasswordScope
       );
       const uploadStartDateTime = fromZonedTime(`${formData.uploadStartDate}T${formData.uploadStartTime}:00`, eventTz);
       const uploadEndDateTime = fromZonedTime(`${formData.uploadEndDate}T${formData.uploadEndTime}:00`, eventTz);
@@ -491,7 +507,8 @@ const RedeemEvent = () => {
       const limitsJsonValue = withEventQrPasswordSettings(
         (newEvent as any).limits_json || null,
         formData.qrPasswordEnabled,
-        qrPasswordHash
+        qrPasswordHash,
+        formData.qrPasswordScope
       );
       if (formData.qrPasswordEnabled) {
         await supabase
@@ -995,24 +1012,74 @@ const RedeemEvent = () => {
                             ...formData,
                             qrPasswordEnabled: checked,
                             qrPassword: checked ? formData.qrPassword : "",
+                            qrPasswordScope: checked
+                              ? formData.qrPasswordScope
+                              : { camera: true, gallery: true },
                           })
                         }
                       />
                     </div>
 
                     {formData.qrPasswordEnabled && (
-                      <div className="space-y-2">
-                        <Label htmlFor="qrPassword">
-                          Contraseña del QR<span className="text-red-500">*</span>
-                        </Label>
-                        <Input
-                          id="qrPassword"
-                          type="text"
-                          value={formData.qrPassword}
-                          onChange={(e) => setFormData({ ...formData, qrPassword: e.target.value })}
-                          placeholder="Contraseña para invitados"
-                          required={formData.qrPasswordEnabled}
-                        />
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="qrPassword">
+                            Contraseña del QR<span className="text-red-500">*</span>
+                          </Label>
+                          <Input
+                            id="qrPassword"
+                            type="text"
+                            value={formData.qrPassword}
+                            onChange={(e) => setFormData({ ...formData, qrPassword: e.target.value })}
+                            placeholder="Contraseña para invitados"
+                            required={formData.qrPasswordEnabled}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Solicitar contraseña en</Label>
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            <label className="flex items-start gap-3 rounded-md border border-border bg-background px-3 py-2 text-sm">
+                              <input
+                                type="checkbox"
+                                className="mt-1 h-4 w-4 rounded border-border"
+                                checked={formData.qrPasswordScope.camera}
+                                onChange={(e) =>
+                                  setFormData({
+                                    ...formData,
+                                    qrPasswordScope: {
+                                      ...formData.qrPasswordScope,
+                                      camera: e.target.checked,
+                                    },
+                                  })
+                                }
+                              />
+                              <span>
+                                Echar fotos
+                                <span className="block text-xs text-muted-foreground">Se pedirá antes de entrar a cámara.</span>
+                              </span>
+                            </label>
+                            <label className="flex items-start gap-3 rounded-md border border-border bg-background px-3 py-2 text-sm">
+                              <input
+                                type="checkbox"
+                                className="mt-1 h-4 w-4 rounded border-border"
+                                checked={formData.qrPasswordScope.gallery}
+                                onChange={(e) =>
+                                  setFormData({
+                                    ...formData,
+                                    qrPasswordScope: {
+                                      ...formData.qrPasswordScope,
+                                      gallery: e.target.checked,
+                                    },
+                                  })
+                                }
+                              />
+                              <span>
+                                Ver galería
+                                <span className="block text-xs text-muted-foreground">Se pedirá antes de ver las fotos reveladas.</span>
+                              </span>
+                            </label>
+                          </div>
+                        </div>
                       </div>
                     )}
                   </div>

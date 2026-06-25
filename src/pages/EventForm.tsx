@@ -185,6 +185,10 @@ const EventForm = () => {
       qrPasswordEnabled: false,
       qrPassword: "",
       qrPasswordHash: "",
+      qrPasswordScope: {
+        camera: true,
+        gallery: true,
+      },
       limitsJson: null as Json | null,
       uploadStartDate: initialUploadStartDate,
       uploadStartTime: initialUploadStartTime,
@@ -411,6 +415,7 @@ const EventForm = () => {
         qrPasswordEnabled: qrPasswordSettings.enabled,
         qrPassword: "",
         qrPasswordHash: qrPasswordSettings.hash,
+        qrPasswordScope: qrPasswordSettings.scope,
         limitsJson: event.limits_json || null,
         uploadStartDate: format(uploadStartDate, "yyyy-MM-dd"),
         uploadStartTime: format(uploadStartDate, "HH:mm"),
@@ -750,6 +755,15 @@ const EventForm = () => {
         setIsSubmitting(false);
         return;
       }
+      if (formData.qrPasswordEnabled && !formData.qrPasswordScope.camera && !formData.qrPasswordScope.gallery) {
+        toast({
+          title: t("form.errorTitle"),
+          description: "Elige si la contraseña se pedirá al echar fotos, al verlas o en ambas.",
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
+      }
       const qrPasswordHashValue = formData.qrPasswordEnabled
         ? formData.qrPassword.trim()
           ? await hashPassword(formData.qrPassword.trim())
@@ -758,7 +772,8 @@ const EventForm = () => {
       const limitsJsonValue = withEventQrPasswordSettings(
         formData.limitsJson,
         formData.qrPasswordEnabled,
-        qrPasswordHashValue
+        qrPasswordHashValue,
+        formData.qrPasswordScope
       );
 
       let customImageUrl = formData.customImageUrl;
@@ -1263,31 +1278,81 @@ const EventForm = () => {
                       ...formData,
                       qrPasswordEnabled: checked,
                       qrPassword: checked ? formData.qrPassword : "",
+                      qrPasswordScope: checked
+                        ? formData.qrPasswordScope
+                        : { camera: true, gallery: true },
                     })
                   }
                 />
               </div>
 
               {formData.qrPasswordEnabled && (
-                <div className="space-y-2">
-                  <Label htmlFor="qrPassword">
-                    Contraseña del QR<span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="qrPassword"
-                    type="text"
-                    value={formData.qrPassword}
-                    onChange={(e) =>
-                      setFormData({ ...formData, qrPassword: e.target.value })
-                    }
-                    placeholder="Contraseña para invitados"
-                    required={formData.qrPasswordEnabled}
-                  />
-                  {formData.qrPasswordHash && !formData.qrPassword ? (
-                    <p className="text-xs text-muted-foreground">
-                      Ya hay una contraseña configurada. Deja este campo vacío para conservarla.
-                    </p>
-                  ) : null}
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="qrPassword">
+                      Contraseña del QR<span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="qrPassword"
+                      type="text"
+                      value={formData.qrPassword}
+                      onChange={(e) =>
+                        setFormData({ ...formData, qrPassword: e.target.value })
+                      }
+                      placeholder="Contraseña para invitados"
+                      required={formData.qrPasswordEnabled}
+                    />
+                    {formData.qrPasswordHash && !formData.qrPassword ? (
+                      <p className="text-xs text-muted-foreground">
+                        Ya hay una contraseña configurada. Deja este campo vacío para conservarla.
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Solicitar contraseña en</Label>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <label className="flex items-start gap-3 rounded-md border border-border bg-background px-3 py-2 text-sm">
+                        <input
+                          type="checkbox"
+                          className="mt-1 h-4 w-4 rounded border-border"
+                          checked={formData.qrPasswordScope.camera}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              qrPasswordScope: {
+                                ...formData.qrPasswordScope,
+                                camera: e.target.checked,
+                              },
+                            })
+                          }
+                        />
+                        <span>
+                          Echar fotos
+                          <span className="block text-xs text-muted-foreground">Se pedirá antes de entrar a cámara.</span>
+                        </span>
+                      </label>
+                      <label className="flex items-start gap-3 rounded-md border border-border bg-background px-3 py-2 text-sm">
+                        <input
+                          type="checkbox"
+                          className="mt-1 h-4 w-4 rounded border-border"
+                          checked={formData.qrPasswordScope.gallery}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              qrPasswordScope: {
+                                ...formData.qrPasswordScope,
+                                gallery: e.target.checked,
+                              },
+                            })
+                          }
+                        />
+                        <span>
+                          Ver galería
+                          <span className="block text-xs text-muted-foreground">Se pedirá antes de ver las fotos reveladas.</span>
+                        </span>
+                      </label>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>

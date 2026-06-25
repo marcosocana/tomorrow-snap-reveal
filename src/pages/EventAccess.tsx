@@ -7,7 +7,7 @@ import { persistGuestEventPassword } from "@/lib/guestEventAccess";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { hashPassword } from "@/lib/hashPassword";
-import { getEventQrPasswordSettings } from "@/lib/eventQrPassword";
+import { getEventQrPasswordSettings, shouldRequestQrPassword } from "@/lib/eventQrPassword";
 import logoRevelao from "@/assets/logo__revelao.png";
 
 type AccessChallenge = {
@@ -131,7 +131,9 @@ const EventAccess = () => {
 
         if (events && events.length > 0) {
           const event = events[0];
-          if (getEventQrPasswordSettings(event.limits_json).enabled) {
+          const revealTime = new Date(event.reveal_time);
+          const target = isBulkMode || new Date() < revealTime ? "camera" : "gallery";
+          if (shouldRequestQrPassword(event.limits_json, target)) {
             setAccessChallenge({ event, actualPassword, isBulkMode, demoEnvEnabled });
             setQrPassword("");
             setQrPasswordError("");
