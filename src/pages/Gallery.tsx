@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from "react";
-import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
+import { Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { LogOut, Film, Trash2, Download, Share2, Play, Image, Mic, Video, LayoutGrid, LayoutList, ArrowLeft, Plus } from "lucide-react";
@@ -25,8 +26,11 @@ import { getTranslations, getEventLanguage, getEventTimezone, getLocalDateInTime
 import { EventFontFamily, getEventFontFamily } from "@/lib/eventFonts";
 import { getDeviceId } from "@/lib/deviceId";
 import { clearPersistedGuestEventPassword, getPersistedGuestEventPassword } from "@/lib/guestEventAccess";
+import { shouldRequestQrPassword } from "@/lib/eventQrPassword";
+import { hashPassword } from "@/lib/hashPassword";
 import { Skeleton } from "@/components/ui/skeleton";
 import { compressImage } from "@/lib/imageCompression";
+import logoRevelao from "@/assets/logo__revelao.png";
 
 interface Photo {
   id: string;
@@ -158,7 +162,9 @@ const Gallery = () => {
   
   const observerTarget = useRef<HTMLDivElement>(null);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
+  const galleryAccessGrantedRef = useRef(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const isDemoEnvironmentFromQuery = searchParams.get("demo_env") === "1";
   const { toast } = useToast();
@@ -201,6 +207,10 @@ const Gallery = () => {
   const [uploadEndTime, setUploadEndTime] = useState<string>("");
   const [revealTime, setRevealTime] = useState<string>("");
   const [eventConfigReady, setEventConfigReady] = useState(false);
+  const [galleryAccessStatus, setGalleryAccessStatus] = useState<"checking" | "granted" | "challenge">("checking");
+  const [galleryPasswordHash, setGalleryPasswordHash] = useState("");
+  const [galleryPasswordInput, setGalleryPasswordInput] = useState("");
+  const [galleryPasswordError, setGalleryPasswordError] = useState("");
   const [headerStyle, setHeaderStyle] = useState<"gradient" | "modern">("modern");
   const [isDemoEvent, setIsDemoEvent] = useState(false);
 
@@ -573,7 +583,7 @@ const Gallery = () => {
     try {
       const { data } = await supabase
         .from("events")
-      .select("name, password_hash, filter_type, custom_image_url, description, background_image_url, upload_start_time, upload_end_time, reveal_time, expiry_date, expiry_redirect_url, font_family, font_size, allow_photo_deletion, allow_photo_sharing, like_counting_enabled, allow_video_recording, allow_audio_recording, allow_image_attachment, allow_video_attachment, max_photos, max_videos, max_video_duration, header_style, is_demo")
+      .select("name, password_hash, filter_type, custom_image_url, description, background_image_url, upload_start_time, upload_end_time, reveal_time, expiry_date, expiry_redirect_url, font_family, font_size, allow_photo_deletion, allow_photo_sharing, like_counting_enabled, allow_video_recording, allow_audio_recording, allow_image_attachment, allow_video_attachment, max_photos, max_videos, max_video_duration, header_style, is_demo, limits_json")
         .eq("id", eventId)
         .maybeSingle();
       if (data) {
@@ -603,6 +613,24 @@ const Gallery = () => {
         setHeaderStyle(((data as any).header_style || "modern") as "gradient" | "modern");
         setIsDemoEvent((data as any).is_demo === true);
         setLikeCountingEnabled((data as any).like_counting_enabled === true);
+        const locationState = location.state as
+          | { qrPasswordGrantedForEventId?: string; qrPasswordGrantedTarget?: string }
+          | null;
+        const hasNavigationGrant =
+          locationState?.qrPasswordGrantedForEventId === eventId &&
+          locationState?.qrPasswordGrantedTarget === "gallery";
+        const shouldProtectGallery =
+          localStorage.getItem("isAdmin") !== "true" &&
+          shouldRequestQrPassword((data as any).limits_json, "gallery");
+        if (shouldProtectGallery && !hasNavigationGrant && !galleryAccessGrantedRef.current) {
+          const limits = ((data as any).limits_json || {}) as Record<string, unknown>;
+          setGalleryPasswordHash(typeof limits.qr_password_hash === "string" ? limits.qr_password_hash : "");
+          setGalleryAccessStatus("challenge");
+        } else {
+          galleryAccessGrantedRef.current = true;
+          setGalleryPasswordHash("");
+          setGalleryAccessStatus("granted");
+        }
         setIsExpired(false);
         setExpiryRedirectUrl(null);
         
@@ -619,7 +647,21 @@ const Gallery = () => {
     } finally {
       setEventConfigReady(true);
     }
-  }, [eventId]);
+  }, [eventId, location.state]);
+
+  const handleGalleryPasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const enteredPasswordHash = await hashPassword(galleryPasswordInput.trim());
+    if (enteredPasswordHash !== galleryPasswordHash) {
+      setGalleryPasswordError("Contraseña incorrecta");
+      return;
+    }
+
+    setGalleryPasswordInput("");
+    setGalleryPasswordError("");
+    galleryAccessGrantedRef.current = true;
+    setGalleryAccessStatus("granted");
+  };
 
   useEffect(() => {
     if (!eventId) {
@@ -638,8 +680,23 @@ const Gallery = () => {
       return;
     }
 
+    setPhotos([]);
+    setVideos([]);
+    setAudios([]);
+    setTotalPhotos(0);
+    setTotalVideos(0);
+    setTotalAudios(0);
+    setPage(0);
+    setHasMore(true);
+    setIsLoading(true);
+    setEventConfigReady(false);
+    galleryAccessGrantedRef.current = false;
+    setGalleryAccessStatus("checking");
     loadEventData();
+  }, [eventId, isDemoEnvironmentFromQuery, navigate, loadEventData]);
 
+  useEffect(() => {
+    if (!eventId || !eventConfigReady || galleryAccessStatus !== "granted") return;
     // Always scroll to top when gallery loads
     window.scrollTo(0, 0);
 
@@ -672,7 +729,7 @@ const Gallery = () => {
     loadPhotos(0);
     loadVideos();
     loadAudios();
-  }, [eventId, isDemoEnvironmentFromQuery, navigate, loadEventData, loadPhotos, loadVideos, loadAudios]);
+  }, [eventId, eventConfigReady, galleryAccessStatus, loadPhotos, loadVideos, loadAudios]);
 
   useEffect(() => {
     if (!eventId) return;
@@ -1712,6 +1769,55 @@ const Gallery = () => {
 
   if (!eventConfigReady) {
     return <GalleryLoadingSkeleton />;
+  }
+
+  if (galleryAccessStatus === "challenge") {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-background">
+        <div className="w-full max-w-md space-y-8 animate-fade-in">
+          <div className="text-center space-y-6">
+            <div className="flex justify-center">
+              <img
+                src={logoRevelao}
+                alt="Revelao.com"
+                className="w-64 h-auto"
+                style={{ imageRendering: "pixelated" }}
+              />
+            </div>
+            <div className="space-y-2">
+              <h1 className="text-2xl font-semibold text-foreground">{eventName}</h1>
+              <p className="text-muted-foreground">
+                Introduce la contraseña para ver la galería.
+              </p>
+            </div>
+          </div>
+
+          <form onSubmit={handleGalleryPasswordSubmit} className="space-y-4">
+            <Input
+              type="password"
+              placeholder="Contraseña del evento"
+              value={galleryPasswordInput}
+              onChange={(e) => {
+                setGalleryPasswordInput(e.target.value);
+                setGalleryPasswordError("");
+              }}
+              className="h-14 text-lg bg-card border-2 border-border focus:border-primary transition-colors"
+              autoFocus
+              required
+            />
+            {galleryPasswordError && (
+              <p className="text-sm text-destructive">{galleryPasswordError}</p>
+            )}
+            <Button
+              type="submit"
+              className="w-full h-14 text-lg bg-[hsl(5_85%_65%)] hover:bg-[hsl(5_85%_60%)] text-white font-semibold rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98]"
+            >
+              Entrar
+            </Button>
+          </form>
+        </div>
+      </div>
+    );
   }
 
   const demoEnvSuffix = isDemoEnvironmentFromQuery ? "?demo_env=1" : "";

@@ -15,6 +15,7 @@ type AccessChallenge = {
   actualPassword: string;
   isBulkMode: boolean;
   demoEnvEnabled: boolean;
+  target: "camera" | "gallery";
 };
 
 type EventRow = Database["public"]["Tables"]["events"]["Row"];
@@ -32,7 +33,8 @@ const EventAccess = () => {
     event: EventRow,
     actualPassword: string,
     isBulkMode: boolean,
-    demoEnvEnabled: boolean
+    demoEnvEnabled: boolean,
+    qrPasswordGrantedTarget?: "camera" | "gallery"
   ) => {
     persistGuestEventPassword(actualPassword);
     localStorage.setItem("eventId", event.id);
@@ -51,7 +53,12 @@ const EventAccess = () => {
     const now = new Date();
 
     if (now >= revealTime) {
-      navigate(demoEnvEnabled ? "/gallery?demo_env=1" : "/gallery");
+      navigate(demoEnvEnabled ? "/gallery?demo_env=1" : "/gallery", {
+        state:
+          qrPasswordGrantedTarget === "gallery"
+            ? { qrPasswordGrantedForEventId: event.id, qrPasswordGrantedTarget: "gallery" }
+            : undefined,
+      });
     } else {
       navigate(demoEnvEnabled ? "/camera?demo_env=1" : "/camera");
     }
@@ -73,7 +80,8 @@ const EventAccess = () => {
       accessChallenge.event,
       accessChallenge.actualPassword,
       accessChallenge.isBulkMode,
-      accessChallenge.demoEnvEnabled
+      accessChallenge.demoEnvEnabled,
+      accessChallenge.target
     );
   };
 
@@ -134,7 +142,7 @@ const EventAccess = () => {
           const revealTime = new Date(event.reveal_time);
           const target = isBulkMode || new Date() < revealTime ? "camera" : "gallery";
           if (shouldRequestQrPassword(event.limits_json, target)) {
-            setAccessChallenge({ event, actualPassword, isBulkMode, demoEnvEnabled });
+            setAccessChallenge({ event, actualPassword, isBulkMode, demoEnvEnabled, target });
             setQrPassword("");
             setQrPasswordError("");
             return;
