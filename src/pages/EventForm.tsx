@@ -90,6 +90,12 @@ const getDemoContactFromLimits = (raw: Json | null | undefined): { email: string
   };
 };
 
+const getQrImageUrlFromLimits = (raw: Json | null | undefined) => {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const qrImageUrl = (raw as Record<string, Json | undefined>).qr_image_url;
+  return typeof qrImageUrl === "string" && qrImageUrl.trim() ? qrImageUrl.trim() : null;
+};
+
 type HeaderStyle = "gradient" | "modern";
 type PlanType = "demo" | "small" | "medium" | "xxl" | "custom";
 
@@ -296,7 +302,8 @@ const EventForm = () => {
     return combined.includes("allow_image_attachment") || combined.includes("allow_video_attachment");
   };
 
-  const getEventQrUrl = (id: string) => localStorage.getItem(`event-qr-url-${id}`);
+  const getEventQrUrl = (id: string) =>
+    getQrImageUrlFromLimits(formData.limitsJson) || localStorage.getItem(`event-qr-url-${id}`);
 
   const loadEventMediaCounts = async (id: string) => {
     try {

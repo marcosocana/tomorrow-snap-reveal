@@ -31,8 +31,10 @@ const steps: Array<{ id: StepId; label: string }> = [
 
 const REVELAO_RED = "#f06a5f";
 const DEFAULT_LOGO_URL = "/LogoTransparent.png";
-const inputPillClass =
-  "h-10 min-w-0 rounded px-2 text-base sm:h-12 sm:rounded-full sm:px-4 [appearance:textfield] [color-scheme:light] [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none";
+const dateInputClass =
+  "h-9 min-w-0 rounded px-1.5 text-[14px] sm:h-12 sm:rounded-full sm:px-4 sm:text-base [appearance:textfield] [color-scheme:light] [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none";
+const timeInputClass =
+  "h-9 min-w-0 rounded px-1.5 text-[14px] sm:h-12 sm:rounded-full sm:px-4 sm:text-base [appearance:textfield] [color-scheme:light] [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none";
 
 const RequiredMark = () => (
   <Asterisk className="h-3.5 w-3.5 text-[#f06a5f]" aria-hidden="true" />
@@ -450,7 +452,7 @@ const PublicDemoEventWizard = () => {
         return (
           <div className="space-y-5">
             <div className="space-y-2">
-              <div className="grid grid-cols-[minmax(0,1fr)_86px] gap-2 sm:grid-cols-[minmax(0,1fr)_112px] sm:gap-3">
+              <div className="grid grid-cols-[minmax(0,1fr)_78px] gap-1.5 sm:grid-cols-[minmax(0,1fr)_112px] sm:gap-3">
                 <Label htmlFor="uploadStartDate" className="flex items-center gap-1.5">
                   Empieza
                   <RequiredMark />
@@ -460,13 +462,13 @@ const PublicDemoEventWizard = () => {
                   <RequiredMark />
                 </Label>
               </div>
-              <div className="grid grid-cols-[minmax(0,1fr)_86px] gap-2 sm:grid-cols-[minmax(0,1fr)_112px] sm:gap-3">
-                <Input id="uploadStartDate" type="date" value={formData.uploadStartDate} onChange={(event) => update("uploadStartDate", event.target.value)} className={inputPillClass} />
-                <Input id="uploadStartTime" type="time" value={formData.uploadStartTime} onChange={(event) => update("uploadStartTime", event.target.value)} className={inputPillClass} />
+              <div className="grid grid-cols-[minmax(0,1fr)_78px] gap-1.5 sm:grid-cols-[minmax(0,1fr)_112px] sm:gap-3">
+                <Input id="uploadStartDate" type="date" value={formData.uploadStartDate} onChange={(event) => update("uploadStartDate", event.target.value)} className={dateInputClass} />
+                <Input id="uploadStartTime" type="time" value={formData.uploadStartTime} onChange={(event) => update("uploadStartTime", event.target.value)} className={timeInputClass} />
               </div>
             </div>
             <div className="space-y-2">
-              <div className="grid grid-cols-[minmax(0,1fr)_86px] gap-2 sm:grid-cols-[minmax(0,1fr)_112px] sm:gap-3">
+              <div className="grid grid-cols-[minmax(0,1fr)_78px] gap-1.5 sm:grid-cols-[minmax(0,1fr)_112px] sm:gap-3">
                 <Label htmlFor="uploadEndDate" className="flex items-center gap-1.5">
                   Termina
                   <RequiredMark />
@@ -476,9 +478,9 @@ const PublicDemoEventWizard = () => {
                   <RequiredMark />
                 </Label>
               </div>
-              <div className="grid grid-cols-[minmax(0,1fr)_86px] gap-2 sm:grid-cols-[minmax(0,1fr)_112px] sm:gap-3">
-                <Input id="uploadEndDate" type="date" value={formData.uploadEndDate} onChange={(event) => update("uploadEndDate", event.target.value)} className={inputPillClass} />
-                <Input id="uploadEndTime" type="time" value={formData.uploadEndTime} onChange={(event) => update("uploadEndTime", event.target.value)} className={inputPillClass} />
+              <div className="grid grid-cols-[minmax(0,1fr)_78px] gap-1.5 sm:grid-cols-[minmax(0,1fr)_112px] sm:gap-3">
+                <Input id="uploadEndDate" type="date" value={formData.uploadEndDate} onChange={(event) => update("uploadEndDate", event.target.value)} className={dateInputClass} />
+                <Input id="uploadEndTime" type="time" value={formData.uploadEndTime} onChange={(event) => update("uploadEndTime", event.target.value)} className={timeInputClass} />
               </div>
             </div>
             {formData.countryCode !== "ES" ? (
@@ -492,7 +494,7 @@ const PublicDemoEventWizard = () => {
         return (
           <div className="space-y-5">
             <div className="space-y-2">
-              <div className="grid grid-cols-[minmax(0,1fr)_86px] gap-2 sm:grid-cols-[minmax(0,1fr)_112px] sm:gap-3">
+              <div className="grid grid-cols-[minmax(0,1fr)_78px] gap-1.5 sm:grid-cols-[minmax(0,1fr)_112px] sm:gap-3">
                 <Label htmlFor="revealDate" className="flex items-center gap-1.5">
                   Fecha
                   <RequiredMark />
@@ -502,9 +504,9 @@ const PublicDemoEventWizard = () => {
                   <RequiredMark />
                 </Label>
               </div>
-              <div className="grid grid-cols-[minmax(0,1fr)_86px] gap-2 sm:grid-cols-[minmax(0,1fr)_112px] sm:gap-3">
-                <Input id="revealDate" type="date" value={formData.revealDate} onChange={(event) => update("revealDate", event.target.value)} className={inputPillClass} />
-                <Input id="revealTime" type="time" value={formData.revealTime} onChange={(event) => update("revealTime", event.target.value)} className={inputPillClass} />
+              <div className="grid grid-cols-[minmax(0,1fr)_78px] gap-1.5 sm:grid-cols-[minmax(0,1fr)_112px] sm:gap-3">
+                <Input id="revealDate" type="date" value={formData.revealDate} onChange={(event) => update("revealDate", event.target.value)} className={dateInputClass} />
+                <Input id="revealTime" type="time" value={formData.revealTime} onChange={(event) => update("revealTime", event.target.value)} className={timeInputClass} />
               </div>
             </div>
             <p className="text-sm text-muted-foreground">
