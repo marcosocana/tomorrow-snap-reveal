@@ -296,11 +296,7 @@ const EventForm = () => {
     return combined.includes("allow_image_attachment") || combined.includes("allow_video_attachment");
   };
 
-  const getEventQrUrl = (id: string) =>
-    localStorage.getItem(`event-qr-url-${id}`) ||
-    supabase.storage
-      .from("event-photos")
-      .getPublicUrl(`event-qr/qr-${id}.png`).data.publicUrl;
+  const getEventQrUrl = (id: string) => localStorage.getItem(`event-qr-url-${id}`);
 
   const loadEventMediaCounts = async (id: string) => {
     try {
@@ -334,7 +330,17 @@ const EventForm = () => {
     if (!eventId) return;
     try {
       const qrUrl = getEventQrUrl(eventId);
+      if (!qrUrl) {
+        const qrBlob = await generateQrBlob(eventUrl);
+        if (!qrBlob) throw new Error("QR_GENERATION_FAILED");
+        const link = document.createElement("a");
+        link.download = `qr-${formData.name || "evento"}.png`;
+        link.href = URL.createObjectURL(qrBlob);
+        link.click();
+        return;
+      }
       const response = await fetch(qrUrl);
+      if (!response.ok) throw new Error("QR_NOT_FOUND");
       const blob = await response.blob();
       const link = document.createElement("a");
       link.download = `qr-${formData.name || "evento"}.png`;

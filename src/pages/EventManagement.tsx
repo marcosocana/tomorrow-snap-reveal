@@ -1005,16 +1005,70 @@ const EventManagement = () => {
     }
   };
 
-  const getEventQrUrl = (eventId: string) =>
-    localStorage.getItem(`event-qr-url-${eventId}`) ||
-    supabase.storage
-      .from("event-photos")
-      .getPublicUrl(`event-qr/qr-${eventId}.png`).data.publicUrl;
+  const getEventQrUrl = (eventId: string) => localStorage.getItem(`event-qr-url-${eventId}`);
+
+  const downloadQrFromValue = async (eventUrl: string, eventName: string) => {
+    const container = document.createElement("div");
+    container.style.position = "fixed";
+    container.style.left = "-9999px";
+    container.style.top = "0";
+    container.style.background = "white";
+    container.style.padding = "24px";
+    document.body.appendChild(container);
+
+    const { createRoot } = await import("react-dom/client");
+    const root = createRoot(container);
+    root.render(<QRCodeSVG value={eventUrl} size={512} level="H" includeMargin />);
+
+    await new Promise((resolve) => window.setTimeout(resolve, 100));
+    const svg = container.querySelector("svg");
+    if (!svg) throw new Error("QR_SVG_NOT_FOUND");
+    const svgText = new XMLSerializer().serializeToString(svg);
+    const svgBlob = new Blob([svgText], { type: "image/svg+xml;charset=utf-8" });
+    const svgUrl = URL.createObjectURL(svgBlob);
+    const image = new Image();
+    image.decoding = "async";
+    await new Promise<void>((resolve, reject) => {
+      image.onload = () => resolve();
+      image.onerror = reject;
+      image.src = svgUrl;
+    });
+    const canvas = document.createElement("canvas");
+    canvas.width = 720;
+    canvas.height = 720;
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("CANVAS_CONTEXT_NOT_FOUND");
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    URL.revokeObjectURL(svgUrl);
+    const blob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob((result) => (result ? resolve(result) : reject(new Error("PNG_EXPORT_FAILED"))), "image/png");
+    });
+    const dataUrl = URL.createObjectURL(blob);
+    root.unmount();
+    document.body.removeChild(container);
+
+    const link = document.createElement("a");
+    link.download = `qr-${eventName.replace(/\s+/g, "-").toLowerCase()}.png`;
+    link.href = dataUrl;
+    link.click();
+    URL.revokeObjectURL(dataUrl);
+  };
 
   const handleDownloadQR = async (eventUrl: string, eventName: string, eventId: string) => {
     try {
       const qrUrl = getEventQrUrl(eventId);
+      if (!qrUrl) {
+        await downloadQrFromValue(eventUrl, eventName);
+        toast({
+          title: t("events.downloadQrSuccessTitle"),
+          description: t("events.downloadQrSuccessDesc"),
+        });
+        return;
+      }
       const response = await fetch(qrUrl);
+      if (!response.ok) throw new Error("QR_NOT_FOUND");
       const blob = await response.blob();
       const link = document.createElement("a");
       link.download = `qr-${eventName.replace(/\s+/g, "-").toLowerCase()}.png`;
