@@ -62,6 +62,19 @@ const DemoEventSummary = () => {
   const downloadQR = useCallback(async () => {
     if (!event) return;
     try {
+      if (qrFromState) {
+        const response = await fetch(qrFromState);
+        if (!response.ok) throw new Error("QR_IMAGE_NOT_FOUND");
+        const blob = await response.blob();
+        const pngUrl = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.download = `qr-${event.name || "evento"}.png`;
+        link.href = pngUrl;
+        link.click();
+        URL.revokeObjectURL(pngUrl);
+        return;
+      }
+
       const svg = qrRef.current?.querySelector("svg");
       if (!svg) throw new Error("QR_SVG_NOT_FOUND");
       const svgText = new XMLSerializer().serializeToString(svg);
@@ -95,7 +108,7 @@ const DemoEventSummary = () => {
     } catch {
       window.open(qrImageUrl, "_blank", "noopener,noreferrer");
     }
-  }, [event, qrImageUrl]);
+  }, [event, qrFromState, qrImageUrl]);
 
   useEffect(() => {
     if (!event || !contactInfo?.email || !qrImageUrl || isSendingEmail) return;
@@ -192,12 +205,20 @@ const DemoEventSummary = () => {
           {/* QR Code */}
           <div className="flex flex-col items-center gap-4 py-4">
             <div ref={qrRef} className="bg-white p-4 rounded-lg shadow-sm">
-              <QRCodeSVG
-                value={eventUrl}
-                size={200}
-                level="H"
-                includeMargin
-              />
+              {qrFromState ? (
+                <img
+                  src={qrFromState}
+                  alt={t("summary.qrAlt")}
+                  className="h-[200px] w-[200px]"
+                />
+              ) : (
+                <QRCodeSVG
+                  value={eventUrl}
+                  size={200}
+                  level="H"
+                  includeMargin
+                />
+              )}
             </div>
             <Button
               variant="outline"

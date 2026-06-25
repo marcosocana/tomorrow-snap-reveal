@@ -123,6 +123,10 @@ const getDemoContact = (event: Event): { email: string | null; phone: string | n
 
 const getAdminOwnerEmail = (event: Event) => event.owner_email || getDemoContact(event).email;
 const getAdminOwnerPhone = (event: Event) => event.owner_phone || getDemoContact(event).phone;
+const getStoredQrImageUrl = (event: Event) => {
+  const qrImageUrl = parseEventLimits(event.limits_json).qr_image_url;
+  return typeof qrImageUrl === "string" && qrImageUrl.trim() ? qrImageUrl.trim() : null;
+};
 
 interface MediaUsageTagProps {
   photoCount: number | string;
@@ -1005,7 +1009,8 @@ const EventManagement = () => {
     }
   };
 
-  const getEventQrUrl = (eventId: string) => localStorage.getItem(`event-qr-url-${eventId}`);
+  const getEventQrUrl = (event: Event) =>
+    getStoredQrImageUrl(event) || localStorage.getItem(`event-qr-url-${event.id}`);
 
   const downloadQrFromValue = async (eventUrl: string, eventName: string) => {
     const container = document.createElement("div");
@@ -1056,9 +1061,9 @@ const EventManagement = () => {
     URL.revokeObjectURL(dataUrl);
   };
 
-  const handleDownloadQR = async (eventUrl: string, eventName: string, eventId: string) => {
+  const handleDownloadQR = async (eventUrl: string, eventName: string, event: Event) => {
     try {
-      const qrUrl = getEventQrUrl(eventId);
+      const qrUrl = getEventQrUrl(event);
       if (!qrUrl) {
         await downloadQrFromValue(eventUrl, eventName);
         toast({
@@ -1116,7 +1121,7 @@ const EventManagement = () => {
       event.reveal_time,
       event.expiry_date
     );
-    const qrStorageUrl = getEventQrUrl(event.id);
+    const qrStorageUrl = getEventQrUrl(event);
     const statusLabel = t(`events.status.${statusInfo.status}`);
 
     const planType = getPlanType(event.max_photos);
@@ -1169,7 +1174,7 @@ const EventManagement = () => {
                 variant="outline"
                 size="sm"
                 onClick={() =>
-                  handleDownloadQR(eventUrl, event.name, event.id)
+                  handleDownloadQR(eventUrl, event.name, event)
                 }
                 className="w-full gap-2"
               >

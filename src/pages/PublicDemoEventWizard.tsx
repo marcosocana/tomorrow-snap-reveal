@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, ArrowRight, Asterisk, Check, ImagePlus, Trash2 } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import { addDays, format } from "date-fns";
 import { fromZonedTime, formatInTimeZone } from "date-fns-tz";
 import CountrySelect from "@/components/CountrySelect";
@@ -203,6 +204,83 @@ const PublicDemoEventWizard = () => {
     }
   };
 
+  const generateQrBlob = async (eventUrl: string): Promise<Blob | null> => {
+    try {
+      const container = document.createElement("div");
+      container.style.position = "absolute";
+      container.style.left = "-9999px";
+      document.body.appendChild(container);
+
+      const qrSize = 1024;
+      const { createRoot } = await import("react-dom/client");
+      const root = createRoot(container);
+
+      await new Promise<void>((resolve) => {
+        root.render(<QRCodeSVG value={eventUrl} size={qrSize} level="H" includeMargin />);
+        window.setTimeout(resolve, 100);
+      });
+
+      const svgElement = container.querySelector("svg");
+      if (!svgElement) throw new Error("QR_SVG_NOT_FOUND");
+
+      const canvas = document.createElement("canvas");
+      canvas.width = qrSize;
+      canvas.height = qrSize;
+      const context = canvas.getContext("2d");
+      if (!context) throw new Error("QR_CANVAS_NOT_FOUND");
+
+      const svgData = new XMLSerializer().serializeToString(svgElement);
+      const svgBlob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
+      const svgUrl = URL.createObjectURL(svgBlob);
+
+      const blob = await new Promise<Blob | null>((resolve) => {
+        const image = new Image();
+        image.onload = () => {
+          context.fillStyle = "#ffffff";
+          context.fillRect(0, 0, canvas.width, canvas.height);
+          context.drawImage(image, 0, 0);
+          URL.revokeObjectURL(svgUrl);
+          canvas.toBlob((result) => resolve(result), "image/png");
+        };
+        image.onerror = () => {
+          URL.revokeObjectURL(svgUrl);
+          resolve(null);
+        };
+        image.src = svgUrl;
+      });
+
+      root.unmount();
+      document.body.removeChild(container);
+      return blob;
+    } catch (error) {
+      console.error("Error generating demo QR:", error);
+      return null;
+    }
+  };
+
+  const uploadQrImage = async (eventUrl: string, eventId: string) => {
+    const qrBlob = await generateQrBlob(eventUrl);
+    if (!qrBlob) return null;
+
+    try {
+      const filePath = `event-qr/qr-${eventId}.png`;
+      const { error: uploadError } = await supabase.storage
+        .from("event-photos")
+        .upload(filePath, qrBlob, {
+          contentType: "image/png",
+          upsert: true,
+          cacheControl: "3600",
+        });
+
+      if (uploadError) throw uploadError;
+
+      return supabase.storage.from("event-photos").getPublicUrl(filePath).data.publicUrl;
+    } catch (error) {
+      console.error("Error uploading demo QR:", error);
+      return null;
+    }
+  };
+
   const handleSubmit = async () => {
     if (!validateStep("contact")) return;
     setIsSubmitting(true);
@@ -252,9 +330,30 @@ const PublicDemoEventWizard = () => {
 
       if (error) throw error;
 
+      const eventUrl = `https://acceso.revelao.cam/events/${newEvent.password_hash}`;
+      const qrUrl = await uploadQrImage(eventUrl, newEvent.id);
+      const eventForSummary = qrUrl
+        ? {
+            ...newEvent,
+            limits_json: {
+              ...((newEvent.limits_json || {}) as Record<string, unknown>),
+              qr_image_url: qrUrl,
+            },
+          }
+        : newEvent;
+
+      if (qrUrl) {
+        localStorage.setItem(`event-qr-url-${newEvent.id}`, qrUrl);
+        await supabase
+          .from("events")
+          .update({ limits_json: eventForSummary.limits_json } as any)
+          .eq("id", newEvent.id);
+      }
+
       navigate("/nuevoeventodemo/resumen", {
         state: {
-          event: newEvent,
+          event: eventForSummary,
+          qrUrl,
           contactInfo: {
             name: formData.contactName.trim(),
             email: formData.contactEmail.trim(),
