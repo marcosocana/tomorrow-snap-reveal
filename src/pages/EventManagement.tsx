@@ -109,6 +109,21 @@ const getAdminEventNote = (event: Event): string => {
   return typeof note === "string" ? note : "";
 };
 
+const getDemoContact = (event: Event): { email: string | null; phone: string | null } => {
+  const contact = parseEventLimits(event.limits_json).demo_contact;
+  if (!contact || typeof contact !== "object" || Array.isArray(contact)) {
+    return { email: null, phone: null };
+  }
+  const record = contact as Record<string, unknown>;
+  return {
+    email: typeof record.email === "string" && record.email.trim() ? record.email.trim() : null,
+    phone: typeof record.phone === "string" && record.phone.trim() ? record.phone.trim() : null,
+  };
+};
+
+const getAdminOwnerEmail = (event: Event) => event.owner_email || getDemoContact(event).email;
+const getAdminOwnerPhone = (event: Event) => event.owner_phone || getDemoContact(event).phone;
+
 interface MediaUsageTagProps {
   photoCount: number | string;
   photoLimit: number | string;
@@ -689,10 +704,10 @@ const EventManagement = () => {
       const matchesSearch =
         !search ||
         event.name.toLowerCase().includes(search) ||
-        (event.owner_email || "").toLowerCase().includes(search);
+        (getAdminOwnerEmail(event) || "").toLowerCase().includes(search);
       const planLabel = getPlanType(event.max_photos).label;
       const matchesType = adminTypeFilter === "all" || planLabel === adminTypeFilter;
-      const hasPhone = !!event.owner_phone;
+      const hasPhone = !!getAdminOwnerPhone(event);
       const matchesPhone =
         adminPhoneFilter === "all" ||
         (adminPhoneFilter === "yes" && hasPhone) ||
@@ -711,7 +726,7 @@ const EventManagement = () => {
           case "type":
             return getPlanType(event.max_photos).label;
           case "email":
-            return (event.owner_email || "").toLowerCase();
+            return (getAdminOwnerEmail(event) || "").toLowerCase();
           case "photos":
             return eventMediaCounts[event.id]?.photos ?? eventPhotoCounts[event.id] ?? 0;
           case "created_at":
@@ -1491,7 +1506,7 @@ const EventManagement = () => {
                             : "-"}
                         </td>
                         <td className="py-3 pr-4">
-                          {event.owner_email ? truncate(event.owner_email, 18) : "-"}
+                          {getAdminOwnerEmail(event) ? truncate(getAdminOwnerEmail(event) || "", 18) : "-"}
                         </td>
                         <td className="py-3 pr-4">
                           <span

@@ -21,7 +21,7 @@ type EmailLang = "es" | "en" | "it";
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
 const FROM_EMAIL = Deno.env.get("FROM_EMAIL") ?? "";
 const LOGO_URL =
-  Deno.env.get("LOGO_URL") ?? "https://acceso.revelao.cam/demo-logo.png";
+  Deno.env.get("LOGO_URL") ?? "https://acceso.revelao.cam/LogoTransparent.png";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

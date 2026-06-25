@@ -75,6 +75,21 @@ interface Event {
   limits_json?: Json | null;
 }
 
+const getDemoContactFromLimits = (raw: Json | null | undefined): { email: string | null; phone: string | null } => {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    return { email: null, phone: null };
+  }
+  const contact = (raw as Record<string, Json | undefined>).demo_contact;
+  if (!contact || typeof contact !== "object" || Array.isArray(contact)) {
+    return { email: null, phone: null };
+  }
+  const record = contact as Record<string, Json | undefined>;
+  return {
+    email: typeof record.email === "string" && record.email.trim() ? record.email.trim() : null,
+    phone: typeof record.phone === "string" && record.phone.trim() ? record.phone.trim() : null,
+  };
+};
+
 type HeaderStyle = "gradient" | "modern";
 type PlanType = "demo" | "small" | "medium" | "xxl" | "custom";
 
@@ -380,6 +395,7 @@ const EventForm = () => {
       
       const event = data as Event;
       setEventNumber(event.event_number ?? null);
+      const demoContact = getDemoContactFromLimits(event.limits_json);
       const eventTz = event.timezone || "Europe/Madrid";
       const uploadStartDate = event.upload_start_time ? toZonedTime(new Date(event.upload_start_time), eventTz) : new Date();
       const uploadEndDate = event.upload_end_time ? toZonedTime(new Date(event.upload_end_time), eventTz) : new Date();
@@ -456,10 +472,12 @@ const EventForm = () => {
             method: "GET",
           });
           const ownerEvent = ownerPayload?.events?.[0];
-          setOwnerEmail(ownerEvent?.owner_email || null);
-          setOwnerPhone(ownerEvent?.owner_phone || null);
+          setOwnerEmail(ownerEvent?.owner_email || demoContact.email);
+          setOwnerPhone(ownerEvent?.owner_phone || demoContact.phone);
         } catch (error) {
           console.error("Error loading owner info:", error);
+          setOwnerEmail(demoContact.email);
+          setOwnerPhone(demoContact.phone);
         }
       }
     } catch (error) {

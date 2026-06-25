@@ -2,13 +2,14 @@ import { useLocation, useNavigate, Navigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Check, Copy, ExternalLink, Download } from "lucide-react";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { enUS, es, it } from "date-fns/locale";
 import { toZonedTime } from "date-fns-tz";
-const demoLogoUrl = "/demo-logo.png";
+import { QRCodeSVG } from "qrcode.react";
+const demoLogoUrl = "/LogoTransparent.png";
 import { PricingPreview } from "@/components/PricingPreview";
 import { useDemoI18n } from "@/lib/demoI18n";
 
@@ -32,6 +33,7 @@ const DemoEventSummary = () => {
   const { toast } = useToast();
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const qrRef = useRef<HTMLDivElement>(null);
   const { lang, t, pathPrefix } = useDemoI18n();
 
   const event = location.state?.event as EventData | undefined;
@@ -52,39 +54,48 @@ const DemoEventSummary = () => {
   const demoPhotos = event.max_photos ?? 10;
   const demoVideos = event.max_videos ?? 3;
   const demoAudios = event.max_audios ?? 6;
-  const storedQrUrl = event
-    ? localStorage.getItem(`event-qr-url-${event.id}`) ||
-      supabase.storage
-        .from("event-photos")
-        .getPublicUrl(`event-qr/qr-${event.id}.png`).data.publicUrl
-    : "";
   const fallbackQrUrl = `https://quickchart.io/qr?size=220&margin=1&ecLevel=H&text=${encodeURIComponent(
     eventUrl
   )}`;
-  const qrImageUrl = qrFromState || storedQrUrl || fallbackQrUrl;
+  const qrImageUrl = qrFromState || fallbackQrUrl;
 
   const downloadQR = useCallback(async () => {
     if (!event) return;
-    const qrImageUrl =
-      qrFromState ||
-      storedQrUrl ||
-      `https://quickchart.io/qr?size=220&margin=1&ecLevel=H&text=${encodeURIComponent(
-      `https://acceso.revelao.cam/events/${event.password_hash}`
-      )}`;
-
     try {
-      const response = await fetch(qrImageUrl);
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
+      const svg = qrRef.current?.querySelector("svg");
+      if (!svg) throw new Error("QR_SVG_NOT_FOUND");
+      const svgText = new XMLSerializer().serializeToString(svg);
+      const svgBlob = new Blob([svgText], { type: "image/svg+xml;charset=utf-8" });
+      const svgUrl = URL.createObjectURL(svgBlob);
+      const image = new Image();
+      image.decoding = "async";
+      await new Promise<void>((resolve, reject) => {
+        image.onload = () => resolve();
+        image.onerror = reject;
+        image.src = svgUrl;
+      });
+      const canvas = document.createElement("canvas");
+      canvas.width = 720;
+      canvas.height = 720;
+      const context = canvas.getContext("2d");
+      if (!context) throw new Error("CANVAS_CONTEXT_NOT_FOUND");
+      context.fillStyle = "#ffffff";
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(svgUrl);
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob((result) => (result ? resolve(result) : reject(new Error("PNG_EXPORT_FAILED"))), "image/png");
+      });
+      const pngUrl = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.download = `qr-${event.name || "evento"}.png`;
-      link.href = url;
+      link.href = pngUrl;
       link.click();
-      URL.revokeObjectURL(url);
+      URL.revokeObjectURL(pngUrl);
     } catch {
       window.open(qrImageUrl, "_blank", "noopener,noreferrer");
     }
-  }, [event, qrFromState, storedQrUrl]);
+  }, [event, qrImageUrl]);
 
   useEffect(() => {
     if (!event || !contactInfo?.email || !qrImageUrl || isSendingEmail) return;
@@ -149,6 +160,8 @@ const DemoEventSummary = () => {
     }
   };
 
+  const primaryButtonClass = "rounded-full bg-[#f06a5f] text-white hover:bg-[#f06a5f]/90";
+
   return (
     <div className="min-h-screen bg-background p-4 md:p-6">
       <div className="max-w-2xl mx-auto space-y-6">
@@ -157,7 +170,7 @@ const DemoEventSummary = () => {
           <img 
             src={demoLogoUrl} 
             alt="Revelao.com" 
-            className="w-48 h-auto"
+            className="h-12 w-auto"
           />
           <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
             <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
@@ -168,7 +181,7 @@ const DemoEventSummary = () => {
         </div>
 
         {/* Event Details Card */}
-        <Card className="p-6 space-y-6">
+        <Card className="p-5 sm:p-6 space-y-6 rounded-lg shadow-sm">
           <div className="text-center">
             <h2 className="text-2xl font-bold text-foreground">{event.name}</h2>
             <p className="text-muted-foreground mt-1">
@@ -178,18 +191,19 @@ const DemoEventSummary = () => {
 
           {/* QR Code */}
           <div className="flex flex-col items-center gap-4 py-4">
-            <div className="bg-white p-4 rounded-lg shadow-sm">
-              <img
-                src={qrImageUrl}
-                alt={t("summary.qrAlt")}
-                className="w-[200px] h-[200px]"
+            <div ref={qrRef} className="bg-white p-4 rounded-lg shadow-sm">
+              <QRCodeSVG
+                value={eventUrl}
+                size={200}
+                level="H"
+                includeMargin
               />
             </div>
             <Button
               variant="outline"
               size="sm"
               onClick={downloadQR}
-              className="gap-2"
+              className="gap-2 rounded-full"
             >
               <Download className="w-4 h-4" />
               {t("summary.qrDownload")}
@@ -205,12 +219,13 @@ const DemoEventSummary = () => {
             <div className="space-y-1">
               <label className="text-sm font-medium text-muted-foreground">{t("summary.eventUrl")}</label>
               <div className="flex items-center gap-2">
-                <code className="flex-1 bg-muted px-3 py-2 rounded text-sm break-all">
+                <code className="flex-1 bg-muted px-3 py-2 rounded-md text-sm break-all">
                   {eventUrl}
                 </code>
                 <Button 
                   variant="outline" 
                   size="icon"
+                  className="rounded-full"
                   onClick={() => copyToClipboard(eventUrl, 'url')}
                 >
                   {copiedField === 'url' ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
@@ -238,7 +253,7 @@ const DemoEventSummary = () => {
         </Card>
 
         {/* Admin Access Instructions */}
-        <Card className="p-6 border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-900/10">
+        <Card className="p-5 sm:p-6 border-[#f06a5f]/30 bg-[#f06a5f]/5 rounded-lg">
           <div className="space-y-4 text-sm">
             <p className="text-muted-foreground">
               Entra en{" "}
@@ -253,7 +268,7 @@ const DemoEventSummary = () => {
               o accede a través del siguiente botón.
             </p>
             <Button
-              className="bg-primary text-primary-foreground hover:bg-primary/90"
+              className={primaryButtonClass}
               asChild
             >
               <a href={adminUrl} target="_blank" rel="noopener noreferrer">
@@ -263,7 +278,7 @@ const DemoEventSummary = () => {
           </div>
         </Card>
 
-        <Card className="p-6 border-primary/30 bg-primary/5">
+        <Card className="p-5 sm:p-6 border-[#f06a5f]/30 bg-[#f06a5f]/5 rounded-lg">
           <h3 className="font-semibold text-foreground mb-2">{t("summary.demoNoticeTitle")}</h3>
           <p className="text-sm text-muted-foreground">
             {t("summary.demoNoticeText")}{" "}
@@ -271,7 +286,7 @@ const DemoEventSummary = () => {
               href="https://www.revelao.cam"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-primary hover:underline font-medium"
+              className="text-[#f06a5f] hover:underline font-medium"
             >
               revelao.cam
             </a>{" "}
@@ -280,7 +295,7 @@ const DemoEventSummary = () => {
         </Card>
 
         {shouldShowPricing ? (
-          <Card className="p-6">
+          <Card className="p-5 sm:p-6 rounded-lg">
             <PricingPreview />
           </Card>
         ) : null}
@@ -292,7 +307,7 @@ const DemoEventSummary = () => {
             href="https://wa.me/34695834018?text=Hola%2C%20acabo%20de%20crear%20un%20evento%20de%20prueba%20y%20tengo%20una%20duda."
             target="_blank"
             rel="noopener noreferrer"
-            className="text-primary hover:underline font-semibold"
+            className="text-[#f06a5f] hover:underline font-semibold"
           >
             {t("summary.contact")}
           </a>

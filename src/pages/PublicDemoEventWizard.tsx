@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, ArrowRight, Asterisk, CalendarDays, Check, Clock, ImagePlus, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Asterisk, Check, ImagePlus, Trash2 } from "lucide-react";
 import { addDays, format } from "date-fns";
 import { fromZonedTime, formatInTimeZone } from "date-fns-tz";
 import CountrySelect from "@/components/CountrySelect";
@@ -29,8 +29,9 @@ const steps: Array<{ id: StepId; label: string }> = [
 ];
 
 const REVELAO_RED = "#f06a5f";
-const DEFAULT_LOGO_URL = "/marca_revelao_qr_evento.png";
-const inputPillClass = "h-12 min-w-0 rounded-full px-4 text-base [color-scheme:light]";
+const DEFAULT_LOGO_URL = "/LogoTransparent.png";
+const inputPillClass =
+  "h-12 min-w-0 rounded-full px-4 text-base [appearance:textfield] [color-scheme:light] [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none";
 
 const RequiredMark = () => (
   <Asterisk className="h-3.5 w-3.5 text-[#f06a5f]" aria-hidden="true" />
@@ -237,6 +238,14 @@ const PublicDemoEventWizard = () => {
           expiry_redirect_url: null,
           allow_photo_deletion: true,
           show_legal_text: false,
+          limits_json: {
+            created_from: "nuevoeventodemo2",
+            demo_contact: {
+              name: formData.contactName.trim(),
+              email: formData.contactEmail.trim(),
+              phone: formData.contactPhone.trim(),
+            },
+          },
         } as any)
         .select()
         .single();
@@ -340,39 +349,35 @@ const PublicDemoEventWizard = () => {
       case "upload":
         return (
           <div className="space-y-5">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-2">
+            <div className="space-y-2">
+              <div className="grid grid-cols-[minmax(0,1fr)_112px] gap-3">
                 <Label htmlFor="uploadStartDate" className="flex items-center gap-1.5">
-                  <CalendarDays className="h-4 w-4 text-muted-foreground" />
                   Empieza
                   <RequiredMark />
                 </Label>
-                <Input id="uploadStartDate" type="date" value={formData.uploadStartDate} onChange={(event) => update("uploadStartDate", event.target.value)} className={inputPillClass} />
-              </div>
-              <div className="space-y-2">
                 <Label htmlFor="uploadStartTime" className="flex items-center gap-1.5">
-                  <Clock className="h-4 w-4 text-muted-foreground" />
                   Hora
                   <RequiredMark />
                 </Label>
+              </div>
+              <div className="grid grid-cols-[minmax(0,1fr)_112px] gap-3">
+                <Input id="uploadStartDate" type="date" value={formData.uploadStartDate} onChange={(event) => update("uploadStartDate", event.target.value)} className={inputPillClass} />
                 <Input id="uploadStartTime" type="time" value={formData.uploadStartTime} onChange={(event) => update("uploadStartTime", event.target.value)} className={inputPillClass} />
               </div>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-2">
+            <div className="space-y-2">
+              <div className="grid grid-cols-[minmax(0,1fr)_112px] gap-3">
                 <Label htmlFor="uploadEndDate" className="flex items-center gap-1.5">
-                  <CalendarDays className="h-4 w-4 text-muted-foreground" />
                   Termina
                   <RequiredMark />
                 </Label>
-                <Input id="uploadEndDate" type="date" value={formData.uploadEndDate} onChange={(event) => update("uploadEndDate", event.target.value)} className={inputPillClass} />
-              </div>
-              <div className="space-y-2">
                 <Label htmlFor="uploadEndTime" className="flex items-center gap-1.5">
-                  <Clock className="h-4 w-4 text-muted-foreground" />
                   Hora
                   <RequiredMark />
                 </Label>
+              </div>
+              <div className="grid grid-cols-[minmax(0,1fr)_112px] gap-3">
+                <Input id="uploadEndDate" type="date" value={formData.uploadEndDate} onChange={(event) => update("uploadEndDate", event.target.value)} className={inputPillClass} />
                 <Input id="uploadEndTime" type="time" value={formData.uploadEndTime} onChange={(event) => update("uploadEndTime", event.target.value)} className={inputPillClass} />
               </div>
             </div>
@@ -386,26 +391,24 @@ const PublicDemoEventWizard = () => {
       case "reveal":
         return (
           <div className="space-y-5">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-2">
+            <div className="space-y-2">
+              <div className="grid grid-cols-[minmax(0,1fr)_112px] gap-3">
                 <Label htmlFor="revealDate" className="flex items-center gap-1.5">
-                  <CalendarDays className="h-4 w-4 text-muted-foreground" />
                   Fecha
                   <RequiredMark />
                 </Label>
-                <Input id="revealDate" type="date" value={formData.revealDate} onChange={(event) => update("revealDate", event.target.value)} className={inputPillClass} />
-              </div>
-              <div className="space-y-2">
                 <Label htmlFor="revealTime" className="flex items-center gap-1.5">
-                  <Clock className="h-4 w-4 text-muted-foreground" />
                   Hora
                   <RequiredMark />
                 </Label>
+              </div>
+              <div className="grid grid-cols-[minmax(0,1fr)_112px] gap-3">
+                <Input id="revealDate" type="date" value={formData.revealDate} onChange={(event) => update("revealDate", event.target.value)} className={inputPillClass} />
                 <Input id="revealTime" type="time" value={formData.revealTime} onChange={(event) => update("revealTime", event.target.value)} className={inputPillClass} />
               </div>
             </div>
             <p className="text-sm text-muted-foreground">
-              Hasta este momento, las fotos quedarán ocultas. Después se podrán ver en la galería.
+              En este momento se revelarán las fotos y quedarán visibles para todos desde el mismo código QR.
             </p>
             {formData.countryCode !== "ES" ? (
               <p className="text-xs text-muted-foreground">En España: {spainTime(formData.revealDate, formData.revealTime)}</p>
@@ -541,7 +544,7 @@ const PublicDemoEventWizard = () => {
         <section className="flex flex-1 flex-col">
           <div className="mb-5 space-y-3">
             <div className="flex justify-center sm:justify-start">
-              <img src="/logo-revelao.png" alt="Revelao" className="h-7 w-auto" />
+              <img src="/LogoTransparent.png" alt="Revelao" className="h-8 w-auto" />
             </div>
             <div className="space-y-1">
               <h1 className="text-2xl font-bold text-foreground sm:text-3xl">
@@ -554,7 +557,7 @@ const PublicDemoEventWizard = () => {
           </div>
 
           <form
-            className="flex flex-1 flex-col"
+            className="flex flex-1 flex-col pb-24 sm:pb-0"
             onSubmit={(event) => {
               event.preventDefault();
               currentStep.id === "contact" ? handleSubmit() : goNext();
@@ -569,17 +572,18 @@ const PublicDemoEventWizard = () => {
               {renderStep()}
             </div>
 
-            <div className="sticky bottom-0 -mx-4 mt-5 border-t border-border bg-background/95 px-4 py-3 backdrop-blur sm:static sm:mx-0 sm:border-t-0 sm:bg-transparent sm:px-0">
+            <div className="fixed bottom-0 left-0 right-0 z-40 mt-5 border-t border-border bg-background/95 px-4 py-3 backdrop-blur sm:static sm:mx-0 sm:border-t-0 sm:bg-transparent sm:px-0">
               <div className="flex gap-3">
                 <Button
                   type="button"
                   variant="outline"
-                  className="h-12 flex-1 rounded-full"
+                  className="h-12 w-14 flex-none rounded-full sm:w-auto sm:flex-1"
                   onClick={goBack}
                   disabled={stepIndex === 0 || isSubmitting || uploadingImage}
+                  aria-label="Atrás"
                 >
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  Atrás
+                  <ArrowLeft className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Atrás</span>
                 </Button>
                 <Button
                   type="submit"
