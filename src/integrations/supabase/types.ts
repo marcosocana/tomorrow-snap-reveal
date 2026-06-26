@@ -166,9 +166,9 @@ export type Database = {
           custom_privacy_text: string | null
           custom_terms_text: string | null
           description: string | null
+          event_number: number
           expiry_date: string | null
           expiry_redirect_url: string | null
-          event_number: number
           filter_type: string
           folder_id: string | null
           font_family: string
@@ -213,9 +213,9 @@ export type Database = {
           custom_privacy_text?: string | null
           custom_terms_text?: string | null
           description?: string | null
+          event_number?: number
           expiry_date?: string | null
           expiry_redirect_url?: string | null
-          event_number?: number
           filter_type?: string
           folder_id?: string | null
           font_family?: string
@@ -260,9 +260,9 @@ export type Database = {
           custom_privacy_text?: string | null
           custom_terms_text?: string | null
           description?: string | null
+          event_number?: number
           expiry_date?: string | null
           expiry_redirect_url?: string | null
-          event_number?: number
           filter_type?: string
           folder_id?: string | null
           font_family?: string
