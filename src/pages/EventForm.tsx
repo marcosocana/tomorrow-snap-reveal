@@ -24,6 +24,7 @@ import { EventFontFamily, getEventFontFamily } from "@/lib/eventFonts";
 import { FilterType, FILTER_ORDER, getFilterClass, getGrainClass } from "@/lib/photoFilters";
 import { hashPassword } from "@/lib/hashPassword";
 import { getEventQrPasswordSettings, withEventQrPasswordSettings } from "@/lib/eventQrPassword";
+import { notifyAdminNewEvent } from "@/lib/adminEventNotification";
 import { Json } from "@/integrations/supabase/types";
 import {
   Carousel,
@@ -1004,6 +1005,7 @@ const EventForm = () => {
         if (error) throw error;
 
         if (newEvent) {
+          await notifyAdminNewEvent(newEvent);
           const eventUrl = `https://acceso.revelao.cam/events/${newEvent.password_hash}`;
           const qrUrl = await uploadQrImage(eventUrl, newEvent.id);
           if (qrUrl) {

@@ -16,6 +16,7 @@ import EventPreview from "@/components/EventPreview";
 import { Language } from "@/lib/translations";
 import { EventFontFamily, FONT_OPTIONS, getFontById, loadGoogleFont } from "@/lib/eventFonts";
 import { FilterType, FILTER_LABELS, FILTER_ORDER, getFilterClass } from "@/lib/photoFilters";
+import { notifyAdminNewEvent } from "@/lib/adminEventNotification";
 import weddingPreview from "@/assets/testimonial-wedding.jpg";
 
 type StepId = "name" | "place" | "upload" | "reveal" | "style" | "contact";
@@ -337,6 +338,7 @@ const PublicDemoEventWizard = () => {
         .single();
 
       if (error) throw error;
+      await notifyAdminNewEvent(newEvent, "Demo");
 
       const eventUrl = `https://acceso.revelao.cam/events/${newEvent.password_hash}`;
       const qrUrl = await uploadQrImage(eventUrl, newEvent.id);

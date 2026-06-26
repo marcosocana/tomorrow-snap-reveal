@@ -17,6 +17,7 @@ import EventPreview from "@/components/EventPreview";
 import { Language } from "@/lib/translations";
 import { EventFontFamily, getEventFontFamily } from "@/lib/eventFonts";
 import { FilterType, FILTER_LABELS, FILTER_ORDER } from "@/lib/photoFilters";
+import { notifyAdminNewEvent } from "@/lib/adminEventNotification";
 
 const MIN_BACKGROUND_WIDTH = 1280;
 const MIN_BACKGROUND_HEIGHT = 720;
@@ -214,6 +215,7 @@ const PublicDemoEventForm = () => {
       } as any).select().single();
 
       if (error) throw error;
+      await notifyAdminNewEvent(newEvent, "Demo");
 
       // Navigate to summary page with event data
       navigate("/nuevoeventodemo/resumen", { 

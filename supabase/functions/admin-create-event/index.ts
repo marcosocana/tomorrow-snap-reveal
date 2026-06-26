@@ -20,6 +20,25 @@ const json = (body: unknown, status = 200) =>
     headers: { "Content-Type": "application/json", ...corsHeaders },
   });
 
+const notifyAdminNewEvent = async (event: unknown) => {
+  try {
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/notify-admin-new-event`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        apikey: SUPABASE_ANON_KEY,
+      },
+      body: JSON.stringify({ event }),
+    });
+    if (!response.ok) {
+      console.error("notify-admin-new-event response error:", await response.text());
+    }
+  } catch (error) {
+    console.error("notify-admin-new-event error:", error);
+  }
+};
+
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 type AdminEventPayload = {
@@ -297,6 +316,8 @@ serve(async (req) => {
     if (eventError || !createdEvent) {
       return json({ error: "CREATE_EVENT_FAILED", detail: eventError?.message ?? "unknown_error" }, 500);
     }
+
+    await notifyAdminNewEvent(createdEvent);
 
     // Send email to owner using existing template
     try {
