@@ -221,7 +221,7 @@ const EventManagement = () => {
   const [adminSearch, setAdminSearch] = useState("");
   const [adminTypeFilter, setAdminTypeFilter] = useState<"all" | "Demo" | "Start" | "Plus" | "Pro">("all");
   const [adminPhoneFilter, setAdminPhoneFilter] = useState<"all" | "yes" | "no">("all");
-  const [adminActiveTab, setAdminActiveTab] = useState<AdminEventTab>("others");
+  const [adminActiveTab, setAdminActiveTab] = useState<AdminEventTab>("upcoming");
   const [adminSort, setAdminSort] = useState<{ key: "name" | "type" | "start" | "email" | "photos"; direction: "asc" | "desc" }>({
     key: "start",
     direction: "desc",
