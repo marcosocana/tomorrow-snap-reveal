@@ -119,29 +119,44 @@ export type Database = {
       }
       captains_challenge_catalog: {
         Row: {
+          category: string | null
           created_at: string
           default_points: number
           description: string | null
+          difficulty: string | null
+          evidence_type: string
+          has_time_limit: boolean
           id: string
           is_active: boolean
+          time_limit_seconds: number | null
           title: string
           updated_at: string
         }
         Insert: {
+          category?: string | null
           created_at?: string
           default_points?: number
           description?: string | null
+          difficulty?: string | null
+          evidence_type?: string
+          has_time_limit?: boolean
           id?: string
           is_active?: boolean
+          time_limit_seconds?: number | null
           title: string
           updated_at?: string
         }
         Update: {
+          category?: string | null
           created_at?: string
           default_points?: number
           description?: string | null
+          difficulty?: string | null
+          evidence_type?: string
+          has_time_limit?: boolean
           id?: string
           is_active?: boolean
+          time_limit_seconds?: number | null
           title?: string
           updated_at?: string
         }
@@ -149,51 +164,69 @@ export type Database = {
       }
       captains_event_challenges: {
         Row: {
-          captains_event_id: string
-          catalog_id: string | null
+          catalog_challenge_id: string | null
+          category: string | null
           created_at: string
           description: string | null
+          difficulty: string | null
+          event_id: string
+          evidence_type: string
+          has_time_limit: boolean
           id: string
+          is_required: boolean
+          order_index: number
           points: number
-          position: number
+          time_limit_seconds: number | null
           title: string
           updated_at: string
         }
         Insert: {
-          captains_event_id: string
-          catalog_id?: string | null
+          catalog_challenge_id?: string | null
+          category?: string | null
           created_at?: string
           description?: string | null
+          difficulty?: string | null
+          event_id: string
+          evidence_type?: string
+          has_time_limit?: boolean
           id?: string
+          is_required?: boolean
+          order_index?: number
           points?: number
-          position?: number
+          time_limit_seconds?: number | null
           title: string
           updated_at?: string
         }
         Update: {
-          captains_event_id?: string
-          catalog_id?: string | null
+          catalog_challenge_id?: string | null
+          category?: string | null
           created_at?: string
           description?: string | null
+          difficulty?: string | null
+          event_id?: string
+          evidence_type?: string
+          has_time_limit?: boolean
           id?: string
+          is_required?: boolean
+          order_index?: number
           points?: number
-          position?: number
+          time_limit_seconds?: number | null
           title?: string
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "captains_event_challenges_captains_event_id_fkey"
-            columns: ["captains_event_id"]
+            foreignKeyName: "captains_event_challenges_catalog_challenge_id_fkey"
+            columns: ["catalog_challenge_id"]
             isOneToOne: false
-            referencedRelation: "captains_events"
+            referencedRelation: "captains_challenge_catalog"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "captains_event_challenges_catalog_id_fkey"
-            columns: ["catalog_id"]
+            foreignKeyName: "captains_event_challenges_event_id_fkey"
+            columns: ["event_id"]
             isOneToOne: false
-            referencedRelation: "captains_challenge_catalog"
+            referencedRelation: "captains_events"
             referencedColumns: ["id"]
           },
         ]
@@ -206,9 +239,13 @@ export type Database = {
           id: string
           name: string
           owner_id: string | null
+          public_url: string | null
+          qr_url: string | null
+          scoring_mode: string
           show_live_gallery_after_completion: boolean
           slug: string
           start_time: string | null
+          status: string
           updated_at: string
         }
         Insert: {
@@ -218,9 +255,13 @@ export type Database = {
           id?: string
           name: string
           owner_id?: string | null
+          public_url?: string | null
+          qr_url?: string | null
+          scoring_mode?: string
           show_live_gallery_after_completion?: boolean
           slug: string
           start_time?: string | null
+          status?: string
           updated_at?: string
         }
         Update: {
@@ -230,9 +271,13 @@ export type Database = {
           id?: string
           name?: string
           owner_id?: string | null
+          public_url?: string | null
+          qr_url?: string | null
+          scoring_mode?: string
           show_live_gallery_after_completion?: boolean
           slug?: string
           start_time?: string | null
+          status?: string
           updated_at?: string
         }
         Relationships: [
@@ -247,12 +292,17 @@ export type Database = {
       }
       captains_evidence: {
         Row: {
+          admin_comment: string | null
+          captain_name: string | null
           created_at: string
-          event_challenge_id: string | null
-          file_path: string
-          file_url: string | null
+          deleted_at: string | null
+          elapsed_seconds: number | null
+          event_id: string
+          evidence_type: string
+          file_url: string
           id: string
-          media_type: string
+          points_awarded: number
+          remaining_seconds: number | null
           reviewed_at: string | null
           reviewer_id: string | null
           status: string
@@ -261,12 +311,17 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          admin_comment?: string | null
+          captain_name?: string | null
           created_at?: string
-          event_challenge_id?: string | null
-          file_path: string
-          file_url?: string | null
+          deleted_at?: string | null
+          elapsed_seconds?: number | null
+          event_id: string
+          evidence_type?: string
+          file_url: string
           id?: string
-          media_type?: string
+          points_awarded?: number
+          remaining_seconds?: number | null
           reviewed_at?: string | null
           reviewer_id?: string | null
           status?: string
@@ -275,12 +330,17 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          admin_comment?: string | null
+          captain_name?: string | null
           created_at?: string
-          event_challenge_id?: string | null
-          file_path?: string
-          file_url?: string | null
+          deleted_at?: string | null
+          elapsed_seconds?: number | null
+          event_id?: string
+          evidence_type?: string
+          file_url?: string
           id?: string
-          media_type?: string
+          points_awarded?: number
+          remaining_seconds?: number | null
           reviewed_at?: string | null
           reviewer_id?: string | null
           status?: string
@@ -290,10 +350,10 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "captains_evidence_event_challenge_id_fkey"
-            columns: ["event_challenge_id"]
+            foreignKeyName: "captains_evidence_event_id_fkey"
+            columns: ["event_id"]
             isOneToOne: false
-            referencedRelation: "captains_event_challenges"
+            referencedRelation: "captains_events"
             referencedColumns: ["id"]
           },
           {
@@ -321,27 +381,52 @@ export type Database = {
       }
       captains_table_accesses: {
         Row: {
+          captain_name: string | null
           created_at: string
           device_id: string | null
+          device_info: Json | null
+          event_id: string | null
           id: string
+          selected_at: string | null
+          session_token: string | null
           table_id: string
+          table_name: string | null
           user_agent: string | null
         }
         Insert: {
+          captain_name?: string | null
           created_at?: string
           device_id?: string | null
+          device_info?: Json | null
+          event_id?: string | null
           id?: string
+          selected_at?: string | null
+          session_token?: string | null
           table_id: string
+          table_name?: string | null
           user_agent?: string | null
         }
         Update: {
+          captain_name?: string | null
           created_at?: string
           device_id?: string | null
+          device_info?: Json | null
+          event_id?: string | null
           id?: string
+          selected_at?: string | null
+          session_token?: string | null
           table_id?: string
+          table_name?: string | null
           user_agent?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "captains_table_accesses_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "captains_events"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "captains_table_accesses_table_id_fkey"
             columns: ["table_id"]
@@ -353,41 +438,72 @@ export type Database = {
       }
       captains_table_challenges: {
         Row: {
-          awarded_points: number
-          completed: boolean
-          completed_at: string | null
+          automatic_score_calculated: boolean
+          challenge_id: string
           created_at: string
-          event_challenge_id: string
+          elapsed_seconds: number | null
+          event_id: string
           id: string
+          is_time_expired: boolean
+          points_awarded: number
+          randomized_order_index: number
+          remaining_seconds: number | null
+          reviewed_at: string | null
+          started_at: string | null
+          status: string
+          submitted_at: string | null
           table_id: string
           updated_at: string
         }
         Insert: {
-          awarded_points?: number
-          completed?: boolean
-          completed_at?: string | null
+          automatic_score_calculated?: boolean
+          challenge_id: string
           created_at?: string
-          event_challenge_id: string
+          elapsed_seconds?: number | null
+          event_id: string
           id?: string
+          is_time_expired?: boolean
+          points_awarded?: number
+          randomized_order_index?: number
+          remaining_seconds?: number | null
+          reviewed_at?: string | null
+          started_at?: string | null
+          status?: string
+          submitted_at?: string | null
           table_id: string
           updated_at?: string
         }
         Update: {
-          awarded_points?: number
-          completed?: boolean
-          completed_at?: string | null
+          automatic_score_calculated?: boolean
+          challenge_id?: string
           created_at?: string
-          event_challenge_id?: string
+          elapsed_seconds?: number | null
+          event_id?: string
           id?: string
+          is_time_expired?: boolean
+          points_awarded?: number
+          randomized_order_index?: number
+          remaining_seconds?: number | null
+          reviewed_at?: string | null
+          started_at?: string | null
+          status?: string
+          submitted_at?: string | null
           table_id?: string
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "captains_table_challenges_event_challenge_id_fkey"
-            columns: ["event_challenge_id"]
+            foreignKeyName: "captains_table_challenges_challenge_id_fkey"
+            columns: ["challenge_id"]
             isOneToOne: false
             referencedRelation: "captains_event_challenges"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "captains_table_challenges_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "captains_events"
             referencedColumns: ["id"]
           },
           {
@@ -401,42 +517,57 @@ export type Database = {
       }
       captains_tables: {
         Row: {
+          active_captain_name: string | null
           captain_name: string | null
-          captains_event_id: string
           completed_at: string | null
+          completed_challenges: number
           created_at: string
+          event_id: string
+          failed_challenges: number
           id: string
-          name: string
-          position: number
-          score: number
+          last_activity_at: string | null
+          session_token: string | null
+          table_name: string
+          table_number: number
+          total_points: number
           updated_at: string
         }
         Insert: {
+          active_captain_name?: string | null
           captain_name?: string | null
-          captains_event_id: string
           completed_at?: string | null
+          completed_challenges?: number
           created_at?: string
+          event_id: string
+          failed_challenges?: number
           id?: string
-          name: string
-          position?: number
-          score?: number
+          last_activity_at?: string | null
+          session_token?: string | null
+          table_name: string
+          table_number: number
+          total_points?: number
           updated_at?: string
         }
         Update: {
+          active_captain_name?: string | null
           captain_name?: string | null
-          captains_event_id?: string
           completed_at?: string | null
+          completed_challenges?: number
           created_at?: string
+          event_id?: string
+          failed_challenges?: number
           id?: string
-          name?: string
-          position?: number
-          score?: number
+          last_activity_at?: string | null
+          session_token?: string | null
+          table_name?: string
+          table_number?: number
+          total_points?: number
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "captains_tables_captains_event_id_fkey"
-            columns: ["captains_event_id"]
+            foreignKeyName: "captains_tables_event_id_fkey"
+            columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "captains_events"
             referencedColumns: ["id"]
