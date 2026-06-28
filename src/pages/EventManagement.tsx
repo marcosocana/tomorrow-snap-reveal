@@ -882,7 +882,7 @@ const EventManagement = () => {
 
           return supabase
             .from("events")
-            .update({ limits_json: nextLimits as unknown as Json })
+            .update({ limits_json: nextLimits as never })
             .eq("id", event.id)
             .then(({ error }) => {
               if (error) throw error;
@@ -939,7 +939,7 @@ const EventManagement = () => {
       setAdminNoteSaving(true);
       const { error } = await supabase
         .from("events")
-        .update({ limits_json: nextLimits as unknown as Json })
+        .update({ limits_json: nextLimits as never })
         .eq("id", noteEvent.id);
       if (error) throw error;
 
