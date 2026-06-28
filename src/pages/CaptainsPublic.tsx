@@ -61,6 +61,18 @@ type ChallengePhase = "intro" | "preview" | "progress" | "result" | "expired";
 type ResultKind = "success" | "manual" | "failed" | "expired";
 type EvidenceFilter = "all" | "mine" | "others" | CaptainsEvidenceType;
 
+const DEFAULT_CAPTAINS_PRIMARY = "#d8a35d";
+const DEFAULT_CAPTAINS_SECONDARY = "#f3dfc1";
+const DEFAULT_CAPTAINS_BACKGROUND =
+  "linear-gradient(180deg, rgba(70, 49, 45, 0.92), rgba(34, 29, 32, 0.96))";
+
+const isThemeColor = (value?: string | null) => Boolean(value && /^#[0-9a-fA-F]{6}$/.test(value));
+const cssUrl = (value?: string | null) => (value ? `url("${value.replace(/"/g, "%22")}")` : DEFAULT_CAPTAINS_BACKGROUND);
+
+const demoWeddingBackground = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 1600"><defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#5d4640"/><stop offset=".52" stop-color="#2f292d"/><stop offset="1" stop-color="#1c2226"/></linearGradient><filter id="b"><feGaussianBlur stdDeviation="18"/></filter></defs><rect width="900" height="1600" fill="url(#g)"/><g opacity=".5" filter="url(#b)"><circle cx="120" cy="230" r="190" fill="#f3dfc1"/><circle cx="760" cy="1180" r="260" fill="#d8a35d"/></g><g fill="none" stroke="#f3dfc1" stroke-width="5" opacity=".34"><path d="M110 1380c130-210 300-250 520-160"/><path d="M185 1298c40-80 112-114 205-104"/><path d="M560 1240c78-54 150-62 228-24"/></g><g fill="#f3dfc1" opacity=".26"><circle cx="205" cy="290" r="6"/><circle cx="682" cy="410" r="5"/><circle cx="760" cy="730" r="4"/><circle cx="160" cy="980" r="5"/><circle cx="610" cy="1390" r="6"/></g></svg>`,
+)}`;
+
 interface CaptainSession {
   table_id: string;
   table_name: string;
@@ -92,6 +104,9 @@ const demoEventDetail: CaptainsEventDetail = {
     scoring_mode: "automatic",
     status: "active",
     show_live_gallery_after_completion: true,
+    primary_color: DEFAULT_CAPTAINS_PRIMARY,
+    secondary_color: DEFAULT_CAPTAINS_SECONDARY,
+    background_image_url: demoWeddingBackground,
     qr_url: `/capitanes/${DEMO_SLUG}`,
     public_url: `/capitanes/${DEMO_SLUG}`,
     created_at: nowIso(),
@@ -447,9 +462,30 @@ const useIsMobileCaptainDevice = () => {
 };
 
 const CaptainsShell = ({ children }: { children: React.ReactNode }) => (
-  <main className="min-h-[var(--app-height,100svh)] bg-[#101827] text-white">
-    <div className="fixed inset-0 overflow-hidden bg-[radial-gradient(circle_at_20%_10%,rgba(45,212,191,0.35),transparent_28%),radial-gradient(circle_at_85%_15%,rgba(251,113,133,0.32),transparent_26%),linear-gradient(160deg,#101827_0%,#16213f_48%,#241535_100%)]" />
-    <div className="fixed inset-0 opacity-25 [background-image:linear-gradient(rgba(255,255,255,.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.08)_1px,transparent_1px)] [background-size:22px_22px]" />
+  <main className="captains-public min-h-[var(--app-height,100svh)] bg-[#2f292d] text-white">
+    <style>{`
+      .captains-public h1,
+      .captains-public h2 {
+        font-family: "Snell Roundhand", "Apple Chancery", "Brush Script MT", cursive;
+        font-weight: 600;
+        letter-spacing: 0;
+      }
+      .captains-public {
+        font-family: "Cormorant Garamond", Georgia, serif;
+      }
+      .captains-public button,
+      .captains-public input,
+      .captains-public p,
+      .captains-public span {
+        letter-spacing: 0;
+      }
+    `}</style>
+    <div
+      className="fixed inset-0 bg-cover bg-center"
+      style={{ backgroundImage: "var(--captains-background-image)", backgroundColor: "#2f292d" }}
+    />
+    <div className="fixed inset-0 bg-[linear-gradient(180deg,rgba(35,29,31,.38)_0%,rgba(35,29,31,.72)_42%,rgba(18,18,20,.92)_100%)]" />
+    <div className="fixed inset-x-0 top-0 h-40 border-b border-white/10 bg-white/[0.03]" />
     <div className="relative mx-auto flex min-h-[var(--app-height,100svh)] w-full max-w-[430px] flex-col px-4 py-5">
       {children}
     </div>
@@ -459,7 +495,7 @@ const CaptainsShell = ({ children }: { children: React.ReactNode }) => (
 const GameCard = ({ children, className }: { children: React.ReactNode; className?: string }) => (
   <section
     className={cn(
-      "rounded-[8px] border-2 border-white/15 bg-white/[0.09] p-4 shadow-[0_18px_0_rgba(0,0,0,0.18)] backdrop-blur-xl",
+      "rounded-[8px] border border-white/25 bg-white/[0.12] p-4 shadow-[0_18px_40px_rgba(0,0,0,0.22)] backdrop-blur-xl",
       className,
     )}
   >
@@ -471,7 +507,7 @@ const GameButton = ({ className, ...props }: React.ComponentProps<typeof Button>
   <Button
     {...props}
     className={cn(
-      "h-13 min-h-12 w-full rounded-[8px] border-2 border-white/15 bg-[#2dd4bf] px-5 py-4 text-base font-black uppercase tracking-normal text-[#07131f] shadow-[0_6px_0_#0f766e] hover:bg-[#5eead4] active:translate-y-1 active:shadow-[0_2px_0_#0f766e]",
+      "h-13 min-h-12 w-full rounded-[8px] border border-white/20 bg-[var(--captains-primary)] px-5 py-4 text-base font-bold text-[#2d241d] shadow-[0_10px_26px_rgba(0,0,0,0.24)] hover:bg-[var(--captains-primary)] hover:brightness-105 active:translate-y-0.5",
       className,
     )}
   />
@@ -482,14 +518,14 @@ const SecondaryButton = ({ className, ...props }: React.ComponentProps<typeof Bu
     {...props}
     variant="outline"
     className={cn(
-      "h-12 w-full rounded-[8px] border-2 border-white/20 bg-white/10 text-sm font-bold text-white hover:bg-white/20 hover:text-white",
+      "h-12 w-full rounded-[8px] border border-[var(--captains-secondary)]/50 bg-white/10 text-sm font-bold text-white hover:bg-white/20 hover:text-white",
       className,
     )}
   />
 );
 
 const HeroBadge = ({ children }: { children: React.ReactNode }) => (
-  <div className="inline-flex items-center gap-2 rounded-[8px] border border-[#facc15]/40 bg-[#facc15]/15 px-3 py-1 text-xs font-black uppercase tracking-normal text-[#fde68a]">
+  <div className="inline-flex items-center gap-2 rounded-[8px] border border-[var(--captains-secondary)]/50 bg-white/10 px-3 py-1 text-xs font-bold text-[var(--captains-secondary)]">
     <Sparkles className="h-3.5 w-3.5" />
     {children}
   </div>
@@ -630,6 +666,25 @@ export default function CaptainsPublic() {
   const [isSummaryPlaying, setIsSummaryPlaying] = useState(true);
   const [summaryCopied, setSummaryCopied] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    root.style.setProperty(
+      "--captains-primary",
+      isThemeColor(event?.primary_color) ? event?.primary_color || DEFAULT_CAPTAINS_PRIMARY : DEFAULT_CAPTAINS_PRIMARY,
+    );
+    root.style.setProperty(
+      "--captains-secondary",
+      isThemeColor(event?.secondary_color) ? event?.secondary_color || DEFAULT_CAPTAINS_SECONDARY : DEFAULT_CAPTAINS_SECONDARY,
+    );
+    root.style.setProperty("--captains-background-image", cssUrl(event?.background_image_url));
+
+    return () => {
+      root.style.removeProperty("--captains-primary");
+      root.style.removeProperty("--captains-secondary");
+      root.style.removeProperty("--captains-background-image");
+    };
+  }, [event?.background_image_url, event?.primary_color, event?.secondary_color]);
 
   useEffect(() => {
     if (!eventSlug) return;
@@ -1187,22 +1242,22 @@ export default function CaptainsPublic() {
       <CaptainsShell>
         <div className="flex flex-1 flex-col justify-center gap-5">
           <div>
-            <HeroBadge>Nueva misión</HeroBadge>
-            <h1 className="mt-4 text-5xl font-black leading-none tracking-normal">Capitanes by Revelao</h1>
-            <p className="mt-3 text-xl font-bold text-[#5eead4]">La misión de las mesas ha comenzado</p>
+            <HeroBadge>Celebración en juego</HeroBadge>
+            <h1 className="mt-4 text-5xl leading-none">{event.name}</h1>
+            <p className="mt-3 text-xl font-semibold text-[var(--captains-secondary)]">Capitanes by Revelao</p>
           </div>
           <GameCard>
             <div className="flex items-start gap-3">
-              <div className="rounded-[8px] bg-[#fb7185] p-3 shadow-[0_5px_0_#9f1239]">
+              <div className="rounded-[8px] bg-white/15 p-3 text-[var(--captains-secondary)]">
                 <Trophy className="h-7 w-7 text-white" />
               </div>
               <p className="text-sm leading-6 text-white/80">
-                {event.description || "Reúne a tu mesa, supera retos y subid pruebas para conquistar el ranking."}
+                {event.description || "Reúne a tu mesa, cread recuerdos y superad pequeños retos durante la celebración."}
               </p>
             </div>
           </GameCard>
           <GameButton onClick={() => go("start")}>
-            Empezar <ChevronRight className="h-5 w-5" />
+            Empezar experiencia <ChevronRight className="h-5 w-5" />
           </GameButton>
         </div>
       </CaptainsShell>
@@ -1216,9 +1271,9 @@ export default function CaptainsPublic() {
       <CaptainsShell>
         <div className="space-y-4 pb-5">
           <div className="pt-3">
-            <HeroBadge>Identificación</HeroBadge>
-            <h1 className="mt-4 text-4xl font-black tracking-normal">Elige tu mesa</h1>
-            <p className="mt-2 text-sm leading-6 text-white/70">Selecciona tu mesa y capitán para empezar la misión.</p>
+            <HeroBadge>Invitados</HeroBadge>
+            <h1 className="mt-4 text-4xl">Elige tu mesa</h1>
+            <p className="mt-2 text-sm leading-6 text-white/70">Selecciona tu mesa y capitán para empezar la experiencia.</p>
           </div>
           <div className="grid gap-3">
             {tables.map((table) => {

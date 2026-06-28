@@ -63,6 +63,9 @@ import type {
 
 const DEFAULT_DESCRIPTION =
   "Bienvenidos a Capitanes by Revelao.\nCada mesa tendrá un capitán encargado de guiar a su equipo durante el juego.\nTendréis que completar retos, subir pruebas y competir contra el resto de mesas.\nPreparad la cámara, afinad la voz y jugad en equipo.\nQue empiece la misión.";
+const DEFAULT_PRIMARY_COLOR = "#d8a35d";
+const DEFAULT_SECONDARY_COLOR = "#f3dfc1";
+const isHexColor = (value: string) => /^#[0-9a-fA-F]{6}$/.test(value);
 
 const EMPTY_CHALLENGE: CaptainsChallengeInput = {
   title: "",
@@ -363,6 +366,9 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
   const [endTime, setEndTime] = useState("");
   const [scoringMode, setScoringMode] = useState<"automatic" | "manual">("automatic");
   const [showLiveGalleryAfterCompletion, setShowLiveGalleryAfterCompletion] = useState(true);
+  const [primaryColor, setPrimaryColor] = useState(DEFAULT_PRIMARY_COLOR);
+  const [secondaryColor, setSecondaryColor] = useState(DEFAULT_SECONDARY_COLOR);
+  const [backgroundImageUrl, setBackgroundImageUrl] = useState("");
   const [selectedChallenges, setSelectedChallenges] = useState<CaptainsChallengeInput[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -383,6 +389,9 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
     setEndTime(toTimeInput(detail.event.end_time));
     setScoringMode(detail.event.scoring_mode);
     setShowLiveGalleryAfterCompletion(detail.event.show_live_gallery_after_completion ?? true);
+    setPrimaryColor(detail.event.primary_color || DEFAULT_PRIMARY_COLOR);
+    setSecondaryColor(detail.event.secondary_color || DEFAULT_SECONDARY_COLOR);
+    setBackgroundImageUrl(detail.event.background_image_url || "");
     setSelectedChallenges(
       detail.challenges.map((challenge) => ({
         id: challenge.id,
@@ -484,6 +493,9 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
         end_time: timeInputToIso(endTime),
         scoring_mode: scoringMode,
         show_live_gallery_after_completion: showLiveGalleryAfterCompletion,
+        primary_color: primaryColor,
+        secondary_color: secondaryColor,
+        background_image_url: backgroundImageUrl.trim() || null,
         status: startTime ? "scheduled" as const : "active" as const,
       };
 
@@ -542,6 +554,31 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
               <span className="text-sm font-medium">Descripción inicial</span>
               <Textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={6} />
             </label>
+            <div className="grid gap-4 rounded-md border border-border p-4 md:col-span-2 md:grid-cols-2">
+              <div className="space-y-1 md:col-span-2">
+                <span className="text-sm font-medium">Estilo visual de la experiencia pública</span>
+                <p className="text-xs text-muted-foreground">Estos colores se aplican a botones, acentos y al ambiente visual de Capitanes.</p>
+              </div>
+              <label className="space-y-1">
+                <span className="text-sm font-medium">Color principal</span>
+                <div className="flex gap-2">
+                  <Input type="color" value={isHexColor(primaryColor) ? primaryColor : DEFAULT_PRIMARY_COLOR} onChange={(event) => setPrimaryColor(event.target.value)} className="h-10 w-14 p-1" />
+                  <Input value={primaryColor} onChange={(event) => setPrimaryColor(event.target.value)} placeholder="#d8a35d" />
+                </div>
+              </label>
+              <label className="space-y-1">
+                <span className="text-sm font-medium">Color secundario</span>
+                <div className="flex gap-2">
+                  <Input type="color" value={isHexColor(secondaryColor) ? secondaryColor : DEFAULT_SECONDARY_COLOR} onChange={(event) => setSecondaryColor(event.target.value)} className="h-10 w-14 p-1" />
+                  <Input value={secondaryColor} onChange={(event) => setSecondaryColor(event.target.value)} placeholder="#f3dfc1" />
+                </div>
+              </label>
+              <label className="space-y-1 md:col-span-2">
+                <span className="text-sm font-medium">Foto de fondo pública</span>
+                <Input value={backgroundImageUrl} onChange={(event) => setBackgroundImageUrl(event.target.value)} placeholder="https://..." />
+                <p className="text-xs text-muted-foreground">URL de la imagen que se verá detrás de la experiencia móvil de los invitados.</p>
+              </label>
+            </div>
             <label className="space-y-1">
               <span className="text-sm font-medium">Número de mesas</span>
               <Input type="number" min={1} value={tableCount || ""} onChange={(event) => syncTableCount(Number(event.target.value))} />

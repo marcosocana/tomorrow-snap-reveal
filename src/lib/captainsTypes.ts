@@ -25,6 +25,9 @@ export interface CaptainsEvent {
   scoring_mode: CaptainsScoringMode;
   status: CaptainsEventStatus;
   show_live_gallery_after_completion: boolean;
+  primary_color: string | null;
+  secondary_color: string | null;
+  background_image_url: string | null;
   qr_url: string | null;
   public_url: string;
   created_at: string;
@@ -143,6 +146,9 @@ export interface CreateCaptainsEventInput {
   scoring_mode?: CaptainsScoringMode;
   status?: CaptainsEventStatus;
   show_live_gallery_after_completion?: boolean;
+  primary_color?: string | null;
+  secondary_color?: string | null;
+  background_image_url?: string | null;
 }
 
 export interface CaptainsChallengeInput {

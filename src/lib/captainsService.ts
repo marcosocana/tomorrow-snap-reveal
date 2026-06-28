@@ -92,6 +92,9 @@ export const createCaptainsEvent = async (input: CreateCaptainsEventInput) => {
     scoring_mode: input.scoring_mode ?? "automatic",
     status: input.status ?? "draft",
     show_live_gallery_after_completion: input.show_live_gallery_after_completion ?? true,
+    primary_color: input.primary_color ?? null,
+    secondary_color: input.secondary_color ?? null,
+    background_image_url: input.background_image_url ?? null,
     public_url: publicUrl,
     qr_url: getCaptainsQrValue(slug),
   };
