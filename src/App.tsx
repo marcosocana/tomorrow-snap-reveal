@@ -25,6 +25,8 @@ import { AdminI18nProvider } from "@/lib/adminI18n";
 import RedeemEvent from "./pages/RedeemEvent";
 import PaidEventSummary from "./pages/PaidEventSummary";
 import Register from "./pages/Register";
+import { CaptainsAdminDetail, CaptainsAdminForm, CaptainsAdminList } from "./pages/CaptainsAdmin";
+import CaptainsPublic from "./pages/CaptainsPublic";
 
 const queryClient = new QueryClient();
 
@@ -177,6 +179,19 @@ const App = () => {
               <Route path="/nuevoeventodemo/resumen" element={<DemoEventSummary />} />
               <Route path="/evento-pago/resumen" element={<PaidEventSummary />} />
               <Route path="/planes" element={<PricingPlans />} />
+              <Route path="/admin/capitanes" element={<CaptainsAdminList />} />
+              <Route path="/admin/capitanes/new" element={<CaptainsAdminForm />} />
+              <Route path="/admin/capitanes/:eventId" element={<CaptainsAdminDetail />} />
+              <Route path="/admin/capitanes/:eventId/edit" element={<CaptainsAdminForm edit />} />
+              <Route path="/admin/capitanes/:eventId/review" element={<CaptainsAdminDetail view="review" />} />
+              <Route path="/admin/capitanes/:eventId/ranking" element={<CaptainsAdminDetail view="ranking" />} />
+              <Route path="/capitanes/:eventSlug" element={<CaptainsPublic />} />
+              <Route path="/capitanes/:eventSlug/start" element={<CaptainsPublic />} />
+              <Route path="/capitanes/:eventSlug/play" element={<CaptainsPublic />} />
+              <Route path="/capitanes/:eventSlug/ranking" element={<CaptainsPublic />} />
+              <Route path="/capitanes/:eventSlug/final" element={<CaptainsPublic />} />
+              <Route path="/capitanes/:eventSlug/live" element={<CaptainsPublic />} />
+              <Route path="/capitanes/:eventSlug/resumen" element={<CaptainsPublic />} />
 
               {/* Admin translations via URL prefix */}
               <Route path="/en/login" element={<AdminLogin />} />
