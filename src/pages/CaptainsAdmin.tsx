@@ -25,7 +25,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
@@ -1087,6 +1087,7 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
         <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>Evidencia</DialogTitle>
+            <DialogDescription>Vista previa de la evidencia subida por la mesa.</DialogDescription>
           </DialogHeader>
           {selectedEvidence ? <EvidencePreview evidence={selectedEvidence} /> : null}
         </DialogContent>

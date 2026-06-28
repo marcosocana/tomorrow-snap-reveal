@@ -34,6 +34,19 @@ const ensureNoError = (error: unknown) => {
   if (error) throw error;
 };
 
+const captainThemeColumns = ["primary_color", "secondary_color", "background_image_url"];
+
+const withoutCaptainThemeColumns = <T extends Record<string, unknown>>(payload: T) => {
+  const next = { ...payload };
+  captainThemeColumns.forEach((column) => delete next[column]);
+  return next;
+};
+
+const isMissingCaptainThemeColumnError = (error: unknown) => {
+  const message = typeof error === "object" && error && "message" in error ? String((error as { message?: unknown }).message || "") : "";
+  return captainThemeColumns.some((column) => message.includes(column));
+};
+
 export const listCaptainsEvents = async () => {
   const { data, error } = await db
     .from("captains_events")
@@ -100,6 +113,14 @@ export const createCaptainsEvent = async (input: CreateCaptainsEventInput) => {
   };
 
   const { data, error } = await db.from("captains_events").insert(payload).select("*").single();
+  if (!error) return data as CaptainsEvent;
+
+  if (isMissingCaptainThemeColumnError(error)) {
+    const fallback = await db.from("captains_events").insert(withoutCaptainThemeColumns(payload)).select("*").single();
+    ensureNoError(fallback.error);
+    return fallback.data as CaptainsEvent;
+  }
+
   ensureNoError(error);
   return data as CaptainsEvent;
 };
@@ -164,6 +185,14 @@ export const updateCaptainsEvent = async (
   }
 
   const { data, error } = await db.from("captains_events").update(payload).eq("id", eventId).select("*").single();
+  if (!error) return data as CaptainsEvent;
+
+  if (isMissingCaptainThemeColumnError(error)) {
+    const fallback = await db.from("captains_events").update(withoutCaptainThemeColumns(payload)).eq("id", eventId).select("*").single();
+    ensureNoError(fallback.error);
+    return fallback.data as CaptainsEvent;
+  }
+
   ensureNoError(error);
   return data as CaptainsEvent;
 };
