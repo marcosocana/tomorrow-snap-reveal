@@ -1327,6 +1327,16 @@ const EventManagement = () => {
                 <Button
                   variant="outline"
                   size="icon"
+                  onClick={() => navigate("/admin/capitanes")}
+                  aria-label="Capitanes"
+                  title="Capitanes"
+                  className="rounded-full font-bold"
+                >
+                  <span className="text-sm leading-none">C</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
                   onClick={() => setAccountOpen(true)}
                   aria-label="Cuenta"
                   className="rounded-full"
