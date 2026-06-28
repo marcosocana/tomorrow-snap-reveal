@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { getFontById, loadGoogleFont, getEventFontFamily, EventFontFamily } from "@/lib/eventFonts";
 import { getFilterClass, FilterType } from "@/lib/photoFilters";
 import { useAdminI18n } from "@/lib/adminI18n";
+import JSZip from "jszip";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,6 +16,28 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 const PHOTOS_PER_PAGE = 50;
+
+const getExtensionFromStoragePath = (path: string, fallback: string) => {
+  const cleanPath = path.split("?")[0].split("#")[0];
+  const fileName = cleanPath.split("/").pop() || "";
+  const extension = fileName.includes(".") ? fileName.split(".").pop() : "";
+  return extension && /^[a-z0-9]+$/i.test(extension) ? extension.toLowerCase() : fallback;
+};
+
+const sanitizeZipFileName = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80) || "revelao";
+
+const formatZipDate = (value: string) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "sin-fecha";
+  const pad = (part: number) => String(part).padStart(2, "0");
+  return `${pad(date.getDate())}-${pad(date.getMonth() + 1)}-${date.getFullYear()}-${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;
+};
 
 interface Photo {
   id: string;
@@ -83,12 +106,15 @@ export const GalleryPreviewModal = ({
   const [sortBy, setSortBy] = useState<SortBy>("chronological");
   const [activeTab, setActiveTab] = useState<MediaTab>("photos");
   const [isDeletingAll, setIsDeletingAll] = useState(false);
+  const [isDownloadingAll, setIsDownloadingAll] = useState(false);
   const { toast } = useToast();
   const { t, lang } = useAdminI18n();
 
   const totalPages = Math.ceil(totalPhotos / PHOTOS_PER_PAGE);
   const bulkDeleteText = lang === "en" ? "Delete all" : lang === "it" ? "Elimina tutto" : "Eliminar todo";
   const deletingAllText = lang === "en" ? "Deleting..." : lang === "it" ? "Eliminando..." : "Eliminando...";
+  const downloadAllText = lang === "en" ? "Download all" : lang === "it" ? "Scarica tutto" : "Descargar todo";
+  const downloadingAllText = lang === "en" ? "Downloading..." : lang === "it" ? "Scaricando..." : "Descargando...";
   const deleteAllConfirmText =
     lang === "en"
       ? "This will permanently delete all items in this tab. Do you want to continue?"
@@ -560,6 +586,137 @@ export const GalleryPreviewModal = ({
     }
   };
 
+  const handleDownloadAll = async () => {
+    if (isDownloadingAll) return;
+
+    setIsDownloadingAll(true);
+    try {
+      toast({
+        title: downloadAllText,
+        description: downloadingAllText,
+      });
+
+      const [
+        { data: allPhotos, error: photosError },
+        { data: allVideos, error: videosError },
+        { data: allAudios, error: audiosError },
+      ] = await Promise.all([
+        supabase
+          .from("photos")
+          .select("id,image_url,captured_at")
+          .eq("event_id", eventId)
+          .order("captured_at", { ascending: true }),
+        supabase
+          .from("videos")
+          .select("id,video_url,captured_at")
+          .eq("event_id", eventId)
+          .order("captured_at", { ascending: true }),
+        supabase
+          .from("audios")
+          .select("id,audio_url,captured_at")
+          .eq("event_id", eventId)
+          .order("captured_at", { ascending: true }),
+      ]);
+
+      if (photosError) throw photosError;
+      if (videosError) throw videosError;
+      if (audiosError) throw audiosError;
+
+      const zip = new JSZip();
+      let exportedCount = 0;
+
+      for (let i = 0; i < (allPhotos || []).length; i++) {
+        const photo = allPhotos![i];
+        const { data: signedUrlData } = await supabase.storage
+          .from("event-photos")
+          .createSignedUrl(photo.image_url, 3600);
+
+        if (signedUrlData?.signedUrl) {
+          const response = await fetch(signedUrlData.signedUrl);
+          if (!response.ok) throw new Error(`Photo download failed: ${response.status}`);
+          const blob = await response.blob();
+          const extension = getExtensionFromStoragePath(photo.image_url, "jpg");
+          const filename = `fotos/${String(i + 1).padStart(4, "0")}-foto-${formatZipDate(photo.captured_at)}-${photo.id.slice(0, 8)}.${extension}`;
+          zip.file(filename, blob);
+          exportedCount += 1;
+        }
+      }
+
+      for (let i = 0; i < (allVideos || []).length; i++) {
+        const video = allVideos![i];
+        const { data: signedUrlData } = await supabase.storage
+          .from("event-videos")
+          .createSignedUrl(video.video_url, 3600);
+
+        if (signedUrlData?.signedUrl) {
+          const response = await fetch(signedUrlData.signedUrl);
+          if (!response.ok) throw new Error(`Video download failed: ${response.status}`);
+          const blob = await response.blob();
+          const extension = getExtensionFromStoragePath(video.video_url, "webm");
+          const filename = `videos/${String(i + 1).padStart(4, "0")}-video-${formatZipDate(video.captured_at)}-${video.id.slice(0, 8)}.${extension}`;
+          zip.file(filename, blob);
+          exportedCount += 1;
+        }
+      }
+
+      for (let i = 0; i < (allAudios || []).length; i++) {
+        const audio = allAudios![i];
+        const { data: signedUrlData } = await supabase.storage
+          .from("event-audios")
+          .createSignedUrl(audio.audio_url, 3600);
+
+        if (signedUrlData?.signedUrl) {
+          const response = await fetch(signedUrlData.signedUrl);
+          if (!response.ok) throw new Error(`Audio download failed: ${response.status}`);
+          const blob = await response.blob();
+          const extension = getExtensionFromStoragePath(audio.audio_url, "webm");
+          const filename = `audios/${String(i + 1).padStart(4, "0")}-audio-${formatZipDate(audio.captured_at)}-${audio.id.slice(0, 8)}.${extension}`;
+          zip.file(filename, blob);
+          exportedCount += 1;
+        }
+      }
+
+      if (exportedCount === 0) {
+        toast({
+          title: t("gallery.empty"),
+          description: t("gallery.empty"),
+        });
+        return;
+      }
+
+      const content = await zip.generateAsync({ type: "blob" });
+      const url = window.URL.createObjectURL(content);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${sanitizeZipFileName(eventName || "revelao")}-contenido.zip`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      const completedText = lang === "en" ? "Download complete" : lang === "it" ? "Download completato" : "Descarga completada";
+      const completedDescText =
+        lang === "en"
+          ? `${exportedCount} files downloaded successfully`
+          : lang === "it"
+            ? `${exportedCount} file scaricati correttamente`
+            : `${exportedCount} archivos descargados correctamente`;
+      toast({
+        title: completedText,
+        description: completedDescText,
+      });
+    } catch (error) {
+      console.error("Error downloading all media:", error);
+      toast({
+        title: t("form.errorTitle"),
+        description: t("gallery.photoDownloadError"),
+        variant: "destructive",
+      });
+    } finally {
+      setIsDownloadingAll(false);
+    }
+  };
+
   const handleSharePhoto = async (photo: Photo) => {
     if (!photo.fullQualityUrl) return;
     
@@ -607,13 +764,14 @@ export const GalleryPreviewModal = ({
     (activeTab === "photos" && totalPhotos > 0) ||
     (activeTab === "videos" && totalVideos > 0) ||
     (activeTab === "audios" && totalAudios > 0);
+  const hasAnyMedia = totalPhotos + totalVideos + totalAudios > 0;
 
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
-            <DialogTitle className="flex items-start justify-between gap-4">
+            <DialogTitle className="flex items-center gap-2 flex-wrap">
               <div className="flex items-center gap-2 flex-wrap">
                 <span>{t("gallery.title")}</span>
                 <span className="text-sm font-normal text-muted-foreground">
@@ -644,18 +802,31 @@ export const GalleryPreviewModal = ({
                   </DropdownMenu>
                 )}
               </div>
-              <Button
-                type="button"
-                variant="destructive"
-                size="sm"
-                onClick={handleDeleteAll}
-                disabled={!canDeleteAll || isDeletingAll}
-              >
-                <Trash2 className="w-4 h-4 sm:mr-2" />
-                <span>{isDeletingAll ? deletingAllText : bulkDeleteText}</span>
-              </Button>
             </DialogTitle>
           </DialogHeader>
+
+          <div className="mb-3 grid gap-2 rounded-md border border-border bg-muted/40 p-3 sm:grid-cols-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleDownloadAll}
+              disabled={!hasAnyMedia || isDownloadingAll}
+              className="w-full gap-2"
+            >
+              <Download className="w-4 h-4" />
+              <span>{isDownloadingAll ? downloadingAllText : downloadAllText}</span>
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleDeleteAll}
+              disabled={!canDeleteAll || isDeletingAll}
+              className="w-full gap-2"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>{isDeletingAll ? deletingAllText : bulkDeleteText}</span>
+            </Button>
+          </div>
 
           <div className="mb-2 grid grid-cols-3 gap-2">
             <Button

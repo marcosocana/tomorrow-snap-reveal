@@ -273,63 +273,32 @@ const EventManagement = () => {
     }
     const baseCounts: Record<string, { photos: number; videos: number; audios: number }> = {};
     for (const eventId of eventIds) {
-      baseCounts[eventId] = { photos: 0, videos: 0, audios: 0 };
+      baseCounts[eventId] = fallbackCounts[eventId] ?? { photos: 0, videos: 0, audios: 0 };
     }
 
-    const [photosRes, videosRes, audiosRes] = await Promise.all([
-      supabase.from("photos").select("event_id").in("event_id", eventIds),
-      supabase.from("videos").select("event_id").in("event_id", eventIds),
-      supabase.from("audios").select("event_id").in("event_id", eventIds),
-    ]);
+    const countMediaForEvent = async (eventId: string) => {
+      const [photosRes, videosRes, audiosRes] = await Promise.all([
+        supabase.from("photos").select("id", { count: "exact", head: true }).eq("event_id", eventId),
+        supabase.from("videos").select("id", { count: "exact", head: true }).eq("event_id", eventId),
+        supabase.from("audios").select("id", { count: "exact", head: true }).eq("event_id", eventId),
+      ]);
 
-    if (!photosRes.error && photosRes.data) {
-      for (const item of photosRes.data as Array<{ event_id: string }>) {
-        const eventId = item.event_id;
-        if (!baseCounts[eventId]) {
-          baseCounts[eventId] = { photos: 0, videos: 0, audios: 0 };
-        }
-        baseCounts[eventId].photos += 1;
-      }
-    } else {
-      for (const [eventId, counts] of Object.entries(fallbackCounts)) {
-        if (!baseCounts[eventId]) {
-          baseCounts[eventId] = { photos: 0, videos: 0, audios: 0 };
-        }
-        baseCounts[eventId].photos = counts.photos;
-      }
-    }
+      return {
+        eventId,
+        counts: {
+          photos: photosRes.error ? fallbackCounts[eventId]?.photos ?? 0 : photosRes.count ?? 0,
+          videos: videosRes.error ? fallbackCounts[eventId]?.videos ?? 0 : videosRes.count ?? 0,
+          audios: audiosRes.error ? fallbackCounts[eventId]?.audios ?? 0 : audiosRes.count ?? 0,
+        },
+      };
+    };
 
-    if (!videosRes.error && videosRes.data) {
-      for (const item of videosRes.data as Array<{ event_id: string }>) {
-        const eventId = item.event_id;
-        if (!baseCounts[eventId]) {
-          baseCounts[eventId] = { photos: 0, videos: 0, audios: 0 };
-        }
-        baseCounts[eventId].videos += 1;
-      }
-    } else {
-      for (const [eventId, counts] of Object.entries(fallbackCounts)) {
-        if (!baseCounts[eventId]) {
-          baseCounts[eventId] = { photos: 0, videos: 0, audios: 0 };
-        }
-        baseCounts[eventId].videos = counts.videos;
-      }
-    }
-
-    if (!audiosRes.error && audiosRes.data) {
-      for (const item of audiosRes.data as Array<{ event_id: string }>) {
-        const eventId = item.event_id;
-        if (!baseCounts[eventId]) {
-          baseCounts[eventId] = { photos: 0, videos: 0, audios: 0 };
-        }
-        baseCounts[eventId].audios += 1;
-      }
-    } else {
-      for (const [eventId, counts] of Object.entries(fallbackCounts)) {
-        if (!baseCounts[eventId]) {
-          baseCounts[eventId] = { photos: 0, videos: 0, audios: 0 };
-        }
-        baseCounts[eventId].audios = counts.audios;
+    const batchSize = 12;
+    for (let index = 0; index < eventIds.length; index += batchSize) {
+      const batch = eventIds.slice(index, index + batchSize);
+      const results = await Promise.all(batch.map((eventId) => countMediaForEvent(eventId)));
+      for (const result of results) {
+        baseCounts[result.eventId] = result.counts;
       }
     }
 
