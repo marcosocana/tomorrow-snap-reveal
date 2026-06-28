@@ -117,6 +117,332 @@ export type Database = {
         }
         Relationships: []
       }
+      captains_challenge_catalog: {
+        Row: {
+          created_at: string
+          default_points: number
+          description: string | null
+          id: string
+          is_active: boolean
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          default_points?: number
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          default_points?: number
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      captains_event_challenges: {
+        Row: {
+          captains_event_id: string
+          catalog_id: string | null
+          created_at: string
+          description: string | null
+          id: string
+          points: number
+          position: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          captains_event_id: string
+          catalog_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          points?: number
+          position?: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          captains_event_id?: string
+          catalog_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          points?: number
+          position?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "captains_event_challenges_captains_event_id_fkey"
+            columns: ["captains_event_id"]
+            isOneToOne: false
+            referencedRelation: "captains_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "captains_event_challenges_catalog_id_fkey"
+            columns: ["catalog_id"]
+            isOneToOne: false
+            referencedRelation: "captains_challenge_catalog"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      captains_events: {
+        Row: {
+          created_at: string
+          description: string | null
+          end_time: string | null
+          id: string
+          name: string
+          owner_id: string | null
+          show_live_gallery_after_completion: boolean
+          slug: string
+          start_time: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          end_time?: string | null
+          id?: string
+          name: string
+          owner_id?: string | null
+          show_live_gallery_after_completion?: boolean
+          slug: string
+          start_time?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          end_time?: string | null
+          id?: string
+          name?: string
+          owner_id?: string | null
+          show_live_gallery_after_completion?: boolean
+          slug?: string
+          start_time?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "captains_events_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      captains_evidence: {
+        Row: {
+          created_at: string
+          event_challenge_id: string | null
+          file_path: string
+          file_url: string | null
+          id: string
+          media_type: string
+          reviewed_at: string | null
+          reviewer_id: string | null
+          status: string
+          table_challenge_id: string | null
+          table_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          event_challenge_id?: string | null
+          file_path: string
+          file_url?: string | null
+          id?: string
+          media_type?: string
+          reviewed_at?: string | null
+          reviewer_id?: string | null
+          status?: string
+          table_challenge_id?: string | null
+          table_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          event_challenge_id?: string | null
+          file_path?: string
+          file_url?: string | null
+          id?: string
+          media_type?: string
+          reviewed_at?: string | null
+          reviewer_id?: string | null
+          status?: string
+          table_challenge_id?: string | null
+          table_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "captains_evidence_event_challenge_id_fkey"
+            columns: ["event_challenge_id"]
+            isOneToOne: false
+            referencedRelation: "captains_event_challenges"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "captains_evidence_reviewer_id_fkey"
+            columns: ["reviewer_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "captains_evidence_table_challenge_id_fkey"
+            columns: ["table_challenge_id"]
+            isOneToOne: false
+            referencedRelation: "captains_table_challenges"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "captains_evidence_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: false
+            referencedRelation: "captains_tables"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      captains_table_accesses: {
+        Row: {
+          created_at: string
+          device_id: string | null
+          id: string
+          table_id: string
+          user_agent: string | null
+        }
+        Insert: {
+          created_at?: string
+          device_id?: string | null
+          id?: string
+          table_id: string
+          user_agent?: string | null
+        }
+        Update: {
+          created_at?: string
+          device_id?: string | null
+          id?: string
+          table_id?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "captains_table_accesses_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: false
+            referencedRelation: "captains_tables"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      captains_table_challenges: {
+        Row: {
+          awarded_points: number
+          completed: boolean
+          completed_at: string | null
+          created_at: string
+          event_challenge_id: string
+          id: string
+          table_id: string
+          updated_at: string
+        }
+        Insert: {
+          awarded_points?: number
+          completed?: boolean
+          completed_at?: string | null
+          created_at?: string
+          event_challenge_id: string
+          id?: string
+          table_id: string
+          updated_at?: string
+        }
+        Update: {
+          awarded_points?: number
+          completed?: boolean
+          completed_at?: string | null
+          created_at?: string
+          event_challenge_id?: string
+          id?: string
+          table_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "captains_table_challenges_event_challenge_id_fkey"
+            columns: ["event_challenge_id"]
+            isOneToOne: false
+            referencedRelation: "captains_event_challenges"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "captains_table_challenges_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: false
+            referencedRelation: "captains_tables"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      captains_tables: {
+        Row: {
+          captain_name: string | null
+          captains_event_id: string
+          completed_at: string | null
+          created_at: string
+          id: string
+          name: string
+          position: number
+          score: number
+          updated_at: string
+        }
+        Insert: {
+          captain_name?: string | null
+          captains_event_id: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          position?: number
+          score?: number
+          updated_at?: string
+        }
+        Update: {
+          captain_name?: string | null
+          captains_event_id?: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          position?: number
+          score?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "captains_tables_captains_event_id_fkey"
+            columns: ["captains_event_id"]
+            isOneToOne: false
+            referencedRelation: "captains_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_folders: {
         Row: {
           background_image_url: string | null
@@ -557,7 +883,10 @@ export type Database = {
       }
     }
     Functions: {
-      [_ in never]: never
+      captains_event_status: {
+        Args: { _end: string; _start: string }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never
