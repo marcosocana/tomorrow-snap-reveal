@@ -1275,7 +1275,7 @@ export default function CaptainsPublic() {
     );
   }
 
-  if (!session && step !== "home") {
+  if (!session) {
     go("start");
     return <LoadingScreen />;
   }
