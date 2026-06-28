@@ -233,15 +233,18 @@ export type Database = {
       }
       captains_events: {
         Row: {
+          background_image_url: string | null
           created_at: string
           description: string | null
           end_time: string | null
           id: string
           name: string
           owner_id: string | null
+          primary_color: string | null
           public_url: string | null
           qr_url: string | null
           scoring_mode: string
+          secondary_color: string | null
           show_live_gallery_after_completion: boolean
           slug: string
           start_time: string | null
@@ -249,15 +252,18 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          background_image_url?: string | null
           created_at?: string
           description?: string | null
           end_time?: string | null
           id?: string
           name: string
           owner_id?: string | null
+          primary_color?: string | null
           public_url?: string | null
           qr_url?: string | null
           scoring_mode?: string
+          secondary_color?: string | null
           show_live_gallery_after_completion?: boolean
           slug: string
           start_time?: string | null
@@ -265,15 +271,18 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          background_image_url?: string | null
           created_at?: string
           description?: string | null
           end_time?: string | null
           id?: string
           name?: string
           owner_id?: string | null
+          primary_color?: string | null
           public_url?: string | null
           qr_url?: string | null
           scoring_mode?: string
+          secondary_color?: string | null
           show_live_gallery_after_completion?: boolean
           slug?: string
           start_time?: string | null
