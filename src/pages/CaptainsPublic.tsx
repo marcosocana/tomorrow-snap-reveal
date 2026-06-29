@@ -629,6 +629,47 @@ const SignedEvidenceMedia = ({
   );
 };
 
+const SummaryEvidenceThumb = ({ evidence }: { evidence: CaptainsEvidence }) => {
+  const [url, setUrl] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    if (!evidence.file_url) {
+      setUrl("");
+      return () => {
+        active = false;
+      };
+    }
+    if (evidence.file_url.startsWith("blob:") || evidence.file_url.startsWith("data:")) {
+      setUrl(evidence.file_url);
+      return () => {
+        active = false;
+      };
+    }
+    getCaptainsEvidenceSignedUrl(evidence.file_url)
+      .then((signed) => {
+        if (active) setUrl(signed);
+      })
+      .catch(() => setUrl(""));
+    return () => {
+      active = false;
+    };
+  }, [evidence.file_url]);
+
+  if (url && evidence.evidence_type === "photo") {
+    return <img src={url} alt="" loading="lazy" className="h-full w-full object-cover" />;
+  }
+
+  if (url && evidence.evidence_type === "video") {
+    if (url.startsWith("data:image")) {
+      return <img src={url} alt="" loading="lazy" className="h-full w-full object-cover" />;
+    }
+    return <video src={url} muted playsInline preload="metadata" className="h-full w-full object-cover" />;
+  }
+
+  return <EvidenceIcon type={evidence.evidence_type} className="h-10 w-10 text-[#5eead4]" />;
+};
+
 export default function CaptainsPublic() {
   const { eventSlug = "" } = useParams();
   const navigate = useNavigate();
@@ -1691,11 +1732,7 @@ export default function CaptainsPublic() {
                         return (
                           <div key={evidence.id} className="grid grid-cols-[96px_1fr] gap-3 rounded-[8px] bg-white/10 p-3">
                             <div className="flex aspect-square items-center justify-center overflow-hidden rounded-[8px] bg-black/35">
-                              {evidence.file_url && evidence.evidence_type !== "audio" ? (
-                                <img src={evidence.file_url} alt="" className="h-full w-full object-cover" />
-                              ) : (
-                                <EvidenceIcon type={evidence.evidence_type} className="h-10 w-10 text-[#5eead4]" />
-                              )}
+                              <SummaryEvidenceThumb evidence={evidence} />
                             </div>
                             <div className="min-w-0 self-center">
                               <p className="truncate text-lg font-black">{table?.table_name || "Mesa"}</p>
