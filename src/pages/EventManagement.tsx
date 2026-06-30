@@ -1287,14 +1287,14 @@ const EventManagement = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="admin-demo2-shell min-h-screen flex items-center justify-center bg-background">
         <p className="text-muted-foreground">{t("events.loading")}</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-6" data-scroll-container>
+    <div className="admin-demo2-shell min-h-screen bg-background p-4 md:p-6" data-scroll-container>
         <div className="max-w-6xl mx-auto space-y-4 md:space-y-6">
           <div className="flex flex-col gap-4">
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 w-full">
@@ -1389,7 +1389,7 @@ const EventManagement = () => {
                     onClick={() => setAdminActiveTab(tab.value)}
                     className={`inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm font-medium transition-colors ${
                       isActive
-                        ? "border-primary bg-primary text-primary-foreground"
+                        ? "!border-foreground !bg-foreground !text-background shadow-sm"
                         : "border-border bg-background text-foreground hover:bg-muted"
                     }`}
                   >
@@ -1397,7 +1397,7 @@ const EventManagement = () => {
                     <span
                       className={`rounded-full px-2 py-0.5 text-xs ${
                         isActive
-                          ? "bg-primary-foreground/20 text-primary-foreground"
+                          ? "bg-background/20 !text-background"
                           : "bg-muted text-muted-foreground"
                       }`}
                     >
@@ -1836,7 +1836,7 @@ const EventManagement = () => {
       </Dialog>
 
       <Dialog open={redeemGeneratorOpen} onOpenChange={setRedeemGeneratorOpen}>
-        <DialogContent className="max-w-md w-[92vw] sm:w-full">
+        <DialogContent className="admin-demo2-shell max-w-md w-[92vw] sm:w-full">
           <DialogHeader>
             <DialogTitle>Generar código de canje</DialogTitle>
           </DialogHeader>
@@ -1888,7 +1888,7 @@ const EventManagement = () => {
           }
         }}
       >
-        <DialogContent className="max-w-lg w-[92vw] sm:w-full">
+        <DialogContent className="admin-demo2-shell max-w-lg w-[92vw] sm:w-full">
           <DialogHeader>
             <DialogTitle>
               Nota interna{noteEvent ? ` · ${noteEvent.name}` : ""}
@@ -1921,7 +1921,7 @@ const EventManagement = () => {
       </Dialog>
 
       <Dialog open={accountOpen} onOpenChange={setAccountOpen}>
-        <DialogContent className="max-w-sm w-[92vw] sm:w-full">
+        <DialogContent className="admin-demo2-shell max-w-sm w-[92vw] sm:w-full">
           <DialogHeader>
             <DialogTitle>Cuenta</DialogTitle>
           </DialogHeader>

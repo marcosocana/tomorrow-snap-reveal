@@ -197,4 +197,131 @@ All colors MUST be HSL.
     min-height: 100svh;
     min-height: var(--app-height, 100svh);
   }
+
+  .admin-demo2-shell {
+    --admin-demo2-accent: #f06a5f;
+    --admin-demo2-accent-soft: rgba(240, 106, 95, 0.1);
+    --admin-demo2-card-shadow: 0 12px 30px rgba(15, 15, 15, 0.05);
+    letter-spacing: 0;
+    background:
+      linear-gradient(180deg, rgba(240, 106, 95, 0.035), transparent 220px),
+      hsl(var(--background));
+  }
+
+  .admin-demo2-shell h1,
+  .admin-demo2-shell h2,
+  .admin-demo2-shell h3 {
+    letter-spacing: 0;
+  }
+
+  .admin-demo2-shell .bg-card,
+  .admin-demo2-shell [role="dialog"],
+  .admin-demo2-shell[role="dialog"] {
+    border-color: hsl(var(--border));
+    border-radius: 0.75rem;
+    box-shadow: var(--admin-demo2-card-shadow);
+  }
+
+  .admin-demo2-shell .bg-muted,
+  .admin-demo2-shell .bg-muted\/30,
+  .admin-demo2-shell .bg-muted\/40,
+  .admin-demo2-shell .bg-muted\/50 {
+    border-radius: 0.75rem;
+  }
+
+  .admin-demo2-shell button {
+    border-radius: 9999px;
+    letter-spacing: 0;
+  }
+
+  .admin-demo2-shell button[class*="bg-primary"] {
+    background-color: var(--admin-demo2-accent);
+    color: white;
+  }
+
+  .admin-demo2-shell button[class*="bg-primary"]:hover {
+    background-color: var(--admin-demo2-accent);
+    opacity: 0.9;
+  }
+
+  .admin-demo2-shell button[class*="border"],
+  .admin-demo2-shell button[class*="bg-background"] {
+    border-color: hsl(var(--border));
+    background-color: hsl(var(--background));
+  }
+
+  .admin-demo2-shell button[class*="border"]:hover,
+  .admin-demo2-shell button[class*="bg-background"]:hover {
+    background-color: var(--admin-demo2-accent-soft);
+    color: hsl(var(--foreground));
+  }
+
+  .admin-demo2-shell [role="tab"] {
+    color: hsl(var(--muted-foreground));
+  }
+
+  .admin-demo2-shell [role="tab"][data-state="active"] {
+    border-color: hsl(var(--foreground)) !important;
+    background-color: hsl(var(--foreground)) !important;
+    color: hsl(var(--background)) !important;
+  }
+
+  .admin-demo2-shell [role="switch"] > span {
+    background-color: hsl(var(--muted-foreground) / 0.55);
+  }
+
+  .admin-demo2-shell [role="switch"][data-state="checked"] > span {
+    background-color: #22c55e;
+  }
+
+  .admin-demo2-shell input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="color"]),
+  .admin-demo2-shell select {
+    min-height: 3rem;
+    border-radius: 9999px;
+    border-color: hsl(var(--input));
+    background-color: hsl(var(--background));
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .admin-demo2-shell input[type="color"] {
+    border-radius: 9999px;
+  }
+
+  .admin-demo2-shell textarea {
+    border-radius: 1rem;
+    border-color: hsl(var(--input));
+    background-color: hsl(var(--background));
+    padding: 0.75rem 1rem;
+  }
+
+  .admin-demo2-shell input:focus-visible,
+  .admin-demo2-shell textarea:focus-visible,
+  .admin-demo2-shell select:focus-visible,
+  .admin-demo2-shell button:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(240, 106, 95, 0.28);
+  }
+
+  .admin-demo2-shell table {
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  .admin-demo2-shell thead tr {
+    color: hsl(var(--muted-foreground));
+  }
+
+  .admin-demo2-shell tbody tr {
+    transition: background-color 160ms ease;
+  }
+
+  .admin-demo2-shell tbody tr:hover {
+    background-color: rgba(240, 106, 95, 0.045);
+  }
+
+  .admin-demo2-shell [data-state="active"],
+  .admin-demo2-shell [aria-selected="true"] {
+    border-color: var(--admin-demo2-accent);
+  }
 }

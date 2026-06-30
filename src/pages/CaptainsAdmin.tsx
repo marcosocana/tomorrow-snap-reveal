@@ -153,7 +153,7 @@ const AdminFrame = ({ title, subtitle, children }: { title: string; subtitle?: s
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="admin-demo2-shell min-h-screen bg-background">
       <div className="border-b bg-card">
         <div className="mx-auto max-w-7xl px-4 py-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

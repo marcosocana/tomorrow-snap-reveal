@@ -1,4 +1,3 @@
-import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
 export type FontSizeOption = "text-xl" | "text-2xl" | "text-3xl" | "text-4xl" | "text-5xl";
@@ -18,9 +17,9 @@ const FONT_SIZE_OPTIONS: { value: FontSizeOption; label: string; description: st
   { value: "text-5xl", label: "XL", description: "Muy grande" },
 ];
 
-export const FontSizeSelect = ({ value, onChange, previewText = "Evento", fontFamily }: FontSizeSelectProps) => {
+export const FontSizeSelect = ({ value, onChange }: FontSizeSelectProps) => {
   return (
-    <div className="space-y-3">
+    <div>
       <div className="grid grid-cols-5 gap-2">
         {FONT_SIZE_OPTIONS.map((option) => (
           <button
@@ -30,7 +29,7 @@ export const FontSizeSelect = ({ value, onChange, previewText = "Evento", fontFa
             className={cn(
               "w-full px-2 py-2 text-xs sm:text-sm rounded-md border transition-colors",
               value === option.value
-                ? "bg-primary text-primary-foreground border-primary"
+                ? "!border-foreground !bg-foreground !text-background shadow-sm"
                 : "bg-muted border-border hover:bg-muted/80"
             )}
             title={option.description}
@@ -38,16 +37,6 @@ export const FontSizeSelect = ({ value, onChange, previewText = "Evento", fontFa
             {option.label}
           </button>
         ))}
-      </div>
-      
-      {/* Preview */}
-      <div className="p-4 border border-border rounded-lg bg-muted/50 overflow-hidden">
-        <p 
-          className={cn(value, "font-bold text-foreground text-center truncate")}
-          style={{ fontFamily: fontFamily || "inherit" }}
-        >
-          {previewText || "Evento"}
-        </p>
       </div>
     </div>
   );

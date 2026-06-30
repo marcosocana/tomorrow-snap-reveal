@@ -769,7 +769,7 @@ export const GalleryPreviewModal = ({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogContent className="admin-demo2-shell flex h-[calc(100dvh-60px)] max-h-[calc(100dvh-60px)] w-[calc(100vw-60px)] max-w-[calc(100vw-60px)] flex-col overflow-hidden">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 flex-wrap">
               <div className="flex items-center gap-2 flex-wrap">

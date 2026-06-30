@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useState, useEffect, useRef } from "react";
+import { useBeforeUnload, useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,9 +7,10 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Globe, Trash2, Camera, Video, Mic } from "lucide-react";
+import { ArrowLeft, ArrowRight, Download, ExternalLink, Globe, Trash2, Camera, Video, Mic } from "lucide-react";
 import { addDays, format } from "date-fns";
 import { toZonedTime, fromZonedTime, formatInTimeZone } from "date-fns-tz";
 import CountrySelect from "@/components/CountrySelect";
@@ -104,6 +105,14 @@ const isNuevoEventoDemo2 = (raw: Json | null | undefined) => {
 
 type HeaderStyle = "gradient" | "modern";
 type PlanType = "demo" | "small" | "medium" | "xxl" | "custom";
+type EventFormStep = "general" | "space" | "dates" | "options";
+
+const EVENT_FORM_STEPS: Array<{ value: EventFormStep; label: string }> = [
+  { value: "general", label: "General" },
+  { value: "space", label: "Espacio" },
+  { value: "dates", label: "Fechas" },
+  { value: "options", label: "Opciones" },
+];
 
 const PLAN_LIMITS: Record<
   Exclude<PlanType, "custom">,
@@ -168,6 +177,12 @@ const EventForm = () => {
   const [backgroundAdjustY, setBackgroundAdjustY] = useState(50);
   const [backgroundAdjustZoom, setBackgroundAdjustZoom] = useState(1);
   const [planType, setPlanType] = useState<PlanType>("demo");
+  const [activeFormStep, setActiveFormStep] = useState<EventFormStep>("general");
+  const [maxUnlockedFormStep, setMaxUnlockedFormStep] = useState(0);
+  const [savedEditSnapshot, setSavedEditSnapshot] = useState<string | null>(null);
+  const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
+  const [pendingLeaveAction, setPendingLeaveAction] = useState<(() => void) | null>(null);
+  const allowNavigationRef = useRef(false);
   // Generate a random 8-character hash for passwords
   const generateHash = () => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -214,7 +229,7 @@ const EventForm = () => {
       backgroundImage: null as File | null,
       backgroundImageUrl: "",
       filterType: "none" as FilterType,
-      fontFamily: "system" as EventFontFamily,
+      fontFamily: "dancing-script" as EventFontFamily,
       fontSize: "text-3xl" as FontSizeOption,
       countryCode: "ES",
       timezone: "Europe/Madrid",
@@ -255,6 +270,79 @@ const EventForm = () => {
     audios: formData.allowAudioRecording
       ? (formData.maxAudios?.trim() ? formData.maxAudios : "∞")
       : "0",
+  };
+  const getEditSnapshot = (data = formData, plan = planType) =>
+    JSON.stringify({
+      formData: data,
+      planType: plan,
+    });
+  const hasUnsavedEditChanges =
+    isEditing &&
+    !isLoading &&
+    !!savedEditSnapshot &&
+    getEditSnapshot() !== savedEditSnapshot;
+
+  const navigateWithoutUnsavedPrompt = (to: string, options?: Parameters<typeof navigate>[1]) => {
+    allowNavigationRef.current = true;
+    navigate(to, options);
+  };
+
+  const requestLeave = (action: () => void) => {
+    if (!hasUnsavedEditChanges || allowNavigationRef.current) {
+      action();
+      return;
+    }
+    setPendingLeaveAction(() => action);
+    setLeaveConfirmOpen(true);
+  };
+
+  const confirmLeaveWithoutSaving = () => {
+    const action = pendingLeaveAction;
+    setLeaveConfirmOpen(false);
+    setPendingLeaveAction(null);
+    allowNavigationRef.current = true;
+    action?.();
+  };
+  useBeforeUnload(
+    (event) => {
+      if (!hasUnsavedEditChanges || allowNavigationRef.current) return;
+      event.preventDefault();
+      event.returnValue = "";
+    },
+    { capture: true }
+  );
+
+  useEffect(() => {
+    if (!hasUnsavedEditChanges || allowNavigationRef.current) return;
+
+    const handleDocumentClick = (event: MouseEvent) => {
+      if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+        return;
+      }
+      const anchor = (event.target as HTMLElement | null)?.closest("a[href]");
+      if (!anchor) return;
+      const href = anchor.getAttribute("href");
+      const target = anchor.getAttribute("target");
+      if (!href || href.startsWith("#") || target === "_blank") return;
+
+      event.preventDefault();
+      requestLeave(() => {
+        const url = new URL(href, window.location.href);
+        if (url.origin === window.location.origin) {
+          navigate(`${url.pathname}${url.search}${url.hash}`);
+        } else {
+          window.location.href = url.href;
+        }
+      });
+    };
+
+    document.addEventListener("click", handleDocumentClick, true);
+    return () => document.removeEventListener("click", handleDocumentClick, true);
+  }, [hasUnsavedEditChanges, navigate]);
+
+  const keepEditing = () => {
+    setPendingLeaveAction(null);
+    setLeaveConfirmOpen(false);
   };
 
   const formatTimezoneOffset = (timezone: string) => {
@@ -381,7 +469,7 @@ const EventForm = () => {
           loadEvent();
           return;
         }
-        navigate(`${pathPrefix}/event-management`);
+        navigateWithoutUnsavedPrompt(`${pathPrefix}/event-management`);
         return;
       }
       if (isDemoMode) {
@@ -431,7 +519,7 @@ const EventForm = () => {
       
       const qrPasswordSettings = getEventQrPasswordSettings(event.limits_json);
 
-      setFormData({
+      const loadedFormData = {
         name: event.name,
         password: event.password_hash,
         adminPassword: event.admin_password || "",
@@ -452,7 +540,7 @@ const EventForm = () => {
         backgroundImage: null,
         backgroundImageUrl: event.background_image_url || "",
         filterType: event.filter_type || "vintage",
-        fontFamily: (event as any).font_family || "system",
+        fontFamily: (event as any).font_family || "dancing-script",
         fontSize: ((event as any).font_size || "text-3xl") as FontSizeOption,
         countryCode: event.country_code || "ES",
         timezone: event.timezone || "Europe/Madrid",
@@ -482,7 +570,7 @@ const EventForm = () => {
           (event as any).allow_image_attachment === true ||
           (event as any).allow_video_attachment === true,
         headerStyle: ((event as any).header_style || "modern") as HeaderStyle,
-      });
+      };
       await loadEventMediaCounts(event.id);
 
       const resolvedPlanType =
@@ -492,7 +580,9 @@ const EventForm = () => {
         event.plan_id === "xxl" ? "xxl" :
         event.max_photos == null ? "xxl" :
         "custom";
+      setFormData(loadedFormData);
       setPlanType(resolvedPlanType);
+      setSavedEditSnapshot(getEditSnapshot(loadedFormData, resolvedPlanType));
 
       if ((await supabase.auth.getSession()).data.session?.user?.email?.toLowerCase() === "revelao.cam@gmail.com") {
         try {
@@ -941,7 +1031,7 @@ const EventForm = () => {
           description: t("form.createDesc"),
         });
 
-        navigate(`${pathPrefix}/event-management`, {
+        navigateWithoutUnsavedPrompt(`${pathPrefix}/event-management`, {
           state: {
             createdEvent: {
               id: createdEvent.id,
@@ -1018,7 +1108,7 @@ const EventForm = () => {
           description: t("form.createDesc"),
         });
 
-        navigate(`${pathPrefix}/event-management`);
+        navigateWithoutUnsavedPrompt(`${pathPrefix}/event-management`);
       }
     } catch (error) {
       console.error("Error saving event:", error);
@@ -1048,7 +1138,7 @@ const EventForm = () => {
         title: t("events.deleteTitle"),
         description: t("events.deleteDesc"),
       });
-      navigate(`${pathPrefix}/event-management`);
+      navigateWithoutUnsavedPrompt(`${pathPrefix}/event-management`);
     } catch (error) {
       console.error("Error deleting event:", error);
       toast({
@@ -1114,7 +1204,7 @@ const EventForm = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="admin-demo2-shell min-h-screen flex items-center justify-center bg-background">
         <p className="text-muted-foreground">{t("form.loading")}</p>
       </div>
     );
@@ -1125,9 +1215,131 @@ const EventForm = () => {
     !isDemoEvent &&
     (isEditing || planType === "xxl");
 
+  const activeFormStepIndex = EVENT_FORM_STEPS.findIndex((step) => step.value === activeFormStep);
+  const isLastCreationStep = activeFormStepIndex === EVENT_FORM_STEPS.length - 1;
+  const goToNextCreationStep = () => {
+    const nextIndex = Math.min(activeFormStepIndex + 1, EVENT_FORM_STEPS.length - 1);
+    setMaxUnlockedFormStep((current) => Math.max(current, nextIndex));
+    setActiveFormStep(EVENT_FORM_STEPS[nextIndex].value);
+  };
+  const goToPreviousCreationStep = () => {
+    const prevIndex = Math.max(activeFormStepIndex - 1, 0);
+    setActiveFormStep(EVENT_FORM_STEPS[prevIndex].value);
+  };
+  const handleFormStepChange = (value: string) => {
+    const nextStep = value as EventFormStep;
+    const nextIndex = EVENT_FORM_STEPS.findIndex((step) => step.value === nextStep);
+    if (nextIndex < 0) return;
+    if (!isEditing && nextIndex > maxUnlockedFormStep) return;
+    setActiveFormStep(nextStep);
+  };
+
+  const eventHeaderTools = isEditing && eventId ? (
+    <Card className="p-4">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="flex items-center gap-4">
+          {(() => {
+            const qrUrl = getEventQrUrl(eventId);
+            return (
+              <div
+                className="shrink-0 cursor-pointer rounded-lg border border-border bg-white p-2"
+                onClick={() => setQrPreview({ src: qrUrl || undefined, value: eventUrl })}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    setQrPreview({ src: qrUrl || undefined, value: eventUrl });
+                  }
+                }}
+              >
+                {qrUrl ? (
+                  <img src={qrUrl} alt="QR" className="h-20 w-20" />
+                ) : (
+                  <QRCodeSVG value={eventUrl} size={80} />
+                )}
+              </div>
+            );
+          })()}
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-foreground">{formData.name || t("form.namePreview")}</p>
+            <a
+              href={eventUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block truncate text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+            >
+              {eventUrl}
+            </a>
+            {isSuperAdmin && (eventNumber || ownerEmail || ownerPhone) && (
+              <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                {ownerEmail && (
+                  <p>
+                    <span className="font-medium text-foreground">{t("events.ownerEmail")}:</span>{" "}
+                    {ownerEmail}
+                  </p>
+                )}
+                {eventNumber ? (
+                  <p>
+                    <span className="font-medium text-foreground">ID:</span>{" "}
+                    {eventNumber}
+                  </p>
+                ) : null}
+                {ownerPhone && (
+                  <p>
+                    <span className="font-medium text-foreground">{t("events.ownerPhone")}:</span>{" "}
+                    {ownerPhone}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="grid grid-cols-[44px_1fr_44px] gap-2 md:min-w-[360px]">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={handleDownloadQR}
+            aria-label={t("events.downloadQrAction")}
+            title={t("events.downloadQrAction")}
+          >
+            <Download className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-auto px-3 py-2 text-xs font-medium text-foreground gap-3 justify-center flex-nowrap"
+            onClick={() => setGalleryPreviewOpen(true)}
+          >
+            <span className="inline-flex items-center gap-1 whitespace-nowrap">
+              <Camera className="w-3.5 h-3.5" />
+              {mediaCounts.photos}/{mediaLimits.photos}
+            </span>
+            <span className="inline-flex items-center gap-1 whitespace-nowrap">
+              <Video className="w-3.5 h-3.5" />
+              {mediaCounts.videos}/{mediaLimits.videos}
+            </span>
+            <span className="inline-flex items-center gap-1 whitespace-nowrap">
+              <Mic className="w-3.5 h-3.5" />
+              {mediaCounts.audios}/{mediaLimits.audios}
+            </span>
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => window.open(eventUrl, "_blank")}
+            aria-label={t("events.accessLink")}
+            title={t("events.accessLink")}
+          >
+            <ExternalLink className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    </Card>
+  ) : null;
+
   return (
     <div
-      className="min-h-screen bg-background p-4 md:p-6 overflow-x-hidden"
+      className="admin-demo2-shell min-h-screen bg-background p-4 md:p-6 overflow-x-hidden"
       data-scroll-container
     >
       <div className="max-w-6xl mx-auto space-y-4 md:space-y-6">
@@ -1135,7 +1347,7 @@ const EventForm = () => {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => navigate(`${pathPrefix}/event-management`)}
+            onClick={() => requestLeave(() => navigate(`${pathPrefix}/event-management`))}
             className="rounded-full"
             title={t("form.back")}
           >
@@ -1153,35 +1365,27 @@ const EventForm = () => {
             </span>
           )}
         </div>
-        {isEditing && isSuperAdmin && (eventNumber || ownerEmail || ownerPhone) && (
-          <div className="text-sm text-muted-foreground">
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-              {ownerEmail && (
-                <p>
-                  <span className="font-medium">{t("events.ownerEmail")}:</span>{" "}
-                  {ownerEmail}
-                </p>
-              )}
-              {eventNumber ? (
-                <p>
-                  <span className="font-medium">ID:</span>{" "}
-                  {eventNumber}
-                </p>
-              ) : null}
-            </div>
-            {ownerPhone && (
-              <p>
-                <span className="font-medium">{t("events.ownerPhone")}:</span>{" "}
-                {ownerPhone}
-              </p>
-            )}
-          </div>
-        )}
+        {eventHeaderTools}
 
         <div className="grid lg:grid-cols-[1fr,280px] gap-6">
           {/* Form Column */}
           <Card className="p-6">
             <form onSubmit={handleSubmit} className="space-y-6">
+            <Tabs value={activeFormStep} onValueChange={handleFormStepChange} className="space-y-6">
+              <TabsList className="grid h-auto w-full grid-cols-2 rounded-full bg-muted/50 p-1 sm:grid-cols-4">
+                {EVENT_FORM_STEPS.map((step, index) => (
+                  <TabsTrigger
+                    key={step.value}
+                    value={step.value}
+                    disabled={!isEditing && index > maxUnlockedFormStep}
+                    className="rounded-full data-[state=active]:!bg-foreground data-[state=active]:!text-background data-[state=active]:shadow-sm disabled:cursor-not-allowed disabled:opacity-45"
+                  >
+                    {step.label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+
+              <TabsContent value="general" className="mt-0 space-y-6">
             {isSuperAdmin && !isEditing && (
               <div className="space-y-2">
                 <Label htmlFor="ownerEmail">{t("events.ownerEmail")}</Label>
@@ -1286,100 +1490,9 @@ const EventForm = () => {
               </>
             )}
 
-            <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-4">
-              <div className="flex items-start justify-between gap-4">
-                <div className="space-y-1">
-                  <Label htmlFor="qrPasswordEnabled">Proteger acceso por QR</Label>
-                  <p className="text-xs text-muted-foreground">
-                    Si se activa, los invitados tendrán que introducir esta contraseña antes de acceder al evento desde su QR.
-                  </p>
-                </div>
-                <Switch
-                  id="qrPasswordEnabled"
-                  checked={formData.qrPasswordEnabled}
-                  onCheckedChange={(checked) =>
-                    setFormData({
-                      ...formData,
-                      qrPasswordEnabled: checked,
-                      qrPassword: checked ? formData.qrPassword : "",
-                      qrPasswordScope: checked
-                        ? formData.qrPasswordScope
-                        : { camera: true, gallery: true },
-                    })
-                  }
-                />
-              </div>
+              </TabsContent>
 
-              {formData.qrPasswordEnabled && (
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="qrPassword">
-                      Contraseña del QR<span className="text-red-500">*</span>
-                    </Label>
-                    <Input
-                      id="qrPassword"
-                      type="text"
-                      value={formData.qrPassword}
-                      onChange={(e) =>
-                        setFormData({ ...formData, qrPassword: e.target.value })
-                      }
-                      placeholder="Contraseña para invitados"
-                      required={formData.qrPasswordEnabled}
-                    />
-                    {formData.qrPasswordHash && !formData.qrPassword ? (
-                      <p className="text-xs text-muted-foreground">
-                        Ya hay una contraseña configurada. Deja este campo vacío para conservarla.
-                      </p>
-                    ) : null}
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Solicitar contraseña en</Label>
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      <label className="flex items-start gap-3 rounded-md border border-border bg-background px-3 py-2 text-sm">
-                        <input
-                          type="checkbox"
-                          className="mt-1 h-4 w-4 rounded border-border"
-                          checked={formData.qrPasswordScope.camera}
-                          onChange={(e) =>
-                            setFormData({
-                              ...formData,
-                              qrPasswordScope: {
-                                ...formData.qrPasswordScope,
-                                camera: e.target.checked,
-                              },
-                            })
-                          }
-                        />
-                        <span>
-                          Echar fotos
-                          <span className="block text-xs text-muted-foreground">Se pedirá antes de entrar a cámara.</span>
-                        </span>
-                      </label>
-                      <label className="flex items-start gap-3 rounded-md border border-border bg-background px-3 py-2 text-sm">
-                        <input
-                          type="checkbox"
-                          className="mt-1 h-4 w-4 rounded border-border"
-                          checked={formData.qrPasswordScope.gallery}
-                          onChange={(e) =>
-                            setFormData({
-                              ...formData,
-                              qrPasswordScope: {
-                                ...formData.qrPasswordScope,
-                                gallery: e.target.checked,
-                              },
-                            })
-                          }
-                        />
-                        <span>
-                          Ver galería
-                          <span className="block text-xs text-muted-foreground">Se pedirá antes de ver las fotos reveladas.</span>
-                        </span>
-                      </label>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+              <TabsContent value="space" className="mt-0 space-y-6">
 
             {!isSuperAdmin && (
             <div className="space-y-2">
@@ -1431,7 +1544,7 @@ const EventForm = () => {
                             <div
                               className={`relative overflow-hidden rounded-lg border ${
                                 isActive
-                                  ? "border-[hsl(var(--revelao-red))] ring-2 ring-[hsl(var(--revelao-red)/0.5)]"
+                                  ? "border-foreground ring-2 ring-foreground/20"
                                   : "border-border"
                               }`}
                             >
@@ -1444,7 +1557,7 @@ const EventForm = () => {
                                 <div className={`pointer-events-none absolute inset-0 ${getGrainClass(filter)}`} />
                               ) : null}
                             </div>
-                            <p className={`mt-2 text-xs ${isActive ? "text-[hsl(var(--revelao-red))] font-semibold" : "text-muted-foreground"}`}>
+                            <p className={`mt-2 text-xs ${isActive ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
                               {t(`form.filter.${filter}`)}
                             </p>
                           </button>
@@ -1470,7 +1583,7 @@ const EventForm = () => {
                       <div
                         className={`relative overflow-hidden rounded-lg border ${
                           isActive
-                            ? "border-[hsl(var(--revelao-red))] ring-2 ring-[hsl(var(--revelao-red)/0.5)]"
+                            ? "border-foreground ring-2 ring-foreground/20"
                             : "border-border"
                         }`}
                       >
@@ -1483,7 +1596,7 @@ const EventForm = () => {
                           <div className={`pointer-events-none absolute inset-0 ${getGrainClass(filter)}`} />
                         ) : null}
                       </div>
-                      <p className={`mt-2 text-xs ${isActive ? "text-[hsl(var(--revelao-red))] font-semibold" : "text-muted-foreground"}`}>
+                      <p className={`mt-2 text-xs ${isActive ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
                         {t(`form.filter.${filter}`)}
                       </p>
                     </button>
@@ -1651,6 +1764,10 @@ const EventForm = () => {
                 </p>
               </div>
             </div>
+
+              </TabsContent>
+
+              <TabsContent value="dates" className="mt-0 space-y-6">
 
             <div className="space-y-2">
               <Label className="text-base font-semibold">{t("form.uploadSection")}</Label>
@@ -1841,38 +1958,134 @@ const EventForm = () => {
               </div>
             </div>
 
+              </TabsContent>
+
+              <TabsContent value="options" className="mt-0 space-y-6">
+
             <div className="space-y-4 border-t border-border pt-4">
               <Label className="text-base font-semibold">{t("form.optionsSection")}</Label>
+
+              <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="space-y-1">
+                    <Label htmlFor="qrPasswordEnabled">Proteger acceso por QR</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Si se activa, los invitados tendrán que introducir esta contraseña antes de acceder al evento desde su QR.
+                    </p>
+                  </div>
+                  <Switch
+                    id="qrPasswordEnabled"
+                    checked={formData.qrPasswordEnabled}
+                    onCheckedChange={(checked) =>
+                      setFormData({
+                        ...formData,
+                        qrPasswordEnabled: checked,
+                        qrPassword: checked ? formData.qrPassword : "",
+                        qrPasswordScope: checked
+                          ? formData.qrPasswordScope
+                          : { camera: true, gallery: true },
+                      })
+                    }
+                  />
+                </div>
+
+                {formData.qrPasswordEnabled && (
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="qrPassword">
+                        Contraseña del QR<span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="qrPassword"
+                        type="text"
+                        value={formData.qrPassword}
+                        onChange={(e) =>
+                          setFormData({ ...formData, qrPassword: e.target.value })
+                        }
+                        placeholder="Contraseña para invitados"
+                        required={formData.qrPasswordEnabled}
+                      />
+                      {formData.qrPasswordHash && !formData.qrPassword ? (
+                        <p className="text-xs text-muted-foreground">
+                          Ya hay una contraseña configurada. Deja este campo vacío para conservarla.
+                        </p>
+                      ) : null}
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Solicitar contraseña en</Label>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <label className="flex items-start gap-3 rounded-md border border-border bg-background px-3 py-2 text-sm">
+                          <input
+                            type="checkbox"
+                            className="mt-1 h-4 w-4 rounded border-border"
+                            checked={formData.qrPasswordScope.camera}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                qrPasswordScope: {
+                                  ...formData.qrPasswordScope,
+                                  camera: e.target.checked,
+                                },
+                              })
+                            }
+                          />
+                          <span>
+                            Echar fotos
+                            <span className="block text-xs text-muted-foreground">Se pedirá antes de entrar a cámara.</span>
+                          </span>
+                        </label>
+                        <label className="flex items-start gap-3 rounded-md border border-border bg-background px-3 py-2 text-sm">
+                          <input
+                            type="checkbox"
+                            className="mt-1 h-4 w-4 rounded border-border"
+                            checked={formData.qrPasswordScope.gallery}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                qrPasswordScope: {
+                                  ...formData.qrPasswordScope,
+                                  gallery: e.target.checked,
+                                },
+                              })
+                            }
+                          />
+                          <span>
+                            Ver galería
+                            <span className="block text-xs text-muted-foreground">Se pedirá antes de ver las fotos reveladas.</span>
+                          </span>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
               
               <div className="space-y-2">
-                <Label>{t("form.galleryViewLabel")}</Label>
+                <Label>Cabecera en Camera/Gallery</Label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <button
                     type="button"
-                    onClick={() => setFormData({ ...formData, galleryViewMode: "normal" })}
+                    onClick={() => setFormData({ ...formData, headerStyle: "gradient" })}
                     className={`px-3 py-2 text-sm rounded-md border transition-colors ${
-                      formData.galleryViewMode === "normal"
-                        ? "bg-primary text-primary-foreground border-primary"
+                      formData.headerStyle === "gradient"
+                        ? "!border-foreground !bg-foreground !text-background shadow-sm"
                         : "bg-muted border-border hover:bg-muted/80"
                     }`}
                   >
-                    {t("form.galleryViewNormal")}
+                    Cabecera degradada
                   </button>
                   <button
                     type="button"
-                    onClick={() => setFormData({ ...formData, galleryViewMode: "grid" })}
+                    onClick={() => setFormData({ ...formData, headerStyle: "modern" })}
                     className={`px-3 py-2 text-sm rounded-md border transition-colors ${
-                      formData.galleryViewMode === "grid"
-                        ? "bg-primary text-primary-foreground border-primary"
+                      formData.headerStyle === "modern"
+                        ? "!border-foreground !bg-foreground !text-background shadow-sm"
                         : "bg-muted border-border hover:bg-muted/80"
                     }`}
                   >
-                    {t("form.galleryViewGrid")}
+                    Cabecera moderna
                   </button>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  {t("form.galleryViewHint")}
-                </p>
               </div>
               
               <div className="flex items-center justify-between">
@@ -1949,7 +2162,7 @@ const EventForm = () => {
                         onClick={() => setFormData({ ...formData, legalTextType: "default" })}
                         className={`px-3 py-2 text-sm rounded-md border transition-colors ${
                           formData.legalTextType === "default"
-                            ? "bg-primary text-primary-foreground border-primary"
+                            ? "!border-foreground !bg-foreground !text-background shadow-sm"
                             : "bg-muted border-border hover:bg-muted/80"
                         }`}
                       >
@@ -1960,7 +2173,7 @@ const EventForm = () => {
                         onClick={() => setFormData({ ...formData, legalTextType: "custom" })}
                         className={`px-3 py-2 text-sm rounded-md border transition-colors ${
                           formData.legalTextType === "custom"
-                            ? "bg-primary text-primary-foreground border-primary"
+                            ? "!border-foreground !bg-foreground !text-background shadow-sm"
                             : "bg-muted border-border hover:bg-muted/80"
                         }`}
                       >
@@ -2024,34 +2237,6 @@ const EventForm = () => {
                     }
                     placeholder={t("form.maxPhotosUnlimited")}
                   />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Cabecera en Camera/Gallery</Label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setFormData({ ...formData, headerStyle: "gradient" })}
-                      className={`px-3 py-2 text-sm rounded-md border transition-colors ${
-                        formData.headerStyle === "gradient"
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "bg-muted border-border hover:bg-muted/80"
-                      }`}
-                    >
-                      Cabecera degradada
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setFormData({ ...formData, headerStyle: "modern" })}
-                      className={`px-3 py-2 text-sm rounded-md border transition-colors ${
-                        formData.headerStyle === "modern"
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "bg-muted border-border hover:bg-muted/80"
-                      }`}
-                    >
-                      Cabecera moderna
-                    </button>
-                  </div>
                 </div>
 
                   <div className="space-y-3">
@@ -2206,16 +2391,21 @@ const EventForm = () => {
             )}
           </div>
 
+              </TabsContent>
+            </Tabs>
+
             <div className="flex flex-col sm:flex-row gap-3 pt-4">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => {
-                  toast({
-                    title: t("form.cancel"),
-                    description: t("form.cancel"),
+                  requestLeave(() => {
+                    toast({
+                      title: t("form.cancel"),
+                      description: t("form.cancel"),
+                    });
+                    navigate(`${pathPrefix}/event-management`);
                   });
-                  navigate(`${pathPrefix}/event-management`);
                 }}
                 className="w-full sm:w-auto"
               >
@@ -2224,7 +2414,7 @@ const EventForm = () => {
               {isEditing && (
                 <Button
                   type="button"
-                  variant="destructive"
+                  variant="outline"
                   onClick={handleDeleteEvent}
                   className="w-full sm:w-auto"
                 >
@@ -2232,14 +2422,38 @@ const EventForm = () => {
                   {t("events.delete")}
                 </Button>
               )}
-              <Button type="submit" className="w-full sm:flex-1" disabled={isSubmitting || uploadingImage}>
-                {uploadingImage
-                  ? t("form.uploadingImage")
-                  : isSubmitting 
-                    ? (isEditing ? t("form.updating") : t("form.creatingText")) 
-                    : (isEditing ? t("form.updateButton") : t("form.createButton"))
-                }
-              </Button>
+              {!isEditing && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={goToPreviousCreationStep}
+                  disabled={activeFormStepIndex === 0 || isSubmitting || uploadingImage}
+                  className="w-full sm:w-auto"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Atrás
+                </Button>
+              )}
+              {!isEditing && !isLastCreationStep ? (
+                <Button
+                  type="button"
+                  className="w-full sm:flex-1"
+                  onClick={goToNextCreationStep}
+                  disabled={isSubmitting || uploadingImage}
+                >
+                  Siguiente
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              ) : (
+                <Button type="submit" className="w-full sm:flex-1" disabled={isSubmitting || uploadingImage}>
+                  {uploadingImage
+                    ? t("form.uploadingImage")
+                    : isSubmitting
+                      ? (isEditing ? t("form.updating") : t("form.creatingText"))
+                      : (isEditing ? t("form.updateButton") : t("form.createButton"))
+                  }
+                </Button>
+              )}
             </div>
 
           </form>
@@ -2248,72 +2462,6 @@ const EventForm = () => {
           {/* Preview Column */}
           <div className="hidden lg:block">
             <div className="sticky top-6">
-              {isEditing && eventId && (
-                <Card className="p-4 mb-4">
-                  <div className="flex justify-center">
-                    {(() => {
-                      const qrUrl = getEventQrUrl(eventId);
-                      return (
-                        <div
-                          className="cursor-pointer"
-                          onClick={() => setQrPreview({ src: qrUrl || undefined, value: eventUrl })}
-                          role="button"
-                          tabIndex={0}
-                          onKeyDown={(event) => {
-                            if (event.key === "Enter" || event.key === " ") {
-                              setQrPreview({ src: qrUrl || undefined, value: eventUrl });
-                            }
-                          }}
-                        >
-                          {qrUrl ? (
-                            <img
-                              src={qrUrl}
-                              alt="QR"
-                              className="w-[160px] h-[160px]"
-                            />
-                          ) : (
-                            <QRCodeSVG value={eventUrl} size={160} />
-                          )}
-                        </div>
-                      );
-                    })()}
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full mt-3"
-                    onClick={handleDownloadQR}
-                  >
-                    {t("events.downloadQrAction")}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="h-auto rounded-full px-3 py-1 text-xs font-medium text-foreground gap-3 w-full mt-2 justify-center flex-nowrap"
-                    onClick={() => setGalleryPreviewOpen(true)}
-                  >
-                    <span className="inline-flex items-center gap-1 whitespace-nowrap">
-                      <Camera className="w-3.5 h-3.5" />
-                      {mediaCounts.photos}/{mediaLimits.photos}
-                    </span>
-                    <span className="inline-flex items-center gap-1 whitespace-nowrap">
-                      <Video className="w-3.5 h-3.5" />
-                      {mediaCounts.videos}/{mediaLimits.videos}
-                    </span>
-                    <span className="inline-flex items-center gap-1 whitespace-nowrap">
-                      <Mic className="w-3.5 h-3.5" />
-                      {mediaCounts.audios}/{mediaLimits.audios}
-                    </span>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full mt-2"
-                    onClick={() => window.open(eventUrl, "_blank")}
-                  >
-                    {t("events.accessLink")}
-                  </Button>
-                </Card>
-              )}
               <Card className="p-4">
                 <EventPreview
                   eventName={formData.name}
@@ -2340,76 +2488,31 @@ const EventForm = () => {
             </div>
           </div>
         </div>
-
-        {isEditing && eventId && (
-          <div className="lg:hidden">
-            <Card className="p-4">
-              <div className="flex justify-center">
-                {(() => {
-                  const qrUrl = getEventQrUrl(eventId);
-                  return (
-                    <div
-                      className="cursor-pointer"
-                      onClick={() => setQrPreview({ src: qrUrl || undefined, value: eventUrl })}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter" || event.key === " ") {
-                          setQrPreview({ src: qrUrl || undefined, value: eventUrl });
-                        }
-                      }}
-                    >
-                      {qrUrl ? (
-                        <img
-                          src={qrUrl}
-                          alt="QR"
-                          className="w-[160px] h-[160px]"
-                        />
-                      ) : (
-                        <QRCodeSVG value={eventUrl} size={160} />
-                      )}
-                    </div>
-                  );
-                })()}
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full mt-3"
-                onClick={handleDownloadQR}
-              >
-                {t("events.downloadQrAction")}
-              </Button>
-              <Button
-                variant="outline"
-                className="h-auto rounded-full px-3 py-1 text-xs font-medium text-foreground gap-3 w-full mt-2 justify-center flex-nowrap"
-                onClick={() => setGalleryPreviewOpen(true)}
-              >
-                <span className="inline-flex items-center gap-1 whitespace-nowrap">
-                  <Camera className="w-3.5 h-3.5" />
-                  {mediaCounts.photos}/{mediaLimits.photos}
-                </span>
-                <span className="inline-flex items-center gap-1 whitespace-nowrap">
-                  <Video className="w-3.5 h-3.5" />
-                  {mediaCounts.videos}/{mediaLimits.videos}
-                </span>
-                <span className="inline-flex items-center gap-1 whitespace-nowrap">
-                  <Mic className="w-3.5 h-3.5" />
-                  {mediaCounts.audios}/{mediaLimits.audios}
-                </span>
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full mt-2"
-                onClick={() => window.open(eventUrl, "_blank")}
-              >
-                {t("events.accessLink")}
-              </Button>
-            </Card>
-          </div>
-        )}
       </div>
+
+      <Dialog
+        open={leaveConfirmOpen}
+        onOpenChange={(open) => {
+          if (!open) keepEditing();
+        }}
+      >
+        <DialogContent className="admin-demo2-shell max-w-md w-[92vw] sm:w-full">
+          <DialogHeader>
+            <DialogTitle>¿Estás seguro de salir sin guardar?</DialogTitle>
+            <DialogDescription>
+              Tienes cambios sin guardar en este evento. Si sales ahora, se perderán.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button type="button" variant="outline" onClick={keepEditing}>
+              No, editar
+            </Button>
+            <Button type="button" onClick={confirmLeaveWithoutSaving}>
+              Sí, salir
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={backgroundAdjustOpen}

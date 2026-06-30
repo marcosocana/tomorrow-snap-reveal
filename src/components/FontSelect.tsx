@@ -55,11 +55,12 @@ const FontSelect = ({ value, onChange, previewText = "Boda Ana & Luis" }: FontSe
                   <button
                     key={font.id}
                     type="button"
+                    aria-pressed={value === font.id}
                     onClick={() => onChange(font.id)}
-                    className={`w-full text-left px-3 py-2 rounded-md transition-colors ${
+                    className={`w-full text-left px-3 py-2 transition-colors ${
                       value === font.id
-                        ? "bg-primary text-primary-foreground"
-                        : "hover:bg-muted"
+                        ? "font-semibold text-foreground"
+                        : "text-muted-foreground hover:text-foreground"
                     }`}
                   >
                     <span 
