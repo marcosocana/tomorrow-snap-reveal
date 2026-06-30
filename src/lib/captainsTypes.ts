@@ -2,6 +2,23 @@ export type CaptainsScoringMode = "automatic" | "manual";
 export type CaptainsEventStatus = "draft" | "scheduled" | "active" | "finished" | "archived";
 export type CaptainsEvidenceType = "photo" | "video" | "audio";
 export type CaptainsDifficulty = "easy" | "medium" | "hard" | "special";
+export type CaptainsSpriteStyle = "suit" | "dress" | "jacket" | "skirt" | "festival" | "tunic" | "uniform" | "kimono";
+export type CaptainsSpriteSex = "female" | "male";
+export type CaptainsSpriteHairLength = "short" | "long";
+export type CaptainsSpriteHairColor = "blonde" | "dark" | "brown";
+export type CaptainsSpriteSkinColor = "very_fair" | "fair" | "tan" | "dark";
+export type CaptainsSpriteOutfitType = "dress" | "suit";
+
+export interface CaptainsSpriteConfig {
+  sex: CaptainsSpriteSex;
+  hair_length: CaptainsSpriteHairLength;
+  hair_color: CaptainsSpriteHairColor;
+  skin_color: CaptainsSpriteSkinColor;
+  outfit_type: CaptainsSpriteOutfitType;
+  dress_color: string;
+  suit_color: string;
+  tie_color: string;
+}
 export type CaptainsTableChallengeStatus =
   | "pending"
   | "ready"
@@ -41,6 +58,8 @@ export interface CaptainsTable {
   table_name: string;
   captain_name: string | null;
   active_captain_name: string | null;
+  captain_sprite: CaptainsSpriteStyle | null;
+  captain_sprite_config: CaptainsSpriteConfig | null;
   session_token: string;
   total_points: number;
   completed_challenges: number;

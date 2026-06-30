@@ -22,6 +22,8 @@ import type {
   CaptainsTableChallengeStatus,
   CreateCaptainsEventInput,
   CaptainsScoringMode,
+  CaptainsSpriteConfig,
+  CaptainsSpriteStyle,
 } from "@/lib/captainsTypes";
 
 const db = supabase as any;
@@ -45,6 +47,19 @@ const withoutCaptainThemeColumns = <T extends Record<string, unknown>>(payload: 
 const isMissingCaptainThemeColumnError = (error: unknown) => {
   const message = typeof error === "object" && error && "message" in error ? String((error as { message?: unknown }).message || "") : "";
   return captainThemeColumns.some((column) => message.includes(column));
+};
+
+const captainTableVisualColumns = ["captain_sprite", "captain_sprite_config"];
+
+const withoutCaptainTableVisualColumns = <T extends Record<string, unknown>>(payload: T) => {
+  const next = { ...payload };
+  captainTableVisualColumns.forEach((column) => delete next[column]);
+  return next;
+};
+
+const isMissingCaptainTableVisualColumnError = (error: unknown) => {
+  const message = typeof error === "object" && error && "message" in error ? String((error as { message?: unknown }).message || "") : "";
+  return captainTableVisualColumns.some((column) => message.includes(column));
 };
 
 export const listCaptainsEvents = async () => {
@@ -131,7 +146,13 @@ export const createCaptainsGame = async ({
   challenges,
 }: {
   event: CreateCaptainsEventInput;
-  tables: Array<{ table_number: number; table_name?: string; captain_name?: string | null }>;
+  tables: Array<{
+    table_number: number;
+    table_name?: string;
+    captain_name?: string | null;
+    captain_sprite?: CaptainsSpriteStyle | null;
+    captain_sprite_config?: CaptainsSpriteConfig | null;
+  }>;
   challenges: CaptainsChallengeInput[];
 }) => {
   const createdEvent = await createCaptainsEvent(event);
@@ -143,9 +164,16 @@ export const createCaptainsGame = async ({
       table_name: table.table_name?.trim() || `Mesa ${table.table_number}`,
       captain_name: table.captain_name?.trim() || null,
       active_captain_name: table.captain_name?.trim() || null,
+      captain_sprite: table.captain_sprite ?? null,
+      captain_sprite_config: table.captain_sprite_config ?? null,
     }));
     const { error } = await db.from("captains_tables").insert(tableRows);
-    ensureNoError(error);
+    if (error && isMissingCaptainTableVisualColumnError(error)) {
+      const fallback = await db.from("captains_tables").insert(tableRows.map(withoutCaptainTableVisualColumns));
+      ensureNoError(fallback.error);
+    } else {
+      ensureNoError(error);
+    }
   }
 
   if (challenges.length > 0) {
@@ -199,7 +227,14 @@ export const updateCaptainsEvent = async (
 
 export const updateCaptainsTables = async (
   eventId: string,
-  tables: Array<{ id?: string; table_number: number; table_name?: string; captain_name?: string | null }>,
+  tables: Array<{
+    id?: string;
+    table_number: number;
+    table_name?: string;
+    captain_name?: string | null;
+    captain_sprite?: CaptainsSpriteStyle | null;
+    captain_sprite_config?: CaptainsSpriteConfig | null;
+  }>,
 ) => {
   const { data: existingTables, error: existingError } = await db
     .from("captains_tables")
@@ -226,12 +261,23 @@ export const updateCaptainsTables = async (
     table_name: table.table_name?.trim() || `Mesa ${table.table_number}`,
     captain_name: table.captain_name?.trim() || null,
     active_captain_name: table.captain_name?.trim() || null,
+    captain_sprite: table.captain_sprite ?? null,
+    captain_sprite_config: table.captain_sprite_config ?? null,
   }));
   const { data, error } = await db
     .from("captains_tables")
     .upsert(rows, { onConflict: "id" })
     .select("*")
     .order("table_number", { ascending: true });
+  if (error && isMissingCaptainTableVisualColumnError(error)) {
+    const fallback = await db
+      .from("captains_tables")
+      .upsert(rows.map(withoutCaptainTableVisualColumns), { onConflict: "id" })
+      .select("*")
+      .order("table_number", { ascending: true });
+    ensureNoError(fallback.error);
+    return (fallback.data || []) as CaptainsTable[];
+  }
   ensureNoError(error);
   return (data || []) as CaptainsTable[];
 };

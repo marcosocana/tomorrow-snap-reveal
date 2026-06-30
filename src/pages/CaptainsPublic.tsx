@@ -19,6 +19,8 @@ import type {
   CaptainsEvidence,
   CaptainsEvidenceType,
   CaptainsRankingItem,
+  CaptainsSpriteConfig,
+  CaptainsSpriteStyle,
   CaptainsTable,
   CaptainsTableChallenge,
 } from "@/lib/captainsTypes";
@@ -61,10 +63,9 @@ type ChallengePhase = "intro" | "preview" | "progress" | "result" | "expired";
 type ResultKind = "success" | "manual" | "failed" | "expired";
 type EvidenceFilter = "all" | "mine" | "others" | CaptainsEvidenceType;
 
-const DEFAULT_CAPTAINS_PRIMARY = "#d8a35d";
-const DEFAULT_CAPTAINS_SECONDARY = "#f3dfc1";
-const DEFAULT_CAPTAINS_BACKGROUND =
-  "linear-gradient(180deg, rgba(70, 49, 45, 0.92), rgba(34, 29, 32, 0.96))";
+const DEFAULT_CAPTAINS_PRIMARY = "#f06a5f";
+const DEFAULT_CAPTAINS_SECONDARY = "#2f292d";
+const DEFAULT_CAPTAINS_BACKGROUND = "none";
 
 const isThemeColor = (value?: string | null) => Boolean(value && /^#[0-9a-fA-F]{6}$/.test(value));
 const cssUrl = (value?: string | null) => (value ? `url("${value.replace(/"/g, "%22")}")` : DEFAULT_CAPTAINS_BACKGROUND);
@@ -106,7 +107,7 @@ const demoEventDetail: CaptainsEventDetail = {
     show_live_gallery_after_completion: true,
     primary_color: DEFAULT_CAPTAINS_PRIMARY,
     secondary_color: DEFAULT_CAPTAINS_SECONDARY,
-    background_image_url: demoWeddingBackground,
+    background_image_url: null,
     qr_url: `/capitanes/${DEMO_SLUG}`,
     public_url: `/capitanes/${DEMO_SLUG}`,
     created_at: nowIso(),
@@ -120,6 +121,17 @@ const demoEventDetail: CaptainsEventDetail = {
       table_name: "Mesa 1",
       captain_name: "Jorge",
       active_captain_name: "Jorge",
+      captain_sprite: "suit",
+      captain_sprite_config: {
+        sex: "male",
+        hair_length: "short",
+        hair_color: "brown",
+        skin_color: "fair",
+        outfit_type: "suit",
+        dress_color: "#202235",
+        suit_color: "#1f2937",
+        tie_color: "#f06a5f",
+      },
       session_token: "demo-session-1",
       total_points: 35,
       completed_challenges: 2,
@@ -136,6 +148,17 @@ const demoEventDetail: CaptainsEventDetail = {
       table_name: "Mesa 2",
       captain_name: "Marta",
       active_captain_name: "Marta",
+      captain_sprite: "dress",
+      captain_sprite_config: {
+        sex: "female",
+        hair_length: "long",
+        hair_color: "brown",
+        skin_color: "very_fair",
+        outfit_type: "dress",
+        dress_color: "#202235",
+        suit_color: "#1f2937",
+        tie_color: "#f06a5f",
+      },
       session_token: "demo-session-2",
       total_points: 22,
       completed_challenges: 1,
@@ -152,6 +175,17 @@ const demoEventDetail: CaptainsEventDetail = {
       table_name: "Mesa 3",
       captain_name: "Laura",
       active_captain_name: "Laura",
+      captain_sprite: "jacket",
+      captain_sprite_config: {
+        sex: "female",
+        hair_length: "short",
+        hair_color: "dark",
+        skin_color: "tan",
+        outfit_type: "suit",
+        dress_color: "#6fa341",
+        suit_color: "#4f7f3a",
+        tie_color: "#ffffff",
+      },
       session_token: "demo-session-3",
       total_points: 16,
       completed_challenges: 1,
@@ -168,6 +202,17 @@ const demoEventDetail: CaptainsEventDetail = {
       table_name: "Mesa 4",
       captain_name: "Dani",
       active_captain_name: "Dani",
+      captain_sprite: "festival",
+      captain_sprite_config: {
+        sex: "male",
+        hair_length: "short",
+        hair_color: "dark",
+        skin_color: "dark",
+        outfit_type: "suit",
+        dress_color: "#8a4f22",
+        suit_color: "#8a4f22",
+        tie_color: "#f8d24a",
+      },
       session_token: "demo-session-4",
       total_points: 0,
       completed_challenges: 0,
@@ -184,6 +229,17 @@ const demoEventDetail: CaptainsEventDetail = {
       table_name: "Mesa 5",
       captain_name: null,
       active_captain_name: null,
+      captain_sprite: "uniform",
+      captain_sprite_config: {
+        sex: "female",
+        hair_length: "long",
+        hair_color: "blonde",
+        skin_color: "fair",
+        outfit_type: "dress",
+        dress_color: "#d32027",
+        suit_color: "#1f2937",
+        tie_color: "#f06a5f",
+      },
       session_token: "demo-session-5",
       total_points: 0,
       completed_challenges: 0,
@@ -438,6 +494,102 @@ const EvidenceIcon = ({ type, className }: { type: CaptainsEvidenceType; classNa
   return <Icon className={className} />;
 };
 
+const spritePalettes: Record<
+  CaptainsSpriteStyle,
+  { hair: string; skin: string; outfit: string; accent: string; legs: string; style: CaptainsSpriteStyle }
+> = {
+  suit: { hair: "#3f2d23", skin: "#f0bd91", outfit: "#1f2937", accent: "#ffffff", legs: "#111827", style: "suit" },
+  dress: { hair: "#5a3828", skin: "#f1c09a", outfit: "#202235", accent: "#ffffff", legs: "#202235", style: "dress" },
+  jacket: { hair: "#111111", skin: "#8f5f3d", outfit: "#4f7f3a", accent: "#ffffff", legs: "#3b2f24", style: "jacket" },
+  skirt: { hair: "#1f1712", skin: "#9b6747", outfit: "#4c7d3f", accent: "#ffffff", legs: "#3b2f24", style: "skirt" },
+  festival: { hair: "#2b1b12", skin: "#efb68c", outfit: "#8a4f22", accent: "#f06a5f", legs: "#654321", style: "festival" },
+  tunic: { hair: "#c9c9c9", skin: "#a87450", outfit: "#d5d5d5", accent: "#ffffff", legs: "#1f2937", style: "tunic" },
+  uniform: { hair: "#141414", skin: "#edb28f", outfit: "#d32027", accent: "#f8d24a", legs: "#d32027", style: "uniform" },
+  kimono: { hair: "#1c1c1c", skin: "#f2bd93", outfit: "#6fa341", accent: "#111111", legs: "#202235", style: "kimono" },
+};
+
+const spriteStyleOrder = Object.keys(spritePalettes) as CaptainsSpriteStyle[];
+const spriteHairColors: Record<CaptainsSpriteConfig["hair_color"], string> = {
+  blonde: "#e8c85b",
+  dark: "#151515",
+  brown: "#6b4328",
+};
+const spriteSkinColors: Record<CaptainsSpriteConfig["skin_color"], string> = {
+  very_fair: "#f4d6c6",
+  fair: "#e9b98f",
+  tan: "#a66b45",
+  dark: "#5d3828",
+};
+const spriteHexColor = (value: string | undefined, fallback: string) => (value && /^#[0-9a-fA-F]{6}$/.test(value) ? value : fallback);
+
+const getSpritePalette = (seed: number | string) => {
+  const index =
+    typeof seed === "number"
+      ? seed
+      : seed.split("").reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  return spritePalettes[spriteStyleOrder[Math.abs(index) % spriteStyleOrder.length]];
+};
+
+const getSpritePaletteFromConfig = (config?: CaptainsSpriteConfig | null) => {
+  if (!config) return null;
+  const outfit = config.outfit_type === "dress" ? spriteHexColor(config.dress_color, "#202235") : spriteHexColor(config.suit_color, "#1f2937");
+  return {
+    hair: spriteHairColors[config.hair_color] || "#151515",
+    skin: spriteSkinColors[config.skin_color] || "#e9b98f",
+    outfit,
+    accent: config.outfit_type === "dress" ? "#ffffff" : spriteHexColor(config.tie_color, "#f06a5f"),
+    legs: config.outfit_type === "dress" ? "#202235" : outfit,
+    style: config.outfit_type === "dress" ? "dress" as CaptainsSpriteStyle : "suit" as CaptainsSpriteStyle,
+    longHair: config.hair_length === "long",
+  };
+};
+
+const PixelCaptainSprite = ({
+  table,
+  active = false,
+  size = "md",
+}: {
+  table?: Pick<CaptainsTable, "id" | "table_number" | "captain_name" | "active_captain_name" | "captain_sprite" | "captain_sprite_config"> | null;
+  active?: boolean;
+  size?: "sm" | "md" | "lg";
+}) => {
+  const palette =
+    getSpritePaletteFromConfig(table?.captain_sprite_config) ||
+    (table?.captain_sprite ? spritePalettes[table.captain_sprite] || getSpritePalette(table.id || table.table_number || 0) : getSpritePalette(table?.id || table?.table_number || 0));
+  const scale = size === "lg" ? "h-28 w-20" : size === "sm" ? "h-16 w-12" : "h-24 w-16";
+  return (
+    <div className={cn("pixel-sprite relative mx-auto", scale, active && "pixel-sprite-active")}>
+      <div className="absolute left-[28%] top-[2%] h-[10%] w-[44%]" style={{ backgroundColor: palette.hair }} />
+      <div className="absolute left-[20%] top-[10%] h-[16%] w-[60%]" style={{ backgroundColor: palette.hair }} />
+      {"longHair" in palette && palette.longHair ? <div className="absolute left-[12%] top-[20%] h-[26%] w-[76%]" style={{ backgroundColor: palette.hair }} /> : null}
+      <div className="absolute left-[25%] top-[18%] h-[18%] w-[50%]" style={{ backgroundColor: palette.skin }} />
+      <div className="absolute left-[18%] top-[22%] h-[10%] w-[10%]" style={{ backgroundColor: palette.skin }} />
+      <div className="absolute right-[18%] top-[22%] h-[10%] w-[10%]" style={{ backgroundColor: palette.skin }} />
+      <div className="absolute left-[35%] top-[25%] h-[4%] w-[6%] bg-[#111111]" />
+      <div className="absolute right-[35%] top-[25%] h-[4%] w-[6%] bg-[#111111]" />
+      <div className="absolute left-[40%] top-[32%] h-[3%] w-[20%] bg-[#d25f5f]" />
+      <div className="absolute left-[24%] top-[39%] h-[30%] w-[52%]" style={{ backgroundColor: palette.outfit }} />
+      <div className="absolute left-[43%] top-[39%] h-[30%] w-[14%]" style={{ backgroundColor: palette.accent }} />
+      <div className="absolute left-[10%] top-[42%] h-[24%] w-[14%]" style={{ backgroundColor: palette.skin }} />
+      <div className="absolute right-[10%] top-[42%] h-[24%] w-[14%]" style={{ backgroundColor: palette.skin }} />
+      {palette.style === "dress" || palette.style === "skirt" || palette.style === "kimono" ? (
+        <>
+          <div className="absolute left-[18%] top-[66%] h-[16%] w-[64%]" style={{ backgroundColor: palette.outfit }} />
+          <div className="absolute bottom-[3%] left-[30%] h-[18%] w-[12%]" style={{ backgroundColor: palette.legs }} />
+          <div className="absolute bottom-[3%] right-[30%] h-[18%] w-[12%]" style={{ backgroundColor: palette.legs }} />
+        </>
+      ) : (
+        <>
+          <div className="absolute bottom-[5%] left-[28%] h-[28%] w-[16%]" style={{ backgroundColor: palette.legs }} />
+          <div className="absolute bottom-[5%] right-[28%] h-[28%] w-[16%]" style={{ backgroundColor: palette.legs }} />
+        </>
+      )}
+      <div className="absolute bottom-0 left-[25%] h-[5%] w-[22%] bg-[#111111]" />
+      <div className="absolute bottom-0 right-[25%] h-[5%] w-[22%] bg-[#111111]" />
+    </div>
+  );
+};
+
 const useIsMobileCaptainDevice = () => {
   const [state, setState] = useState({ ready: false, allowed: false, width: 0 });
 
@@ -462,16 +614,21 @@ const useIsMobileCaptainDevice = () => {
 };
 
 const CaptainsShell = ({ children }: { children: React.ReactNode }) => (
-  <main className="captains-public min-h-[var(--app-height,100svh)] bg-[#2f292d] text-white">
+  <main className="captains-public min-h-[var(--app-height,100svh)] bg-white text-[#151515]">
     <style>{`
+      @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap');
       .captains-public h1,
-      .captains-public h2 {
-        font-family: "Snell Roundhand", "Apple Chancery", "Brush Script MT", cursive;
-        font-weight: 600;
+      .captains-public h2,
+      .captains-public .pixel-title {
+        font-family: "Press Start 2P", ui-monospace, monospace;
+        font-weight: 400;
         letter-spacing: 0;
+        line-height: 1.25;
+        text-shadow: none;
       }
       .captains-public {
-        font-family: "Cormorant Garamond", Georgia, serif;
+        font-family: "VT323", ui-monospace, monospace;
+        image-rendering: pixelated;
       }
       .captains-public button,
       .captains-public input,
@@ -479,13 +636,65 @@ const CaptainsShell = ({ children }: { children: React.ReactNode }) => (
       .captains-public span {
         letter-spacing: 0;
       }
+      .captains-public button,
+      .captains-public input {
+        font-family: "VT323", ui-monospace, monospace;
+      }
+      .pixel-panel {
+        border: 3px solid #151515;
+        box-shadow: none;
+      }
+      .pixel-button {
+        border: 3px solid #151515;
+        box-shadow: none;
+      }
+      .pixel-button:active {
+        transform: translate(2px, 2px);
+        box-shadow: none;
+      }
+      .pixel-sprite > div {
+        image-rendering: pixelated;
+        box-shadow: none;
+      }
+      .pixel-sprite-active::after {
+        content: "";
+        position: absolute;
+        inset: auto 18% -6% 18%;
+        height: 10%;
+        background: var(--captains-primary);
+        border: 3px solid #151515;
+      }
+      .pixel-map {
+        background:
+          linear-gradient(90deg, rgba(21,21,21,.08) 1px, transparent 1px),
+          linear-gradient(180deg, rgba(21,21,21,.08) 1px, transparent 1px),
+          #ffffff;
+        background-size: 20px 20px, 20px 20px, 100% 100%;
+      }
+      .captains-public .pixel-panel .text-white\\/80,
+      .captains-public .pixel-panel .text-white\\/75,
+      .captains-public .pixel-panel .text-white\\/70,
+      .captains-public .pixel-panel .text-white\\/65,
+      .captains-public .pixel-panel .text-white\\/60,
+      .captains-public .pixel-panel .text-white\\/55,
+      .captains-public .pixel-panel .text-white\\/50,
+      .captains-public .pixel-panel .text-white\\/45 {
+        color: rgba(21,21,21,.72);
+      }
+      .captains-public .pixel-panel .bg-\\[\\#2f292d\\] .text-white\\/80,
+      .captains-public .pixel-panel .bg-\\[\\#2f292d\\] .text-white\\/75,
+      .captains-public .pixel-panel .bg-\\[\\#2f292d\\] .text-white\\/70,
+      .captains-public .pixel-panel .bg-\\[\\#2f292d\\] .text-white\\/65,
+      .captains-public .pixel-panel .bg-\\[\\#2f292d\\] .text-white\\/60 {
+        color: rgba(255,255,255,.82);
+      }
     `}</style>
     <div
-      className="fixed inset-0 bg-cover bg-center"
-      style={{ backgroundImage: "var(--captains-background-image)", backgroundColor: "#2f292d" }}
+      className="fixed inset-0 bg-cover bg-center opacity-0"
+      style={{ backgroundImage: "var(--captains-background-image)", backgroundColor: "#ffffff" }}
     />
-    <div className="fixed inset-0 bg-[linear-gradient(180deg,rgba(35,29,31,.38)_0%,rgba(35,29,31,.72)_42%,rgba(18,18,20,.92)_100%)]" />
-    <div className="fixed inset-x-0 top-0 h-40 border-b border-white/10 bg-white/[0.03]" />
+    <div className="fixed inset-0 opacity-100 [background-image:linear-gradient(90deg,rgba(21,21,21,.06)_1px,transparent_1px),linear-gradient(rgba(21,21,21,.06)_1px,transparent_1px)] [background-size:20px_20px]" />
+    <div className="fixed inset-x-0 top-0 h-2 bg-[var(--captains-primary)]" />
     <div className="relative mx-auto flex min-h-[var(--app-height,100svh)] w-full max-w-[430px] flex-col px-4 py-5">
       {children}
     </div>
@@ -495,7 +704,7 @@ const CaptainsShell = ({ children }: { children: React.ReactNode }) => (
 const GameCard = ({ children, className }: { children: React.ReactNode; className?: string }) => (
   <section
     className={cn(
-      "rounded-[8px] border border-white/25 bg-white/[0.12] p-4 shadow-[0_18px_40px_rgba(0,0,0,0.22)] backdrop-blur-xl",
+      "pixel-panel bg-white p-4 text-[#151515]",
       className,
     )}
   >
@@ -507,7 +716,7 @@ const GameButton = ({ className, ...props }: React.ComponentProps<typeof Button>
   <Button
     {...props}
     className={cn(
-      "h-13 min-h-12 w-full rounded-[8px] border border-white/20 bg-[var(--captains-primary)] px-5 py-4 text-base font-bold text-[#2d241d] shadow-[0_10px_26px_rgba(0,0,0,0.24)] hover:bg-[var(--captains-primary)] hover:brightness-105 active:translate-y-0.5",
+      "pixel-button min-h-14 w-full rounded-none bg-[var(--captains-primary)] px-5 py-4 text-2xl font-bold uppercase text-[#151515] hover:bg-[var(--captains-primary)] hover:brightness-105",
       className,
     )}
   />
@@ -518,16 +727,67 @@ const SecondaryButton = ({ className, ...props }: React.ComponentProps<typeof Bu
     {...props}
     variant="outline"
     className={cn(
-      "h-12 w-full rounded-[8px] border border-[var(--captains-secondary)]/50 bg-white/10 text-sm font-bold text-white hover:bg-white/20 hover:text-white",
+      "pixel-button h-12 w-full rounded-none bg-white text-xl font-bold uppercase text-[#151515] hover:bg-neutral-100 hover:text-[#151515]",
       className,
     )}
   />
 );
 
 const HeroBadge = ({ children }: { children: React.ReactNode }) => (
-  <div className="inline-flex items-center gap-2 rounded-[8px] border border-[var(--captains-secondary)]/50 bg-white/10 px-3 py-1 text-xs font-bold text-[var(--captains-secondary)]">
+  <div className="pixel-button inline-flex items-center gap-2 bg-white px-3 py-2 text-base font-bold uppercase text-[#151515]">
     <Sparkles className="h-3.5 w-3.5" />
     {children}
+  </div>
+);
+
+const PixelStat = ({ label, value, tone = "primary" }: { label: string; value: React.ReactNode; tone?: "primary" | "secondary" | "gold" }) => (
+  <div className={cn("pixel-panel bg-white p-3", tone === "primary" && "border-[var(--captains-primary)]")}>
+    <p className="pixel-title text-lg text-[#151515]">{value}</p>
+    <p className="mt-1 text-base font-bold uppercase text-[#151515]/65">{label}</p>
+  </div>
+);
+
+const PixelTableMap = ({
+  tables,
+  selectedTableId,
+  onSelect,
+}: {
+  tables: CaptainsTable[];
+  selectedTableId?: string;
+  onSelect: (tableId: string) => void;
+}) => (
+  <div className="pixel-panel pixel-map p-3 text-[#151515]">
+    <div className="mb-3 flex items-center justify-between">
+      <p className="pixel-title text-xs">MAPA MESAS</p>
+      <p className="text-base font-bold uppercase">elige capitán</p>
+    </div>
+    <div className="grid grid-cols-2 gap-3">
+      {tables.map((table) => {
+        const active = selectedTableId === table.id;
+        return (
+          <button
+            key={table.id}
+            type="button"
+            onClick={() => onSelect(table.id)}
+            className={cn(
+              "pixel-button relative min-h-[154px] bg-white p-3 text-left transition",
+              active && "border-[var(--captains-primary)] bg-[var(--captains-primary)]/10",
+            )}
+          >
+            <div className="absolute right-2 top-2 bg-[#151515] px-2 py-1 text-sm font-bold text-white">
+              #{table.table_number}
+            </div>
+            <div className="pt-3">
+              <PixelCaptainSprite table={table} active={active} size="md" />
+            </div>
+            <p className="mt-3 truncate text-2xl font-bold leading-none">{table.table_name}</p>
+            <p className="truncate text-base font-bold text-[#151515]/65">
+              {table.captain_name || table.active_captain_name || "Sin capitán"}
+            </p>
+          </button>
+        );
+      })}
+    </div>
   </div>
 );
 
@@ -541,13 +801,13 @@ const DesktopBlock = ({ eventUrl }: { eventUrl?: string }) => {
   };
 
   return (
-    <main className="flex min-h-[var(--app-height,100svh)] items-center justify-center bg-[#101827] px-6 text-white">
-      <div className="max-w-md rounded-[8px] border border-white/15 bg-white/10 p-7 text-center shadow-2xl">
-        <Shield className="mx-auto mb-4 h-11 w-11 text-[#2dd4bf]" />
+    <main className="flex min-h-[var(--app-height,100svh)] items-center justify-center bg-white px-6 text-[#151515]">
+      <div className="pixel-panel max-w-md bg-white p-7 text-center">
+        <Shield className="mx-auto mb-4 h-11 w-11 text-[#151515]" />
         <h1 className="text-2xl font-black tracking-normal">
           Capitanes by Revelao está pensado para jugar desde el móvil.
         </h1>
-        <p className="mt-3 text-sm leading-6 text-white/75">
+        <p className="mt-3 text-sm leading-6 text-[#151515]/70">
           Escanea el QR con tu teléfono para empezar la misión con tu mesa.
         </p>
         {eventUrl && (
@@ -567,7 +827,7 @@ const DesktopBlock = ({ eventUrl }: { eventUrl?: string }) => {
 const LoadingScreen = () => (
   <CaptainsShell>
     <div className="flex flex-1 items-center justify-center">
-      <Loader2 className="h-8 w-8 animate-spin text-[#2dd4bf]" />
+      <Loader2 className="h-8 w-8 animate-spin text-[#151515]" />
     </div>
   </CaptainsShell>
 );
@@ -601,7 +861,7 @@ const SignedEvidenceMedia = ({
 
   if (!url) {
     return (
-      <div className="flex aspect-[4/3] items-center justify-center rounded-[8px] bg-black/25 text-white/50">
+      <div className="flex aspect-[4/3] items-center justify-center border-2 border-[#151515] bg-white text-[#151515]/45">
         <EvidenceIcon type={evidence.evidence_type} className="h-10 w-10" />
       </div>
     );
@@ -667,7 +927,7 @@ const SummaryEvidenceThumb = ({ evidence }: { evidence: CaptainsEvidence }) => {
     return <video src={url} muted playsInline preload="metadata" className="h-full w-full object-cover" />;
   }
 
-  return <EvidenceIcon type={evidence.evidence_type} className="h-10 w-10 text-[#5eead4]" />;
+  return <EvidenceIcon type={evidence.evidence_type} className="h-10 w-10 text-[#151515]" />;
 };
 
 export default function CaptainsPublic() {
@@ -1268,9 +1528,9 @@ export default function CaptainsPublic() {
       <CaptainsShell>
         <div className="flex flex-1 items-center justify-center text-center">
           <GameCard>
-            <XCircle className="mx-auto mb-3 h-10 w-10 text-[#fb7185]" />
+            <XCircle className="mx-auto mb-3 h-10 w-10 text-[#151515]" />
             <h1 className="text-xl font-black">Misión no encontrada</h1>
-            <p className="mt-2 text-sm text-white/70">Comprueba el QR o pide un nuevo enlace al equipo.</p>
+            <p className="mt-2 text-sm text-[#151515]/70">Comprueba el QR o pide un nuevo enlace al equipo.</p>
           </GameCard>
         </div>
       </CaptainsShell>
@@ -1283,22 +1543,24 @@ export default function CaptainsPublic() {
       <CaptainsShell>
         <div className="flex flex-1 flex-col justify-center gap-5">
           <div>
-            <HeroBadge>Celebración en juego</HeroBadge>
-            <h1 className="mt-4 text-5xl leading-none">{event.name}</h1>
-            <p className="mt-3 text-xl font-semibold text-[var(--captains-secondary)]">Capitanes by Revelao</p>
+            <HeroBadge>Nueva partida</HeroBadge>
+            <h1 className="mt-4 text-3xl leading-relaxed">{event.name}</h1>
+            <p className="mt-3 text-2xl font-bold uppercase text-[#151515]/70">Capitanes RPG by Revelao</p>
           </div>
-          <GameCard>
+          <GameCard className="relative overflow-hidden">
+            <div className="absolute right-4 top-3 h-4 w-4 border-2 border-[#151515] bg-[var(--captains-primary)]" />
             <div className="flex items-start gap-3">
-              <div className="rounded-[8px] bg-white/15 p-3 text-[var(--captains-secondary)]">
-                <Trophy className="h-7 w-7 text-white" />
+              <div className="pixel-button bg-[var(--captains-secondary)] p-3">
+                <Trophy className="h-7 w-7 text-[#151515]" />
               </div>
-              <p className="text-sm leading-6 text-white/80">
+              <p className="text-2xl leading-7 text-[#151515]">
                 {event.description || "Reúne a tu mesa, cread recuerdos y superad pequeños retos durante la celebración."}
               </p>
             </div>
           </GameCard>
+          <PixelTableMap tables={tables} selectedTableId={selectedTableId} onSelect={handleTableSelect} />
           <GameButton onClick={() => go("start")}>
-            Empezar experiencia <ChevronRight className="h-5 w-5" />
+            Empezar aventura <ChevronRight className="h-5 w-5" />
           </GameButton>
         </div>
       </CaptainsShell>
@@ -1312,48 +1574,26 @@ export default function CaptainsPublic() {
       <CaptainsShell>
         <div className="space-y-4 pb-5">
           <div className="pt-3">
-            <HeroBadge>Invitados</HeroBadge>
-            <h1 className="mt-4 text-4xl">Elige tu mesa</h1>
-            <p className="mt-2 text-sm leading-6 text-white/70">Selecciona tu mesa y capitán para empezar la experiencia.</p>
+            <HeroBadge>Zona inicial</HeroBadge>
+            <h1 className="mt-4 text-3xl">Elige tu mesa</h1>
+            <p className="mt-2 text-2xl leading-7 text-[#151515]/70">Selecciona tu capitán y empieza la aventura.</p>
           </div>
-          <div className="grid gap-3">
-            {tables.map((table) => {
-              const active = selectedTableId === table.id;
-              return (
-                <button
-                  key={table.id}
-                  onClick={() => handleTableSelect(table.id)}
-                  className={cn(
-                    "flex min-h-16 items-center justify-between rounded-[8px] border-2 p-4 text-left transition",
-                    active ? "border-[#facc15] bg-[#facc15]/20" : "border-white/15 bg-white/10",
-                  )}
-                >
-                  <span>
-                    <span className="block text-base font-black">{table.table_name}</span>
-                    <span className="text-sm text-white/65">
-                      {table.captain_name ? table.captain_name : "Sin capitán asignado"}
-                    </span>
-                  </span>
-                  {active ? <CheckCircle2 className="h-6 w-6 text-[#facc15]" /> : <Users className="h-5 w-5 text-white/45" />}
-                </button>
-              );
-            })}
-          </div>
+          <PixelTableMap tables={tables} selectedTableId={selectedTableId} onSelect={handleTableSelect} />
           {requiresCaptainName && (
             <GameCard>
-              <label className="text-xs font-black uppercase text-white/60">Nombre del capitán</label>
+              <label className="pixel-title text-xs text-[#151515]">NOMBRE CAPITÁN</label>
               <input
                 value={captainNameInput}
                 onChange={(event) => setCaptainNameInput(event.target.value)}
-                className="mt-2 h-12 w-full rounded-[8px] border-2 border-white/15 bg-black/25 px-3 text-base font-bold outline-none focus:border-[#2dd4bf]"
+                className="pixel-button mt-3 h-14 w-full rounded-none bg-white px-3 text-2xl font-bold text-[#151515] outline-none"
                 placeholder="Nombre del capitán"
               />
             </GameCard>
           )}
           {showActiveWarning && selectedTable && (
-            <GameCard className="border-[#facc15]/50 bg-[#facc15]/10">
-              <h2 className="font-black">Esta mesa ya tiene capitán activo.</h2>
-              <p className="mt-1 text-sm leading-6 text-white/70">
+            <GameCard className="border-[var(--captains-primary)] bg-white">
+              <h2 className="text-lg">Mesa ocupada</h2>
+              <p className="mt-2 text-2xl leading-7 text-[#151515]">
                 Si eres el capitán de esta mesa, puedes continuar. Si no, elige otra mesa.
               </p>
               <div className="mt-3 grid grid-cols-2 gap-2">
@@ -1382,9 +1622,9 @@ export default function CaptainsPublic() {
         <CaptainsShell>
           <div className="flex flex-1 flex-col justify-center gap-4">
             <GameCard className="text-center">
-              <Clock3 className="mx-auto mb-4 h-12 w-12 text-[#facc15]" />
+              <Clock3 className="mx-auto mb-4 h-12 w-12 text-[#151515]" />
               <h1 className="text-3xl font-black tracking-normal">La misión todavía no ha empezado</h1>
-              <p className="mt-3 text-white/75">
+              <p className="mt-3 text-[#151515]/70">
                 Los retos comienzan a las{" "}
                 {new Date(event.start_time || "").toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}.
               </p>
@@ -1406,7 +1646,7 @@ export default function CaptainsPublic() {
         <CaptainsShell>
           <div className="flex flex-1 items-center justify-center">
             <GameCard className="text-center">
-              <Loader2 className="mx-auto mb-3 h-8 w-8 animate-spin text-[#2dd4bf]" />
+              <Loader2 className="mx-auto mb-3 h-8 w-8 animate-spin text-[#151515]" />
               <p className="font-bold">Preparando misiones...</p>
             </GameCard>
           </div>
@@ -1421,40 +1661,37 @@ export default function CaptainsPublic() {
     return (
       <CaptainsShell>
         <div className="space-y-4 pb-5">
-          <GameCard className="bg-black/20">
+          <GameCard>
             <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-black tracking-normal">{currentTable.table_name}</h1>
-                <p className="text-sm text-white/65">Capitán: {session?.captain_name}</p>
+              <div className="flex items-center gap-3">
+                <PixelCaptainSprite table={currentTable} active size="sm" />
+                <div>
+                  <h1 className="text-sm">{currentTable.table_name}</h1>
+                  <p className="text-xl font-bold text-[#151515]/70">Capitán: {session?.captain_name}</p>
+                </div>
               </div>
-              <div className="rounded-[8px] bg-[#facc15] px-3 py-2 text-right text-[#111827] shadow-[0_4px_0_#a16207]">
-                <div className="text-lg font-black">{totalPoints}</div>
-                <div className="text-[10px] font-black uppercase">puntos</div>
+              <div className="pixel-button bg-white px-3 py-2 text-right text-[#151515]">
+                <div className="pixel-title text-sm">{totalPoints}</div>
+                <div className="text-base font-bold uppercase">pts</div>
               </div>
             </div>
             <div className="mt-4">
-              <div className="mb-2 flex justify-between text-xs font-black uppercase text-white/60">
+              <div className="mb-2 flex justify-between text-base font-bold uppercase text-[#151515]/70">
                 <span>Reto {currentIndex} de {tableChallenges.length}</span>
                 <span>{Math.round((completedRows.length / Math.max(tableChallenges.length, 1)) * 100)}%</span>
               </div>
-              <Progress value={(completedRows.length / Math.max(tableChallenges.length, 1)) * 100} className="h-3 bg-black/30 [&>div]:bg-[#2dd4bf]" />
+              <Progress value={(completedRows.length / Math.max(tableChallenges.length, 1)) * 100} className="h-4 rounded-none bg-[#151515]/15 [&>div]:rounded-none [&>div]:bg-[#151515]" />
             </div>
           </GameCard>
 
           {phase === "intro" && (
             <GameCard className="animate-scale-in text-center">
-              <Flame className="mx-auto mb-4 h-12 w-12 text-[#fb7185]" />
-              <h2 className="text-3xl font-black tracking-normal">{currentTable.table_name}</h2>
-              <p className="mt-2 text-sm font-bold text-white/70">Capitán: {session?.captain_name}</p>
+              <PixelCaptainSprite table={currentTable} active size="lg" />
+              <h2 className="mt-4 text-xl">{currentTable.table_name}</h2>
+              <p className="mt-2 text-2xl font-bold text-[#151515]/70">Capitán: {session?.captain_name}</p>
               <div className="mt-5 grid grid-cols-2 gap-3 text-left">
-                <div className="rounded-[8px] bg-black/25 p-3">
-                  <p className="text-2xl font-black">Reto {currentIndex}</p>
-                  <p className="text-xs text-white/55">de {tableChallenges.length}</p>
-                </div>
-                <div className="rounded-[8px] bg-black/25 p-3">
-                  <p className="text-2xl font-black text-[#facc15]">{totalPoints}</p>
-                  <p className="text-xs text-white/55">puntos</p>
-                </div>
+                <PixelStat label={`de ${tableChallenges.length}`} value={`R${currentIndex}`} tone="secondary" />
+                <PixelStat label="puntos" value={totalPoints} tone="gold" />
               </div>
               <GameButton className="mt-5" onClick={() => setPhase("preview")}>
                 Ver primera misión
@@ -1466,22 +1703,24 @@ export default function CaptainsPublic() {
             <GameCard className="animate-scale-in">
               <div className="mb-4 flex items-center justify-between">
                 <HeroBadge>Misión {currentIndex}</HeroBadge>
-                <span className="rounded-[8px] bg-[#fb7185] px-3 py-1 text-sm font-black">{currentChallenge.points} pts</span>
+                <span className="pixel-button bg-white px-3 py-1 text-xl font-bold text-[#151515]">{currentChallenge.points} pts</span>
               </div>
-              <h2 className="text-3xl font-black tracking-normal">{currentChallenge.title}</h2>
-              <p className="mt-3 text-sm leading-6 text-white/75">{currentChallenge.description}</p>
-              <div className="mt-4 grid gap-2 text-sm font-bold">
-                <div className="flex items-center gap-2 rounded-[8px] bg-black/20 p-3">
-                  <EvidenceIcon type={currentChallenge.evidence_type} className="h-5 w-5 text-[#5eead4]" />
+              <div className="pixel-panel bg-white p-3 text-[#151515]">
+                <h2 className="text-lg">{currentChallenge.title}</h2>
+                <p className="mt-3 text-2xl leading-7">{currentChallenge.description}</p>
+              </div>
+              <div className="mt-4 grid gap-2 text-xl font-bold">
+                <div className="pixel-button flex items-center gap-2 bg-white p-3">
+                  <EvidenceIcon type={currentChallenge.evidence_type} className="h-5 w-5 text-[#151515]" />
                   Evidencia necesaria: {evidenceLabel[currentChallenge.evidence_type]}
                 </div>
-                <div className="flex items-center gap-2 rounded-[8px] bg-black/20 p-3">
-                  <Medal className="h-5 w-5 text-[#facc15]" />
+                <div className="pixel-button flex items-center gap-2 bg-white p-3">
+                  <Medal className="h-5 w-5 text-[#151515]" />
                   Puntos máximos: {currentChallenge.points}
                 </div>
                 {currentChallenge.has_time_limit && (
-                  <div className="flex items-center gap-2 rounded-[8px] bg-black/20 p-3">
-                    <Clock3 className="h-5 w-5 text-[#fb7185]" />
+                  <div className="pixel-button flex items-center gap-2 bg-white p-3">
+                    <Clock3 className="h-5 w-5 text-[#151515]" />
                     Tiempo límite: {currentChallenge.time_limit_seconds} segundos
                   </div>
                 )}
@@ -1496,13 +1735,15 @@ export default function CaptainsPublic() {
             <GameCard className="animate-fade-in">
               {currentChallenge.has_time_limit && (
                 <div className="mb-5 text-center">
-                  <div className="text-6xl font-black tracking-normal text-[#facc15]">{formatClock(remaining)}</div>
-                  <p className="mt-1 text-sm font-bold text-white/65">Te quedan {remaining} segundos</p>
-                  <Progress value={timePercent} className="mt-4 h-4 bg-black/30 [&>div]:bg-[#facc15]" />
+                  <div className="pixel-title text-4xl text-[#151515]">{formatClock(remaining)}</div>
+                  <p className="mt-2 text-2xl font-bold text-[#151515]/70">Te quedan {remaining} segundos</p>
+                  <Progress value={timePercent} className="mt-4 h-5 rounded-none bg-[#151515]/15 [&>div]:rounded-none [&>div]:bg-[var(--captains-primary)]" />
                 </div>
               )}
-              <h2 className="text-2xl font-black tracking-normal">{currentChallenge.title}</h2>
-              <p className="mt-2 text-sm leading-6 text-white/70">{currentChallenge.description}</p>
+              <div className="pixel-panel bg-white p-3 text-[#151515]">
+                <h2 className="text-base">{currentChallenge.title}</h2>
+                <p className="mt-3 text-2xl leading-7">{currentChallenge.description}</p>
+              </div>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -1512,7 +1753,7 @@ export default function CaptainsPublic() {
                 onChange={onPickEvidence}
               />
               {evidencePreview && (
-                <div className="mt-4 overflow-hidden rounded-[8px] border border-white/15 bg-black/20">
+                <div className="pixel-panel mt-4 overflow-hidden bg-white p-2">
                   {currentChallenge.evidence_type === "photo" && <img src={evidencePreview} alt="" className="aspect-[4/3] w-full object-cover" />}
                   {currentChallenge.evidence_type === "video" && <video src={evidencePreview} controls className="aspect-[4/3] w-full object-cover" />}
                   {currentChallenge.evidence_type === "audio" && <audio src={evidencePreview} controls className="w-full p-3" />}
@@ -1526,7 +1767,7 @@ export default function CaptainsPublic() {
                     : evidenceActionLabel[currentChallenge.evidence_type]}
                 </GameButton>
                 {evidenceFile && (
-                  <GameButton disabled={busy} onClick={submitEvidence} className="bg-[#facc15] text-[#111827] shadow-[0_6px_0_#a16207] hover:bg-[#fde047]">
+                  <GameButton disabled={busy} onClick={submitEvidence} className="border-[var(--captains-primary)] bg-[var(--captains-primary)]/10 text-[#151515] hover:bg-[var(--captains-primary)]/15">
                     {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : <CheckCircle2 className="h-5 w-5" />}
                     {evidenceConfirmLabel[currentChallenge.evidence_type]}
                   </GameButton>
@@ -1543,33 +1784,33 @@ export default function CaptainsPublic() {
             <GameCard className="animate-scale-in text-center">
               {resultKind === "success" && (
                 <>
-                  <CheckCircle2 className="mx-auto mb-3 h-12 w-12 text-[#2dd4bf]" />
-                  <h2 className="text-3xl font-black tracking-normal">¡Prueba enviada!</h2>
-                  <p className="mt-2 text-sm text-white/70">
+                  <CheckCircle2 className="mx-auto mb-3 h-12 w-12 text-[#151515]" />
+                  <h2 className="text-lg">¡Prueba enviada!</h2>
+                  <p className="mt-3 text-2xl text-[#151515]/70">
                     {resultEvidence?.elapsed_seconds != null ? `Habéis tardado ${resultEvidence.elapsed_seconds} segundos.` : "Evidencia validada."}
                   </p>
-                  <p className="mt-2 text-xl font-black text-[#facc15]">Sumáis {resultEvidence?.points_awarded || 0} puntos.</p>
+                  <p className="mt-2 text-3xl font-bold text-[#151515]">+{resultEvidence?.points_awarded || 0} puntos</p>
                 </>
               )}
               {resultKind === "manual" && (
                 <>
-                  <CheckCircle2 className="mx-auto mb-3 h-12 w-12 text-[#facc15]" />
-                  <h2 className="text-3xl font-black tracking-normal">Prueba enviada</h2>
-                  <p className="mt-2 text-sm text-white/70">El equipo revisará la evidencia y asignará la puntuación.</p>
+                  <CheckCircle2 className="mx-auto mb-3 h-12 w-12 text-[#151515]" />
+                  <h2 className="text-lg">Prueba enviada</h2>
+                  <p className="mt-3 text-2xl text-[#151515]/70">El equipo revisará la evidencia y asignará la puntuación.</p>
                 </>
               )}
               {resultKind === "failed" && (
                 <>
-                  <RotateCcw className="mx-auto mb-3 h-12 w-12 text-[#fb7185]" />
-                  <h2 className="text-3xl font-black tracking-normal">Reto no conseguido</h2>
-                  <p className="mt-2 text-sm text-white/70">Esta vez no suma puntos, pero todavía podéis remontar.</p>
+                  <RotateCcw className="mx-auto mb-3 h-12 w-12 text-[#151515]" />
+                  <h2 className="text-lg">Reto no conseguido</h2>
+                  <p className="mt-3 text-2xl text-[#151515]/70">Esta vez no suma puntos, pero todavía podéis remontar.</p>
                 </>
               )}
               {resultKind === "expired" && (
                 <>
-                  <Clock3 className="mx-auto mb-3 h-12 w-12 text-[#fb7185]" />
-                  <h2 className="text-3xl font-black tracking-normal">Tiempo agotado</h2>
-                  <p className="mt-2 text-sm text-white/70">Esta misión se ha quedado sin tiempo. Podéis pasar a la siguiente.</p>
+                  <Clock3 className="mx-auto mb-3 h-12 w-12 text-[#151515]" />
+                  <h2 className="text-lg">Tiempo agotado</h2>
+                  <p className="mt-3 text-2xl text-[#151515]/70">Esta misión se ha quedado sin tiempo. Podéis pasar a la siguiente.</p>
                 </>
               )}
               <GameButton className="mt-5" onClick={() => go("ranking")}>Ver ranking</GameButton>
@@ -1595,25 +1836,26 @@ export default function CaptainsPublic() {
         <div className="space-y-4 pb-5">
           <div className="pt-3">
             <HeroBadge>Ranking</HeroBadge>
-            <h1 className="mt-4 text-4xl font-black tracking-normal">Así va la competición</h1>
-            <p className="mt-2 text-sm leading-6 text-[#5eead4]">{message}</p>
+            <h1 className="mt-4 text-3xl">Ranking</h1>
+            <p className="mt-2 text-2xl leading-7 text-[#151515]/70">{message}</p>
           </div>
           <div className="space-y-3">
             {ranking.map((item) => {
               const mine = item.id === session?.table_id;
               return (
-                <GameCard key={item.id} className={cn("flex items-center gap-3 p-3", mine && "border-[#facc15] bg-[#facc15]/15")}>
-                  <div className={cn("flex h-11 w-11 items-center justify-center rounded-[8px] font-black", mine ? "bg-[#facc15] text-[#111827]" : "bg-white/10")}>
+                <GameCard key={item.id} className={cn("flex items-center gap-3 p-3", mine && "border-[var(--captains-primary)] bg-[var(--captains-primary)]/10")}>
+                  <div className={cn("pixel-button flex h-12 w-12 items-center justify-center bg-white text-2xl font-bold", mine && "border-[var(--captains-primary)]")}>
                     {item.rank}
                   </div>
+                  <PixelCaptainSprite table={item} active={mine} size="sm" />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-black">{item.table_name}</p>
-                    <p className="truncate text-xs text-white/60">{item.active_captain_name || item.captain_name || "Sin capitán"}</p>
-                    <p className="text-xs text-white/50">{item.completed_challenges} retos completados</p>
+                    <p className="truncate text-2xl font-bold">{item.table_name}</p>
+                    <p className="truncate text-lg text-[#151515]/70">{item.active_captain_name || item.captain_name || "Sin capitán"}</p>
+                    <p className="text-base text-[#151515]/60">{item.completed_challenges} retos completados</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-xl font-black text-[#facc15]">{item.total_points}</p>
-                    <p className="text-[10px] font-black uppercase text-white/50">puntos</p>
+                    <p className="pixel-title text-sm text-[#151515]">{item.total_points}</p>
+                    <p className="text-base font-bold uppercase text-[#151515]/60">pts</p>
                   </div>
                 </GameCard>
               );
@@ -1635,26 +1877,15 @@ export default function CaptainsPublic() {
       <CaptainsShell>
         <div className="flex flex-1 flex-col justify-center gap-4">
           <GameCard className="text-center">
-            <Crown className="mx-auto mb-4 h-14 w-14 text-[#facc15]" />
-            <h1 className="text-4xl font-black tracking-normal">Misión completada</h1>
-            <p className="mt-3 text-sm leading-6 text-white/70">Habéis terminado todos los retos de {currentTable?.table_name || session?.table_name}.</p>
+            <PixelCaptainSprite table={currentTable} active size="lg" />
+            <Crown className="mx-auto mt-3 h-10 w-10 text-[#151515]" />
+            <h1 className="mt-3 text-2xl">Misión completada</h1>
+            <p className="mt-3 text-2xl leading-7 text-[#151515]/70">Habéis terminado todos los retos de {currentTable?.table_name || session?.table_name}.</p>
             <div className="mt-5 grid grid-cols-2 gap-3 text-left">
-              <div className="rounded-[8px] bg-black/25 p-3">
-                <p className="text-2xl font-black">{completedRows.filter((row) => row.status === "completed" || row.status === "pending_review").length}</p>
-                <p className="text-xs text-white/55">Retos completados</p>
-              </div>
-              <div className="rounded-[8px] bg-black/25 p-3">
-                <p className="text-2xl font-black">{failedCount}</p>
-                <p className="text-xs text-white/55">No conseguidos</p>
-              </div>
-              <div className="rounded-[8px] bg-black/25 p-3">
-                <p className="text-2xl font-black text-[#facc15]">{totalPoints}</p>
-                <p className="text-xs text-white/55">Puntos totales</p>
-              </div>
-              <div className="rounded-[8px] bg-black/25 p-3">
-                <p className="text-2xl font-black">#{myRank?.rank || "-"}</p>
-                <p className="text-xs text-white/55">Posición provisional</p>
-              </div>
+              <PixelStat label="Retos completados" value={completedRows.filter((row) => row.status === "completed" || row.status === "pending_review").length} tone="secondary" />
+              <PixelStat label="No conseguidos" value={failedCount} tone="primary" />
+              <PixelStat label="Puntos totales" value={totalPoints} tone="gold" />
+              <PixelStat label="Posición" value={`#${myRank?.rank || "-"}`} tone="secondary" />
             </div>
           </GameCard>
           <GameButton onClick={() => go("ranking")}>Ver ranking final</GameButton>
@@ -1679,9 +1910,9 @@ export default function CaptainsPublic() {
         <CaptainsShell>
           <div className="flex flex-1 flex-col justify-center gap-4">
             <GameCard className="text-center">
-              <Film className="mx-auto mb-4 h-12 w-12 text-[#facc15]" />
+              <Film className="mx-auto mb-4 h-12 w-12 text-[#151515]" />
               <h1 className="text-3xl font-black tracking-normal">El resumen todavía no está disponible.</h1>
-              <p className="mt-2 text-sm leading-6 text-white/70">
+              <p className="mt-2 text-sm leading-6 text-[#151515]/70">
                 Se activará cuando todas las mesas terminen o cuando llegue la hora de fin del evento.
               </p>
             </GameCard>
@@ -1697,24 +1928,24 @@ export default function CaptainsPublic() {
           <div className="pt-3">
             <HeroBadge>Resumen</HeroBadge>
             <h1 className="mt-4 text-4xl font-black tracking-normal">Resumen de la misión</h1>
-            <p className="mt-2 text-sm leading-6 text-white/70">Un vídeo único con los retos y evidencias de las mesas.</p>
+            <p className="mt-2 text-sm leading-6 text-[#151515]/70">Un vídeo único con los retos y evidencias de las mesas.</p>
           </div>
 
-          <section className="relative flex min-h-[520px] flex-1 overflow-hidden rounded-[8px] border-2 border-white/15 bg-black shadow-[0_18px_0_rgba(0,0,0,0.22)]">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(45,212,191,.25),transparent_30%),radial-gradient(circle_at_80%_10%,rgba(251,113,133,.2),transparent_30%)]" />
+          <section className="pixel-panel relative flex min-h-[520px] flex-1 overflow-hidden bg-white">
+            <div className="absolute inset-0 opacity-40 [background-image:linear-gradient(90deg,rgba(21,21,21,.06)_1px,transparent_1px),linear-gradient(rgba(21,21,21,.06)_1px,transparent_1px)] [background-size:20px_20px]" />
             <div className="relative flex w-full flex-col p-4">
-              <div className="mb-3 flex items-center justify-between gap-3 text-xs font-black uppercase text-white/55">
+              <div className="mb-3 flex items-center justify-between gap-3 text-xs font-black uppercase text-[#151515]/55">
                 <span>{activeSummarySlide.type === "cover" ? "Intro" : activeSummarySlide.type === "closing" ? "Final" : activeSummarySlide.title}</span>
                 <span>{summaryIndex + 1}/{summarySlides.length}</span>
               </div>
-              <Progress value={((summaryIndex + 1) / summarySlides.length) * 100} className="mb-4 h-2 bg-white/15 [&>div]:bg-[#facc15]" />
+              <Progress value={((summaryIndex + 1) / summarySlides.length) * 100} className="mb-4 h-2 rounded-none bg-[#151515]/15 [&>div]:rounded-none [&>div]:bg-[#151515]" />
 
               {activeSummarySlide.type === "cover" && (
                 <div className="flex flex-1 flex-col items-center justify-center text-center">
-                  <Trophy className="mb-5 h-20 w-20 text-[#facc15]" />
+                  <Trophy className="mb-5 h-20 w-20 text-[#151515]" />
                   <h2 className="text-5xl font-black leading-none tracking-normal">{event.name}</h2>
-                  <p className="mt-4 text-lg font-bold text-[#5eead4]">Capitanes by Revelao</p>
-                  <p className="mt-2 text-sm text-white/55">{summaryEvidence.length} recuerdos en el montaje</p>
+                  <p className="mt-4 text-lg font-bold text-[#151515]/70">Capitanes by Revelao</p>
+                  <p className="mt-2 text-sm text-[#151515]/55">{summaryEvidence.length} recuerdos en el montaje</p>
                 </div>
               )}
 
@@ -1722,22 +1953,22 @@ export default function CaptainsPublic() {
                 <div className="flex flex-1 flex-col">
                   <h2 className="text-3xl font-black tracking-normal">{activeSummarySlide.title}</h2>
                   {activeSummarySlide.evidences.length === 0 ? (
-                    <div className="mt-5 flex flex-1 items-center justify-center rounded-[8px] bg-white/10 text-center">
-                      <p className="px-6 text-sm font-bold text-white/60">Todavía no hay evidencias para este reto.</p>
+                    <div className="pixel-panel mt-5 flex flex-1 items-center justify-center bg-white text-center">
+                      <p className="px-6 text-sm font-bold text-[#151515]/60">Todavía no hay evidencias para este reto.</p>
                     </div>
                   ) : (
                     <div className="mt-4 grid flex-1 auto-rows-fr grid-cols-1 gap-3 overflow-hidden">
                       {activeSummarySlide.evidences.slice(0, 3).map((evidence) => {
                         const table = tableById.get(evidence.table_id);
                         return (
-                          <div key={evidence.id} className="grid grid-cols-[96px_1fr] gap-3 rounded-[8px] bg-white/10 p-3">
-                            <div className="flex aspect-square items-center justify-center overflow-hidden rounded-[8px] bg-black/35">
+                          <div key={evidence.id} className="pixel-panel grid grid-cols-[96px_1fr] gap-3 bg-white p-3">
+                            <div className="flex aspect-square items-center justify-center overflow-hidden border-2 border-[#151515] bg-white">
                               <SummaryEvidenceThumb evidence={evidence} />
                             </div>
                             <div className="min-w-0 self-center">
                               <p className="truncate text-lg font-black">{table?.table_name || "Mesa"}</p>
-                              <p className="truncate text-sm text-white/65">{evidence.captain_name || table?.captain_name || "-"}</p>
-                              <p className="mt-1 text-xs font-black uppercase text-[#facc15]">
+                              <p className="truncate text-sm text-[#151515]/65">{evidence.captain_name || table?.captain_name || "-"}</p>
+                              <p className="mt-1 text-xs font-black uppercase text-[#151515]/70">
                                 {evidence.evidence_type === "audio" ? "Audio" : evidence.evidence_type === "video" ? "Vídeo" : "Foto"}
                                 {evidence.points_awarded ? ` · +${evidence.points_awarded} pts` : ""}
                               </p>
@@ -1752,9 +1983,9 @@ export default function CaptainsPublic() {
 
               {activeSummarySlide.type === "closing" && (
                 <div className="flex flex-1 flex-col items-center justify-center text-center">
-                  <Crown className="mb-5 h-20 w-20 text-[#facc15]" />
+                  <Crown className="mb-5 h-20 w-20 text-[#151515]" />
                   <h2 className="text-5xl font-black leading-none tracking-normal">Misión completada</h2>
-                  <p className="mt-4 text-sm leading-6 text-white/65">Gracias por crear recuerdos con vuestra mesa.</p>
+                  <p className="mt-4 text-sm leading-6 text-[#151515]/65">Gracias por crear recuerdos con vuestra mesa.</p>
                 </div>
               )}
             </div>
@@ -1782,8 +2013,8 @@ export default function CaptainsPublic() {
     return (
       <CaptainsShell>
         <div className="flex flex-1 flex-col justify-center gap-4">
-          <GameCard className="border-[#facc15]/50 bg-[#facc15]/10 text-center">
-            <Shield className="mx-auto mb-4 h-12 w-12 text-[#facc15]" />
+          <GameCard className="text-center">
+            <Shield className="mx-auto mb-4 h-12 w-12 text-[#151515]" />
             <h1 className="text-3xl font-black tracking-normal">La galería live no está disponible para este evento.</h1>
           </GameCard>
           <GameButton onClick={() => go("ranking")}>Volver al ranking</GameButton>
@@ -1796,10 +2027,10 @@ export default function CaptainsPublic() {
     return (
       <CaptainsShell>
         <div className="flex flex-1 flex-col justify-center gap-4">
-          <GameCard className="border-[#facc15]/50 bg-[#facc15]/10 text-center">
-            <Shield className="mx-auto mb-4 h-12 w-12 text-[#facc15]" />
+          <GameCard className="text-center">
+            <Shield className="mx-auto mb-4 h-12 w-12 text-[#151515]" />
             <h1 className="text-3xl font-black tracking-normal">Todavía quedan misiones por completar.</h1>
-            <p className="mt-2 text-sm leading-6 text-white/70">
+            <p className="mt-2 text-sm leading-6 text-[#151515]/70">
               Cuando vuestra mesa termine todos los retos, podréis ver los recuerdos del resto de mesas.
             </p>
           </GameCard>
@@ -1816,28 +2047,28 @@ export default function CaptainsPublic() {
         <div className="pt-3">
           <HeroBadge>En directo</HeroBadge>
           <h1 className="mt-4 text-4xl font-black tracking-normal">Recuerdos de la misión</h1>
-          <p className="mt-2 text-sm leading-6 text-white/70">Mira lo que están creando el resto de mesas en tiempo real.</p>
+          <p className="mt-2 text-sm leading-6 text-[#151515]/70">Mira lo que están creando el resto de mesas en tiempo real.</p>
         </div>
         <GameCard className="grid grid-cols-2 gap-3 bg-black/20 text-sm">
           <div className="col-span-2">
-            <p className="text-xs font-black uppercase text-white/45">Evento</p>
+            <p className="text-xs font-black uppercase text-[#151515]/45">Evento</p>
             <p className="truncate text-base font-black">{event.name}</p>
           </div>
           <div>
-            <p className="text-xs font-black uppercase text-white/45">Mesa</p>
+            <p className="text-xs font-black uppercase text-[#151515]/45">Mesa</p>
             <p className="font-bold">{currentTable?.table_name || session?.table_name}</p>
           </div>
           <div>
-            <p className="text-xs font-black uppercase text-white/45">Capitán</p>
+            <p className="text-xs font-black uppercase text-[#151515]/45">Capitán</p>
             <p className="truncate font-bold">{session?.captain_name}</p>
           </div>
           <div>
-            <p className="text-xs font-black uppercase text-white/45">Posición</p>
-            <p className="text-xl font-black text-[#facc15]">#{myRank?.rank || "-"}</p>
+            <p className="text-xs font-black uppercase text-[#151515]/45">Posición</p>
+            <p className="text-xl font-black text-[#151515]">#{myRank?.rank || "-"}</p>
           </div>
           <div>
-            <p className="text-xs font-black uppercase text-white/45">Puntos</p>
-            <p className="text-xl font-black text-[#5eead4]">{totalPoints}</p>
+            <p className="text-xs font-black uppercase text-[#151515]/45">Puntos</p>
+            <p className="text-xl font-black text-[#151515]">{totalPoints}</p>
           </div>
         </GameCard>
         <div className="grid grid-cols-3 gap-2">
@@ -1849,8 +2080,8 @@ export default function CaptainsPublic() {
                 setNewMemoriesAvailable(false);
               }}
               className={cn(
-                "min-h-10 rounded-[8px] border border-white/15 px-2 text-xs font-black",
-                liveFilter === filter ? "bg-[#2dd4bf] text-[#07131f]" : "bg-white/10 text-white",
+                "min-h-10 border-2 border-[#151515] bg-white px-2 text-xs font-black text-[#151515]",
+                liveFilter === filter && "border-[var(--captains-primary)] bg-[var(--captains-primary)]/10",
               )}
             >
               {filter === "all" ? "Todas" : filter === "mine" ? "Mi mesa" : filter === "others" ? "Otras" : evidenceLabel[filter]}
@@ -1874,25 +2105,25 @@ export default function CaptainsPublic() {
             {summaryCopied ? "URL copiada" : "Compartir resumen"}
           </SecondaryButton>
         </div>
-        {isRefreshingLive && <p className="text-center text-xs font-bold text-[#5eead4]">Actualizando recuerdos...</p>}
+        {isRefreshingLive && <p className="text-center text-xs font-bold text-[#151515]/70">Actualizando recuerdos...</p>}
         {newMemoriesAvailable && (
           <button
             type="button"
             onClick={() => setNewMemoriesAvailable(false)}
-            className="w-full rounded-[8px] border border-[#2dd4bf]/40 bg-[#2dd4bf]/15 px-3 py-2 text-xs font-black text-[#99f6e4]"
+            className="w-full border-2 border-[#151515] bg-white px-3 py-2 text-xs font-black text-[#151515]"
           >
             Nuevos recuerdos disponibles
           </button>
         )}
-        {lastRefresh && <p className="text-center text-xs text-white/45">Actualizado a las {lastRefresh.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}</p>}
+        {lastRefresh && <p className="text-center text-xs text-[#151515]/45">Actualizado a las {lastRefresh.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}</p>}
         {liveError && (
-          <GameCard className="border-[#fb7185]/40 bg-[#fb7185]/10 text-center">
+          <GameCard className="border-[var(--captains-primary)] text-center">
             <p className="font-black">{liveError}</p>
           </GameCard>
         )}
         {filteredEvidence.length === 0 && (
           <GameCard className="text-center">
-            <ImageIcon className="mx-auto mb-3 h-10 w-10 text-white/45" />
+            <ImageIcon className="mx-auto mb-3 h-10 w-10 text-[#151515]/45" />
             <p className="font-black">
               {isRefreshingLive
                 ? "Cargando recuerdos..."
@@ -1917,18 +2148,18 @@ export default function CaptainsPublic() {
                     <p className="truncate font-black">
                       {table?.table_name || "Mesa"} - {evidence.captain_name || table?.active_captain_name || table?.captain_name || "-"}
                     </p>
-                    <p className="truncate text-xs text-white/60">Capitán: {evidence.captain_name || table?.active_captain_name || table?.captain_name || "-"}</p>
-                    <p className="mt-1 text-sm font-bold text-[#5eead4]">Reto: {challenge?.title || "Reto"}</p>
+                    <p className="truncate text-xs text-[#151515]/60">Capitán: {evidence.captain_name || table?.active_captain_name || table?.captain_name || "-"}</p>
+                    <p className="mt-1 text-sm font-bold text-[#151515]">Reto: {challenge?.title || "Reto"}</p>
                   </div>
                   <div className="shrink-0 rounded-[8px] bg-black/25 px-2 py-1 text-xs font-black">
                     {evidenceLabel[evidence.evidence_type]}
                   </div>
                 </div>
-                <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-white/55">
+                <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-[#151515]/55">
                   <span>{formatRelativeTime(evidence.created_at)}</span>
-                  {evidence.status === "pending_review" && <span className="rounded-[8px] bg-[#facc15]/20 px-2 py-1 font-black text-[#fde68a]">Pendiente de revisión</span>}
+                  {evidence.status === "pending_review" && <span className="border border-[#151515] bg-white px-2 py-1 font-black text-[#151515]">Pendiente de revisión</span>}
                   {evidence.status === "approved" && evidence.points_awarded > 0 && (
-                    <span className="rounded-[8px] bg-[#2dd4bf]/20 px-2 py-1 font-black text-[#99f6e4]">+{evidence.points_awarded} puntos</span>
+                    <span className="border border-[#151515] bg-white px-2 py-1 font-black text-[#151515]">+{evidence.points_awarded} puntos</span>
                   )}
                   {evidence.evidence_type === "audio" && <Volume2 className="h-4 w-4" />}
                 </div>

@@ -57,15 +57,124 @@ import type {
   CaptainsEventChallenge,
   CaptainsEvidence,
   CaptainsEvidenceType,
+  CaptainsSpriteConfig,
+  CaptainsSpriteStyle,
   CaptainsTable,
   CaptainsTableChallenge,
 } from "@/lib/captainsTypes";
 
 const DEFAULT_DESCRIPTION =
   "Bienvenidos a Capitanes by Revelao.\nCada mesa tendrá un capitán encargado de guiar a su equipo durante el juego.\nTendréis que completar retos, subir pruebas y competir contra el resto de mesas.\nPreparad la cámara, afinad la voz y jugad en equipo.\nQue empiece la misión.";
-const DEFAULT_PRIMARY_COLOR = "#d8a35d";
-const DEFAULT_SECONDARY_COLOR = "#f3dfc1";
+const DEFAULT_PRIMARY_COLOR = "#f06a5f";
+const DEFAULT_SECONDARY_COLOR = "#2f292d";
 const isHexColor = (value: string) => /^#[0-9a-fA-F]{6}$/.test(value);
+const colorValue = (value: string, fallback: string) => (isHexColor(value) ? value : fallback);
+
+const hairColorOptions = [
+  { value: "blonde", label: "Rubio", color: "#e8c85b" },
+  { value: "dark", label: "Moreno", color: "#151515" },
+  { value: "brown", label: "Castaño", color: "#6b4328" },
+] as const;
+
+const skinColorOptions = [
+  { value: "very_fair", label: "Muy blanca", color: "#f4d6c6" },
+  { value: "fair", label: "Blanca", color: "#e9b98f" },
+  { value: "tan", label: "Morena", color: "#a66b45" },
+  { value: "dark", label: "Negra", color: "#5d3828" },
+] as const;
+
+const defaultCaptainSpriteConfig = (index = 0): CaptainsSpriteConfig => ({
+  sex: index % 2 === 0 ? "male" : "female",
+  hair_length: index % 2 === 0 ? "short" : "long",
+  hair_color: hairColorOptions[index % hairColorOptions.length].value,
+  skin_color: skinColorOptions[index % skinColorOptions.length].value,
+  outfit_type: index % 2 === 0 ? "suit" : "dress",
+  dress_color: ["#202235", "#6fa341", "#d32027"][index % 3],
+  suit_color: ["#1f2937", "#202235", "#2f292d"][index % 3],
+  tie_color: ["#f06a5f", "#f8d24a", "#ffffff"][index % 3],
+});
+
+const normalizeCaptainSpriteConfig = (config?: Partial<CaptainsSpriteConfig> | null, index = 0): CaptainsSpriteConfig => ({
+  ...defaultCaptainSpriteConfig(index),
+  ...(config || {}),
+});
+
+const captainSpriteOptions: Array<{
+  value: CaptainsSpriteStyle;
+  label: string;
+  hair: string;
+  skin: string;
+  outfit: string;
+  accent: string;
+  legs: string;
+}> = [
+  { value: "suit", label: "Traje", hair: "#3f2d23", skin: "#f0bd91", outfit: "#1f2937", accent: "#ffffff", legs: "#111827" },
+  { value: "dress", label: "Vestido", hair: "#5a3828", skin: "#f1c09a", outfit: "#202235", accent: "#ffffff", legs: "#202235" },
+  { value: "jacket", label: "Chaqueta verde", hair: "#111111", skin: "#8f5f3d", outfit: "#4f7f3a", accent: "#ffffff", legs: "#3b2f24" },
+  { value: "skirt", label: "Falda verde", hair: "#1f1712", skin: "#9b6747", outfit: "#4c7d3f", accent: "#ffffff", legs: "#3b2f24" },
+  { value: "festival", label: "Fiesta", hair: "#2b1b12", skin: "#efb68c", outfit: "#8a4f22", accent: "#f06a5f", legs: "#654321" },
+  { value: "tunic", label: "Túnica", hair: "#c9c9c9", skin: "#a87450", outfit: "#d5d5d5", accent: "#ffffff", legs: "#1f2937" },
+  { value: "uniform", label: "Uniforme rojo", hair: "#141414", skin: "#edb28f", outfit: "#d32027", accent: "#f8d24a", legs: "#d32027" },
+  { value: "kimono", label: "Kimono", hair: "#1c1c1c", skin: "#f2bd93", outfit: "#6fa341", accent: "#111111", legs: "#202235" },
+];
+
+const getDefaultCaptainSprite = (index: number) => captainSpriteOptions[index % captainSpriteOptions.length].value;
+const getCaptainSpriteOption = (value?: CaptainsSpriteStyle | null) =>
+  captainSpriteOptions.find((option) => option.value === value) || captainSpriteOptions[0];
+
+const getSpriteColors = (value?: CaptainsSpriteStyle | null, config?: CaptainsSpriteConfig | null) => {
+  if (config) {
+    const hair = hairColorOptions.find((option) => option.value === config.hair_color)?.color || "#151515";
+    const skin = skinColorOptions.find((option) => option.value === config.skin_color)?.color || "#e9b98f";
+    const outfit = config.outfit_type === "dress" ? colorValue(config.dress_color, "#202235") : colorValue(config.suit_color, "#1f2937");
+    return {
+      hair,
+      skin,
+      outfit,
+      accent: config.outfit_type === "dress" ? "#ffffff" : colorValue(config.tie_color, "#f06a5f"),
+      legs: config.outfit_type === "dress" ? "#202235" : colorValue(config.suit_color, "#1f2937"),
+      dressLike: config.outfit_type === "dress",
+      longHair: config.hair_length === "long",
+    };
+  }
+  const option = getCaptainSpriteOption(value);
+  return {
+    hair: option.hair,
+    skin: option.skin,
+    outfit: option.outfit,
+    accent: option.accent,
+    legs: option.legs,
+    dressLike: ["dress", "skirt", "kimono"].includes(option.value),
+    longHair: false,
+  };
+};
+
+const CaptainSpritePreview = ({ value, config, size = "md" }: { value?: CaptainsSpriteStyle | null; config?: CaptainsSpriteConfig | null; size?: "sm" | "md" }) => {
+  const option = getSpriteColors(value, config);
+  const scale = size === "sm" ? "h-12 w-9" : "h-16 w-12";
+  return (
+    <div className={`relative shrink-0 ${scale}`} style={{ imageRendering: "pixelated" }}>
+      <div className="absolute left-[28%] top-[2%] h-[10%] w-[44%]" style={{ backgroundColor: option.hair }} />
+      <div className="absolute left-[20%] top-[10%] h-[16%] w-[60%]" style={{ backgroundColor: option.hair }} />
+      {option.longHair ? <div className="absolute left-[12%] top-[20%] h-[26%] w-[76%]" style={{ backgroundColor: option.hair }} /> : null}
+      <div className="absolute left-[25%] top-[18%] h-[18%] w-[50%]" style={{ backgroundColor: option.skin }} />
+      <div className="absolute left-[35%] top-[25%] h-[4%] w-[6%] bg-[#111111]" />
+      <div className="absolute right-[35%] top-[25%] h-[4%] w-[6%] bg-[#111111]" />
+      <div className="absolute left-[40%] top-[32%] h-[3%] w-[20%] bg-[#d25f5f]" />
+      <div className="absolute left-[24%] top-[39%] h-[30%] w-[52%]" style={{ backgroundColor: option.outfit }} />
+      <div className="absolute left-[43%] top-[39%] h-[30%] w-[14%]" style={{ backgroundColor: option.accent }} />
+      <div className="absolute left-[10%] top-[42%] h-[24%] w-[14%]" style={{ backgroundColor: option.skin }} />
+      <div className="absolute right-[10%] top-[42%] h-[24%] w-[14%]" style={{ backgroundColor: option.skin }} />
+      {option.dressLike ? (
+        <div className="absolute left-[18%] top-[66%] h-[16%] w-[64%]" style={{ backgroundColor: option.outfit }} />
+      ) : null}
+      <div className="absolute bottom-[5%] left-[28%] h-[28%] w-[16%]" style={{ backgroundColor: option.legs }} />
+      <div className="absolute bottom-[5%] right-[28%] h-[28%] w-[16%]" style={{ backgroundColor: option.legs }} />
+      <div className="absolute bottom-0 left-[25%] h-[5%] w-[22%] bg-[#111111]" />
+      <div className="absolute bottom-0 right-[25%] h-[5%] w-[22%] bg-[#111111]" />
+    </div>
+  );
+};
 
 const EMPTY_CHALLENGE: CaptainsChallengeInput = {
   title: "",
@@ -124,18 +233,22 @@ const formatDateTime = (value?: string | null) => {
   });
 };
 
-const toTimeInput = (value?: string | null) => {
+const toDateTimeInput = (value?: string | null) => {
   if (!value) return "";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
-  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
 };
 
-const timeInputToIso = (value: string) => {
+const dateTimeInputToIso = (value: string) => {
   if (!value) return null;
-  const [hours, minutes] = value.split(":").map(Number);
-  const date = new Date();
-  date.setHours(hours || 0, minutes || 0, 0, 0);
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
   return date.toISOString();
 };
 
@@ -361,7 +474,16 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
   const [name, setName] = useState("");
   const [description, setDescription] = useState(DEFAULT_DESCRIPTION);
   const [tableCount, setTableCount] = useState(0);
-  const [captains, setCaptains] = useState<Array<{ id?: string; table_number: number; table_name: string; captain_name: string }>>([]);
+  const [captains, setCaptains] = useState<
+    Array<{
+      id?: string;
+      table_number: number;
+      table_name: string;
+      captain_name: string;
+      captain_sprite: CaptainsSpriteStyle;
+      captain_sprite_config: CaptainsSpriteConfig;
+    }>
+  >([]);
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [scoringMode, setScoringMode] = useState<"automatic" | "manual">("automatic");
@@ -383,10 +505,12 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
         table_number: table.table_number,
         table_name: table.table_name,
         captain_name: table.captain_name || "",
+        captain_sprite: table.captain_sprite || getDefaultCaptainSprite(table.table_number - 1),
+        captain_sprite_config: normalizeCaptainSpriteConfig(table.captain_sprite_config, table.table_number - 1),
       })),
     );
-    setStartTime(toTimeInput(detail.event.start_time));
-    setEndTime(toTimeInput(detail.event.end_time));
+    setStartTime(toDateTimeInput(detail.event.start_time));
+    setEndTime(toDateTimeInput(detail.event.end_time));
     setScoringMode(detail.event.scoring_mode);
     setShowLiveGalleryAfterCompletion(detail.event.show_live_gallery_after_completion ?? true);
     setPrimaryColor(detail.event.primary_color || DEFAULT_PRIMARY_COLOR);
@@ -421,15 +545,29 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
             table_number: index + 1,
             table_name: `Mesa ${index + 1}`,
             captain_name: "",
+            captain_sprite: getDefaultCaptainSprite(index),
+            captain_sprite_config: defaultCaptainSpriteConfig(index),
           }
         );
-      }).map((table, index) => ({ ...table, table_number: index + 1, table_name: table.table_name || `Mesa ${index + 1}` })),
+      }).map((table, index) => ({
+        ...table,
+        table_number: index + 1,
+        table_name: table.table_name || `Mesa ${index + 1}`,
+        captain_sprite: table.captain_sprite || getDefaultCaptainSprite(index),
+        captain_sprite_config: normalizeCaptainSpriteConfig(table.captain_sprite_config, index),
+      })),
     );
   };
 
   const validateStepOne = () => {
     if (!name.trim()) return "El nombre del evento es obligatorio.";
     if (tableCount <= 0 || captains.length === 0) return "Añade al menos una mesa para crear el juego.";
+    if (!startTime) return "Elige el día y la hora de inicio.";
+    if (!endTime) return "Elige el día y la hora de fin.";
+    const startDate = new Date(startTime);
+    const endDate = new Date(endTime);
+    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) return "Revisa el día y la hora de inicio y fin.";
+    if (endDate <= startDate) return "La fecha de fin debe ser posterior a la fecha de inicio.";
     return null;
   };
 
@@ -489,14 +627,14 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
       const eventPayload = {
         name: name.trim(),
         description: description.trim(),
-        start_time: timeInputToIso(startTime),
-        end_time: timeInputToIso(endTime),
+        start_time: dateTimeInputToIso(startTime),
+        end_time: dateTimeInputToIso(endTime),
         scoring_mode: scoringMode,
         show_live_gallery_after_completion: showLiveGalleryAfterCompletion,
         primary_color: primaryColor,
         secondary_color: secondaryColor,
         background_image_url: backgroundImageUrl.trim() || null,
-        status: startTime ? "scheduled" as const : "active" as const,
+        status: new Date(startTime).getTime() > Date.now() ? "scheduled" as const : "active" as const,
       };
 
       if (edit && eventId) {
@@ -556,40 +694,52 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
             </label>
             <div className="grid gap-4 rounded-md border border-border p-4 md:col-span-2 md:grid-cols-2">
               <div className="space-y-1 md:col-span-2">
-                <span className="text-sm font-medium">Estilo visual de la experiencia pública</span>
-                <p className="text-xs text-muted-foreground">Estos colores se aplican a botones, acentos y al ambiente visual de Capitanes.</p>
+                <span className="text-sm font-medium">Estilo visual del juego mobile</span>
+                <p className="text-xs text-muted-foreground">
+                  La experiencia pública usa fondo blanco, estética pixel art brutalista y el color principal para los CTA.
+                </p>
               </div>
               <label className="space-y-1">
-                <span className="text-sm font-medium">Color principal</span>
+                <span className="text-sm font-medium">Color principal de CTAs</span>
                 <div className="flex gap-2">
                   <Input type="color" value={isHexColor(primaryColor) ? primaryColor : DEFAULT_PRIMARY_COLOR} onChange={(event) => setPrimaryColor(event.target.value)} className="h-10 w-14 p-1" />
-                  <Input value={primaryColor} onChange={(event) => setPrimaryColor(event.target.value)} placeholder="#d8a35d" />
+                  <Input value={primaryColor} onChange={(event) => setPrimaryColor(event.target.value)} placeholder={DEFAULT_PRIMARY_COLOR} />
                 </div>
               </label>
               <label className="space-y-1">
                 <span className="text-sm font-medium">Color secundario</span>
                 <div className="flex gap-2">
                   <Input type="color" value={isHexColor(secondaryColor) ? secondaryColor : DEFAULT_SECONDARY_COLOR} onChange={(event) => setSecondaryColor(event.target.value)} className="h-10 w-14 p-1" />
-                  <Input value={secondaryColor} onChange={(event) => setSecondaryColor(event.target.value)} placeholder="#f3dfc1" />
+                  <Input value={secondaryColor} onChange={(event) => setSecondaryColor(event.target.value)} placeholder={DEFAULT_SECONDARY_COLOR} />
                 </div>
               </label>
-              <label className="space-y-1 md:col-span-2">
-                <span className="text-sm font-medium">Foto de fondo pública</span>
-                <Input value={backgroundImageUrl} onChange={(event) => setBackgroundImageUrl(event.target.value)} placeholder="https://..." />
-                <p className="text-xs text-muted-foreground">URL de la imagen que se verá detrás de la experiencia móvil de los invitados.</p>
-              </label>
+              <div className="rounded-md border-2 border-black bg-white p-4 md:col-span-2">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-normal text-muted-foreground">Vista previa</p>
+                    <p className="mt-1 text-sm font-semibold text-foreground">Fondo blanco, borde negro y CTA con color principal.</p>
+                  </div>
+                  <CaptainSpritePreview
+                    value={captains[0]?.captain_sprite || "suit"}
+                    config={captains[0]?.captain_sprite_config || defaultCaptainSpriteConfig(0)}
+                  />
+                </div>
+                <div className="mt-4 inline-flex rounded-none border-2 border-black px-4 py-2 text-sm font-bold text-white" style={{ backgroundColor: primaryColor }}>
+                  Hacer foto
+                </div>
+              </div>
             </div>
             <label className="space-y-1">
               <span className="text-sm font-medium">Número de mesas</span>
               <Input type="number" min={1} value={tableCount || ""} onChange={(event) => syncTableCount(Number(event.target.value))} />
             </label>
             <label className="space-y-1">
-              <span className="text-sm font-medium">Hora de inicio</span>
-              <Input type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} />
+              <span className="text-sm font-medium">Día y hora de inicio</span>
+              <Input type="datetime-local" value={startTime} onChange={(event) => setStartTime(event.target.value)} />
             </label>
             <label className="space-y-1">
-              <span className="text-sm font-medium">Hora de fin</span>
-              <Input type="time" value={endTime} onChange={(event) => setEndTime(event.target.value)} />
+              <span className="text-sm font-medium">Día y hora de fin</span>
+              <Input type="datetime-local" value={endTime} onChange={(event) => setEndTime(event.target.value)} />
               <p className="text-xs text-muted-foreground">Al llegar esta hora, se podrá ver el resumen con los equipos que hayan participado.</p>
             </label>
             <label className="space-y-1">
@@ -623,22 +773,93 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
             <EmptyState text="Añade al menos una mesa para crear el juego." />
           ) : (
             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-              {captains.map((table, index) => (
-                <label key={index} className="space-y-1">
-                  <span className="text-xs font-medium text-muted-foreground">Mesa {index + 1} - Capitán/a</span>
-                  <Input
-                    value={table.captain_name}
-                    onChange={(event) =>
-                      setCaptains((prev) =>
-                        prev.map((item, itemIndex) =>
-                          itemIndex === index ? { ...item, captain_name: event.target.value } : item,
-                        ),
-                      )
-                    }
-                    placeholder="Opcional"
-                  />
-                </label>
-              ))}
+              {captains.map((table, index) => {
+                const updateSpriteConfig = (patch: Partial<CaptainsSpriteConfig>) => {
+                  setCaptains((prev) =>
+                    prev.map((item, itemIndex) =>
+                      itemIndex === index
+                        ? { ...item, captain_sprite_config: { ...item.captain_sprite_config, ...patch } }
+                        : item,
+                    ),
+                  );
+                };
+                return (
+                  <div key={index} className="space-y-3 rounded-md border border-border bg-background p-3">
+                    <div className="flex items-center gap-3">
+                      <CaptainSpritePreview value={table.captain_sprite} config={table.captain_sprite_config} />
+                      <div>
+                        <p className="text-sm font-semibold">Mesa {index + 1}</p>
+                        <p className="text-xs text-muted-foreground">Jefe/a de mesa pixel art</p>
+                      </div>
+                    </div>
+                    <label className="space-y-1">
+                      <span className="text-xs font-medium text-muted-foreground">Capitán/a</span>
+                      <Input
+                        value={table.captain_name}
+                        onChange={(event) =>
+                          setCaptains((prev) =>
+                            prev.map((item, itemIndex) =>
+                              itemIndex === index ? { ...item, captain_name: event.target.value } : item,
+                            ),
+                          )
+                        }
+                        placeholder="Opcional"
+                      />
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <label className="space-y-1">
+                        <span className="text-xs font-medium text-muted-foreground">Sexo</span>
+                        <select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={table.captain_sprite_config.sex} onChange={(event) => updateSpriteConfig({ sex: event.target.value as CaptainsSpriteConfig["sex"] })}>
+                          <option value="female">Mujer</option>
+                          <option value="male">Hombre</option>
+                        </select>
+                      </label>
+                      <label className="space-y-1">
+                        <span className="text-xs font-medium text-muted-foreground">Pelo</span>
+                        <select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={table.captain_sprite_config.hair_length} onChange={(event) => updateSpriteConfig({ hair_length: event.target.value as CaptainsSpriteConfig["hair_length"] })}>
+                          <option value="short">Corto</option>
+                          <option value="long">Largo</option>
+                        </select>
+                      </label>
+                      <label className="space-y-1">
+                        <span className="text-xs font-medium text-muted-foreground">Color pelo</span>
+                        <select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={table.captain_sprite_config.hair_color} onChange={(event) => updateSpriteConfig({ hair_color: event.target.value as CaptainsSpriteConfig["hair_color"] })}>
+                          {hairColorOptions.map((option) => (
+                            <option key={option.value} value={option.value}>{option.label}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="space-y-1">
+                        <span className="text-xs font-medium text-muted-foreground">Color piel</span>
+                        <select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={table.captain_sprite_config.skin_color} onChange={(event) => updateSpriteConfig({ skin_color: event.target.value as CaptainsSpriteConfig["skin_color"] })}>
+                          {skinColorOptions.map((option) => (
+                            <option key={option.value} value={option.value}>{option.label}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="space-y-1">
+                        <span className="text-xs font-medium text-muted-foreground">Vestuario</span>
+                        <select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={table.captain_sprite_config.outfit_type} onChange={(event) => updateSpriteConfig({ outfit_type: event.target.value as CaptainsSpriteConfig["outfit_type"] })}>
+                          <option value="dress">Vestido</option>
+                          <option value="suit">Traje</option>
+                        </select>
+                      </label>
+                      <label className="space-y-1">
+                        <span className="text-xs font-medium text-muted-foreground">Color vestido</span>
+                        <Input type="color" value={colorValue(table.captain_sprite_config.dress_color, "#202235")} onChange={(event) => updateSpriteConfig({ dress_color: event.target.value })} className="h-10" />
+                      </label>
+                      <label className="space-y-1">
+                        <span className="text-xs font-medium text-muted-foreground">Color traje</span>
+                        <Input type="color" value={colorValue(table.captain_sprite_config.suit_color, "#1f2937")} onChange={(event) => updateSpriteConfig({ suit_color: event.target.value })} className="h-10" />
+                      </label>
+                      <label className="space-y-1">
+                        <span className="text-xs font-medium text-muted-foreground">Color corbata</span>
+                        <Input type="color" value={colorValue(table.captain_sprite_config.tie_color, "#f06a5f")} onChange={(event) => updateSpriteConfig({ tie_color: event.target.value })} className="h-10" />
+                      </label>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
 
@@ -960,6 +1181,8 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
                 <Info label="Puntuación" value={event.scoring_mode === "automatic" ? "Automática" : "Manual"} />
                 <Info label="Mesas" value={String(tables.length)} />
                 <Info label="Retos" value={String(challenges.length)} />
+                <Info label="Estilo" value="Pixel art brutalista" />
+                <Info label="Color CTA" value={event.primary_color || DEFAULT_PRIMARY_COLOR} />
               </div>
               <div className="flex flex-wrap gap-2">
                 <Button variant="outline" className="gap-2" onClick={() => handleCopy(publicUrl)}>
@@ -1120,6 +1343,7 @@ const RankingCard = ({
           <tr className="border-b text-left text-muted-foreground">
             <th className="py-3 pr-4 font-medium">Posición</th>
             <th className="py-3 pr-4 font-medium">Mesa</th>
+            <th className="py-3 pr-4 font-medium">Estética</th>
             <th className="py-3 pr-4 font-medium">Capitán</th>
             <th className="py-3 pr-4 font-medium">Puntos</th>
             <th className="py-3 pr-4 font-medium">Completados</th>
@@ -1136,6 +1360,12 @@ const RankingCard = ({
               <tr key={table.id} className="border-b last:border-b-0">
                 <td className="py-3 pr-4 font-semibold">#{table.rank || index + 1}</td>
                 <td className="py-3 pr-4">{table.table_name}</td>
+                <td className="py-3 pr-4">
+                  <div className="flex items-center gap-2">
+                    <CaptainSpritePreview value={table.captain_sprite} config={table.captain_sprite_config} size="sm" />
+                    {table.captain_sprite_config?.outfit_type === "dress" ? "Vestido" : "Traje"}
+                  </div>
+                </td>
                 <td className="py-3 pr-4">{table.active_captain_name || table.captain_name || "-"}</td>
                 <td className="py-3 pr-4">{table.total_points}</td>
                 <td className="py-3 pr-4">{table.completed_challenges}</td>
@@ -1174,6 +1404,7 @@ const ProgressCard = ({
           <thead>
             <tr className="border-b text-left text-muted-foreground">
               <th className="py-3 pr-4 font-medium">Mesa</th>
+              <th className="py-3 pr-4 font-medium">Estética</th>
               <th className="py-3 pr-4 font-medium">Capitán</th>
               <th className="py-3 pr-4 font-medium">Reto actual</th>
               <th className="py-3 pr-4 font-medium">Estado</th>
@@ -1196,6 +1427,12 @@ const ProgressCard = ({
               return (
                 <tr key={table.id} className="border-b last:border-b-0">
                   <td className="py-3 pr-4">{table.table_name}</td>
+                  <td className="py-3 pr-4">
+                    <div className="flex items-center gap-2">
+                      <CaptainSpritePreview value={table.captain_sprite} config={table.captain_sprite_config} size="sm" />
+                      {table.captain_sprite_config?.outfit_type === "dress" ? "Vestido" : "Traje"}
+                    </div>
+                  </td>
                   <td className="py-3 pr-4">{table.active_captain_name || table.captain_name || "-"}</td>
                   <td className="py-3 pr-4">{challenge ? `${currentIndex}/${totalChallenges} · ${challenge.title}` : "-"}</td>
                   <td className="py-3 pr-4">{current ? statusLabels[current.status] : "-"}</td>
