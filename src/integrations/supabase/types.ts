@@ -128,8 +128,6 @@ export type Database = {
           has_time_limit: boolean
           id: string
           is_active: boolean
-          question_correct_option: string | null
-          question_options: string[] | null
           time_limit_seconds: number | null
           title: string
           updated_at: string
@@ -144,8 +142,6 @@ export type Database = {
           has_time_limit?: boolean
           id?: string
           is_active?: boolean
-          question_correct_option?: string | null
-          question_options?: string[] | null
           time_limit_seconds?: number | null
           title: string
           updated_at?: string
@@ -160,8 +156,6 @@ export type Database = {
           has_time_limit?: boolean
           id?: string
           is_active?: boolean
-          question_correct_option?: string | null
-          question_options?: string[] | null
           time_limit_seconds?: number | null
           title?: string
           updated_at?: string
@@ -182,8 +176,6 @@ export type Database = {
           is_required: boolean
           order_index: number
           points: number
-          question_correct_option: string | null
-          question_options: string[] | null
           time_limit_seconds: number | null
           title: string
           updated_at: string
@@ -201,8 +193,6 @@ export type Database = {
           is_required?: boolean
           order_index?: number
           points?: number
-          question_correct_option?: string | null
-          question_options?: string[] | null
           time_limit_seconds?: number | null
           title: string
           updated_at?: string
@@ -220,8 +210,6 @@ export type Database = {
           is_required?: boolean
           order_index?: number
           points?: number
-          question_correct_option?: string | null
-          question_options?: string[] | null
           time_limit_seconds?: number | null
           title?: string
           updated_at?: string
@@ -540,8 +528,6 @@ export type Database = {
         Row: {
           active_captain_name: string | null
           captain_name: string | null
-          captain_sprite: string | null
-          captain_sprite_config: Json | null
           completed_at: string | null
           completed_challenges: number
           created_at: string
@@ -558,8 +544,6 @@ export type Database = {
         Insert: {
           active_captain_name?: string | null
           captain_name?: string | null
-          captain_sprite?: string | null
-          captain_sprite_config?: Json | null
           completed_at?: string | null
           completed_challenges?: number
           created_at?: string
@@ -576,8 +560,6 @@ export type Database = {
         Update: {
           active_captain_name?: string | null
           captain_name?: string | null
-          captain_sprite?: string | null
-          captain_sprite_config?: Json | null
           completed_at?: string | null
           completed_challenges?: number
           created_at?: string
