@@ -282,7 +282,7 @@ const EventForm = () => {
     !!savedEditSnapshot &&
     getEditSnapshot() !== savedEditSnapshot;
 
-  const navigateWithoutUnsavedPrompt = (to: string, options?: Parameters<typeof navigate>[1]) => {
+  const navigateWithoutUnsavedPrompt = (to: string, options?: { state?: unknown; replace?: boolean }) => {
     allowNavigationRef.current = true;
     navigate(to, options);
   };
