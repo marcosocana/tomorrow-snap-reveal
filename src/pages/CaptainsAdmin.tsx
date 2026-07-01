@@ -10,7 +10,6 @@ import {
   Eye,
   Flag,
   Gamepad2,
-  Mic,
   Pencil,
   Plus,
   RefreshCw,
@@ -187,6 +186,8 @@ const EMPTY_CHALLENGE: CaptainsChallengeInput = {
   difficulty: "easy",
   has_time_limit: false,
   time_limit_seconds: null,
+  question_options: ["", "", "", ""],
+  question_correct_option: "",
 };
 
 const statusLabels: Record<string, string> = {
@@ -212,7 +213,7 @@ const statusLabels: Record<string, string> = {
 const evidenceLabels: Record<CaptainsEvidenceType, string> = {
   photo: "Foto",
   video: "Vídeo",
-  audio: "Audio",
+  question: "Pregunta",
 };
 
 const difficultyLabels: Record<CaptainsDifficulty, string> = {
@@ -232,6 +233,8 @@ const challengeTemplateHeaders = [
   "has_time_limit",
   "time_limit_seconds",
   "is_required",
+  "question_options",
+  "question_correct_option",
 ];
 
 const challengeTemplateExample = [
@@ -244,6 +247,8 @@ const challengeTemplateExample = [
   "false",
   "",
   "false",
+  "",
+  "",
 ];
 
 const escapeCsvValue = (value: string | number | boolean | null | undefined) => {
@@ -298,15 +303,19 @@ const csvToChallenges = (text: string): CaptainsChallengeInput[] => {
       const difficulty = get(row, "difficulty") as CaptainsDifficulty;
       const hasTimeLimit = ["true", "1", "yes", "si", "sí"].includes(get(row, "has_time_limit").toLowerCase());
       const timeLimit = Number(get(row, "time_limit_seconds"));
+      const questionOptions = get(row, "question_options").split("|").map((option) => option.trim()).filter(Boolean);
+      const questionCorrectOption = get(row, "question_correct_option").trim();
       return {
         title: get(row, "title").trim(),
         description: get(row, "description").trim(),
-        evidence_type: ["photo", "video", "audio"].includes(evidenceType) ? evidenceType : "photo",
+        evidence_type: ["photo", "video", "question"].includes(evidenceType) ? evidenceType : "photo",
         points: Math.max(1, Number(get(row, "points")) || 10),
         category: get(row, "category").trim() || "Importado",
         difficulty: ["easy", "medium", "hard", "special"].includes(difficulty) ? difficulty : "easy",
         has_time_limit: hasTimeLimit,
         time_limit_seconds: hasTimeLimit ? Math.max(1, timeLimit || 60) : null,
+        question_options: evidenceType === "question" ? questionOptions : null,
+        question_correct_option: evidenceType === "question" ? questionCorrectOption || questionOptions[0] || "" : null,
         order_index: index + 1,
         is_required: ["true", "1", "yes", "si", "sí"].includes(get(row, "is_required").toLowerCase()),
       };
@@ -327,6 +336,8 @@ const catalogChallengeToInput = (item: CaptainsChallengeCatalogItem, orderIndex:
   difficulty: item.difficulty,
   has_time_limit: item.has_time_limit,
   time_limit_seconds: item.time_limit_seconds,
+  question_options: item.question_options ?? null,
+  question_correct_option: item.question_correct_option ?? null,
   order_index: orderIndex,
   is_required: false,
 });
@@ -521,7 +532,7 @@ const ChallengeEditor = ({
         >
           <option value="photo">Foto</option>
           <option value="video">Vídeo</option>
-          <option value="audio">Audio</option>
+          <option value="question">Pregunta</option>
         </select>
       </label>
       <label className="space-y-1">
@@ -570,6 +581,44 @@ const ChallengeEditor = ({
           onChange={(event) => onChange({ ...challenge, time_limit_seconds: Number(event.target.value) })}
         />
       </div>
+      {challenge.evidence_type === "question" && (
+        <div className="space-y-3 rounded-md border border-border bg-muted/20 p-3 md:col-span-2">
+          <div>
+            <p className="text-xs font-semibold text-muted-foreground">Opciones de respuesta</p>
+            <p className="text-xs text-muted-foreground">Marca cuál será la respuesta correcta para puntuar automáticamente.</p>
+          </div>
+          {(challenge.question_options?.length ? challenge.question_options : ["", "", "", ""]).map((option, optionIndex) => {
+            const options = challenge.question_options?.length ? challenge.question_options : ["", "", "", ""];
+            const optionValue = option || `Opción ${optionIndex + 1}`;
+            const checked = challenge.question_correct_option === option;
+            return (
+              <div key={optionIndex} className="grid grid-cols-[auto_1fr] items-center gap-2">
+                <input
+                  type="radio"
+                  name={`question-correct-${index}`}
+                  checked={checked}
+                  onChange={() => onChange({ ...challenge, question_correct_option: option })}
+                  className="h-4 w-4 accent-primary"
+                />
+                <Input
+                  value={option}
+                  placeholder={optionValue}
+                  onChange={(event) => {
+                    const nextOptions = [...options];
+                    const previousValue = nextOptions[optionIndex];
+                    nextOptions[optionIndex] = event.target.value;
+                    onChange({
+                      ...challenge,
+                      question_options: nextOptions,
+                      question_correct_option: challenge.question_correct_option === previousValue ? event.target.value : challenge.question_correct_option,
+                    });
+                  }}
+                />
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   </Card>
 );
@@ -642,6 +691,8 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
         difficulty: challenge.difficulty,
         has_time_limit: challenge.has_time_limit,
         time_limit_seconds: challenge.time_limit_seconds,
+        question_options: challenge.question_options ?? ["", "", "", ""],
+        question_correct_option: challenge.question_correct_option ?? "",
         order_index: challenge.order_index,
         is_required: challenge.is_required,
       })),
@@ -691,6 +742,13 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
       if (!challenge.title.trim() || !challenge.description.trim()) return "Cada reto debe tener título y descripción.";
       if (!challenge.evidence_type) return "Cada reto debe tener evidencia.";
       if (!challenge.points || challenge.points <= 0) return "Cada reto debe tener puntos.";
+      if (challenge.evidence_type === "question") {
+        const options = (challenge.question_options || []).map((option) => option.trim()).filter(Boolean);
+        if (options.length < 2) return "Cada pregunta debe tener al menos dos opciones.";
+        if (!challenge.question_correct_option || !options.includes(challenge.question_correct_option.trim())) {
+          return "Cada pregunta debe tener una respuesta correcta marcada.";
+        }
+      }
       if (challenge.has_time_limit && (!challenge.time_limit_seconds || challenge.time_limit_seconds <= 0)) {
         return "Si tiene tiempo, debe tener segundos.";
       }
@@ -832,13 +890,6 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
 
   return (
     <AdminFrame title={edit ? "Editar juego de Capitanes" : "Nuevo juego de Capitanes"} subtitle={`Paso ${step} de 2`}>
-      <div className="flex items-center gap-2">
-        <Button variant="ghost" className="gap-2" onClick={() => navigate(edit && eventId ? `/admin/capitanes/${eventId}` : "/admin/capitanes")}>
-          <ArrowLeft className="h-4 w-4" />
-          Volver
-        </Button>
-      </div>
-
       {step === 1 ? (
         <Card className="space-y-5 p-5">
           <div className="grid gap-4 md:grid-cols-2">
@@ -1026,8 +1077,9 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
           </div>
         </Card>
       ) : (
-        <div className="grid gap-5 lg:grid-cols-[320px_1fr]">
-          <Card className="h-fit space-y-4 p-4">
+        <div className="relative -mx-4 h-[calc(100vh-150px)] min-h-[560px] overflow-hidden px-4 pb-24">
+          <div className="grid h-full grid-rows-[minmax(0,1fr)_minmax(0,1fr)] gap-5 lg:grid-cols-[340px_1fr] lg:grid-rows-none">
+            <Card className="flex min-h-0 flex-col space-y-4 overflow-hidden p-4">
             <div>
               <h2 className="font-semibold">Catálogo de retos</h2>
               <p className="text-sm text-muted-foreground">Selecciona cuántos y cuáles quieres incluir en este evento.</p>
@@ -1041,7 +1093,7 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
               <p className="font-medium">{selectedCatalogIds.length} retos seleccionados</p>
               <p className="text-xs text-muted-foreground">{selectedChallenges.length} retos añadidos al evento</p>
             </div>
-            <div className="max-h-[520px] space-y-4 overflow-y-auto pr-1">
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
               {catalogByCategory.map(([category, items]) => (
                 <div key={category} className="space-y-2">
                   <div className="sticky top-0 z-10 bg-card py-1">
@@ -1102,21 +1154,26 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
             </Button>
           </Card>
 
-          <div className="space-y-4">
-            {selectedChallenges.length === 0 ? (
-              <EmptyState text="Todavía no hay retos seleccionados para este juego." />
-            ) : (
-              selectedChallenges.map((challenge, index) => (
-                <ChallengeEditor
-                  key={`${challenge.catalog_challenge_id || "custom"}-${index}`}
-                  challenge={challenge}
-                  index={index}
-                  onChange={(next) => setSelectedChallenges((prev) => prev.map((item, itemIndex) => (itemIndex === index ? next : item)))}
-                  onDelete={() => setSelectedChallenges((prev) => prev.filter((_, itemIndex) => itemIndex !== index))}
-                />
-              ))
-            )}
-            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-between">
+            <div className="min-h-0 overflow-y-auto pr-1">
+              <div className="space-y-4 pb-2">
+                {selectedChallenges.length === 0 ? (
+                  <EmptyState text="Todavía no hay retos seleccionados para este juego." />
+                ) : (
+                  selectedChallenges.map((challenge, index) => (
+                    <ChallengeEditor
+                      key={`${challenge.catalog_challenge_id || "custom"}-${index}`}
+                      challenge={challenge}
+                      index={index}
+                      onChange={(next) => setSelectedChallenges((prev) => prev.map((item, itemIndex) => (itemIndex === index ? next : item)))}
+                      onDelete={() => setSelectedChallenges((prev) => prev.filter((_, itemIndex) => itemIndex !== index))}
+                    />
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 px-4 py-3 shadow-[0_-8px_24px_rgba(15,23,42,0.08)] backdrop-blur">
+            <div className="mx-auto flex max-w-7xl flex-col-reverse gap-2 sm:flex-row sm:justify-between">
               <Button variant="outline" onClick={() => setStep(1)}>
                 Volver
               </Button>
@@ -1156,7 +1213,7 @@ const EvidencePreview = ({ evidence }: { evidence: CaptainsEvidence }) => {
   if (evidence.evidence_type === "video") {
     return <video src={url} controls className="aspect-video w-full rounded-md bg-black object-contain" />;
   }
-  return <audio src={url} controls className="w-full" />;
+  return <div className="flex aspect-video items-center justify-center rounded-md bg-muted text-xs text-muted-foreground">Sin preview</div>;
 };
 
 const EvidenceActions = ({
@@ -1347,7 +1404,7 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
   const liveVisibleEvidence = evidence.filter((item) => item.file_url && !["deleted", "rejected"].includes(item.status));
   const photoCount = liveVisibleEvidence.filter((item) => item.evidence_type === "photo").length;
   const videoCount = liveVisibleEvidence.filter((item) => item.evidence_type === "video").length;
-  const audioCount = liveVisibleEvidence.filter((item) => item.evidence_type === "audio").length;
+  const questionCount = challenges.filter((item) => item.evidence_type === "question").length;
   const lastLiveEvidence = liveVisibleEvidence[0];
 
   return (
@@ -1442,7 +1499,7 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
             <Info label="Visibles" value={String(liveVisibleEvidence.length)} />
             <Info label="Fotos" value={String(photoCount)} />
             <Info label="Vídeos" value={String(videoCount)} />
-            <Info label="Audios" value={String(audioCount)} />
+            <Info label="Preguntas" value={String(questionCount)} />
             <Info label="Última subida" value={lastLiveEvidence ? formatDateTime(lastLiveEvidence.created_at) : "-"} />
           </div>
         </Card>

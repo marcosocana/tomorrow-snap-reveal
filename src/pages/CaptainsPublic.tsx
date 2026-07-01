@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import {
+  completeCaptainsQuestionChallenge,
   expireCaptainsTableChallenge,
   failCaptainsTableChallenge,
   generateRandomChallengeOrderForTable,
@@ -40,7 +41,6 @@ import {
   Image as ImageIcon,
   Loader2,
   Medal,
-  Mic,
   Pause,
   Play,
   RefreshCw,
@@ -50,7 +50,6 @@ import {
   Sparkles,
   Trophy,
   Users,
-  Volume2,
   XCircle,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
@@ -263,6 +262,8 @@ const demoEventDetail: CaptainsEventDetail = {
       difficulty: "easy",
       has_time_limit: false,
       time_limit_seconds: null,
+      question_options: null,
+      question_correct_option: null,
       order_index: 1,
       is_required: true,
       created_at: nowIso(),
@@ -272,14 +273,16 @@ const demoEventDetail: CaptainsEventDetail = {
       id: "demo-challenge-2",
       event_id: "demo-event-capitanes",
       catalog_challenge_id: null,
-      title: "Grito de guerra",
-      description: "Grabad un audio corto con el grito de guerra de vuestra mesa.",
-      evidence_type: "audio",
+      title: "Pregunta de pareja",
+      description: "¿Dónde fue la primera cita de la pareja?",
+      evidence_type: "question",
       points: 15,
-      category: "Audio",
+      category: "Pregunta",
       difficulty: "medium",
       has_time_limit: true,
       time_limit_seconds: 60,
+      question_options: ["En un restaurante", "En la playa", "En un concierto", "En casa de amigos"],
+      question_correct_option: "En un restaurante",
       order_index: 2,
       is_required: true,
       created_at: nowIso(),
@@ -297,6 +300,8 @@ const demoEventDetail: CaptainsEventDetail = {
       difficulty: "special",
       has_time_limit: true,
       time_limit_seconds: 90,
+      question_options: null,
+      question_correct_option: null,
       order_index: 3,
       is_required: true,
       created_at: nowIso(),
@@ -314,6 +319,8 @@ const demoEventDetail: CaptainsEventDetail = {
       difficulty: "medium",
       has_time_limit: false,
       time_limit_seconds: null,
+      question_options: null,
+      question_correct_option: null,
       order_index: 4,
       is_required: true,
       created_at: nowIso(),
@@ -370,8 +377,8 @@ const demoSummaryEvidence = (): CaptainsEvidence[] => [
     table_id: "demo-table-3",
     table_challenge_id: "demo-sample-row-3",
     captain_name: "Laura",
-    evidence_type: "audio",
-    file_url: "",
+    evidence_type: "photo",
+    file_url: makeDemoSvg("Mesa 3", "Aliados de otra mesa", "#facc15"),
     thumbnail_url: null,
     status: "approved",
     points_awarded: 14,
@@ -405,7 +412,7 @@ const demoSummaryEvidence = (): CaptainsEvidence[] => [
 const demoSampleRows = (): CaptainsTableChallenge[] => [
   ["demo-sample-row-1", "demo-table-1", "demo-challenge-1", 1],
   ["demo-sample-row-2", "demo-table-2", "demo-challenge-1", 1],
-  ["demo-sample-row-3", "demo-table-3", "demo-challenge-2", 2],
+  ["demo-sample-row-3", "demo-table-3", "demo-challenge-4", 4],
   ["demo-sample-row-4", "demo-table-1", "demo-challenge-3", 3],
 ].map(([id, tableId, challengeId, order]) => ({
   id: String(id),
@@ -456,41 +463,36 @@ const formatRelativeTime = (value: string) => {
 const evidenceLabel: Record<CaptainsEvidenceType, string> = {
   photo: "Foto",
   video: "Vídeo",
-  audio: "Audio",
+  question: "Pregunta",
 };
 
-const evidenceAccept: Record<CaptainsEvidenceType, string> = {
+const evidenceAccept: Record<Exclude<CaptainsEvidenceType, "question">, string> = {
   photo: "image/*",
   video: "video/*",
-  audio: "audio/*",
 };
 
-const evidenceActionLabel: Record<CaptainsEvidenceType, string> = {
+const evidenceActionLabel: Record<Exclude<CaptainsEvidenceType, "question">, string> = {
   photo: "Hacer foto",
   video: "Grabar vídeo",
-  audio: "Grabar audio",
 };
 
-const evidenceRetakeLabel: Record<CaptainsEvidenceType, string> = {
+const evidenceRetakeLabel: Record<Exclude<CaptainsEvidenceType, "question">, string> = {
   photo: "Repetir foto",
   video: "Grabar otro vídeo",
-  audio: "Grabar otro audio",
 };
 
-const evidenceConfirmLabel: Record<CaptainsEvidenceType, string> = {
+const evidenceConfirmLabel: Record<Exclude<CaptainsEvidenceType, "question">, string> = {
   photo: "Usar foto",
   video: "Usar vídeo",
-  audio: "Usar audio",
 };
 
-const evidenceCapture: Record<CaptainsEvidenceType, "environment" | "user"> = {
+const evidenceCapture: Record<Exclude<CaptainsEvidenceType, "question">, "environment" | "user"> = {
   photo: "environment",
   video: "environment",
-  audio: "user",
 };
 
 const EvidenceIcon = ({ type, className }: { type: CaptainsEvidenceType; className?: string }) => {
-  const Icon = type === "photo" ? Camera : type === "video" ? Film : Mic;
+  const Icon = type === "photo" ? Camera : type === "video" ? Film : Sparkles;
   return <Icon className={className} />;
 };
 
@@ -882,11 +884,7 @@ const SignedEvidenceMedia = ({
     return <video src={url} controls preload="metadata" className="aspect-[4/3] w-full rounded-[8px] bg-black object-cover" />;
   }
 
-  return (
-    <div className="rounded-[8px] bg-black/25 p-4">
-      <audio src={url} controls className="w-full" />
-    </div>
-  );
+  return null;
 };
 
 const SummaryEvidenceThumb = ({ evidence }: { evidence: CaptainsEvidence }) => {
@@ -953,6 +951,7 @@ export default function CaptainsPublic() {
   const [remaining, setRemaining] = useState(0);
   const [evidenceFile, setEvidenceFile] = useState<File | null>(null);
   const [evidencePreview, setEvidencePreview] = useState("");
+  const [selectedQuestionOption, setSelectedQuestionOption] = useState("");
   const [liveEvidence, setLiveEvidence] = useState<CaptainsEvidence[]>([]);
   const [liveRows, setLiveRows] = useState<CaptainsTableChallenge[]>([]);
   const [liveFilter, setLiveFilter] = useState<EvidenceFilter>("all");
@@ -1121,6 +1120,8 @@ export default function CaptainsPublic() {
 
   useEffect(() => {
     if (step !== "play" || !currentRow) return;
+    setEvidenceFile(null);
+    setSelectedQuestionOption("");
     if (currentRow.status === "in_progress") {
       setPhase("progress");
       return;
@@ -1293,6 +1294,7 @@ export default function CaptainsPublic() {
 
   const submitEvidence = async () => {
     if (!event || !session || !currentRow || !currentChallenge || !evidenceFile) return;
+    if (currentChallenge.evidence_type === "question") return;
     if (currentChallenge.has_time_limit && remaining <= 0) return;
     setBusy(true);
     try {
@@ -1356,7 +1358,7 @@ export default function CaptainsPublic() {
         tableId: session.table_id,
         tableChallengeId: currentRow.id,
         captainName: session.captain_name,
-        evidenceType: currentChallenge.evidence_type,
+        evidenceType: currentChallenge.evidence_type as "photo" | "video",
         file: evidenceFile,
         elapsedSeconds: elapsed,
         remainingSeconds: currentChallenge.has_time_limit ? remaining : null,
@@ -1366,6 +1368,66 @@ export default function CaptainsPublic() {
       setResultKind(event.scoring_mode === "manual" ? "manual" : "success");
       setPhase("result");
       setEvidenceFile(null);
+      await refreshGame();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const submitQuestion = async () => {
+    if (!event || !session || !currentRow || !currentChallenge || currentChallenge.evidence_type !== "question" || !selectedQuestionOption) return;
+    if (currentChallenge.has_time_limit && remaining <= 0) return;
+    setBusy(true);
+    try {
+      const total = currentChallenge.time_limit_seconds || null;
+      const elapsed = currentChallenge.has_time_limit && total ? Math.max(0, total - remaining) : null;
+      const correct = selectedQuestionOption === currentChallenge.question_correct_option;
+      const pointsAwarded = correct
+        ? calculateCaptainsAutomaticScore({
+            maxPoints: currentChallenge.points,
+            hasTimeLimit: currentChallenge.has_time_limit,
+            totalSeconds: total,
+            remainingSeconds: currentChallenge.has_time_limit ? remaining : null,
+            succeeded: true,
+          })
+        : 0;
+
+      if (isDemo) {
+        const completedRow = {
+          ...currentRow,
+          status: correct ? "completed" as const : "failed" as const,
+          points_awarded: pointsAwarded,
+          submitted_at: nowIso(),
+          elapsed_seconds: elapsed,
+          remaining_seconds: currentChallenge.has_time_limit ? remaining : null,
+          reviewed_at: nowIso(),
+          automatic_score_calculated: true,
+          updated_at: nowIso(),
+        };
+        const nextRows = tableChallenges.map((item) => (item.id === completedRow.id ? completedRow : item));
+        const nextPending = nextRows.find((item) => item.status === "pending");
+        const readyRows = nextPending
+          ? nextRows.map((item) => (item.id === nextPending.id ? { ...item, status: "ready" as const } : item))
+          : nextRows;
+        saveDemoRows(session.table_id, readyRows);
+        setRanking(getDemoRanking(session.table_id, readyRows));
+        setResultEvidence(null);
+        setResultKind(correct ? "success" : "failed");
+        setPhase("result");
+        return;
+      }
+
+      const result = await completeCaptainsQuestionChallenge({
+        eventId: event.id,
+        tableId: session.table_id,
+        tableChallengeId: currentRow.id,
+        answer: selectedQuestionOption,
+        elapsedSeconds: elapsed,
+        remainingSeconds: currentChallenge.has_time_limit ? remaining : null,
+      });
+      setResultEvidence(null);
+      setResultKind(result.correct ? "success" : "failed");
+      setPhase("result");
       await refreshGame();
     } finally {
       setBusy(false);
@@ -1453,7 +1515,7 @@ export default function CaptainsPublic() {
     setLiveError("");
     try {
       if (isDemo) {
-        const rows = getDemoEvidence().filter((row) => (row.file_url || row.evidence_type === "audio") && !["deleted", "rejected"].includes(row.status));
+        const rows = getDemoEvidence().filter((row) => row.file_url && !["deleted", "rejected"].includes(row.status));
         setLiveEvidence((prev) => {
           if (prev[0]?.id && rows[0]?.id && prev[0].id !== rows[0].id) setNewMemoriesAvailable(true);
           return rows;
@@ -1496,13 +1558,13 @@ export default function CaptainsPublic() {
   const filteredEvidence = liveEvidence.filter((evidence) => {
     if (liveFilter === "mine") return evidence.table_id === session?.table_id;
     if (liveFilter === "others") return evidence.table_id !== session?.table_id;
-    if (["photo", "video", "audio"].includes(liveFilter)) return evidence.evidence_type === liveFilter;
+    if (["photo", "video"].includes(liveFilter)) return evidence.evidence_type === liveFilter;
     return true;
   });
   const visibleLiveEvidence = filteredEvidence.slice(0, visibleMemoriesLimit);
   const summarySourceEvidence = isDemo && liveEvidence.length === 0 ? demoSummaryEvidence() : liveEvidence;
   const summaryRows = isDemo && liveRows.length === 0 ? demoSampleRows() : liveRows;
-  const summaryEvidence = summarySourceEvidence.filter((evidence) => evidence.file_url || evidence.evidence_type === "audio");
+  const summaryEvidence = summarySourceEvidence.filter((evidence) => evidence.file_url);
   const summarySlides = [
     { type: "cover" as const, id: "cover", title: event?.name || "Capitanes by Revelao", evidences: [] as CaptainsEvidence[] },
     ...challenges.map((challenge, index) => ({
@@ -1715,39 +1777,67 @@ export default function CaptainsPublic() {
                 <h2 className="text-base">{currentChallenge.title}</h2>
                 <p className="mt-3 text-2xl leading-7">{currentChallenge.description}</p>
               </div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept={evidenceAccept[currentChallenge.evidence_type]}
-                capture={evidenceCapture[currentChallenge.evidence_type]}
-                className="hidden"
-                onChange={onPickEvidence}
-              />
-              {evidencePreview && (
-                <div className="pixel-panel mt-4 overflow-hidden bg-white p-2">
-                  {currentChallenge.evidence_type === "photo" && <img src={evidencePreview} alt="" className="aspect-[4/3] w-full object-cover" />}
-                  {currentChallenge.evidence_type === "video" && <video src={evidencePreview} controls className="aspect-[4/3] w-full object-cover" />}
-                  {currentChallenge.evidence_type === "audio" && <audio src={evidencePreview} controls className="w-full p-3" />}
-                </div>
-              )}
-              <div className="mt-5 space-y-3">
-                <GameButton onClick={openEvidenceCapture}>
-                  <EvidenceIcon type={currentChallenge.evidence_type} className="h-5 w-5" />
-                  {evidenceFile
-                    ? evidenceRetakeLabel[currentChallenge.evidence_type]
-                    : evidenceActionLabel[currentChallenge.evidence_type]}
-                </GameButton>
-                {evidenceFile && (
-                  <GameButton disabled={busy} onClick={submitEvidence} className="border-[var(--captains-primary)] bg-[var(--captains-primary)]/10 text-[#151515] hover:bg-[var(--captains-primary)]/15">
+              {currentChallenge.evidence_type === "question" ? (
+                <div className="mt-5 space-y-3">
+                  {(currentChallenge.question_options || []).filter(Boolean).map((option) => (
+                    <button
+                      key={option}
+                      type="button"
+                      onClick={() => setSelectedQuestionOption(option)}
+                      className={cn(
+                        "pixel-button min-h-14 w-full bg-white px-4 py-3 text-left text-2xl font-bold text-[#151515]",
+                        selectedQuestionOption === option && "border-[var(--captains-primary)] bg-[var(--captains-primary)]/10",
+                      )}
+                    >
+                      {option}
+                    </button>
+                  ))}
+                  <GameButton disabled={busy || !selectedQuestionOption} onClick={submitQuestion}>
                     {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : <CheckCircle2 className="h-5 w-5" />}
-                    {evidenceConfirmLabel[currentChallenge.evidence_type]}
+                    Responder
                   </GameButton>
-                )}
-                <SecondaryButton disabled={busy} onClick={failChallenge}>
-                  <XCircle className="h-4 w-4" />
-                  No conseguido
-                </SecondaryButton>
-              </div>
+                </div>
+              ) : (
+                <>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept={evidenceAccept[currentChallenge.evidence_type]}
+                    capture={evidenceCapture[currentChallenge.evidence_type]}
+                    className="hidden"
+                    onChange={onPickEvidence}
+                  />
+                  {evidencePreview && (
+                    <div className="pixel-panel mt-4 overflow-hidden bg-white p-2">
+                      {currentChallenge.evidence_type === "photo" && <img src={evidencePreview} alt="" className="aspect-[4/3] w-full object-cover" />}
+                      {currentChallenge.evidence_type === "video" && <video src={evidencePreview} controls className="aspect-[4/3] w-full object-cover" />}
+                    </div>
+                  )}
+                  <div className="mt-5 space-y-3">
+                    {evidenceFile ? (
+                      <>
+                        <GameButton disabled={busy} onClick={submitEvidence}>
+                          {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : <CheckCircle2 className="h-5 w-5" />}
+                          {evidenceConfirmLabel[currentChallenge.evidence_type]}
+                        </GameButton>
+                        <SecondaryButton onClick={openEvidenceCapture}>
+                          <EvidenceIcon type={currentChallenge.evidence_type} className="h-5 w-5" />
+                          {evidenceRetakeLabel[currentChallenge.evidence_type]}
+                        </SecondaryButton>
+                      </>
+                    ) : (
+                      <GameButton onClick={openEvidenceCapture}>
+                        <EvidenceIcon type={currentChallenge.evidence_type} className="h-5 w-5" />
+                        {evidenceActionLabel[currentChallenge.evidence_type]}
+                      </GameButton>
+                    )}
+                    <SecondaryButton disabled={busy} onClick={failChallenge}>
+                      <XCircle className="h-4 w-4" />
+                      No conseguido
+                    </SecondaryButton>
+                  </div>
+                </>
+              )}
             </GameCard>
           )}
 
@@ -1756,9 +1846,13 @@ export default function CaptainsPublic() {
               {resultKind === "success" && (
                 <>
                   <CheckCircle2 className="mx-auto mb-3 h-12 w-12 text-[#151515]" />
-                  <h2 className="text-lg">¡Prueba enviada!</h2>
+                  <h2 className="text-lg">{currentChallenge.evidence_type === "question" ? "¡Respuesta correcta!" : "¡Prueba enviada!"}</h2>
                   <p className="mt-3 text-2xl text-[#151515]/70">
-                    {resultEvidence?.elapsed_seconds != null ? `Habéis tardado ${resultEvidence.elapsed_seconds} segundos.` : "Evidencia validada."}
+                    {resultEvidence?.elapsed_seconds != null
+                      ? `Habéis tardado ${resultEvidence.elapsed_seconds} segundos.`
+                      : currentChallenge.evidence_type === "question"
+                        ? "Habéis acertado la pregunta."
+                        : "Evidencia validada."}
                   </p>
                   <p className="mt-2 text-3xl font-bold text-[#151515]">+{resultEvidence?.points_awarded || 0} puntos</p>
                 </>
@@ -1859,9 +1953,10 @@ export default function CaptainsPublic() {
               <PixelStat label="Posición" value={`#${myRank?.rank || "-"}`} tone="secondary" />
             </div>
           </GameCard>
-          <GameButton onClick={() => go("ranking")}>Ver ranking final</GameButton>
-          <SecondaryButton onClick={() => go("live")}>Ver recuerdos de la misión</SecondaryButton>
-          <SecondaryButton onClick={() => go("resumen")}>Ver resumen</SecondaryButton>
+          <div className="grid gap-3">
+            <GameButton onClick={() => go("ranking")}>Ver ranking</GameButton>
+            <SecondaryButton onClick={() => go("resumen")}>Ver resumen</SecondaryButton>
+          </div>
         </div>
       </CaptainsShell>
     );
@@ -1887,7 +1982,7 @@ export default function CaptainsPublic() {
                 Se activará cuando todas las mesas terminen o cuando llegue la hora de fin del evento.
               </p>
             </GameCard>
-            <GameButton onClick={() => go("live")}>Volver a recuerdos</GameButton>
+            <GameButton onClick={() => go("final")}>Volver al final</GameButton>
           </div>
         </CaptainsShell>
       );
@@ -1940,7 +2035,7 @@ export default function CaptainsPublic() {
                               <p className="truncate text-lg font-black">{table?.table_name || "Mesa"}</p>
                               <p className="truncate text-sm text-[#151515]/65">{evidence.captain_name || table?.captain_name || "-"}</p>
                               <p className="mt-1 text-xs font-black uppercase text-[#151515]/70">
-                                {evidence.evidence_type === "audio" ? "Audio" : evidence.evidence_type === "video" ? "Vídeo" : "Foto"}
+                                {evidence.evidence_type === "video" ? "Vídeo" : "Foto"}
                                 {evidence.points_awarded ? ` · +${evidence.points_awarded} pts` : ""}
                               </p>
                             </div>
@@ -1974,7 +2069,7 @@ export default function CaptainsPublic() {
             <Share2 className="h-5 w-5" />
             {summaryCopied ? "URL copiada" : "Compartir resumen"}
           </GameButton>
-          <SecondaryButton onClick={() => go("live")}>Volver a recuerdos</SecondaryButton>
+          <SecondaryButton onClick={() => go("final")}>Volver al final</SecondaryButton>
         </div>
       </CaptainsShell>
     );
@@ -2043,7 +2138,7 @@ export default function CaptainsPublic() {
           </div>
         </GameCard>
         <div className="grid grid-cols-3 gap-2">
-          {(["all", "mine", "others", "photo", "video", "audio"] as EvidenceFilter[]).map((filter) => (
+          {(["all", "mine", "others", "photo", "video"] as EvidenceFilter[]).map((filter) => (
             <button
               key={filter}
               onClick={() => {
@@ -2132,7 +2227,6 @@ export default function CaptainsPublic() {
                   {evidence.status === "approved" && evidence.points_awarded > 0 && (
                     <span className="border border-[#151515] bg-white px-2 py-1 font-black text-[#151515]">+{evidence.points_awarded} puntos</span>
                   )}
-                  {evidence.evidence_type === "audio" && <Volume2 className="h-4 w-4" />}
                 </div>
                 {evidence.evidence_type === "photo" && (
                   <SecondaryButton className="mt-3" onClick={() => openPhotoEvidence(evidence)}>

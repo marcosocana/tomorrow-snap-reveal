@@ -1,6 +1,6 @@
 export type CaptainsScoringMode = "automatic" | "manual";
 export type CaptainsEventStatus = "draft" | "scheduled" | "active" | "finished" | "archived";
-export type CaptainsEvidenceType = "photo" | "video" | "audio";
+export type CaptainsEvidenceType = "photo" | "video" | "question";
 export type CaptainsDifficulty = "easy" | "medium" | "hard" | "special";
 export type CaptainsSpriteStyle = "suit" | "dress" | "jacket" | "skirt" | "festival" | "tunic" | "uniform" | "kimono";
 export type CaptainsSpriteSex = "female" | "male";
@@ -80,6 +80,8 @@ export interface CaptainsChallengeCatalogItem {
   default_points: number;
   has_time_limit: boolean;
   time_limit_seconds: number | null;
+  question_options: string[] | null;
+  question_correct_option: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -97,6 +99,8 @@ export interface CaptainsEventChallenge {
   difficulty: CaptainsDifficulty;
   has_time_limit: boolean;
   time_limit_seconds: number | null;
+  question_options: string[] | null;
+  question_correct_option: string | null;
   order_index: number;
   is_required: boolean;
   created_at: string;
@@ -181,6 +185,8 @@ export interface CaptainsChallengeInput {
   difficulty: CaptainsDifficulty;
   has_time_limit?: boolean;
   time_limit_seconds?: number | null;
+  question_options?: string[] | null;
+  question_correct_option?: string | null;
   order_index?: number;
   is_required?: boolean;
 }

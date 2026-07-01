@@ -63,6 +63,67 @@ const isMissingCaptainTableVisualColumnError = (error: unknown) => {
   return captainTableVisualColumns.some((column) => message.includes(column));
 };
 
+const captainQuestionColumns = ["question_options", "question_correct_option"];
+
+const withoutCaptainQuestionColumns = <T extends Record<string, unknown>>(payload: T) => {
+  const next = { ...payload };
+  captainQuestionColumns.forEach((column) => delete next[column]);
+  return next;
+};
+
+const isMissingCaptainQuestionColumnError = (error: unknown) => {
+  const message = typeof error === "object" && error && "message" in error ? String((error as { message?: unknown }).message || "") : "";
+  return captainQuestionColumns.some((column) => message.includes(column));
+};
+
+const normalizeChallengeRow = (challenge: CaptainsChallengeInput, index: number, eventId: string) => ({
+  event_id: eventId,
+  catalog_challenge_id: challenge.catalog_challenge_id ?? null,
+  title: challenge.title,
+  description: challenge.description,
+  evidence_type: challenge.evidence_type,
+  points: challenge.points,
+  category: challenge.category,
+  difficulty: challenge.difficulty,
+  has_time_limit: challenge.has_time_limit ?? false,
+  time_limit_seconds: challenge.has_time_limit ? challenge.time_limit_seconds ?? null : null,
+  question_options: challenge.evidence_type === "question" ? challenge.question_options ?? [] : null,
+  question_correct_option: challenge.evidence_type === "question" ? challenge.question_correct_option ?? null : null,
+  order_index: challenge.order_index ?? index + 1,
+  is_required: challenge.is_required ?? false,
+});
+
+const audioToVideoText = (value?: string | null) =>
+  (value || "")
+    .replaceAll("Grabad un audio", "Grabad un vídeo")
+    .replaceAll("grabe un audio", "grabe un vídeo")
+    .replaceAll("un audio", "un vídeo")
+    .replaceAll("en audio", "en vídeo")
+    .replaceAll("audio", "vídeo")
+    .replaceAll("Audio", "Vídeo");
+
+const sanitizeCaptainsCatalogItem = (item: CaptainsChallengeCatalogItem): CaptainsChallengeCatalogItem => {
+  if ((item.evidence_type as string) !== "audio") return item;
+  return {
+    ...item,
+    title: audioToVideoText(item.title),
+    description: audioToVideoText(item.description),
+    evidence_type: "video",
+    category: item.category === "Audio" ? "Vídeo" : item.category,
+  };
+};
+
+const sanitizeCaptainsEventChallenge = (item: CaptainsEventChallenge): CaptainsEventChallenge => {
+  if ((item.evidence_type as string) !== "audio") return item;
+  return {
+    ...item,
+    title: audioToVideoText(item.title),
+    description: audioToVideoText(item.description),
+    evidence_type: "video",
+    category: item.category === "Audio" ? "Vídeo" : item.category,
+  };
+};
+
 export const listCaptainsEvents = async () => {
   const { data, error } = await db
     .from("captains_events")
@@ -178,22 +239,14 @@ export const createCaptainsGame = async ({
   }
 
   if (challenges.length > 0) {
-    const challengeRows = challenges.map((challenge, index) => ({
-      event_id: createdEvent.id,
-      catalog_challenge_id: challenge.catalog_challenge_id ?? null,
-      title: challenge.title,
-      description: challenge.description,
-      evidence_type: challenge.evidence_type,
-      points: challenge.points,
-      category: challenge.category,
-      difficulty: challenge.difficulty,
-      has_time_limit: challenge.has_time_limit ?? false,
-      time_limit_seconds: challenge.has_time_limit ? challenge.time_limit_seconds ?? null : null,
-      order_index: challenge.order_index ?? index + 1,
-      is_required: challenge.is_required ?? false,
-    }));
+    const challengeRows = challenges.map((challenge, index) => normalizeChallengeRow(challenge, index, createdEvent.id));
     const { error } = await db.from("captains_event_challenges").insert(challengeRows);
-    ensureNoError(error);
+    if (error && isMissingCaptainQuestionColumnError(error)) {
+      const fallback = await db.from("captains_event_challenges").insert(challengeRows.map(withoutCaptainQuestionColumns));
+      ensureNoError(fallback.error);
+    } else {
+      ensureNoError(error);
+    }
   }
 
   await generateRandomChallengeOrderForEvent(createdEvent.id);
@@ -289,21 +342,15 @@ export const replaceCaptainsEventChallenges = async (eventId: string, challenges
 
   if (challenges.length === 0) return [] as CaptainsEventChallenge[];
 
-  const rows = challenges.map((challenge, index) => ({
-    event_id: eventId,
-    catalog_challenge_id: challenge.catalog_challenge_id ?? null,
-    title: challenge.title,
-    description: challenge.description,
-    evidence_type: challenge.evidence_type,
-    points: challenge.points,
-    category: challenge.category,
-    difficulty: challenge.difficulty,
-    has_time_limit: challenge.has_time_limit ?? false,
-    time_limit_seconds: challenge.has_time_limit ? challenge.time_limit_seconds ?? null : null,
-    order_index: challenge.order_index ?? index + 1,
-    is_required: challenge.is_required ?? false,
-  }));
+  const rows = challenges.map((challenge, index) => normalizeChallengeRow(challenge, index, eventId));
   const { data, error } = await db.from("captains_event_challenges").insert(rows).select("*");
+  if (error && isMissingCaptainQuestionColumnError(error)) {
+    const fallback = await db.from("captains_event_challenges").insert(rows.map(withoutCaptainQuestionColumns)).select("*");
+    ensureNoError(fallback.error);
+    await db.from("captains_table_challenges").delete().eq("event_id", eventId);
+    await generateRandomChallengeOrderForEvent(eventId);
+    return (fallback.data || []) as CaptainsEventChallenge[];
+  }
   ensureNoError(error);
   await db.from("captains_table_challenges").delete().eq("event_id", eventId);
   await generateRandomChallengeOrderForEvent(eventId);
@@ -331,7 +378,7 @@ export const getCaptainsEventDetail = async (identifier: string): Promise<Captai
   return {
     event: event as CaptainsEvent,
     tables: (tablesRes.data || []) as CaptainsTable[],
-    challenges: (challengesRes.data || []) as CaptainsEventChallenge[],
+    challenges: ((challengesRes.data || []) as CaptainsEventChallenge[]).map(sanitizeCaptainsEventChallenge),
   };
 };
 
@@ -388,41 +435,65 @@ export const getCaptainsEvidenceSignedUrl = async (filePath: string) => {
 
 export const saveCaptainForTable = async (tableId: string, captainName: string) => {
   const cleanName = captainName.trim();
-  const { data, error } = await db
+  const { data: existingTable, error: readError } = await db
+    .from("captains_tables")
+    .select("*")
+    .eq("id", tableId)
+    .maybeSingle();
+  ensureNoError(readError);
+  if (!existingTable) throw new Error("No hemos podido encontrar la mesa seleccionada.");
+  const lastActivityAt = new Date().toISOString();
+  const { error } = await db
     .from("captains_tables")
     .update({
       captain_name: cleanName,
       active_captain_name: cleanName,
-      last_activity_at: new Date().toISOString(),
+      last_activity_at: lastActivityAt,
     })
-    .eq("id", tableId)
-    .select("*")
-    .single();
+    .eq("id", tableId);
   ensureNoError(error);
-  return data as CaptainsTable;
+  return {
+    ...(existingTable as CaptainsTable),
+    captain_name: cleanName,
+    active_captain_name: cleanName,
+    last_activity_at: lastActivityAt,
+  } as CaptainsTable;
 };
 
 export const selectCaptainsTableSession = async (tableId: string, captainName: string) => {
   const cleanName = captainName.trim();
   const selectedAt = new Date().toISOString();
-  const { data, error } = await db
+  const { data: existingTable, error: readError } = await db
+    .from("captains_tables")
+    .select("*")
+    .eq("id", tableId)
+    .maybeSingle();
+  ensureNoError(readError);
+  if (!existingTable) throw new Error("No hemos podido encontrar la mesa seleccionada.");
+
+  const { error } = await db
     .from("captains_tables")
     .update({
       captain_name: cleanName,
       active_captain_name: cleanName,
       last_activity_at: selectedAt,
     })
-    .eq("id", tableId)
-    .select("*")
-    .single();
+    .eq("id", tableId);
   ensureNoError(error);
 
-  await db.from("captains_table_accesses").insert({
-    event_id: data.event_id,
-    table_id: tableId,
-    table_name: data.table_name,
+  const table = {
+    ...(existingTable as CaptainsTable),
     captain_name: cleanName,
-    session_token: data.session_token,
+    active_captain_name: cleanName,
+    last_activity_at: selectedAt,
+  };
+
+  const { error: accessError } = await db.from("captains_table_accesses").insert({
+    event_id: table.event_id,
+    table_id: tableId,
+    table_name: table.table_name,
+    captain_name: cleanName,
+    session_token: table.session_token,
     selected_at: selectedAt,
     user_agent: typeof navigator === "undefined" ? null : navigator.userAgent,
     device_info:
@@ -435,9 +506,10 @@ export const selectCaptainsTableSession = async (tableId: string, captainName: s
             language: navigator.language,
           },
   });
+  if (accessError) console.warn("Could not log captains table access:", accessError);
 
   return {
-    table: data as CaptainsTable,
+    table,
     selected_at: selectedAt,
     user_agent: typeof navigator === "undefined" ? "" : navigator.userAgent,
     device_info:
@@ -464,7 +536,7 @@ export const getCaptainsChallengeCatalog = async (activeOnly = true) => {
     console.warn("Using local captains challenge catalog fallback:", error);
     return captainsDefaultChallengeCatalog;
   }
-  const catalog = (data || []) as CaptainsChallengeCatalogItem[];
+  const catalog = ((data || []) as CaptainsChallengeCatalogItem[]).map(sanitizeCaptainsCatalogItem);
   return catalog.length > 0 ? catalog : captainsDefaultChallengeCatalog;
 };
 
@@ -496,34 +568,38 @@ export const addCatalogChallengesToCaptainsEvent = async (eventId: string, catal
     difficulty: item.difficulty,
     has_time_limit: item.has_time_limit,
     time_limit_seconds: item.time_limit_seconds,
+    question_options: item.question_options ?? null,
+    question_correct_option: item.question_correct_option ?? null,
     order_index: startIndex + index + 1,
     is_required: false,
   }));
 
   const { data, error } = await db.from("captains_event_challenges").insert(rows).select("*");
+  if (error && isMissingCaptainQuestionColumnError(error)) {
+    const fallback = await db.from("captains_event_challenges").insert(rows.map(withoutCaptainQuestionColumns)).select("*");
+    ensureNoError(fallback.error);
+    return (fallback.data || []) as CaptainsEventChallenge[];
+  }
   ensureNoError(error);
   return (data || []) as CaptainsEventChallenge[];
 };
 
 export const createCustomCaptainsChallenge = async (eventId: string, input: CaptainsChallengeInput) => {
+  const payload = normalizeChallengeRow(input, Math.max((input.order_index ?? 1) - 1, 0), eventId);
   const { data, error } = await db
     .from("captains_event_challenges")
-    .insert({
-      event_id: eventId,
-      catalog_challenge_id: null,
-      title: input.title,
-      description: input.description,
-      evidence_type: input.evidence_type,
-      points: input.points,
-      category: input.category,
-      difficulty: input.difficulty,
-      has_time_limit: input.has_time_limit ?? false,
-      time_limit_seconds: input.has_time_limit ? input.time_limit_seconds ?? null : null,
-      order_index: input.order_index ?? 0,
-      is_required: input.is_required ?? false,
-    })
+    .insert({ ...payload, catalog_challenge_id: null })
     .select("*")
     .single();
+  if (error && isMissingCaptainQuestionColumnError(error)) {
+    const fallback = await db
+      .from("captains_event_challenges")
+      .insert(withoutCaptainQuestionColumns({ ...payload, catalog_challenge_id: null }))
+      .select("*")
+      .single();
+    ensureNoError(fallback.error);
+    return fallback.data as CaptainsEventChallenge;
+  }
   ensureNoError(error);
   return data as CaptainsEventChallenge;
 };
@@ -567,64 +643,100 @@ const markNextCaptainsChallengeReady = async (eventId: string, tableId: string) 
   const rows = await getCaptainsTableChallengesForTable(eventId, tableId);
   const next = rows.find((row) => row.status === "pending");
   if (!next) return null;
-  const { data, error } = await db
+  const { error } = await db
     .from("captains_table_challenges")
     .update({ status: "ready" })
-    .eq("id", next.id)
-    .select("*")
-    .single();
+    .eq("id", next.id);
   ensureNoError(error);
-  return data as CaptainsTableChallenge;
+  return { ...next, status: "ready" as const, updated_at: new Date().toISOString() } as CaptainsTableChallenge;
 };
 
 export const startCaptainsTableChallenge = async (tableChallengeId: string) => {
-  const { data, error } = await db
+  const { data: existing, error: readError } = await db
+    .from("captains_table_challenges")
+    .select("*")
+    .eq("id", tableChallengeId)
+    .maybeSingle();
+  ensureNoError(readError);
+  if (!existing) throw new Error("No hemos podido encontrar el reto seleccionado.");
+  const startedAt = new Date().toISOString();
+  const { error } = await db
     .from("captains_table_challenges")
     .update({
       status: "in_progress",
-      started_at: new Date().toISOString(),
+      started_at: startedAt,
       is_time_expired: false,
     })
-    .eq("id", tableChallengeId)
-    .select("*")
-    .single();
+    .eq("id", tableChallengeId);
   ensureNoError(error);
-  return data as CaptainsTableChallenge;
+  return {
+    ...(existing as CaptainsTableChallenge),
+    status: "in_progress",
+    started_at: startedAt,
+    is_time_expired: false,
+    updated_at: startedAt,
+  } as CaptainsTableChallenge;
 };
 
 export const failCaptainsTableChallenge = async (tableChallengeId: string) => {
-  const { data, error } = await db
+  const { data: existing, error: readError } = await db
+    .from("captains_table_challenges")
+    .select("*")
+    .eq("id", tableChallengeId)
+    .maybeSingle();
+  ensureNoError(readError);
+  if (!existing) throw new Error("No hemos podido encontrar el reto seleccionado.");
+  const reviewedAt = new Date().toISOString();
+  const { error } = await db
     .from("captains_table_challenges")
     .update({
       status: "failed",
       points_awarded: 0,
-      reviewed_at: new Date().toISOString(),
+      reviewed_at: reviewedAt,
     })
-    .eq("id", tableChallengeId)
-    .select("*")
-    .single();
+    .eq("id", tableChallengeId);
   ensureNoError(error);
-  const row = data as CaptainsTableChallenge;
+  const row = {
+    ...(existing as CaptainsTableChallenge),
+    status: "failed",
+    points_awarded: 0,
+    reviewed_at: reviewedAt,
+    updated_at: reviewedAt,
+  } as CaptainsTableChallenge;
   await recalculateCaptainsTableScore(row.table_id);
   await markNextCaptainsChallengeReady(row.event_id, row.table_id);
   return row;
 };
 
 export const expireCaptainsTableChallenge = async (tableChallengeId: string) => {
-  const { data, error } = await db
+  const { data: existing, error: readError } = await db
+    .from("captains_table_challenges")
+    .select("*")
+    .eq("id", tableChallengeId)
+    .maybeSingle();
+  ensureNoError(readError);
+  if (!existing) throw new Error("No hemos podido encontrar el reto seleccionado.");
+  const reviewedAt = new Date().toISOString();
+  const { error } = await db
     .from("captains_table_challenges")
     .update({
       status: "time_expired",
       points_awarded: 0,
       remaining_seconds: 0,
       is_time_expired: true,
-      reviewed_at: new Date().toISOString(),
+      reviewed_at: reviewedAt,
     })
-    .eq("id", tableChallengeId)
-    .select("*")
-    .single();
+    .eq("id", tableChallengeId);
   ensureNoError(error);
-  const row = data as CaptainsTableChallenge;
+  const row = {
+    ...(existing as CaptainsTableChallenge),
+    status: "time_expired",
+    points_awarded: 0,
+    remaining_seconds: 0,
+    is_time_expired: true,
+    reviewed_at: reviewedAt,
+    updated_at: reviewedAt,
+  } as CaptainsTableChallenge;
   await recalculateCaptainsTableScore(row.table_id);
   await markNextCaptainsChallengeReady(row.event_id, row.table_id);
   return row;
@@ -684,7 +796,7 @@ export const uploadCaptainsEvidence = async ({
   tableId: string;
   tableChallengeId: string;
   captainName?: string | null;
-  evidenceType: "photo" | "video" | "audio";
+  evidenceType: "photo" | "video";
   file: File;
   elapsedSeconds?: number | null;
   remainingSeconds?: number | null;
@@ -719,9 +831,12 @@ export const uploadCaptainsEvidence = async ({
   const challengeStatus: CaptainsTableChallengeStatus = scoringMode === "automatic" ? "completed" : "pending_review";
   const reviewedAt = scoringMode === "automatic" ? new Date().toISOString() : null;
 
-  const { data, error } = await db
+  const evidenceId = crypto.randomUUID();
+  const createdAt = new Date().toISOString();
+  const { error } = await db
     .from("captains_evidence")
     .insert({
+      id: evidenceId,
       event_id: eventId,
       table_id: tableId,
       table_challenge_id: tableChallengeId,
@@ -733,9 +848,8 @@ export const uploadCaptainsEvidence = async ({
       elapsed_seconds: elapsedSeconds ?? null,
       remaining_seconds: remainingSeconds ?? null,
       reviewed_at: reviewedAt,
-    })
-    .select("*")
-    .single();
+      created_at: createdAt,
+    });
   ensureNoError(error);
 
   const { error: updateChallengeError } = await db
@@ -743,7 +857,7 @@ export const uploadCaptainsEvidence = async ({
     .update({
       status: challengeStatus,
       points_awarded: pointsAwarded,
-      submitted_at: new Date().toISOString(),
+      submitted_at: createdAt,
       elapsed_seconds: elapsedSeconds ?? null,
       remaining_seconds: remainingSeconds ?? null,
       reviewed_at: reviewedAt,
@@ -755,7 +869,92 @@ export const uploadCaptainsEvidence = async ({
   await recalculateCaptainsTableScore(tableId);
   await markNextCaptainsChallengeReady(eventId, tableId);
 
-  return data as CaptainsEvidence;
+  return {
+    id: evidenceId,
+    event_id: eventId,
+    table_id: tableId,
+    table_challenge_id: tableChallengeId,
+    captain_name: captainName ?? null,
+    evidence_type: evidenceType,
+    file_url: filePath,
+    thumbnail_url: null,
+    status: evidenceStatus,
+    points_awarded: pointsAwarded,
+    admin_comment: null,
+    elapsed_seconds: elapsedSeconds ?? null,
+    remaining_seconds: remainingSeconds ?? null,
+    created_at: createdAt,
+    reviewed_at: reviewedAt,
+    deleted_at: null,
+  } as CaptainsEvidence;
+};
+
+export const completeCaptainsQuestionChallenge = async ({
+  eventId,
+  tableId,
+  tableChallengeId,
+  answer,
+  elapsedSeconds,
+  remainingSeconds,
+}: {
+  eventId: string;
+  tableId: string;
+  tableChallengeId: string;
+  answer: string;
+  elapsedSeconds?: number | null;
+  remainingSeconds?: number | null;
+}) => {
+  const { data: tableChallenge, error: challengeError } = await db
+    .from("captains_table_challenges")
+    .select("*, captains_event_challenges(*)")
+    .eq("id", tableChallengeId)
+    .single();
+  ensureNoError(challengeError);
+
+  const challenge = tableChallenge?.captains_event_challenges as CaptainsEventChallenge | undefined;
+  const correct = Boolean(challenge?.question_correct_option && answer === challenge.question_correct_option);
+  const pointsAwarded = correct
+    ? calculateCaptainsAutomaticScore({
+        maxPoints: challenge?.points ?? 0,
+        hasTimeLimit: challenge?.has_time_limit ?? false,
+        totalSeconds: challenge?.time_limit_seconds ?? null,
+        remainingSeconds,
+        succeeded: true,
+      })
+    : 0;
+  const reviewedAt = new Date().toISOString();
+  const { error } = await db
+    .from("captains_table_challenges")
+    .update({
+      status: correct ? "completed" : "failed",
+      points_awarded: pointsAwarded,
+      submitted_at: reviewedAt,
+      elapsed_seconds: elapsedSeconds ?? null,
+      remaining_seconds: remainingSeconds ?? null,
+      reviewed_at: reviewedAt,
+      automatic_score_calculated: true,
+    })
+    .eq("id", tableChallengeId);
+  ensureNoError(error);
+
+  await recalculateCaptainsTableScore(tableId);
+  await markNextCaptainsChallengeReady(eventId, tableId);
+
+  return {
+    row: {
+      ...(tableChallenge as CaptainsTableChallenge),
+      status: correct ? "completed" : "failed",
+      points_awarded: pointsAwarded,
+      submitted_at: reviewedAt,
+      elapsed_seconds: elapsedSeconds ?? null,
+      remaining_seconds: remainingSeconds ?? null,
+      reviewed_at: reviewedAt,
+      automatic_score_calculated: true,
+      updated_at: reviewedAt,
+    } as CaptainsTableChallenge,
+    correct,
+    pointsAwarded,
+  };
 };
 
 export const recalculateCaptainsTableScore = async (tableId: string) => {
@@ -773,19 +972,24 @@ export const recalculateCaptainsTableScore = async (tableId: string) => {
     ["failed", "time_expired", "rejected"].includes(challenge.status),
   ).length;
 
-  const { data, error: updateError } = await db
+  const lastActivityAt = new Date().toISOString();
+  const { error: updateError } = await db
     .from("captains_tables")
     .update({
       total_points: totalPoints,
       completed_challenges: completed,
       failed_challenges: failed,
-      last_activity_at: new Date().toISOString(),
+      last_activity_at: lastActivityAt,
     })
-    .eq("id", tableId)
-    .select("*")
-    .single();
+    .eq("id", tableId);
   ensureNoError(updateError);
-  return data as CaptainsTable;
+  return {
+    id: tableId,
+    total_points: totalPoints,
+    completed_challenges: completed,
+    failed_challenges: failed,
+    last_activity_at: lastActivityAt,
+  } as CaptainsTable;
 };
 
 export const approveCaptainsEvidence = async (
