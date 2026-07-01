@@ -95,12 +95,12 @@ const normalizeChallengeRow = (challenge: CaptainsChallengeInput, index: number,
 
 const audioToVideoText = (value?: string | null) =>
   (value || "")
-    .replaceAll("Grabad un audio", "Grabad un vídeo")
-    .replaceAll("grabe un audio", "grabe un vídeo")
-    .replaceAll("un audio", "un vídeo")
-    .replaceAll("en audio", "en vídeo")
-    .replaceAll("audio", "vídeo")
-    .replaceAll("Audio", "Vídeo");
+    .replace(/Grabad un audio/g, "Grabad un vídeo")
+    .replace(/grabe un audio/g, "grabe un vídeo")
+    .replace(/un audio/g, "un vídeo")
+    .replace(/en audio/g, "en vídeo")
+    .replace(/audio/g, "vídeo")
+    .replace(/Audio/g, "Vídeo");
 
 const sanitizeCaptainsCatalogItem = (item: CaptainsChallengeCatalogItem): CaptainsChallengeCatalogItem => {
   if ((item.evidence_type as string) !== "audio") return item;
