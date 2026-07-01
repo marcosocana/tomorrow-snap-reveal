@@ -25,7 +25,7 @@ import type {
   CaptainsTableChallenge,
 } from "@/lib/captainsTypes";
 import { useCaptainsEventDetail } from "@/hooks/useCaptains";
-import { calculateCaptainsAutomaticScore, shuffleCaptainsItems } from "@/lib/captainsUtils";
+import { calculateCaptainsAutomaticScore, getCaptainsPublicUrl, normalizeCaptainsPublicUrl, shuffleCaptainsItems } from "@/lib/captainsUtils";
 import { cn } from "@/lib/utils";
 import {
   Camera,
@@ -771,7 +771,7 @@ const PixelTableMap = ({
             onClick={() => onSelect(table.id)}
             className={cn(
               "pixel-button relative min-h-[154px] bg-white p-3 text-left transition",
-              active && "border-[var(--captains-primary)] bg-[var(--captains-primary)]/10",
+              active && "border-[#f06a5f] bg-[#f06a5f]/10",
             )}
           >
             <div className="absolute right-2 top-2 bg-[#151515] px-2 py-1 text-sm font-bold text-white">
@@ -944,7 +944,6 @@ export default function CaptainsPublic() {
   const [session, setSession] = useState<CaptainSession | null>(null);
   const [selectedTableId, setSelectedTableId] = useState("");
   const [captainNameInput, setCaptainNameInput] = useState("");
-  const [showActiveWarning, setShowActiveWarning] = useState(false);
   const [busy, setBusy] = useState(false);
   const [tableChallenges, setTableChallenges] = useState<CaptainsTableChallenge[]>([]);
   const [ranking, setRanking] = useState<CaptainsRankingItem[]>([]);
@@ -1030,8 +1029,10 @@ export default function CaptainsPublic() {
 
   const publicUrl =
     isDemo && eventSlug
-      ? `${window.location.origin}/capitanes/${eventSlug}`
-      : event?.public_url || (eventSlug ? `${window.location.origin}/capitanes/${eventSlug}` : "");
+      ? getCaptainsPublicUrl(eventSlug)
+      : eventSlug
+        ? normalizeCaptainsPublicUrl(event?.public_url, eventSlug)
+        : "";
 
   const getDemoRows = (tableId: string) => {
     const key = demoRowsKey(eventSlug, tableId);
@@ -1195,13 +1196,16 @@ export default function CaptainsPublic() {
     setSelectedTableId(tableId);
     const table = tables.find((item) => item.id === tableId);
     setCaptainNameInput(table?.captain_name || "");
-    setShowActiveWarning(Boolean(table?.last_activity_at || table?.active_captain_name));
   };
 
   const enterGame = async () => {
     if (!event || !selectedTable) return;
-    const cleanName = (captainNameInput || selectedTable.captain_name || selectedTable.active_captain_name || "").trim();
-    if (!cleanName) return;
+    const cleanName = (
+      captainNameInput ||
+      selectedTable.captain_name ||
+      selectedTable.active_captain_name ||
+      `Capitán ${selectedTable.table_name}`
+    ).trim();
     setBusy(true);
     try {
       if (isDemo) {
@@ -1423,7 +1427,7 @@ export default function CaptainsPublic() {
   };
 
   const shareSummary = async () => {
-    const url = `${window.location.origin}/capitanes/${eventSlug}/resumen`;
+    const url = `${getCaptainsPublicUrl(eventSlug)}/resumen`;
     try {
       if (navigator.share) {
         await navigator.share({
@@ -1541,26 +1545,16 @@ export default function CaptainsPublic() {
   if (step === "home") {
     return (
       <CaptainsShell>
-        <div className="flex flex-1 flex-col justify-center gap-5">
-          <div>
-            <HeroBadge>Nueva partida</HeroBadge>
-            <h1 className="mt-4 text-3xl leading-relaxed">{event.name}</h1>
-            <p className="mt-3 text-2xl font-bold uppercase text-[#151515]/70">Capitanes RPG by Revelao</p>
-          </div>
-          <GameCard className="relative overflow-hidden">
-            <div className="absolute right-4 top-3 h-4 w-4 border-2 border-[#151515] bg-[var(--captains-primary)]" />
-            <div className="flex items-start gap-3">
-              <div className="pixel-button bg-[var(--captains-secondary)] p-3">
-                <Trophy className="h-7 w-7 text-[#151515]" />
-              </div>
-              <p className="text-2xl leading-7 text-[#151515]">
-                {event.description || "Reúne a tu mesa, cread recuerdos y superad pequeños retos durante la celebración."}
+        <div className="flex flex-1 flex-col justify-between gap-5">
+          <div className="flex flex-1 items-center">
+            <GameCard>
+              <p className="whitespace-pre-line text-3xl leading-8 text-[#151515]">
+                {event.description || "Bienvenidos a Capitanes. Reúne a tu mesa, cread recuerdos y superad pequeños retos durante la celebración."}
               </p>
-            </div>
-          </GameCard>
-          <PixelTableMap tables={tables} selectedTableId={selectedTableId} onSelect={handleTableSelect} />
+            </GameCard>
+          </div>
           <GameButton onClick={() => go("start")}>
-            Empezar aventura <ChevronRight className="h-5 w-5" />
+            ¡Empecemos! <ChevronRight className="h-5 w-5" />
           </GameButton>
         </div>
       </CaptainsShell>
@@ -1568,41 +1562,18 @@ export default function CaptainsPublic() {
   }
 
   if (step === "start") {
-    const requiresCaptainName = selectedTable && !selectedTable.captain_name;
-    const canEnter = selectedTable && (selectedTable.captain_name || captainNameInput.trim());
+    const canEnter = Boolean(selectedTable);
     return (
       <CaptainsShell>
-        <div className="space-y-4 pb-5">
+        <div className="flex min-h-[calc(var(--app-height,100svh)-40px)] flex-col gap-4 pb-5">
           <div className="pt-3">
-            <HeroBadge>Zona inicial</HeroBadge>
             <h1 className="mt-4 text-3xl">Elige tu mesa</h1>
-            <p className="mt-2 text-2xl leading-7 text-[#151515]/70">Selecciona tu capitán y empieza la aventura.</p>
+            <p className="mt-2 text-2xl leading-7 text-[#151515]/70">Selecciona tu mesa y capitán para entrar al juego.</p>
           </div>
-          <PixelTableMap tables={tables} selectedTableId={selectedTableId} onSelect={handleTableSelect} />
-          {requiresCaptainName && (
-            <GameCard>
-              <label className="pixel-title text-xs text-[#151515]">NOMBRE CAPITÁN</label>
-              <input
-                value={captainNameInput}
-                onChange={(event) => setCaptainNameInput(event.target.value)}
-                className="pixel-button mt-3 h-14 w-full rounded-none bg-white px-3 text-2xl font-bold text-[#151515] outline-none"
-                placeholder="Nombre del capitán"
-              />
-            </GameCard>
-          )}
-          {showActiveWarning && selectedTable && (
-            <GameCard className="border-[var(--captains-primary)] bg-white">
-              <h2 className="text-lg">Mesa ocupada</h2>
-              <p className="mt-2 text-2xl leading-7 text-[#151515]">
-                Si eres el capitán de esta mesa, puedes continuar. Si no, elige otra mesa.
-              </p>
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <SecondaryButton onClick={() => setShowActiveWarning(false)}>Continuar</SecondaryButton>
-                <SecondaryButton onClick={() => setSelectedTableId("")}>Cambiar selección</SecondaryButton>
-              </div>
-            </GameCard>
-          )}
-          <GameButton disabled={!canEnter || busy || showActiveWarning} onClick={enterGame}>
+          <div className="flex-1">
+            <PixelTableMap tables={tables} selectedTableId={selectedTableId} onSelect={handleTableSelect} />
+          </div>
+          <GameButton disabled={!canEnter || busy} onClick={enterGame}>
             {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : <Shield className="h-5 w-5" />}
             Entrar al juego
           </GameButton>

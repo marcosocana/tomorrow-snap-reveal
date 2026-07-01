@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { QRCodeSVG } from "qrcode.react";
@@ -19,6 +19,7 @@ import {
   Video,
   X,
   Camera,
+  Upload,
   Image as ImageIcon,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -49,9 +50,10 @@ import {
   updateCaptainsEvent,
   updateCaptainsTables,
 } from "@/lib/captainsService";
-import { getCaptainsQrValue, getCaptainsPublicUrl } from "@/lib/captainsUtils";
+import { getCaptainsQrValue, normalizeCaptainsPublicUrl } from "@/lib/captainsUtils";
 import type {
   CaptainsChallengeInput,
+  CaptainsChallengeCatalogItem,
   CaptainsDifficulty,
   CaptainsEvent,
   CaptainsEventChallenge,
@@ -219,6 +221,112 @@ const difficultyLabels: Record<CaptainsDifficulty, string> = {
   hard: "Difícil",
   special: "Especial",
 };
+
+const challengeTemplateHeaders = [
+  "title",
+  "description",
+  "evidence_type",
+  "category",
+  "difficulty",
+  "points",
+  "has_time_limit",
+  "time_limit_seconds",
+  "is_required",
+];
+
+const challengeTemplateExample = [
+  "Foto con alguien de otra mesa",
+  "Haced una foto con una persona invitada de otra mesa.",
+  "photo",
+  "Interacción",
+  "medium",
+  "15",
+  "false",
+  "",
+  "false",
+];
+
+const escapeCsvValue = (value: string | number | boolean | null | undefined) => {
+  const text = String(value ?? "");
+  return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+};
+
+const parseCsvRows = (text: string) => {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = "";
+  let quoted = false;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    const next = text[index + 1];
+    if (char === '"' && quoted && next === '"') {
+      cell += '"';
+      index += 1;
+    } else if (char === '"') {
+      quoted = !quoted;
+    } else if (char === "," && !quoted) {
+      row.push(cell.trim());
+      cell = "";
+    } else if ((char === "\n" || char === "\r") && !quoted) {
+      if (char === "\r" && next === "\n") index += 1;
+      row.push(cell.trim());
+      if (row.some(Boolean)) rows.push(row);
+      row = [];
+      cell = "";
+    } else {
+      cell += char;
+    }
+  }
+
+  row.push(cell.trim());
+  if (row.some(Boolean)) rows.push(row);
+  return rows;
+};
+
+const csvToChallenges = (text: string): CaptainsChallengeInput[] => {
+  const rows = parseCsvRows(text);
+  if (rows.length <= 1) return [];
+  const headers = rows[0].map((header) => header.trim().toLowerCase());
+  const indexOf = (name: string) => headers.indexOf(name);
+  const get = (row: string[], name: string) => row[indexOf(name)] || "";
+
+  return rows
+    .slice(1)
+    .map((row, index) => {
+      const evidenceType = get(row, "evidence_type") as CaptainsEvidenceType;
+      const difficulty = get(row, "difficulty") as CaptainsDifficulty;
+      const hasTimeLimit = ["true", "1", "yes", "si", "sí"].includes(get(row, "has_time_limit").toLowerCase());
+      const timeLimit = Number(get(row, "time_limit_seconds"));
+      return {
+        title: get(row, "title").trim(),
+        description: get(row, "description").trim(),
+        evidence_type: ["photo", "video", "audio"].includes(evidenceType) ? evidenceType : "photo",
+        points: Math.max(1, Number(get(row, "points")) || 10),
+        category: get(row, "category").trim() || "Importado",
+        difficulty: ["easy", "medium", "hard", "special"].includes(difficulty) ? difficulty : "easy",
+        has_time_limit: hasTimeLimit,
+        time_limit_seconds: hasTimeLimit ? Math.max(1, timeLimit || 60) : null,
+        order_index: index + 1,
+        is_required: ["true", "1", "yes", "si", "sí"].includes(get(row, "is_required").toLowerCase()),
+      };
+    })
+    .filter((challenge) => challenge.title && challenge.description);
+};
+
+const catalogChallengeToInput = (item: CaptainsChallengeCatalogItem, orderIndex: number): CaptainsChallengeInput => ({
+  catalog_challenge_id: item.id,
+  title: item.title,
+  description: item.description,
+  evidence_type: item.evidence_type,
+  points: item.default_points,
+  category: item.category,
+  difficulty: item.difficulty,
+  has_time_limit: item.has_time_limit,
+  time_limit_seconds: item.time_limit_seconds,
+  order_index: orderIndex,
+  is_required: false,
+});
 
 const formatDateTime = (value?: string | null) => {
   if (!value) return "-";
@@ -470,6 +578,7 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
   const { toast } = useToast();
   const { data: detail, isLoading } = useCaptainsEventDetail(edit ? eventId : null);
   const { data: catalog = [] } = useCaptainsChallengeCatalog();
+  const importInputRef = useRef<HTMLInputElement | null>(null);
   const [step, setStep] = useState(1);
   const [name, setName] = useState("");
   const [description, setDescription] = useState(DEFAULT_DESCRIPTION);
@@ -492,6 +601,7 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
   const [secondaryColor, setSecondaryColor] = useState(DEFAULT_SECONDARY_COLOR);
   const [backgroundImageUrl, setBackgroundImageUrl] = useState("");
   const [selectedChallenges, setSelectedChallenges] = useState<CaptainsChallengeInput[]>([]);
+  const [selectedCatalogIds, setSelectedCatalogIds] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -593,25 +703,69 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
     setStep(2);
   };
 
-  const addCatalogChallenge = (catalogId: string) => {
-    const item = catalog.find((challenge) => challenge.id === catalogId);
-    if (!item) return;
+  const catalogByCategory = useMemo(() => {
+    const groups = new Map<string, CaptainsChallengeCatalogItem[]>();
+    catalog.forEach((challenge) => {
+      const key = challenge.category || "General";
+      groups.set(key, [...(groups.get(key) || []), challenge]);
+    });
+    return Array.from(groups.entries()).sort(([first], [second]) => first.localeCompare(second, "es"));
+  }, [catalog]);
+
+  const toggleCatalogChallenge = (catalogId: string) => {
+    setSelectedCatalogIds((prev) =>
+      prev.includes(catalogId) ? prev.filter((id) => id !== catalogId) : [...prev, catalogId],
+    );
+  };
+
+  const addSelectedCatalogChallenges = () => {
+    const items = selectedCatalogIds
+      .map((catalogId) => catalog.find((challenge) => challenge.id === catalogId))
+      .filter(Boolean) as CaptainsChallengeCatalogItem[];
+    if (items.length === 0) return;
     setSelectedChallenges((prev) => [
       ...prev,
-      {
-        catalog_challenge_id: item.id,
-        title: item.title,
-        description: item.description,
-        evidence_type: item.evidence_type,
-        points: item.default_points,
-        category: item.category,
-        difficulty: item.difficulty,
-        has_time_limit: item.has_time_limit,
-        time_limit_seconds: item.time_limit_seconds,
-        order_index: prev.length + 1,
-        is_required: false,
-      },
+      ...items.map((item, index) => catalogChallengeToInput(item, prev.length + index + 1)),
     ]);
+    setSelectedCatalogIds([]);
+  };
+
+  const downloadChallengeTemplate = () => {
+    const csv = [
+      challengeTemplateHeaders.map(escapeCsvValue).join(","),
+      challengeTemplateExample.map(escapeCsvValue).join(","),
+    ].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "plantilla-retos-capitanes.csv";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportChallenges = async (file?: File | null) => {
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const imported = csvToChallenges(text);
+      if (imported.length === 0) {
+        toast({ title: "Archivo sin retos", description: "Revisa que el CSV tenga cabeceras y al menos un reto válido.", variant: "destructive" });
+        return;
+      }
+      setSelectedChallenges((prev) => [
+        ...prev,
+        ...imported.map((challenge, index) => ({ ...challenge, order_index: prev.length + index + 1 })),
+      ]);
+      toast({ title: "Retos importados", description: `Se han añadido ${imported.length} retos al evento.` });
+    } catch (error) {
+      console.error("Challenge import error:", error);
+      toast({ title: "Error al importar", description: "No hemos podido leer el archivo CSV.", variant: "destructive" });
+    } finally {
+      if (importInputRef.current) importInputRef.current.value = "";
+    }
   };
 
   const handleSave = async () => {
@@ -872,23 +1026,67 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
           <Card className="h-fit space-y-4 p-4">
             <div>
               <h2 className="font-semibold">Catálogo de retos</h2>
-              <p className="text-sm text-muted-foreground">Selecciona retos guardados o crea uno nuevo.</p>
+              <p className="text-sm text-muted-foreground">Selecciona cuántos y cuáles quieres incluir en este evento.</p>
             </div>
-            <div className="space-y-2">
-              {catalog.map((challenge) => (
-                <button
-                  key={challenge.id}
-                  type="button"
-                  className="w-full rounded-md border border-border p-3 text-left transition-colors hover:bg-muted"
-                  onClick={() => addCatalogChallenge(challenge.id)}
-                >
-                  <p className="text-sm font-medium">{challenge.title}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {evidenceLabels[challenge.evidence_type]} · {challenge.default_points} pts · {difficultyLabels[challenge.difficulty]}
-                  </p>
-                </button>
+            <div className="rounded-md border border-border bg-muted/30 p-3 text-sm">
+              <p className="font-medium">{selectedCatalogIds.length} retos seleccionados</p>
+              <p className="text-xs text-muted-foreground">{selectedChallenges.length} retos añadidos al evento</p>
+            </div>
+            <div className="max-h-[520px] space-y-4 overflow-y-auto pr-1">
+              {catalogByCategory.map(([category, items]) => (
+                <div key={category} className="space-y-2">
+                  <div className="sticky top-0 z-10 bg-card py-1">
+                    <p className="text-xs font-semibold uppercase text-muted-foreground">{category}</p>
+                  </div>
+                  {items.map((challenge) => {
+                    const checked = selectedCatalogIds.includes(challenge.id);
+                    return (
+                      <label
+                        key={challenge.id}
+                        className={`flex cursor-pointer gap-3 rounded-md border p-3 transition-colors ${
+                          checked ? "border-primary bg-primary/10" : "border-border hover:bg-muted"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleCatalogChallenge(challenge.id)}
+                          className="mt-1 h-4 w-4 accent-primary"
+                        />
+                        <span className="min-w-0">
+                          <span className="block text-sm font-medium">{challenge.title}</span>
+                          <span className="mt-1 block text-xs text-muted-foreground">
+                            {evidenceLabels[challenge.evidence_type]} · {challenge.default_points} pts · {difficultyLabels[challenge.difficulty]}
+                            {challenge.has_time_limit ? ` · ${challenge.time_limit_seconds}s` : ""}
+                          </span>
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
               ))}
             </div>
+            <Button className="w-full gap-2" onClick={addSelectedCatalogChallenges} disabled={selectedCatalogIds.length === 0}>
+              <Check className="h-4 w-4" />
+              Añadir seleccionados
+            </Button>
+            <div className="grid grid-cols-2 gap-2">
+              <Button variant="outline" className="gap-2" onClick={() => importInputRef.current?.click()}>
+                <Upload className="h-4 w-4" />
+                Importar
+              </Button>
+              <Button variant="outline" className="gap-2" onClick={downloadChallengeTemplate}>
+                <Download className="h-4 w-4" />
+                Descargar plantilla
+              </Button>
+            </div>
+            <input
+              ref={importInputRef}
+              type="file"
+              accept=".csv,text/csv"
+              className="hidden"
+              onChange={(event) => handleImportChallenges(event.target.files?.[0])}
+            />
             <Button variant="outline" className="w-full gap-2" onClick={() => setSelectedChallenges((prev) => [...prev, { ...EMPTY_CHALLENGE }])}>
               <Plus className="h-4 w-4" />
               Crear reto nuevo
@@ -1134,8 +1332,8 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
   }
 
   const { event, tables, challenges } = detail;
-  const publicUrl = event.public_url || getCaptainsPublicUrl(event.slug);
-  const qrValue = event.qr_url || getCaptainsQrValue(event.slug);
+  const publicUrl = normalizeCaptainsPublicUrl(event.public_url, event.slug);
+  const qrValue = normalizeCaptainsPublicUrl(event.qr_url || getCaptainsQrValue(event.slug), event.slug);
   const visibleEvidence = view === "review" ? reviewEvidence : evidence;
   const liveVisibleEvidence = evidence.filter((item) => item.file_url && !["deleted", "rejected"].includes(item.status));
   const photoCount = liveVisibleEvidence.filter((item) => item.evidence_type === "photo").length;

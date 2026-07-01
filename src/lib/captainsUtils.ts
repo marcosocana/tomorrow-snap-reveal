@@ -1,4 +1,5 @@
 export const CAPTAINS_PUBLIC_PATH = "/capitanes";
+export const CAPTAINS_PUBLIC_ORIGIN = "https://acceso.revelao.cam";
 
 export const slugifyCaptainsValue = (value: string) =>
   value
@@ -9,11 +10,25 @@ export const slugifyCaptainsValue = (value: string) =>
     .replace(/^-+|-+$/g, "")
     .slice(0, 80) || "capitanes";
 
-export const getCaptainsPublicUrl = (slug: string, origin = window.location.origin) =>
+export const getCaptainsPublicUrl = (slug: string, origin = CAPTAINS_PUBLIC_ORIGIN) =>
   `${origin}${CAPTAINS_PUBLIC_PATH}/${slug}`;
 
-export const getCaptainsQrValue = (slug: string, origin = window.location.origin) =>
+export const getCaptainsQrValue = (slug: string, origin = CAPTAINS_PUBLIC_ORIGIN) =>
   getCaptainsPublicUrl(slug, origin);
+
+export const normalizeCaptainsPublicUrl = (value: string | null | undefined, slug: string) => {
+  if (!value) return getCaptainsPublicUrl(slug);
+  if (value.startsWith(CAPTAINS_PUBLIC_PATH)) return `${CAPTAINS_PUBLIC_ORIGIN}${value}`;
+  try {
+    const url = new URL(value);
+    if (url.hostname === "localhost" || url.hostname === "127.0.0.1") {
+      return `${CAPTAINS_PUBLIC_ORIGIN}${url.pathname}${url.search}${url.hash}`;
+    }
+    return value;
+  } catch {
+    return getCaptainsPublicUrl(slug);
+  }
+};
 
 export const calculateCaptainsAutomaticScore = ({
   maxPoints,
