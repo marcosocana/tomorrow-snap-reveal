@@ -1,11 +1,12 @@
-GRANT INSERT ON public.captains_evidence TO anon;
+GRANT INSERT ON public.captains_evidence TO anon, authenticated;
 
 DROP POLICY IF EXISTS "Public can insert evidence of active events" ON public.captains_evidence;
+DROP POLICY IF EXISTS "Public can insert evidence of playable captain events" ON public.captains_evidence;
 
 CREATE POLICY "Public can insert evidence of playable captain events"
   ON public.captains_evidence
   FOR INSERT
-  TO anon
+  TO anon, authenticated
   WITH CHECK (
     evidence_type IN ('photo', 'video')
     AND file_url IS NOT NULL
@@ -17,10 +18,8 @@ CREATE POLICY "Public can insert evidence of playable captain events"
       WHERE e.id = captains_evidence.event_id
         AND t.id = captains_evidence.table_id
         AND tc.id = captains_evidence.table_challenge_id
-        AND (
-          e.status = ANY (ARRAY['scheduled', 'active'])
-          OR public.captains_event_status(e.start_time, e.end_time) = ANY (ARRAY['scheduled', 'active'])
-        )
+        AND tc.event_id = e.id
+        AND tc.challenge_id IS NOT NULL
     )
   );
 
