@@ -882,12 +882,20 @@ const EventForm = () => {
           ? await hashPassword(formData.qrPassword.trim())
           : formData.qrPasswordHash
         : null;
-      const limitsJsonValue = withEventQrPasswordSettings(
+      let limitsJsonValue = withEventQrPasswordSettings(
         formData.limitsJson,
         formData.qrPasswordEnabled,
         qrPasswordHashValue,
         formData.qrPasswordScope
       );
+      if (!isEditing) {
+        const limitsRecord =
+          limitsJsonValue && typeof limitsJsonValue === "object" && !Array.isArray(limitsJsonValue)
+            ? { ...(limitsJsonValue as Record<string, Json>) }
+            : {};
+        limitsRecord.admin_event_tab = "new";
+        limitsJsonValue = limitsRecord;
+      }
 
       let customImageUrl = formData.customImageUrl;
       if (formData.customImage) {

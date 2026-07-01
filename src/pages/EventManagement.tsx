@@ -68,12 +68,13 @@ interface Event {
   limits_json?: any;
 }
 
-type AdminEventTab = "upcoming" | "past" | "tests" | "others";
+type AdminEventTab = "new" | "upcoming" | "past" | "tests" | "others";
 type ManualAdminEventTab = Exclude<AdminEventTab, "others">;
 
 const ADMIN_EVENT_TAB_KEY = "admin_event_tab";
 const ADMIN_EVENT_NOTE_KEY = "admin_note";
 const ADMIN_EVENT_TABS: Array<{ value: AdminEventTab; label: string }> = [
+  { value: "new", label: "Nuevos" },
   { value: "upcoming", label: "Próximos" },
   { value: "past", label: "Pasados" },
   { value: "tests", label: "Pruebas" },
@@ -98,7 +99,7 @@ const parseEventLimits = (raw: any): Record<string, unknown> => {
 
 const getManualAdminEventTab = (event: Event): ManualAdminEventTab | null => {
   const value = parseEventLimits(event.limits_json)[ADMIN_EVENT_TAB_KEY];
-  return value === "upcoming" || value === "past" || value === "tests" ? value : null;
+  return value === "new" || value === "upcoming" || value === "past" || value === "tests" ? value : null;
 };
 
 const getAdminEventTabLabel = (value: AdminEventTab) =>
@@ -654,6 +655,7 @@ const EventManagement = () => {
 
   const adminTabCounts = useMemo(() => {
     const counts: Record<AdminEventTab, number> = {
+      new: 0,
       upcoming: 0,
       past: 0,
       tests: 0,
@@ -671,6 +673,12 @@ const EventManagement = () => {
 
     return counts;
   }, [events]);
+
+  useEffect(() => {
+    if (adminActiveTab === "new" && adminTabCounts.new === 0) {
+      setAdminActiveTab("upcoming");
+    }
+  }, [adminActiveTab, adminTabCounts.new]);
 
   const superAdminEvents = useMemo(() => {
     const search = adminSearch.trim().toLowerCase();
@@ -1380,7 +1388,7 @@ const EventManagement = () => {
         {isSuperAdmin ? (
           <Card className="p-4 space-y-4">
             <div className="flex flex-wrap gap-2">
-              {ADMIN_EVENT_TABS.map((tab) => {
+              {ADMIN_EVENT_TABS.filter((tab) => tab.value !== "new" || adminTabCounts.new > 0).map((tab) => {
                 const isActive = adminActiveTab === tab.value;
                 return (
                   <button
