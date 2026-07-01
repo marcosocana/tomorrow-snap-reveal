@@ -314,8 +314,11 @@ const csvToChallenges = (text: string): CaptainsChallengeInput[] => {
     .filter((challenge) => challenge.title && challenge.description);
 };
 
+const isUuidValue = (value?: string | null) =>
+  Boolean(value && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value));
+
 const catalogChallengeToInput = (item: CaptainsChallengeCatalogItem, orderIndex: number): CaptainsChallengeInput => ({
-  catalog_challenge_id: item.id,
+  catalog_challenge_id: isUuidValue(item.id) ? item.id : null,
   title: item.title,
   description: item.description,
   evidence_type: item.evidence_type,
@@ -578,6 +581,7 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
   const { toast } = useToast();
   const { data: detail, isLoading } = useCaptainsEventDetail(edit ? eventId : null);
   const { data: catalog = [] } = useCaptainsChallengeCatalog();
+  const isUsingLocalCatalog = catalog.some((challenge) => challenge.id.startsWith("default-"));
   const importInputRef = useRef<HTMLInputElement | null>(null);
   const [step, setStep] = useState(1);
   const [name, setName] = useState("");
@@ -1028,6 +1032,11 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
               <h2 className="font-semibold">Catálogo de retos</h2>
               <p className="text-sm text-muted-foreground">Selecciona cuántos y cuáles quieres incluir en este evento.</p>
             </div>
+            {isUsingLocalCatalog ? (
+              <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+                Mostrando catálogo precargado local. Para verlo desde Supabase, aplica la migración del catálogo.
+              </div>
+            ) : null}
             <div className="rounded-md border border-border bg-muted/30 p-3 text-sm">
               <p className="font-medium">{selectedCatalogIds.length} retos seleccionados</p>
               <p className="text-xs text-muted-foreground">{selectedChallenges.length} retos añadidos al evento</p>

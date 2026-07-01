@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { captainsDefaultChallengeCatalog } from "@/lib/captainsDefaultChallengeCatalog";
 import {
   calculateCaptainsAutomaticScore,
   getCaptainsPublicUrl,
@@ -459,8 +460,12 @@ export const getCaptainsChallengeCatalog = async (activeOnly = true) => {
   if (activeOnly) query = query.eq("is_active", true);
 
   const { data, error } = await query;
-  ensureNoError(error);
-  return (data || []) as CaptainsChallengeCatalogItem[];
+  if (error) {
+    console.warn("Using local captains challenge catalog fallback:", error);
+    return captainsDefaultChallengeCatalog;
+  }
+  const catalog = (data || []) as CaptainsChallengeCatalogItem[];
+  return catalog.length > 0 ? catalog : captainsDefaultChallengeCatalog;
 };
 
 export const addCatalogChallengesToCaptainsEvent = async (eventId: string, catalogChallengeIds: string[]) => {
