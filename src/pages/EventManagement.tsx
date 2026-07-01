@@ -393,6 +393,7 @@ const EventManagement = () => {
     const created = (location.state as any)?.createdEvent;
     if (created) {
       setCreatedSummary(created);
+      setAdminActiveTab("new");
       navigate(location.pathname, { replace: true, state: null });
     }
   }, [location, navigate]);
@@ -675,10 +676,10 @@ const EventManagement = () => {
   }, [events]);
 
   useEffect(() => {
-    if (adminActiveTab === "new" && adminTabCounts.new === 0) {
+    if (!isLoading && adminActiveTab === "new" && adminTabCounts.new === 0) {
       setAdminActiveTab("upcoming");
     }
-  }, [adminActiveTab, adminTabCounts.new]);
+  }, [adminActiveTab, adminTabCounts.new, isLoading]);
 
   const superAdminEvents = useMemo(() => {
     const search = adminSearch.trim().toLowerCase();

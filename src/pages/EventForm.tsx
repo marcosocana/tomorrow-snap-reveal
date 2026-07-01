@@ -1024,10 +1024,11 @@ const EventForm = () => {
         }
 
         const createdEvent = created.event;
-        await supabase
+        const { error: markNewError } = await supabase
           .from("events")
           .update({ limits_json: limitsJsonValue } as any)
           .eq("id", createdEvent.id);
+        if (markNewError) throw markNewError;
         const eventUrl = `https://acceso.revelao.cam/events/${createdEvent.password_hash}`;
         const qrUrl = await uploadQrImage(eventUrl, createdEvent.id);
         if (qrUrl) {
@@ -1383,6 +1384,7 @@ const EventForm = () => {
               <TabsList className="grid h-auto w-full grid-cols-2 rounded-full bg-muted/50 p-1 sm:grid-cols-4">
                 {EVENT_FORM_STEPS.map((step, index) => (
                   <TabsTrigger
+                    type="button"
                     key={step.value}
                     value={step.value}
                     disabled={!isEditing && index > maxUnlockedFormStep}
