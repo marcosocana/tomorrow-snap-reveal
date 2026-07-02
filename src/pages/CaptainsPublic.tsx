@@ -41,14 +41,11 @@ import {
   Image as ImageIcon,
   Loader2,
   Medal,
-  Pause,
-  Play,
   RefreshCw,
   RotateCcw,
   Share2,
   Shield,
   Sparkles,
-  Trophy,
   Users,
   XCircle,
 } from "lucide-react";
@@ -61,6 +58,7 @@ type PublicStep = "home" | "start" | "play" | "ranking" | "final" | "live" | "re
 type ChallengePhase = "intro" | "preview" | "progress" | "result" | "expired";
 type ResultKind = "success" | "manual" | "failed" | "expired";
 type EvidenceFilter = "all" | "mine" | "others" | CaptainsEvidenceType;
+type SummaryMode = "tables" | "challenges";
 
 const DEFAULT_CAPTAINS_PRIMARY = "#f06a5f";
 const DEFAULT_CAPTAINS_SECONDARY = "#2f292d";
@@ -749,6 +747,35 @@ const PixelStat = ({ label, value, tone = "primary" }: { label: string; value: R
   </div>
 );
 
+const getCaptainPhotoUrl = (table: CaptainsTable) => {
+  const maybePhoto = (table as CaptainsTable & { captain_photo_url?: string | null }).captain_photo_url;
+  if (maybePhoto) return maybePhoto;
+  const name = table.captain_name || table.active_captain_name || table.table_name;
+  const initials = name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("") || String(table.table_number || "?");
+  const palette = getSpritePaletteFromConfig(table.captain_sprite_config) || getSpritePalette(table.id || table.table_number || 0);
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 270">
+      <rect width="360" height="270" fill="#ffffff"/>
+      <path d="M0 220c70-40 125-45 190-12 62 31 105 24 170-17v79H0z" fill="${palette.outfit}" opacity=".14"/>
+      <circle cx="180" cy="112" r="54" fill="${palette.skin}"/>
+      <path d="M124 100c14-54 96-68 120-13 4 11 3 22 2 32-24-26-84-24-122 0-2-6-4-12 0-19z" fill="${palette.hair}"/>
+      <path d="M96 270c13-70 47-105 84-105s71 35 84 105z" fill="${palette.outfit}"/>
+      <rect x="156" y="165" width="48" height="105" fill="${palette.accent}" opacity=".85"/>
+      <circle cx="160" cy="112" r="5" fill="#151515"/>
+      <circle cx="200" cy="112" r="5" fill="#151515"/>
+      <path d="M160 137c13 10 28 10 41 0" stroke="#151515" stroke-width="5" fill="none" stroke-linecap="square"/>
+      <rect x="18" y="18" width="324" height="234" fill="none" stroke="#151515" stroke-width="6"/>
+      <text x="180" y="245" text-anchor="middle" font-family="Arial, sans-serif" font-size="38" font-weight="800" fill="#151515">${initials}</text>
+    </svg>
+  `;
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+};
+
 const PixelTableMap = ({
   tables,
   selectedTableId,
@@ -779,10 +806,13 @@ const PixelTableMap = ({
             <div className="absolute right-2 top-2 bg-[#151515] px-2 py-1 text-sm font-bold text-white">
               #{table.table_number}
             </div>
-            <div className="pt-3">
-              <PixelCaptainSprite table={table} active={active} size="md" />
+            <div className="relative mt-5 border-3 border-[#151515] bg-white">
+              <img src={getCaptainPhotoUrl(table)} alt="" loading="lazy" className="h-28 w-full object-cover" />
+              <div className="absolute -bottom-3 right-2 bg-white px-1">
+                <PixelCaptainSprite table={table} active={active} size="sm" />
+              </div>
             </div>
-            <p className="mt-3 truncate text-2xl font-bold leading-none">{table.table_name}</p>
+            <p className="mt-5 truncate text-2xl font-bold leading-none">{table.table_name}</p>
             <p className="truncate text-base font-bold text-[#151515]/65">
               {table.captain_name || table.active_captain_name || "Sin capitán"}
             </p>
@@ -887,12 +917,12 @@ const SignedEvidenceMedia = ({
   return null;
 };
 
-const SummaryEvidenceThumb = ({ evidence }: { evidence: CaptainsEvidence }) => {
+const SummaryFullScreenEvidence = ({ evidence }: { evidence?: CaptainsEvidence }) => {
   const [url, setUrl] = useState("");
 
   useEffect(() => {
     let active = true;
-    if (!evidence.file_url) {
+    if (!evidence?.file_url) {
       setUrl("");
       return () => {
         active = false;
@@ -912,20 +942,21 @@ const SummaryEvidenceThumb = ({ evidence }: { evidence: CaptainsEvidence }) => {
     return () => {
       active = false;
     };
-  }, [evidence.file_url]);
+  }, [evidence?.file_url]);
 
-  if (url && evidence.evidence_type === "photo") {
-    return <img src={url} alt="" loading="lazy" className="h-full w-full object-cover" />;
+  if (!evidence || !url) {
+    return (
+      <div className="absolute inset-0 flex items-center justify-center bg-white text-[#151515]/40">
+        <ImageIcon className="h-14 w-14" />
+      </div>
+    );
   }
 
-  if (url && evidence.evidence_type === "video") {
-    if (url.startsWith("data:image")) {
-      return <img src={url} alt="" loading="lazy" className="h-full w-full object-cover" />;
-    }
-    return <video src={url} muted playsInline preload="metadata" className="h-full w-full object-cover" />;
+  if (evidence.evidence_type === "video" && !url.startsWith("data:image")) {
+    return <video src={url} controls playsInline preload="metadata" className="absolute inset-0 h-full w-full bg-black object-cover" />;
   }
 
-  return <EvidenceIcon type={evidence.evidence_type} className="h-10 w-10 text-[#151515]" />;
+  return <img src={url} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />;
 };
 
 export default function CaptainsPublic() {
@@ -961,8 +992,10 @@ export default function CaptainsPublic() {
   const [newMemoriesAvailable, setNewMemoriesAvailable] = useState(false);
   const [visibleMemoriesLimit, setVisibleMemoriesLimit] = useState(20);
   const [photoModalUrl, setPhotoModalUrl] = useState("");
-  const [summaryIndex, setSummaryIndex] = useState(0);
-  const [isSummaryPlaying, setIsSummaryPlaying] = useState(true);
+  const [summaryMode, setSummaryMode] = useState<SummaryMode>("tables");
+  const [summarySelectedTableId, setSummarySelectedTableId] = useState("");
+  const [summarySelectedChallengeId, setSummarySelectedChallengeId] = useState("");
+  const [summaryEvidenceIndex, setSummaryEvidenceIndex] = useState(0);
   const [summaryCopied, setSummaryCopied] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -1010,6 +1043,7 @@ export default function CaptainsPublic() {
     challenges.forEach((challenge) => map.set(challenge.id, challenge));
     return map;
   }, [challenges]);
+  const tableById = useMemo(() => new Map(tables.map((table) => [table.id, table])), [tables]);
 
   const currentRow = useMemo(() => {
     const active = tableChallenges.find((row) => ["ready", "in_progress"].includes(row.status));
@@ -1565,28 +1599,52 @@ export default function CaptainsPublic() {
   const summarySourceEvidence = isDemo && liveEvidence.length === 0 ? demoSummaryEvidence() : liveEvidence;
   const summaryRows = isDemo && liveRows.length === 0 ? demoSampleRows() : liveRows;
   const summaryEvidence = summarySourceEvidence.filter((evidence) => evidence.file_url);
-  const summarySlides = [
-    { type: "cover" as const, id: "cover", title: event?.name || "Capitanes by Revelao", evidences: [] as CaptainsEvidence[] },
-    ...challenges.map((challenge, index) => ({
-      type: "challenge" as const,
-      id: challenge.id,
-      title: `Reto ${index + 1}: ${challenge.title}`,
-      evidences: summaryEvidence.filter((evidence) => {
-        const row = summaryRows.find((item) => item.id === evidence.table_challenge_id);
-        return row?.challenge_id === challenge.id;
-      }),
-    })),
-    { type: "closing" as const, id: "closing", title: "Misión completada", evidences: [] as CaptainsEvidence[] },
-  ];
-  const activeSummarySlide = summarySlides[Math.min(summaryIndex, summarySlides.length - 1)] || summarySlides[0];
+  const summaryRowById = new Map(summaryRows.map((row) => [row.id, row]));
+  const summaryEvidenceWithMeta = summaryEvidence
+    .map((evidence) => {
+      const row = summaryRowById.get(evidence.table_challenge_id);
+      const challenge = row ? challengeById.get(row.challenge_id) : undefined;
+      const table = tableById.get(evidence.table_id);
+      return { evidence, row, challenge, table };
+    })
+    .filter((item) => item.table && item.row && item.challenge);
+  const summaryChallengesWithEvidence = challenges.filter((challenge) =>
+    summaryEvidenceWithMeta.some((item) => item.row?.challenge_id === challenge.id),
+  );
+  const summarySelectedTable = tableById.get(summarySelectedTableId);
+  const summarySelectedChallenge = challengeById.get(summarySelectedChallengeId);
+  const summaryTableItems = summaryEvidenceWithMeta.filter((item) => item.evidence.table_id === summarySelectedTableId);
+  const summaryChallengeItems = summaryEvidenceWithMeta.filter((item) => item.row?.challenge_id === summarySelectedChallengeId);
+  const activeSummaryItems = summaryMode === "tables" ? summaryTableItems : summaryChallengeItems;
+  const activeSummaryItem = activeSummaryItems[Math.min(summaryEvidenceIndex, Math.max(activeSummaryItems.length - 1, 0))];
 
   useEffect(() => {
-    if (step !== "resumen" || !isSummaryPlaying || summarySlides.length <= 1) return;
-    const id = window.setInterval(() => {
-      setSummaryIndex((index) => (index + 1) % summarySlides.length);
-    }, 4500);
-    return () => window.clearInterval(id);
-  }, [step, isSummaryPlaying, summarySlides.length]);
+    if (step !== "resumen") return;
+    const preferredTableId = session?.table_id && tables.some((table) => table.id === session.table_id)
+      ? session.table_id
+      : tables[0]?.id || "";
+    if (!summarySelectedTableId || !tables.some((table) => table.id === summarySelectedTableId)) {
+      setSummarySelectedTableId(preferredTableId);
+    }
+  }, [session?.table_id, step, summarySelectedTableId, tables]);
+
+  useEffect(() => {
+    if (step !== "resumen") return;
+    const preferredChallengeId = summaryChallengesWithEvidence[0]?.id || challenges[0]?.id || "";
+    if (!summarySelectedChallengeId || !challenges.some((challenge) => challenge.id === summarySelectedChallengeId)) {
+      setSummarySelectedChallengeId(preferredChallengeId);
+    }
+  }, [challenges, step, summaryChallengesWithEvidence, summarySelectedChallengeId]);
+
+  useEffect(() => {
+    setSummaryEvidenceIndex(0);
+  }, [summaryMode, summarySelectedTableId, summarySelectedChallengeId]);
+
+  useEffect(() => {
+    if (summaryEvidenceIndex >= activeSummaryItems.length) {
+      setSummaryEvidenceIndex(Math.max(activeSummaryItems.length - 1, 0));
+    }
+  }, [activeSummaryItems.length, summaryEvidenceIndex]);
 
   if ((!isDemo && eventQuery.isLoading) || !mobile.ready) return <LoadingScreen />;
   if (!event || !detail) {
@@ -1963,7 +2021,6 @@ export default function CaptainsPublic() {
   }
 
   const onlyMine = liveEvidence.length > 0 && liveEvidence.every((row) => row.table_id === session?.table_id);
-  const tableById = new Map(tables.map((table) => [table.id, table]));
   const rowById = new Map(liveRows.map((row) => [row.id, row]));
   const liveEnabled = event.show_live_gallery_after_completion ?? true;
   const liveEventAvailable = event.status === "active" || event.status === "finished";
@@ -1994,76 +2051,119 @@ export default function CaptainsPublic() {
           <div className="pt-3">
             <HeroBadge>Resumen</HeroBadge>
             <h1 className="mt-4 text-4xl font-black tracking-normal">Resumen de la misión</h1>
-            <p className="mt-2 text-sm leading-6 text-[#151515]/70">Un vídeo único con los retos y evidencias de las mesas.</p>
+            <p className="mt-2 text-sm leading-6 text-[#151515]/70">Explora los recuerdos por mesa o por reto.</p>
           </div>
 
-          <section className="pixel-panel relative flex min-h-[520px] flex-1 overflow-hidden bg-white">
-            <div className="absolute inset-0 opacity-40 [background-image:linear-gradient(90deg,rgba(21,21,21,.06)_1px,transparent_1px),linear-gradient(rgba(21,21,21,.06)_1px,transparent_1px)] [background-size:20px_20px]" />
-            <div className="relative flex w-full flex-col p-4">
-              <div className="mb-3 flex items-center justify-between gap-3 text-xs font-black uppercase text-[#151515]/55">
-                <span>{activeSummarySlide.type === "cover" ? "Intro" : activeSummarySlide.type === "closing" ? "Final" : activeSummarySlide.title}</span>
-                <span>{summaryIndex + 1}/{summarySlides.length}</span>
-              </div>
-              <Progress value={((summaryIndex + 1) / summarySlides.length) * 100} className="mb-4 h-2 rounded-none bg-[#151515]/15 [&>div]:rounded-none [&>div]:bg-[#151515]" />
-
-              {activeSummarySlide.type === "cover" && (
-                <div className="flex flex-1 flex-col items-center justify-center text-center">
-                  <Trophy className="mb-5 h-20 w-20 text-[#151515]" />
-                  <h2 className="text-5xl font-black leading-none tracking-normal">{event.name}</h2>
-                  <p className="mt-4 text-lg font-bold text-[#151515]/70">Capitanes by Revelao</p>
-                  <p className="mt-2 text-sm text-[#151515]/55">{summaryEvidence.length} recuerdos en el montaje</p>
-                </div>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setSummaryMode("tables")}
+              className={cn(
+                "pixel-button bg-white px-3 py-3 text-xl font-bold uppercase text-[#151515]",
+                summaryMode === "tables" && "border-[var(--captains-primary)] bg-[var(--captains-primary)]/10",
               )}
+            >
+              Por mesas
+            </button>
+            <button
+              type="button"
+              onClick={() => setSummaryMode("challenges")}
+              className={cn(
+                "pixel-button bg-white px-3 py-3 text-xl font-bold uppercase text-[#151515]",
+                summaryMode === "challenges" && "border-[var(--captains-primary)] bg-[var(--captains-primary)]/10",
+              )}
+            >
+              Por retos
+            </button>
+          </div>
 
-              {activeSummarySlide.type === "challenge" && (
-                <div className="flex flex-1 flex-col">
-                  <h2 className="text-3xl font-black tracking-normal">{activeSummarySlide.title}</h2>
-                  {activeSummarySlide.evidences.length === 0 ? (
-                    <div className="pixel-panel mt-5 flex flex-1 items-center justify-center bg-white text-center">
-                      <p className="px-6 text-sm font-bold text-[#151515]/60">Todavía no hay evidencias para este reto.</p>
-                    </div>
-                  ) : (
-                    <div className="mt-4 grid flex-1 auto-rows-fr grid-cols-1 gap-3 overflow-hidden">
-                      {activeSummarySlide.evidences.slice(0, 3).map((evidence) => {
-                        const table = tableById.get(evidence.table_id);
-                        return (
-                          <div key={evidence.id} className="pixel-panel grid grid-cols-[96px_1fr] gap-3 bg-white p-3">
-                            <div className="flex aspect-square items-center justify-center overflow-hidden border-2 border-[#151515] bg-white">
-                              <SummaryEvidenceThumb evidence={evidence} />
-                            </div>
-                            <div className="min-w-0 self-center">
-                              <p className="truncate text-lg font-black">{table?.table_name || "Mesa"}</p>
-                              <p className="truncate text-sm text-[#151515]/65">{evidence.captain_name || table?.captain_name || "-"}</p>
-                              <p className="mt-1 text-xs font-black uppercase text-[#151515]/70">
-                                {evidence.evidence_type === "video" ? "Vídeo" : "Foto"}
-                                {evidence.points_awarded ? ` · +${evidence.points_awarded} pts` : ""}
-                              </p>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+          {summaryMode === "tables" ? (
+            <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
+              {tables.map((table) => (
+                <button
+                  key={table.id}
+                  type="button"
+                  onClick={() => setSummarySelectedTableId(table.id)}
+                  className={cn(
+                    "pixel-button min-w-[136px] bg-white px-3 py-2 text-left",
+                    summarySelectedTableId === table.id && "border-[var(--captains-primary)] bg-[var(--captains-primary)]/10",
                   )}
-                </div>
-              )}
-
-              {activeSummarySlide.type === "closing" && (
-                <div className="flex flex-1 flex-col items-center justify-center text-center">
-                  <Crown className="mb-5 h-20 w-20 text-[#151515]" />
-                  <h2 className="text-5xl font-black leading-none tracking-normal">Misión completada</h2>
-                  <p className="mt-4 text-sm leading-6 text-[#151515]/65">Gracias por crear recuerdos con vuestra mesa.</p>
-                </div>
-              )}
+                >
+                  <p className="truncate text-xl font-bold">{table.table_name}</p>
+                  <p className="truncate text-base text-[#151515]/65">{table.active_captain_name || table.captain_name || "Sin capitán"}</p>
+                </button>
+              ))}
             </div>
+          ) : (
+            <select
+              value={summarySelectedChallengeId}
+              onChange={(event) => setSummarySelectedChallengeId(event.target.value)}
+              className="pixel-button h-14 rounded-none bg-white px-3 text-xl font-bold uppercase text-[#151515] outline-none"
+            >
+              {(summaryChallengesWithEvidence.length ? summaryChallengesWithEvidence : challenges).map((challenge, index) => (
+                <option key={challenge.id} value={challenge.id}>
+                  Reto {index + 1}: {challenge.title}
+                </option>
+              ))}
+            </select>
+          )}
+
+          <section className="pixel-panel relative flex min-h-[540px] flex-1 overflow-hidden bg-white">
+            {activeSummaryItem ? (
+              <>
+                <SummaryFullScreenEvidence evidence={activeSummaryItem.evidence} />
+                <div className="absolute inset-x-0 top-0 bg-gradient-to-b from-black/70 to-transparent p-4 text-white">
+                  <p className="text-base font-bold uppercase text-white/80">
+                    {summaryMode === "tables" ? summarySelectedTable?.table_name || "Mesa" : `Reto ${Math.max(challenges.findIndex((challenge) => challenge.id === summarySelectedChallengeId) + 1, 1)}`}
+                  </p>
+                  <h2 className="mt-1 text-3xl font-black leading-none tracking-normal text-white">
+                    {summaryMode === "tables" ? activeSummaryItem.challenge?.title : summarySelectedChallenge?.title}
+                  </h2>
+                </div>
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-4 text-white">
+                  <div className="flex items-end justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-2xl font-bold text-white">{activeSummaryItem.table?.table_name || "Mesa"}</p>
+                      <p className="truncate text-lg text-white/80">
+                        {activeSummaryItem.evidence.captain_name || activeSummaryItem.table?.active_captain_name || activeSummaryItem.table?.captain_name || "Capitán"}
+                      </p>
+                      <p className="mt-1 text-base font-bold uppercase text-white/75">
+                        {activeSummaryItem.evidence.evidence_type === "video" ? "Vídeo" : "Foto"}
+                        {activeSummaryItem.evidence.points_awarded ? ` · +${activeSummaryItem.evidence.points_awarded} pts` : ""}
+                      </p>
+                    </div>
+                    <span className="pixel-button shrink-0 bg-white px-2 py-1 text-base font-bold text-[#151515]">
+                      {activeSummaryItems.length ? summaryEvidenceIndex + 1 : 0}/{activeSummaryItems.length}
+                    </span>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
+                <ImageIcon className="mb-4 h-14 w-14 text-[#151515]/35" />
+                <h2 className="text-2xl font-black tracking-normal">Sin evidencias todavía</h2>
+                <p className="mt-2 text-lg text-[#151515]/65">
+                  {summaryMode === "tables"
+                    ? "Esta mesa no tiene recuerdos visibles en el resumen."
+                    : "Este reto no tiene recuerdos visibles en el resumen."}
+                </p>
+              </div>
+            )}
           </section>
 
-          <div className="grid grid-cols-3 gap-2">
-            <SecondaryButton onClick={() => setSummaryIndex((index) => Math.max(0, index - 1))}>Anterior</SecondaryButton>
-            <GameButton className="min-h-12 py-3" onClick={() => setIsSummaryPlaying((value) => !value)}>
-              {isSummaryPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
-              {isSummaryPlaying ? "Pausa" : "Play"}
-            </GameButton>
-            <SecondaryButton onClick={() => setSummaryIndex((index) => (index + 1) % summarySlides.length)}>Siguiente</SecondaryButton>
+          <div className="grid grid-cols-2 gap-2">
+            <SecondaryButton
+              disabled={activeSummaryItems.length <= 1 || summaryEvidenceIndex === 0}
+              onClick={() => setSummaryEvidenceIndex((index) => Math.max(0, index - 1))}
+            >
+              Anterior
+            </SecondaryButton>
+            <SecondaryButton
+              disabled={activeSummaryItems.length <= 1 || summaryEvidenceIndex >= activeSummaryItems.length - 1}
+              onClick={() => setSummaryEvidenceIndex((index) => Math.min(activeSummaryItems.length - 1, index + 1))}
+            >
+              Siguiente
+            </SecondaryButton>
           </div>
           <GameButton onClick={shareSummary}>
             <Share2 className="h-5 w-5" />
