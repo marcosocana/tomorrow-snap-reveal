@@ -118,6 +118,7 @@ const demoEventDetail: CaptainsEventDetail = {
       table_name: "Mesa 1",
       captain_name: "Jorge",
       active_captain_name: "Jorge",
+      captain_photo_url: null,
       captain_sprite: "suit",
       captain_sprite_config: {
         sex: "male",
@@ -145,6 +146,7 @@ const demoEventDetail: CaptainsEventDetail = {
       table_name: "Mesa 2",
       captain_name: "Marta",
       active_captain_name: "Marta",
+      captain_photo_url: null,
       captain_sprite: "dress",
       captain_sprite_config: {
         sex: "female",
@@ -172,6 +174,7 @@ const demoEventDetail: CaptainsEventDetail = {
       table_name: "Mesa 3",
       captain_name: "Laura",
       active_captain_name: "Laura",
+      captain_photo_url: null,
       captain_sprite: "jacket",
       captain_sprite_config: {
         sex: "female",
@@ -199,6 +202,7 @@ const demoEventDetail: CaptainsEventDetail = {
       table_name: "Mesa 4",
       captain_name: "Dani",
       active_captain_name: "Dani",
+      captain_photo_url: null,
       captain_sprite: "festival",
       captain_sprite_config: {
         sex: "male",
@@ -226,6 +230,7 @@ const demoEventDetail: CaptainsEventDetail = {
       table_name: "Mesa 5",
       captain_name: null,
       active_captain_name: null,
+      captain_photo_url: null,
       captain_sprite: "uniform",
       captain_sprite_config: {
         sex: "female",
@@ -748,8 +753,7 @@ const PixelStat = ({ label, value, tone = "primary" }: { label: string; value: R
 );
 
 const getCaptainPhotoUrl = (table: CaptainsTable) => {
-  const maybePhoto = (table as CaptainsTable & { captain_photo_url?: string | null }).captain_photo_url;
-  if (maybePhoto) return maybePhoto;
+  if (table.captain_photo_url) return table.captain_photo_url;
   const name = table.captain_name || table.active_captain_name || table.table_name;
   const initials = name
     .split(" ")
@@ -808,7 +812,7 @@ const PixelTableMap = ({
             </div>
             <div className="relative mt-5 border-3 border-[#151515] bg-white">
               <img src={getCaptainPhotoUrl(table)} alt="" loading="lazy" className="h-28 w-full object-cover" />
-              <div className="absolute -bottom-3 right-2 bg-white px-1">
+              <div className="absolute -bottom-3 right-2 px-1">
                 <PixelCaptainSprite table={table} active={active} size="sm" />
               </div>
             </div>

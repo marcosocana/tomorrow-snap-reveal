@@ -50,7 +50,7 @@ const isMissingCaptainThemeColumnError = (error: unknown) => {
   return captainThemeColumns.some((column) => message.includes(column));
 };
 
-const captainTableVisualColumns = ["captain_sprite", "captain_sprite_config"];
+const captainTableVisualColumns = ["captain_sprite", "captain_sprite_config", "captain_photo_url"];
 
 const withoutCaptainTableVisualColumns = <T extends Record<string, unknown>>(payload: T) => {
   const next = { ...payload };
@@ -212,6 +212,7 @@ export const createCaptainsGame = async ({
     table_number: number;
     table_name?: string;
     captain_name?: string | null;
+    captain_photo_url?: string | null;
     captain_sprite?: CaptainsSpriteStyle | null;
     captain_sprite_config?: CaptainsSpriteConfig | null;
   }>;
@@ -226,6 +227,7 @@ export const createCaptainsGame = async ({
       table_name: table.table_name?.trim() || `Mesa ${table.table_number}`,
       captain_name: table.captain_name?.trim() || null,
       active_captain_name: table.captain_name?.trim() || null,
+      captain_photo_url: table.captain_photo_url?.trim() || null,
       captain_sprite: table.captain_sprite ?? null,
       captain_sprite_config: table.captain_sprite_config ?? null,
     }));
@@ -286,6 +288,7 @@ export const updateCaptainsTables = async (
     table_number: number;
     table_name?: string;
     captain_name?: string | null;
+    captain_photo_url?: string | null;
     captain_sprite?: CaptainsSpriteStyle | null;
     captain_sprite_config?: CaptainsSpriteConfig | null;
   }>,
@@ -315,6 +318,7 @@ export const updateCaptainsTables = async (
     table_name: table.table_name?.trim() || `Mesa ${table.table_number}`,
     captain_name: table.captain_name?.trim() || null,
     active_captain_name: table.captain_name?.trim() || null,
+    captain_photo_url: table.captain_photo_url?.trim() || null,
     captain_sprite: table.captain_sprite ?? null,
     captain_sprite_config: table.captain_sprite_config ?? null,
   }));

@@ -70,6 +70,7 @@ const DEFAULT_PRIMARY_COLOR = "#f06a5f";
 const DEFAULT_SECONDARY_COLOR = "#2f292d";
 const isHexColor = (value: string) => /^#[0-9a-fA-F]{6}$/.test(value);
 const colorValue = (value: string, fallback: string) => (isHexColor(value) ? value : fallback);
+const sanitizeCaptainPhotoName = (value: string) => value.toLowerCase().replace(/[^a-z0-9.-]+/g, "-").replace(/^-+|-+$/g, "") || "captain-photo";
 
 const hairColorOptions = [
   { value: "blonde", label: "Rubio", color: "#e8c85b" },
@@ -177,6 +178,37 @@ const CaptainSpritePreview = ({ value, config, size = "md" }: { value?: Captains
   );
 };
 
+const CaptainPhotoPreview = ({
+  table,
+  size = "md",
+}: {
+  table: Pick<CaptainsTable, "table_number" | "table_name" | "captain_name" | "active_captain_name" | "captain_photo_url"> | {
+    table_number: number;
+    table_name: string;
+    captain_name?: string | null;
+    active_captain_name?: string | null;
+    captain_photo_url?: string | null;
+  };
+  size?: "sm" | "md";
+}) => {
+  const scale = size === "sm" ? "h-12 w-12" : "h-16 w-16";
+  const name = table.captain_name || table.active_captain_name || table.table_name;
+  const initials = name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("") || String(table.table_number || "?");
+
+  return table.captain_photo_url ? (
+    <img src={table.captain_photo_url} alt="" className={`${scale} shrink-0 rounded-full border border-border object-cover`} />
+  ) : (
+    <div className={`${scale} flex shrink-0 items-center justify-center rounded-full border border-dashed border-border bg-muted text-sm font-semibold text-muted-foreground`}>
+      {initials}
+    </div>
+  );
+};
+
 const EMPTY_CHALLENGE: CaptainsChallengeInput = {
   title: "",
   description: "",
@@ -188,6 +220,15 @@ const EMPTY_CHALLENGE: CaptainsChallengeInput = {
   time_limit_seconds: null,
   question_options: ["", "", "", ""],
   question_correct_option: "",
+};
+
+type CaptainPhotoCropState = {
+  index: number;
+  file: File;
+  previewUrl: string;
+  zoom: number;
+  offsetX: number;
+  offsetY: number;
 };
 
 const statusLabels: Record<string, string> = {
@@ -355,23 +396,78 @@ const formatDateTime = (value?: string | null) => {
   });
 };
 
-const toDateTimeInput = (value?: string | null) => {
-  if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  const hours = String(date.getHours()).padStart(2, "0");
-  const minutes = String(date.getMinutes()).padStart(2, "0");
-  return `${year}-${month}-${day}T${hours}:${minutes}`;
+const dateInputValue = (date: Date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+
+const timeInputValue = (date: Date) =>
+  `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+
+const splitDateTimeInput = (value?: string | null) => {
+  const fallback = new Date();
+  const date = value ? new Date(value) : fallback;
+  const valid = Number.isNaN(date.getTime()) ? fallback : date;
+  return { date: dateInputValue(valid), time: timeInputValue(valid) };
 };
 
-const dateTimeInputToIso = (value: string) => {
-  if (!value) return null;
-  const date = new Date(value);
+const getDefaultCaptainsDateRange = () => {
+  const start = new Date();
+  const end = new Date(start);
+  end.setDate(end.getDate() + 1);
+  return {
+    startDate: dateInputValue(start),
+    startTime: timeInputValue(start),
+    endDate: dateInputValue(end),
+    endTime: timeInputValue(end),
+  };
+};
+
+const dateTimePartsToIso = (dateValue: string, timeValue: string) => {
+  if (!dateValue || !timeValue) return null;
+  const date = new Date(`${dateValue}T${timeValue}`);
   if (Number.isNaN(date.getTime())) return null;
   return date.toISOString();
+};
+
+const loadImageElement = (url: string) =>
+  new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = reject;
+    image.src = url;
+  });
+
+const createCircularCaptainPhotoBlob = async (crop: CaptainPhotoCropState) => {
+  const image = await loadImageElement(crop.previewUrl);
+  const size = 720;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas not supported");
+
+  const baseScale = Math.max(size / image.width, size / image.height);
+  const scale = baseScale * crop.zoom;
+  const drawWidth = image.width * scale;
+  const drawHeight = image.height * scale;
+  const offsetX = (crop.offsetX / 100) * size;
+  const offsetY = (crop.offsetY / 100) * size;
+  const x = (size - drawWidth) / 2 + offsetX;
+  const y = (size - drawHeight) / 2 + offsetY;
+
+  ctx.clearRect(0, 0, size, size);
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+  ctx.clip();
+  ctx.drawImage(image, x, y, drawWidth, drawHeight);
+  ctx.restore();
+
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob);
+      else reject(new Error("Could not create image blob"));
+    }, "image/png");
+  });
 };
 
 const useRequireAdmin = () => {
@@ -642,12 +738,18 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
       table_number: number;
       table_name: string;
       captain_name: string;
+      captain_photo_url: string;
       captain_sprite: CaptainsSpriteStyle;
       captain_sprite_config: CaptainsSpriteConfig;
     }>
   >([]);
-  const [startTime, setStartTime] = useState("");
-  const [endTime, setEndTime] = useState("");
+  const [uploadingCaptainPhotoIndex, setUploadingCaptainPhotoIndex] = useState<number | null>(null);
+  const [captainPhotoCrop, setCaptainPhotoCrop] = useState<CaptainPhotoCropState | null>(null);
+  const defaultDateRange = useMemo(() => getDefaultCaptainsDateRange(), []);
+  const [startDate, setStartDate] = useState(defaultDateRange.startDate);
+  const [startHour, setStartHour] = useState(defaultDateRange.startTime);
+  const [endDate, setEndDate] = useState(defaultDateRange.endDate);
+  const [endHour, setEndHour] = useState(defaultDateRange.endTime);
   const [scoringMode, setScoringMode] = useState<"automatic" | "manual">("automatic");
   const [showLiveGalleryAfterCompletion, setShowLiveGalleryAfterCompletion] = useState(true);
   const [primaryColor, setPrimaryColor] = useState(DEFAULT_PRIMARY_COLOR);
@@ -668,12 +770,17 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
         table_number: table.table_number,
         table_name: table.table_name,
         captain_name: table.captain_name || "",
+        captain_photo_url: table.captain_photo_url || "",
         captain_sprite: table.captain_sprite || getDefaultCaptainSprite(table.table_number - 1),
         captain_sprite_config: normalizeCaptainSpriteConfig(table.captain_sprite_config, table.table_number - 1),
       })),
     );
-    setStartTime(toDateTimeInput(detail.event.start_time));
-    setEndTime(toDateTimeInput(detail.event.end_time));
+    const startParts = splitDateTimeInput(detail.event.start_time);
+    const endParts = splitDateTimeInput(detail.event.end_time);
+    setStartDate(startParts.date);
+    setStartHour(startParts.time);
+    setEndDate(endParts.date);
+    setEndHour(endParts.time);
     setScoringMode(detail.event.scoring_mode);
     setShowLiveGalleryAfterCompletion(detail.event.show_live_gallery_after_completion ?? true);
     setPrimaryColor(detail.event.primary_color || DEFAULT_PRIMARY_COLOR);
@@ -710,6 +817,7 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
             table_number: index + 1,
             table_name: `Mesa ${index + 1}`,
             captain_name: "",
+            captain_photo_url: "",
             captain_sprite: getDefaultCaptainSprite(index),
             captain_sprite_config: defaultCaptainSpriteConfig(index),
           }
@@ -718,6 +826,7 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
         ...table,
         table_number: index + 1,
         table_name: table.table_name || `Mesa ${index + 1}`,
+        captain_photo_url: table.captain_photo_url || "",
         captain_sprite: table.captain_sprite || getDefaultCaptainSprite(index),
         captain_sprite_config: normalizeCaptainSpriteConfig(table.captain_sprite_config, index),
       })),
@@ -727,12 +836,12 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
   const validateStepOne = () => {
     if (!name.trim()) return "El nombre del evento es obligatorio.";
     if (tableCount <= 0 || captains.length === 0) return "Añade al menos una mesa para crear el juego.";
-    if (!startTime) return "Elige el día y la hora de inicio.";
-    if (!endTime) return "Elige el día y la hora de fin.";
-    const startDate = new Date(startTime);
-    const endDate = new Date(endTime);
-    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) return "Revisa el día y la hora de inicio y fin.";
-    if (endDate <= startDate) return "La fecha de fin debe ser posterior a la fecha de inicio.";
+    if (!startDate || !startHour) return "Elige el día y la hora de inicio.";
+    if (!endDate || !endHour) return "Elige el día y la hora de fin.";
+    const startDateTime = new Date(`${startDate}T${startHour}`);
+    const endDateTime = new Date(`${endDate}T${endHour}`);
+    if (Number.isNaN(startDateTime.getTime()) || Number.isNaN(endDateTime.getTime())) return "Revisa el día y la hora de inicio y fin.";
+    if (endDateTime <= startDateTime) return "La fecha de fin debe ser posterior a la fecha de inicio.";
     return null;
   };
 
@@ -830,6 +939,46 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
     }
   };
 
+  const handleCaptainPhotoSelected = (index: number, file?: File | null) => {
+    if (!file) return;
+    const previewUrl = URL.createObjectURL(file);
+    setCaptainPhotoCrop({ index, file, previewUrl, zoom: 1, offsetX: 0, offsetY: 0 });
+  };
+
+  const closeCaptainPhotoCrop = () => {
+    if (captainPhotoCrop?.previewUrl) URL.revokeObjectURL(captainPhotoCrop.previewUrl);
+    setCaptainPhotoCrop(null);
+  };
+
+  const handleCaptainPhotoUpload = async () => {
+    if (!captainPhotoCrop) return;
+    try {
+      setUploadingCaptainPhotoIndex(captainPhotoCrop.index);
+      const blob = await createCircularCaptainPhotoBlob(captainPhotoCrop);
+      const cleanName = sanitizeCaptainPhotoName(captainPhotoCrop.file.name.replace(/\.[^.]+$/, ""));
+      const filePath = `captains/captain-photos/${eventId || "new"}/${Date.now()}-${captainPhotoCrop.index + 1}-${cleanName}.png`;
+      const { error } = await supabase.storage.from("event-photos").upload(filePath, blob, {
+        cacheControl: "3600",
+        contentType: "image/png",
+        upsert: true,
+      });
+      if (error) throw error;
+      const { data } = supabase.storage.from("event-photos").getPublicUrl(filePath);
+      setCaptains((prev) =>
+        prev.map((item, itemIndex) =>
+          itemIndex === captainPhotoCrop.index ? { ...item, captain_photo_url: data.publicUrl } : item,
+        ),
+      );
+      closeCaptainPhotoCrop();
+      toast({ title: "Foto subida", description: "La foto del capitán se ha añadido a la mesa." });
+    } catch (error) {
+      console.error("Captain photo upload error:", error);
+      toast({ title: "Error", description: "No hemos podido subir la foto del capitán.", variant: "destructive" });
+    } finally {
+      setUploadingCaptainPhotoIndex(null);
+    }
+  };
+
   const handleSave = async () => {
     const stepOneError = validateStepOne();
     const challengeError = validateChallenges();
@@ -840,17 +989,19 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
 
     try {
       setIsSaving(true);
+      const startIso = dateTimePartsToIso(startDate, startHour);
+      const endIso = dateTimePartsToIso(endDate, endHour);
       const eventPayload = {
         name: name.trim(),
         description: description.trim(),
-        start_time: dateTimeInputToIso(startTime),
-        end_time: dateTimeInputToIso(endTime),
+        start_time: startIso,
+        end_time: endIso,
         scoring_mode: scoringMode,
         show_live_gallery_after_completion: showLiveGalleryAfterCompletion,
         primary_color: primaryColor,
         secondary_color: secondaryColor,
         background_image_url: backgroundImageUrl.trim() || null,
-        status: new Date(startTime).getTime() > Date.now() ? "scheduled" as const : "active" as const,
+        status: startIso && new Date(startIso).getTime() > Date.now() ? "scheduled" as const : "active" as const,
       };
 
       if (edit && eventId) {
@@ -889,6 +1040,7 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
   }
 
   return (
+    <>
     <AdminFrame title={edit ? "Editar juego de Capitanes" : "Nuevo juego de Capitanes"} subtitle={`Paso ${step} de 2`}>
       {step === 1 ? (
         <Card className="space-y-5 p-5">
@@ -940,17 +1092,38 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
             </div>
             <label className="space-y-1">
               <span className="text-sm font-medium">Número de mesas</span>
-              <Input type="number" min={1} value={tableCount || ""} onChange={(event) => syncTableCount(Number(event.target.value))} />
+              <Input
+                type="number"
+                min={1}
+                inputMode="numeric"
+                value={tableCount || ""}
+                onChange={(event) => syncTableCount(Number(event.target.value))}
+                className="w-24 text-center"
+              />
             </label>
-            <label className="space-y-1">
-              <span className="text-sm font-medium">Día y hora de inicio</span>
-              <Input type="datetime-local" value={startTime} onChange={(event) => setStartTime(event.target.value)} />
-            </label>
-            <label className="space-y-1">
-              <span className="text-sm font-medium">Día y hora de fin</span>
-              <Input type="datetime-local" value={endTime} onChange={(event) => setEndTime(event.target.value)} />
-              <p className="text-xs text-muted-foreground">Al llegar esta hora, se podrá ver el resumen con los equipos que hayan participado.</p>
-            </label>
+            <div className="grid gap-3 md:col-span-2 md:grid-cols-2">
+              <div className="grid gap-2 sm:grid-cols-[1fr_120px]">
+                <label className="space-y-1">
+                  <span className="text-sm font-medium">Fecha de inicio</span>
+                  <Input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
+                </label>
+                <label className="space-y-1">
+                  <span className="text-sm font-medium">Hora</span>
+                  <Input type="time" value={startHour} onChange={(event) => setStartHour(event.target.value)} />
+                </label>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-[1fr_120px]">
+                <label className="space-y-1">
+                  <span className="text-sm font-medium">Fecha de fin</span>
+                  <Input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} />
+                </label>
+                <label className="space-y-1">
+                  <span className="text-sm font-medium">Hora</span>
+                  <Input type="time" value={endHour} onChange={(event) => setEndHour(event.target.value)} />
+                </label>
+              </div>
+              <p className="text-xs text-muted-foreground md:col-span-2">Al llegar esta hora, se podrá ver el resumen con los equipos que hayan participado.</p>
+            </div>
             <label className="space-y-1">
               <span className="text-sm font-medium">Modo de puntuación</span>
               <select
@@ -994,8 +1167,11 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
                 };
                 return (
                   <div key={index} className="space-y-3 rounded-md border border-border bg-background p-3">
-                    <div className="flex items-center gap-3">
-                      <CaptainSpritePreview value={table.captain_sprite} config={table.captain_sprite_config} />
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-3">
+                        <CaptainPhotoPreview table={table} />
+                        <CaptainSpritePreview value={table.captain_sprite} config={table.captain_sprite_config} />
+                      </div>
                       <div>
                         <p className="text-sm font-semibold">Mesa {index + 1}</p>
                         <p className="text-xs text-muted-foreground">Jefe/a de mesa pixel art</p>
@@ -1015,12 +1191,65 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
                         placeholder="Opcional"
                       />
                     </label>
+                    <div className="space-y-2 rounded-md border border-border bg-muted/20 p-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-xs font-medium text-muted-foreground">Foto del capitán/a</span>
+                        <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-xs font-medium hover:bg-muted">
+                          {uploadingCaptainPhotoIndex === index ? (
+                            <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Upload className="h-3.5 w-3.5" />
+                          )}
+                          {uploadingCaptainPhotoIndex === index ? "Subiendo..." : "Subir foto"}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(event) => {
+                              handleCaptainPhotoSelected(index, event.target.files?.[0]);
+                              event.currentTarget.value = "";
+                            }}
+                          />
+                        </label>
+                      </div>
+                      {table.captain_photo_url ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 gap-2"
+                          onClick={() =>
+                            setCaptains((prev) =>
+                              prev.map((item, itemIndex) =>
+                                itemIndex === index ? { ...item, captain_photo_url: "" } : item,
+                              ),
+                            )
+                          }
+                        >
+                          <X className="h-3.5 w-3.5" />
+                          Quitar foto
+                        </Button>
+                      ) : (
+                        <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <ImageIcon className="h-3.5 w-3.5" />
+                          Solo se verá en la selección de mesa.
+                        </p>
+                      )}
+                    </div>
                     <div className="grid grid-cols-2 gap-2">
                       <label className="space-y-1">
                         <span className="text-xs font-medium text-muted-foreground">Sexo</span>
-                        <select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={table.captain_sprite_config.sex} onChange={(event) => updateSpriteConfig({ sex: event.target.value as CaptainsSpriteConfig["sex"] })}>
-                          <option value="female">Mujer</option>
+                        <select
+                          className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                          value={table.captain_sprite_config.sex}
+                          onChange={(event) => {
+                            const sex = event.target.value as CaptainsSpriteConfig["sex"];
+                            updateSpriteConfig({ sex, outfit_type: sex === "female" ? "dress" : "suit" });
+                          }}
+                        >
                           <option value="male">Hombre</option>
+                          <option value="female">Mujer</option>
+                          <option value="unspecified">Prefiero no decirlo</option>
                         </select>
                       </label>
                       <label className="space-y-1">
@@ -1055,15 +1284,33 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
                       </label>
                       <label className="space-y-1">
                         <span className="text-xs font-medium text-muted-foreground">Color vestido</span>
-                        <Input type="color" value={colorValue(table.captain_sprite_config.dress_color, "#202235")} onChange={(event) => updateSpriteConfig({ dress_color: event.target.value })} className="h-10" />
+                        <Input
+                          type="color"
+                          value={colorValue(table.captain_sprite_config.dress_color, "#202235")}
+                          onChange={(event) => updateSpriteConfig({ dress_color: event.target.value })}
+                          className="h-10"
+                          disabled={table.captain_sprite_config.outfit_type !== "dress"}
+                        />
                       </label>
                       <label className="space-y-1">
                         <span className="text-xs font-medium text-muted-foreground">Color traje</span>
-                        <Input type="color" value={colorValue(table.captain_sprite_config.suit_color, "#1f2937")} onChange={(event) => updateSpriteConfig({ suit_color: event.target.value })} className="h-10" />
+                        <Input
+                          type="color"
+                          value={colorValue(table.captain_sprite_config.suit_color, "#1f2937")}
+                          onChange={(event) => updateSpriteConfig({ suit_color: event.target.value })}
+                          className="h-10"
+                          disabled={table.captain_sprite_config.outfit_type !== "suit"}
+                        />
                       </label>
                       <label className="space-y-1">
                         <span className="text-xs font-medium text-muted-foreground">Color corbata</span>
-                        <Input type="color" value={colorValue(table.captain_sprite_config.tie_color, "#f06a5f")} onChange={(event) => updateSpriteConfig({ tie_color: event.target.value })} className="h-10" />
+                        <Input
+                          type="color"
+                          value={colorValue(table.captain_sprite_config.tie_color, "#f06a5f")}
+                          onChange={(event) => updateSpriteConfig({ tie_color: event.target.value })}
+                          className="h-10"
+                          disabled={table.captain_sprite_config.outfit_type !== "suit"}
+                        />
                       </label>
                     </div>
                   </div>
@@ -1185,6 +1432,71 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
         </div>
       )}
     </AdminFrame>
+    <Dialog open={Boolean(captainPhotoCrop)} onOpenChange={(open) => { if (!open) closeCaptainPhotoCrop(); }}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Ajustar foto del capitán</DialogTitle>
+          <DialogDescription>Encaja la imagen dentro del marco circular antes de guardarla.</DialogDescription>
+        </DialogHeader>
+        {captainPhotoCrop ? (
+          <div className="space-y-5">
+            <div className="mx-auto flex h-72 w-72 items-center justify-center overflow-hidden rounded-full border-4 border-foreground bg-muted">
+              <img
+                src={captainPhotoCrop.previewUrl}
+                alt=""
+                className="h-full w-full object-cover"
+                style={{
+                  transform: `translate(${captainPhotoCrop.offsetX}%, ${captainPhotoCrop.offsetY}%) scale(${captainPhotoCrop.zoom})`,
+                  transformOrigin: "center",
+                }}
+              />
+            </div>
+            <div className="grid gap-3">
+              <label className="space-y-1">
+                <span className="text-sm font-medium">Zoom</span>
+                <Input
+                  type="range"
+                  min="1"
+                  max="2.6"
+                  step="0.05"
+                  value={captainPhotoCrop.zoom}
+                  onChange={(event) => setCaptainPhotoCrop((prev) => prev ? { ...prev, zoom: Number(event.target.value) } : prev)}
+                />
+              </label>
+              <label className="space-y-1">
+                <span className="text-sm font-medium">Mover horizontal</span>
+                <Input
+                  type="range"
+                  min="-35"
+                  max="35"
+                  step="1"
+                  value={captainPhotoCrop.offsetX}
+                  onChange={(event) => setCaptainPhotoCrop((prev) => prev ? { ...prev, offsetX: Number(event.target.value) } : prev)}
+                />
+              </label>
+              <label className="space-y-1">
+                <span className="text-sm font-medium">Mover vertical</span>
+                <Input
+                  type="range"
+                  min="-35"
+                  max="35"
+                  step="1"
+                  value={captainPhotoCrop.offsetY}
+                  onChange={(event) => setCaptainPhotoCrop((prev) => prev ? { ...prev, offsetY: Number(event.target.value) } : prev)}
+                />
+              </label>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={closeCaptainPhotoCrop}>Cancelar</Button>
+              <Button onClick={handleCaptainPhotoUpload} disabled={uploadingCaptainPhotoIndex === captainPhotoCrop.index}>
+                {uploadingCaptainPhotoIndex === captainPhotoCrop.index ? "Subiendo..." : "Guardar encuadre"}
+              </Button>
+            </div>
+          </div>
+        ) : null}
+      </DialogContent>
+    </Dialog>
+    </>
   );
 };
 
@@ -1626,6 +1938,7 @@ const RankingCard = ({
                 <td className="py-3 pr-4">{table.table_name}</td>
                 <td className="py-3 pr-4">
                   <div className="flex items-center gap-2">
+                    <CaptainPhotoPreview table={table} size="sm" />
                     <CaptainSpritePreview value={table.captain_sprite} config={table.captain_sprite_config} size="sm" />
                     {table.captain_sprite_config?.outfit_type === "dress" ? "Vestido" : "Traje"}
                   </div>
@@ -1693,6 +2006,7 @@ const ProgressCard = ({
                   <td className="py-3 pr-4">{table.table_name}</td>
                   <td className="py-3 pr-4">
                     <div className="flex items-center gap-2">
+                      <CaptainPhotoPreview table={table} size="sm" />
                       <CaptainSpritePreview value={table.captain_sprite} config={table.captain_sprite_config} size="sm" />
                       {table.captain_sprite_config?.outfit_type === "dress" ? "Vestido" : "Traje"}
                     </div>
