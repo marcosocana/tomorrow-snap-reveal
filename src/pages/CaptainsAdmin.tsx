@@ -10,6 +10,7 @@ import {
   Eye,
   Flag,
   Gamepad2,
+  LogOut,
   Pencil,
   Plus,
   RefreshCw,
@@ -19,6 +20,7 @@ import {
   X,
   Camera,
   Upload,
+  User,
   Image as ImageIcon,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -27,6 +29,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -230,6 +233,7 @@ type CaptainPhotoCropState = {
   offsetX: number;
   offsetY: number;
 };
+type CaptainsDetailTab = "general" | "tables" | "challenges" | "content";
 
 const statusLabels: Record<string, string> = {
   draft: "Borrador",
@@ -480,39 +484,177 @@ const useRequireAdmin = () => {
   }, [navigate]);
 };
 
-const AdminFrame = ({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) => {
+const AdminFrame = ({
+  title,
+  subtitle,
+  actions,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  actions?: React.ReactNode;
+  children: React.ReactNode;
+}) => {
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
+  const [marketingOptIn, setMarketingOptIn] = useState(true);
+  const [marketingSaving, setMarketingSaving] = useState(false);
+
+  useEffect(() => {
+    const loadUserEmail = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUserId(user?.id ?? null);
+      setCurrentUserEmail(user?.email ?? null);
+      if (!user?.id) return;
+      const { data: profile } = await supabase
+        .from("user_profiles")
+        .select("marketing_opt_in")
+        .eq("id", user.id)
+        .maybeSingle();
+      setMarketingOptIn(profile?.marketing_opt_in ?? true);
+    };
+    loadUserEmail();
+  }, []);
+
+  const handleMarketingToggle = async (checked: boolean) => {
+    if (!currentUserId) return;
+    try {
+      setMarketingSaving(true);
+      const { error } = await supabase
+        .from("user_profiles")
+        .upsert({ id: currentUserId, marketing_opt_in: checked }, { onConflict: "id" });
+      if (error) throw error;
+      setMarketingOptIn(checked);
+      toast({ title: "Preferencias guardadas", description: "Se actualizó tu preferencia de comunicaciones comerciales." });
+    } catch (error) {
+      console.error("Error updating marketing preference:", error);
+      toast({ title: "Error", description: "No se pudo actualizar la preferencia.", variant: "destructive" });
+    } finally {
+      setMarketingSaving(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.error("Error signing out:", error);
+    } finally {
+      localStorage.removeItem("isDemoMode");
+      localStorage.removeItem("adminEventId");
+      navigate("/admin-login", { replace: true });
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    const confirmed = window.confirm("¿Seguro que quieres eliminar tu cuenta? Esta acción no se puede deshacer.");
+    if (!confirmed) return;
+    try {
+      const { error } = await supabase.functions.invoke("delete-account", { method: "POST" });
+      if (error) throw error;
+      await supabase.auth.signOut();
+      localStorage.removeItem("isDemoMode");
+      localStorage.removeItem("adminEventId");
+      navigate("/admin-login", { replace: true });
+    } catch (error) {
+      console.error("Error deleting account:", error);
+      toast({ title: "Error", description: "No se pudo eliminar la cuenta.", variant: "destructive" });
+    }
+  };
 
   return (
-    <div className="admin-demo2-shell min-h-screen bg-background">
-      <div className="border-b bg-card">
-        <div className="mx-auto max-w-7xl px-4 py-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
+    <div className="admin-demo2-shell min-h-screen bg-background p-4 md:p-6" data-scroll-container>
+      <div className="mx-auto max-w-6xl space-y-4 md:space-y-6">
+        <div className="flex flex-col gap-4">
+          <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <Gamepad2 className="h-5 w-5 text-primary" />
-                <h1 className="text-2xl font-bold text-foreground">{title}</h1>
+                <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border bg-card text-sm font-bold text-foreground">
+                  C
+                </span>
+                <h1 className="truncate text-2xl font-bold text-foreground sm:text-3xl" data-scroll-anchor>{title}</h1>
               </div>
               {subtitle ? <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p> : null}
             </div>
-            <div className="flex flex-wrap gap-2">
-              <Button variant="outline" onClick={() => navigate("/event-management")}>
-                Eventos Revelao
+            <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+              {actions}
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => navigate("/event-management")}
+                aria-label="Eventos Revelao"
+                title="Eventos Revelao"
+                className="rounded-full font-bold"
+              >
+                <span className="text-sm leading-none">R</span>
               </Button>
-              <Button variant="outline" onClick={() => navigate("/admin/capitanes")}>
-                Capitanes
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setAccountOpen(true)}
+                aria-label="Cuenta"
+                className="rounded-full"
+              >
+                <User className="h-4 w-4" />
               </Button>
             </div>
           </div>
         </div>
+        <main className="space-y-6">{children}</main>
       </div>
-      <main className="mx-auto max-w-7xl space-y-6 px-4 py-6">{children}</main>
+      <Dialog open={accountOpen} onOpenChange={setAccountOpen}>
+        <DialogContent className="admin-demo2-shell max-w-sm w-[92vw] sm:w-full">
+          <DialogHeader>
+            <DialogTitle>Cuenta</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm">
+              {currentUserEmail || "-"}
+            </div>
+            <label className="flex items-start gap-3 rounded-md border border-border bg-muted/30 px-3 py-2 text-sm">
+              <input
+                type="checkbox"
+                className="mt-1 h-4 w-4 rounded border-border"
+                checked={marketingOptIn}
+                disabled={marketingSaving}
+                onChange={(event) => handleMarketingToggle(event.target.checked)}
+              />
+              <span>
+                Comunicaciones comerciales por email
+                <span className="block text-xs text-muted-foreground">
+                  Puedes activarlas o desactivarlas cuando quieras.
+                </span>
+              </span>
+            </label>
+            <Button
+              className="w-full"
+              variant="outline"
+              onClick={() => {
+                setAccountOpen(false);
+                navigate("/reset-password");
+              }}
+            >
+              Reset contraseña
+            </Button>
+            <Button className="w-full" variant="outline" onClick={handleLogout}>
+              <LogOut className="w-4 h-4 mr-2" />
+              Cerrar sesión
+            </Button>
+            <Button className="w-full" variant="destructive" onClick={handleDeleteAccount}>
+              Eliminar cuenta
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
 
 const EmptyState = ({ text }: { text: string }) => (
-  <Card className="p-10 text-center">
+  <Card className="rounded-2xl p-10 text-center shadow-sm">
     <Gamepad2 className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
     <p className="text-sm text-muted-foreground">{text}</p>
   </Card>
@@ -524,16 +666,23 @@ export const CaptainsAdminList = () => {
   const { data: events = [], isLoading, isError } = useCaptainsEvents();
 
   return (
-    <AdminFrame title="Capitanes by Revelao" subtitle="Gestiona juegos de retos por mesas.">
-      <div className="flex items-center justify-between gap-3">
-        <div />
+    <AdminFrame
+      title="Capitanes by Revelao"
+      subtitle="Gestiona juegos de retos por mesas."
+      actions={
         <Button className="gap-2" onClick={() => navigate("/admin/capitanes/new")}>
           <Plus className="h-4 w-4" />
           Nuevo Capitán
         </Button>
+      }
+    >
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm text-muted-foreground">{events.length} juegos de Capitanes</p>
+        </div>
       </div>
 
-      <Card className="p-4">
+      <Card className="rounded-2xl p-4 shadow-sm">
         {isLoading ? (
           <p className="p-8 text-center text-sm text-muted-foreground">Cargando juegos...</p>
         ) : isError ? (
@@ -542,9 +691,9 @@ export const CaptainsAdminList = () => {
           <EmptyState text="Todavía no has creado ningún juego de Capitanes." />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px] text-sm">
+            <table className="min-w-[980px] w-full text-sm">
               <thead>
-                <tr className="border-b text-left text-muted-foreground">
+                <tr className="text-left text-muted-foreground border-b">
                   <th className="py-3 pr-4 font-medium">Evento</th>
                   <th className="py-3 pr-4 font-medium">Estado</th>
                   <th className="py-3 pr-4 font-medium">Creación</th>
@@ -560,7 +709,7 @@ export const CaptainsAdminList = () => {
                   <tr key={event.id} className="border-b last:border-b-0">
                     <td className="py-3 pr-4 font-medium">{event.name}</td>
                     <td className="py-3 pr-4">
-                      <Badge variant={event.status === "active" ? "default" : "outline"}>{statusLabels[event.status]}</Badge>
+                      <Badge className="rounded-full" variant={event.status === "active" ? "default" : "outline"}>{statusLabels[event.status]}</Badge>
                     </td>
                     <td className="py-3 pr-4">{formatDateTime(event.created_at)}</td>
                     <td className="py-3 pr-4">{event.table_count}</td>
@@ -595,7 +744,7 @@ const ChallengeEditor = ({
   onChange: (challenge: CaptainsChallengeInput) => void;
   onDelete: () => void;
 }) => (
-  <Card className="p-4">
+  <Card className="rounded-2xl p-4 shadow-sm">
     <div className="mb-3 flex items-center justify-between gap-3">
       <p className="text-sm font-semibold">Reto {index + 1}</p>
       <Button variant="ghost" size="icon" onClick={onDelete} aria-label="Eliminar reto">
@@ -1034,7 +1183,7 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
   if (edit && isLoading) {
     return (
       <AdminFrame title="Editar Capitanes">
-        <Card className="p-8 text-center text-sm text-muted-foreground">Cargando juego...</Card>
+        <Card className="rounded-2xl p-8 text-center text-sm text-muted-foreground shadow-sm">Cargando juego...</Card>
       </AdminFrame>
     );
   }
@@ -1043,7 +1192,7 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
     <>
     <AdminFrame title={edit ? "Editar juego de Capitanes" : "Nuevo juego de Capitanes"} subtitle={`Paso ${step} de 2`}>
       {step === 1 ? (
-        <Card className="space-y-5 p-5">
+        <Card className="space-y-5 rounded-2xl p-5 shadow-sm">
           <div className="grid gap-4 md:grid-cols-2">
             <label className="space-y-1 md:col-span-2">
               <span className="text-sm font-medium">Nombre del evento</span>
@@ -1053,7 +1202,7 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
               <span className="text-sm font-medium">Descripción inicial</span>
               <Textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={6} />
             </label>
-            <div className="grid gap-4 rounded-md border border-border p-4 md:col-span-2 md:grid-cols-2">
+            <div className="grid gap-4 rounded-2xl border border-border bg-muted/20 p-4 md:col-span-2 md:grid-cols-2">
               <div className="space-y-1 md:col-span-2">
                 <span className="text-sm font-medium">Estilo visual del juego mobile</span>
                 <p className="text-xs text-muted-foreground">
@@ -1074,7 +1223,7 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
                   <Input value={secondaryColor} onChange={(event) => setSecondaryColor(event.target.value)} placeholder={DEFAULT_SECONDARY_COLOR} />
                 </div>
               </label>
-              <div className="rounded-md border-2 border-black bg-white p-4 md:col-span-2">
+              <div className="rounded-2xl border border-border bg-card p-4 shadow-sm md:col-span-2">
                 <div className="flex items-center justify-between gap-4">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-normal text-muted-foreground">Vista previa</p>
@@ -1166,7 +1315,7 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
                   );
                 };
                 return (
-                  <div key={index} className="space-y-3 rounded-md border border-border bg-background p-3">
+                  <div key={index} className="space-y-3 rounded-2xl border border-border bg-card p-3 shadow-sm">
                     <div className="flex items-center gap-4">
                       <div className="flex items-center gap-3">
                         <CaptainPhotoPreview table={table} />
@@ -1191,7 +1340,7 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
                         placeholder="Opcional"
                       />
                     </label>
-                    <div className="space-y-2 rounded-md border border-border bg-muted/20 p-3">
+                    <div className="space-y-2 rounded-xl border border-border bg-muted/20 p-3">
                       <div className="flex items-center justify-between gap-3">
                         <span className="text-xs font-medium text-muted-foreground">Foto del capitán/a</span>
                         <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-xs font-medium hover:bg-muted">
@@ -1326,7 +1475,7 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
       ) : (
         <div className="relative -mx-4 h-[calc(100vh-150px)] min-h-[560px] overflow-hidden px-4 pb-24">
           <div className="grid h-full grid-rows-[minmax(0,1fr)_minmax(0,1fr)] gap-5 lg:grid-cols-[340px_1fr] lg:grid-rows-none">
-            <Card className="flex min-h-0 flex-col space-y-4 overflow-hidden p-4">
+            <Card className="flex min-h-0 flex-col space-y-4 overflow-hidden rounded-2xl p-4 shadow-sm">
             <div>
               <h2 className="font-semibold">Catálogo de retos</h2>
               <p className="text-sm text-muted-foreground">Selecciona cuántos y cuáles quieres incluir en este evento.</p>
@@ -1620,6 +1769,13 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
     refetchInterval: 5000,
   });
   const [selectedEvidence, setSelectedEvidence] = useState<CaptainsEvidence | null>(null);
+  const [activeDetailTab, setActiveDetailTab] = useState<CaptainsDetailTab>(
+    view === "ranking" ? "tables" : view === "review" ? "content" : "general",
+  );
+
+  useEffect(() => {
+    setActiveDetailTab(view === "ranking" ? "tables" : view === "review" ? "content" : "general");
+  }, [view]);
 
   const challengesById = useMemo(() => {
     const map = new Map<string, CaptainsEventChallenge>();
@@ -1696,7 +1852,7 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
   if (isLoading) {
     return (
       <AdminFrame title="Capitanes">
-        <Card className="p-8 text-center text-sm text-muted-foreground">Cargando juego...</Card>
+        <Card className="rounded-2xl p-8 text-center text-sm text-muted-foreground shadow-sm">Cargando juego...</Card>
       </AdminFrame>
     );
   }
@@ -1722,165 +1878,214 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
   return (
     <AdminFrame title={view === "review" ? "Revisión manual" : view === "ranking" ? "Ranking de Capitanes" : event.name}>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <Button variant="ghost" className="gap-2" onClick={() => navigate("/admin/capitanes")}>
+        <Button variant="outline" className="gap-2 rounded-full" onClick={() => navigate("/admin/capitanes")}>
           <ArrowLeft className="h-4 w-4" />
           Volver
         </Button>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" className="gap-2" onClick={refreshAll}>
+          <Button variant="outline" className="gap-2 rounded-full" onClick={refreshAll}>
             <RefreshCw className="h-4 w-4" />
             Actualizar
           </Button>
-          <Button variant="outline" className="gap-2" onClick={() => navigate(`/admin/capitanes/${event.id}/ranking`)}>
+          <Button variant="outline" className="gap-2 rounded-full" onClick={() => navigate(`/admin/capitanes/${event.id}/ranking`)}>
             <Trophy className="h-4 w-4" />
             Ranking
           </Button>
-          <Button variant="outline" className="gap-2" onClick={() => navigate(`/admin/capitanes/${event.id}/review`)}>
+          <Button variant="outline" className="gap-2 rounded-full" onClick={() => navigate(`/admin/capitanes/${event.id}/review`)}>
             <Flag className="h-4 w-4" />
             Revisión
           </Button>
         </div>
       </div>
 
-      {view !== "ranking" ? (
-        <Card className="p-5">
-          <div className="grid gap-5 lg:grid-cols-[1fr_220px]">
-            <div className="space-y-4">
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-2xl font-bold">{event.name}</h2>
-                <Badge variant={event.status === "active" ? "default" : "outline"}>{statusLabels[event.status]}</Badge>
-              </div>
-              <p className="whitespace-pre-line text-sm text-muted-foreground">{event.description}</p>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <Info label="Inicio" value={formatDateTime(event.start_time)} />
-                <Info label="Fin" value={formatDateTime(event.end_time)} />
-                <Info label="Puntuación" value={event.scoring_mode === "automatic" ? "Automática" : "Manual"} />
-                <Info label="Mesas" value={String(tables.length)} />
-                <Info label="Retos" value={String(challenges.length)} />
-                <Info label="Estilo" value="Pixel art brutalista" />
-                <Info label="Color CTA" value={event.primary_color || DEFAULT_PRIMARY_COLOR} />
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Button variant="outline" className="gap-2" onClick={() => handleCopy(publicUrl)}>
-                  <Copy className="h-4 w-4" />
-                  Copiar enlace
-                </Button>
-                <Button variant="outline" className="gap-2" onClick={handleDownloadQr}>
-                  <Download className="h-4 w-4" />
-                  Descargar QR
-                </Button>
-                <Button variant="outline" className="gap-2" onClick={() => navigate(`/admin/capitanes/${event.id}/edit`)}>
-                  <Pencil className="h-4 w-4" />
-                  Editar evento
-                </Button>
-                <Button variant="destructive" className="gap-2" onClick={handleFinish} disabled={event.status === "finished"}>
-                  <Flag className="h-4 w-4" />
-                  Finalizar evento
-                </Button>
-              </div>
-              <p className="break-all rounded-md bg-muted p-3 text-xs text-muted-foreground">{publicUrl}</p>
-            </div>
-            <div className="flex flex-col items-center justify-center rounded-md border border-border p-4">
-              <QRCodeSVG id="captains-admin-qr" value={qrValue} size={160} includeMargin />
-              <p className="mt-2 text-center text-xs text-muted-foreground">QR del evento</p>
-            </div>
-          </div>
-        </Card>
-      ) : null}
+      <Tabs value={activeDetailTab} onValueChange={(value) => setActiveDetailTab(value as CaptainsDetailTab)} className="space-y-6">
+        <TabsList className="grid h-auto w-full grid-cols-2 rounded-full bg-muted/50 p-1 sm:grid-cols-4">
+          <TabsTrigger value="general" className="rounded-full data-[state=active]:!bg-foreground data-[state=active]:!text-background data-[state=active]:shadow-sm">
+            General
+          </TabsTrigger>
+          <TabsTrigger value="tables" className="rounded-full data-[state=active]:!bg-foreground data-[state=active]:!text-background data-[state=active]:shadow-sm">
+            Mesas
+          </TabsTrigger>
+          <TabsTrigger value="challenges" className="rounded-full data-[state=active]:!bg-foreground data-[state=active]:!text-background data-[state=active]:shadow-sm">
+            Retos
+          </TabsTrigger>
+          <TabsTrigger value="content" className="rounded-full data-[state=active]:!bg-foreground data-[state=active]:!text-background data-[state=active]:shadow-sm">
+            Contenido
+          </TabsTrigger>
+        </TabsList>
 
-      {view === "detail" ? (
-        <Card className="p-5">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <ImageIcon className="h-5 w-5 text-primary" />
-                <h2 className="font-semibold">Galería live</h2>
-                <Badge variant={(event.show_live_gallery_after_completion ?? true) ? "default" : "outline"}>
-                  {(event.show_live_gallery_after_completion ?? true) ? "Activa" : "Desactivada"}
-                </Badge>
+        <TabsContent value="general" className="mt-0 space-y-6">
+          <Card className="rounded-2xl p-5 shadow-sm">
+            <div className="grid gap-5 lg:grid-cols-[1fr_220px]">
+              <div className="space-y-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-2xl font-bold">{event.name}</h2>
+                  <Badge variant={event.status === "active" ? "default" : "outline"}>{statusLabels[event.status]}</Badge>
+                </div>
+                <p className="whitespace-pre-line text-sm text-muted-foreground">{event.description}</p>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <Info label="Inicio" value={formatDateTime(event.start_time)} />
+                  <Info label="Fin" value={formatDateTime(event.end_time)} />
+                  <Info label="Puntuación" value={event.scoring_mode === "automatic" ? "Automática" : "Manual"} />
+                  <Info label="Mesas" value={String(tables.length)} />
+                  <Info label="Retos" value={String(challenges.length)} />
+                  <Info label="Estilo" value="Pixel art brutalista" />
+                  <Info label="Color CTA" value={event.primary_color || DEFAULT_PRIMARY_COLOR} />
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="outline" className="gap-2 rounded-full" onClick={() => handleCopy(publicUrl)}>
+                    <Copy className="h-4 w-4" />
+                    Copiar enlace
+                  </Button>
+                  <Button variant="outline" className="gap-2 rounded-full" onClick={handleDownloadQr}>
+                    <Download className="h-4 w-4" />
+                    Descargar QR
+                  </Button>
+                  <Button variant="outline" className="gap-2 rounded-full" onClick={() => navigate(`/admin/capitanes/${event.id}/edit`)}>
+                    <Pencil className="h-4 w-4" />
+                    Editar evento
+                  </Button>
+                  <Button variant="destructive" className="gap-2 rounded-full" onClick={handleFinish} disabled={event.status === "finished"}>
+                    <Flag className="h-4 w-4" />
+                    Finalizar evento
+                  </Button>
+                </div>
+                <p className="break-all rounded-xl border border-border bg-muted/50 p-3 text-xs text-muted-foreground">{publicUrl}</p>
               </div>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Las mesas podrán ver el contenido del resto de equipos cuando terminen todos los retos.
-              </p>
+              <div className="flex flex-col items-center justify-center rounded-2xl border border-border bg-muted/20 p-4">
+                <QRCodeSVG id="captains-admin-qr" value={qrValue} size={160} includeMargin />
+                <p className="mt-2 text-center text-xs text-muted-foreground">QR del evento</p>
+              </div>
             </div>
-            <Button variant={(event.show_live_gallery_after_completion ?? true) ? "outline" : "default"} onClick={handleToggleLiveGallery}>
-              {(event.show_live_gallery_after_completion ?? true) ? "Desactivar visibilidad" : "Activar visibilidad"}
-            </Button>
-          </div>
-          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-            <Info label="Visibles" value={String(liveVisibleEvidence.length)} />
-            <Info label="Fotos" value={String(photoCount)} />
-            <Info label="Vídeos" value={String(videoCount)} />
-            <Info label="Preguntas" value={String(questionCount)} />
-            <Info label="Última subida" value={lastLiveEvidence ? formatDateTime(lastLiveEvidence.created_at) : "-"} />
-          </div>
-        </Card>
-      ) : null}
+          </Card>
+        </TabsContent>
 
-      {view !== "review" ? (
-        <RankingCard ranking={ranking} tableChallengesByTable={tableChallengesByTable} totalChallenges={challenges.length} />
-      ) : null}
+        <TabsContent value="tables" className="mt-0 space-y-6">
+          <RankingCard ranking={ranking} tableChallengesByTable={tableChallengesByTable} totalChallenges={challenges.length} />
+          <ProgressCard
+            tables={tables}
+            challengesById={challengesById}
+            tableChallengesByTable={tableChallengesByTable}
+            evidenceByTableChallenge={evidenceByTableChallenge}
+            totalChallenges={challenges.length}
+          />
+        </TabsContent>
 
-      {view === "detail" ? (
-        <ProgressCard
-          tables={tables}
-          challengesById={challengesById}
-          tableChallengesByTable={tableChallengesByTable}
-          evidenceByTableChallenge={evidenceByTableChallenge}
-          totalChallenges={challenges.length}
-        />
-      ) : null}
-
-      {view !== "ranking" ? (
-        <Card className="p-5">
-          <div className="mb-4 flex items-center justify-between">
-            <div>
-              <h2 className="font-semibold">{view === "review" ? "Evidencias pendientes" : "Feed de evidencias"}</h2>
-              <p className="text-sm text-muted-foreground">
-                {view === "review" ? "Solo evidencias pendientes o revisables." : "Todas las evidencias subidas por las mesas."}
-              </p>
+        <TabsContent value="challenges" className="mt-0 space-y-6">
+          <Card className="rounded-2xl p-5 shadow-sm">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h2 className="font-semibold">Retos del juego</h2>
+                <p className="text-sm text-muted-foreground">Orden, tipo de evidencia, puntos y reglas de cada reto.</p>
+              </div>
+              <Button variant="outline" className="gap-2 rounded-full" onClick={() => navigate(`/admin/capitanes/${event.id}/edit`)}>
+                <Pencil className="h-4 w-4" />
+                Editar evento
+              </Button>
             </div>
-          </div>
-          {visibleEvidence.length === 0 ? (
-            <EmptyState text="Todavía no se ha subido ninguna evidencia." />
-          ) : (
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {visibleEvidence.map((item) => {
-                const table = tables.find((candidate) => candidate.id === item.table_id);
-                const tableChallenge = tableChallenges.find((candidate) => candidate.id === item.table_challenge_id);
-                const challenge = tableChallenge ? challengesById.get(tableChallenge.challenge_id) : undefined;
-                return (
-                  <Card key={item.id} className="space-y-3 p-3">
-                    <button type="button" className="block w-full text-left" onClick={() => setSelectedEvidence(item)}>
-                      <EvidencePreview evidence={item} />
-                    </button>
-                    <div className="space-y-1 text-sm">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="font-medium">{table?.table_name || "Mesa"}</p>
-                        <Badge variant={item.status === "approved" ? "default" : "outline"}>{statusLabels[item.status]}</Badge>
-                      </div>
-                      <p className="text-muted-foreground">{item.captain_name || table?.captain_name || "Sin capitán"}</p>
-                      <p>{challenge?.title || "Reto"}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {evidenceLabels[item.evidence_type]} · {formatDateTime(item.created_at)}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Tiempo: {item.elapsed_seconds ?? "-"}s · Puntos: {item.points_awarded}
-                      </p>
-                      {challenge ? (
-                        <p className="text-xs text-muted-foreground">
-                          Límite: {challenge.has_time_limit ? `${challenge.time_limit_seconds}s` : "sin tiempo"} · Máx: {challenge.points} pts
-                        </p>
-                      ) : null}
+            <div className="grid gap-3 md:grid-cols-2">
+              {challenges.map((challenge, index) => (
+                <div key={challenge.id} className="rounded-xl border border-border bg-card p-4 shadow-sm">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-medium uppercase text-muted-foreground">Reto {index + 1}</p>
+                      <h3 className="mt-1 font-semibold">{challenge.title}</h3>
                     </div>
-                    <EvidenceActions evidence={item} event={event} maxPoints={challenge?.points} onDone={refreshAll} />
-                  </Card>
-                );
-              })}
+                    <Badge variant="outline" className="rounded-full">{evidenceLabels[challenge.evidence_type]}</Badge>
+                  </div>
+                  <p className="mt-2 text-sm text-muted-foreground">{challenge.description}</p>
+                  <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                    <span className="rounded-full border border-border px-2 py-1">{challenge.points} pts</span>
+                    <span className="rounded-full border border-border px-2 py-1">{difficultyLabels[challenge.difficulty]}</span>
+                    <span className="rounded-full border border-border px-2 py-1">
+                      {challenge.has_time_limit ? `${challenge.time_limit_seconds}s` : "sin tiempo"}
+                    </span>
+                    <span className="rounded-full border border-border px-2 py-1">{challenge.category}</span>
+                  </div>
+                </div>
+              ))}
             </div>
-          )}
-        </Card>
-      ) : null}
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="content" className="mt-0 space-y-6">
+          <Card className="rounded-2xl p-5 shadow-sm">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <ImageIcon className="h-5 w-5 text-primary" />
+                  <h2 className="font-semibold">Galería live</h2>
+                  <Badge variant={(event.show_live_gallery_after_completion ?? true) ? "default" : "outline"}>
+                    {(event.show_live_gallery_after_completion ?? true) ? "Activa" : "Desactivada"}
+                  </Badge>
+                </div>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Las mesas podrán ver el contenido del resto de equipos cuando terminen todos los retos.
+                </p>
+              </div>
+              <Button className="rounded-full" variant={(event.show_live_gallery_after_completion ?? true) ? "outline" : "default"} onClick={handleToggleLiveGallery}>
+                {(event.show_live_gallery_after_completion ?? true) ? "Desactivar visibilidad" : "Activar visibilidad"}
+              </Button>
+            </div>
+            <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+              <Info label="Visibles" value={String(liveVisibleEvidence.length)} />
+              <Info label="Fotos" value={String(photoCount)} />
+              <Info label="Vídeos" value={String(videoCount)} />
+              <Info label="Preguntas" value={String(questionCount)} />
+              <Info label="Última subida" value={lastLiveEvidence ? formatDateTime(lastLiveEvidence.created_at) : "-"} />
+            </div>
+          </Card>
+
+          <Card className="rounded-2xl p-5 shadow-sm">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h2 className="font-semibold">{view === "review" ? "Evidencias pendientes" : "Feed de evidencias"}</h2>
+                <p className="text-sm text-muted-foreground">
+                  {view === "review" ? "Solo evidencias pendientes o revisables." : "Todas las evidencias subidas por las mesas."}
+                </p>
+              </div>
+            </div>
+            {visibleEvidence.length === 0 ? (
+              <EmptyState text="Todavía no se ha subido ninguna evidencia." />
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {visibleEvidence.map((item) => {
+                  const table = tables.find((candidate) => candidate.id === item.table_id);
+                  const tableChallenge = tableChallenges.find((candidate) => candidate.id === item.table_challenge_id);
+                  const challenge = tableChallenge ? challengesById.get(tableChallenge.challenge_id) : undefined;
+                  return (
+                    <Card key={item.id} className="space-y-3 rounded-2xl p-3 shadow-sm">
+                      <button type="button" className="block w-full text-left" onClick={() => setSelectedEvidence(item)}>
+                        <EvidencePreview evidence={item} />
+                      </button>
+                      <div className="space-y-1 text-sm">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="font-medium">{table?.table_name || "Mesa"}</p>
+                          <Badge variant={item.status === "approved" ? "default" : "outline"}>{statusLabels[item.status]}</Badge>
+                        </div>
+                        <p className="text-muted-foreground">{item.captain_name || table?.captain_name || "Sin capitán"}</p>
+                        <p>{challenge?.title || "Reto"}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {evidenceLabels[item.evidence_type]} · {formatDateTime(item.created_at)}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Tiempo: {item.elapsed_seconds ?? "-"}s · Puntos: {item.points_awarded}
+                        </p>
+                        {challenge ? (
+                          <p className="text-xs text-muted-foreground">
+                            Límite: {challenge.has_time_limit ? `${challenge.time_limit_seconds}s` : "sin tiempo"} · Máx: {challenge.points} pts
+                          </p>
+                        ) : null}
+                      </div>
+                      <EvidenceActions evidence={item} event={event} maxPoints={challenge?.points} onDone={refreshAll} />
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       <Dialog open={!!selectedEvidence} onOpenChange={(open) => !open && setSelectedEvidence(null)}>
         <DialogContent className="max-w-3xl">
@@ -1896,7 +2101,7 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
 };
 
 const Info = ({ label, value }: { label: string; value: string }) => (
-  <div className="rounded-md border border-border p-3">
+  <div className="rounded-xl border border-border bg-card p-3 shadow-sm">
     <p className="text-xs text-muted-foreground">{label}</p>
     <p className="mt-1 text-sm font-semibold">{value}</p>
   </div>
@@ -1911,21 +2116,21 @@ const RankingCard = ({
   tableChallengesByTable: Map<string, CaptainsTableChallenge[]>;
   totalChallenges: number;
 }) => (
-  <Card className="p-5">
+  <Card className="rounded-2xl p-5 shadow-sm">
     <h2 className="mb-4 font-semibold">Ranking en tiempo real</h2>
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[760px] text-sm">
+      <table className="w-full min-w-[760px] border-separate border-spacing-y-3 text-sm">
         <thead>
-          <tr className="border-b text-left text-muted-foreground">
-            <th className="py-3 pr-4 font-medium">Posición</th>
-            <th className="py-3 pr-4 font-medium">Mesa</th>
-            <th className="py-3 pr-4 font-medium">Estética</th>
-            <th className="py-3 pr-4 font-medium">Capitán</th>
-            <th className="py-3 pr-4 font-medium">Puntos</th>
-            <th className="py-3 pr-4 font-medium">Completados</th>
-            <th className="py-3 pr-4 font-medium">Fallidos</th>
-            <th className="py-3 pr-4 font-medium">Pendientes</th>
-            <th className="py-3 font-medium">Última actividad</th>
+          <tr className="text-left text-xs uppercase text-muted-foreground">
+            <th className="px-3 py-2 font-medium">Posición</th>
+            <th className="px-3 py-2 font-medium">Mesa</th>
+            <th className="px-3 py-2 font-medium">Estética</th>
+            <th className="px-3 py-2 font-medium">Capitán</th>
+            <th className="px-3 py-2 font-medium">Puntos</th>
+            <th className="px-3 py-2 font-medium">Completados</th>
+            <th className="px-3 py-2 font-medium">Fallidos</th>
+            <th className="px-3 py-2 font-medium">Pendientes</th>
+            <th className="px-3 py-2 font-medium">Última actividad</th>
           </tr>
         </thead>
         <tbody>
@@ -1933,22 +2138,22 @@ const RankingCard = ({
             const rows = tableChallengesByTable.get(table.id) || [];
             const pending = Math.max(0, totalChallenges - rows.filter((row) => row.status !== "pending").length);
             return (
-              <tr key={table.id} className="border-b last:border-b-0">
-                <td className="py-3 pr-4 font-semibold">#{table.rank || index + 1}</td>
-                <td className="py-3 pr-4">{table.table_name}</td>
-                <td className="py-3 pr-4">
+              <tr key={table.id} className="bg-card shadow-sm">
+                <td className="rounded-l-xl border-y border-l border-border px-3 py-4 font-semibold">#{table.rank || index + 1}</td>
+                <td className="border-y border-border px-3 py-4">{table.table_name}</td>
+                <td className="border-y border-border px-3 py-4">
                   <div className="flex items-center gap-2">
                     <CaptainPhotoPreview table={table} size="sm" />
                     <CaptainSpritePreview value={table.captain_sprite} config={table.captain_sprite_config} size="sm" />
                     {table.captain_sprite_config?.outfit_type === "dress" ? "Vestido" : "Traje"}
                   </div>
                 </td>
-                <td className="py-3 pr-4">{table.active_captain_name || table.captain_name || "-"}</td>
-                <td className="py-3 pr-4">{table.total_points}</td>
-                <td className="py-3 pr-4">{table.completed_challenges}</td>
-                <td className="py-3 pr-4">{table.failed_challenges}</td>
-                <td className="py-3 pr-4">{pending}</td>
-                <td className="py-3">{formatDateTime(table.last_activity_at)}</td>
+                <td className="border-y border-border px-3 py-4">{table.active_captain_name || table.captain_name || "-"}</td>
+                <td className="border-y border-border px-3 py-4">{table.total_points}</td>
+                <td className="border-y border-border px-3 py-4">{table.completed_challenges}</td>
+                <td className="border-y border-border px-3 py-4">{table.failed_challenges}</td>
+                <td className="border-y border-border px-3 py-4">{pending}</td>
+                <td className="rounded-r-xl border-y border-r border-border px-3 py-4">{formatDateTime(table.last_activity_at)}</td>
               </tr>
             );
           })}
@@ -1971,24 +2176,24 @@ const ProgressCard = ({
   evidenceByTableChallenge: Map<string, CaptainsEvidence>;
   totalChallenges: number;
 }) => (
-  <Card className="p-5">
+  <Card className="rounded-2xl p-5 shadow-sm">
     <h2 className="mb-4 font-semibold">Progreso por mesa</h2>
     {tables.length === 0 ? (
       <EmptyState text="Añade al menos una mesa para crear el juego." />
     ) : (
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[900px] text-sm">
+        <table className="w-full min-w-[900px] border-separate border-spacing-y-3 text-sm">
           <thead>
-            <tr className="border-b text-left text-muted-foreground">
-              <th className="py-3 pr-4 font-medium">Mesa</th>
-              <th className="py-3 pr-4 font-medium">Estética</th>
-              <th className="py-3 pr-4 font-medium">Capitán</th>
-              <th className="py-3 pr-4 font-medium">Reto actual</th>
-              <th className="py-3 pr-4 font-medium">Estado</th>
-              <th className="py-3 pr-4 font-medium">Tiempo restante</th>
-              <th className="py-3 pr-4 font-medium">Puntos</th>
-              <th className="py-3 pr-4 font-medium">Progreso</th>
-              <th className="py-3 font-medium">Última evidencia</th>
+            <tr className="text-left text-xs uppercase text-muted-foreground">
+              <th className="px-3 py-2 font-medium">Mesa</th>
+              <th className="px-3 py-2 font-medium">Estética</th>
+              <th className="px-3 py-2 font-medium">Capitán</th>
+              <th className="px-3 py-2 font-medium">Reto actual</th>
+              <th className="px-3 py-2 font-medium">Estado</th>
+              <th className="px-3 py-2 font-medium">Tiempo restante</th>
+              <th className="px-3 py-2 font-medium">Puntos</th>
+              <th className="px-3 py-2 font-medium">Progreso</th>
+              <th className="px-3 py-2 font-medium">Última evidencia</th>
             </tr>
           </thead>
           <tbody>
@@ -2002,24 +2207,24 @@ const ProgressCard = ({
               const evidence = current ? evidenceByTableChallenge.get(current.id) : undefined;
               const currentIndex = current ? rows.findIndex((row) => row.id === current.id) + 1 : 0;
               return (
-                <tr key={table.id} className="border-b last:border-b-0">
-                  <td className="py-3 pr-4">{table.table_name}</td>
-                  <td className="py-3 pr-4">
+                <tr key={table.id} className="bg-card shadow-sm">
+                  <td className="rounded-l-xl border-y border-l border-border px-3 py-4">{table.table_name}</td>
+                  <td className="border-y border-border px-3 py-4">
                     <div className="flex items-center gap-2">
                       <CaptainPhotoPreview table={table} size="sm" />
                       <CaptainSpritePreview value={table.captain_sprite} config={table.captain_sprite_config} size="sm" />
                       {table.captain_sprite_config?.outfit_type === "dress" ? "Vestido" : "Traje"}
                     </div>
                   </td>
-                  <td className="py-3 pr-4">{table.active_captain_name || table.captain_name || "-"}</td>
-                  <td className="py-3 pr-4">{challenge ? `${currentIndex}/${totalChallenges} · ${challenge.title}` : "-"}</td>
-                  <td className="py-3 pr-4">{current ? statusLabels[current.status] : "-"}</td>
-                  <td className="py-3 pr-4">{current?.remaining_seconds != null ? `${current.remaining_seconds}s` : "-"}</td>
-                  <td className="py-3 pr-4">{table.total_points}</td>
-                  <td className="py-3 pr-4">
+                  <td className="border-y border-border px-3 py-4">{table.active_captain_name || table.captain_name || "-"}</td>
+                  <td className="border-y border-border px-3 py-4">{challenge ? `${currentIndex}/${totalChallenges} · ${challenge.title}` : "-"}</td>
+                  <td className="border-y border-border px-3 py-4">{current ? statusLabels[current.status] : "-"}</td>
+                  <td className="border-y border-border px-3 py-4">{current?.remaining_seconds != null ? `${current.remaining_seconds}s` : "-"}</td>
+                  <td className="border-y border-border px-3 py-4">{table.total_points}</td>
+                  <td className="border-y border-border px-3 py-4">
                     {table.completed_challenges}/{totalChallenges}
                   </td>
-                  <td className="py-3">{evidence ? formatDateTime(evidence.created_at) : "-"}</td>
+                  <td className="rounded-r-xl border-y border-r border-border px-3 py-4">{evidence ? formatDateTime(evidence.created_at) : "-"}</td>
                 </tr>
               );
             })}
