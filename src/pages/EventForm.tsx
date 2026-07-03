@@ -103,6 +103,18 @@ const isNuevoEventoDemo2 = (raw: Json | null | undefined) => {
   return (raw as Record<string, Json | undefined>).created_from === "nuevoeventodemo2";
 };
 
+const REVELAO_WHATSAPP_FOLLOWUP_MESSAGE =
+  "Hola! Soy Marcos de Revelao (www.revelao.cam). Hemos visto que acabas de crear un Revelao para tu evento. Si necesitas ayuda, tienes cualquier duda o quieres que te creemos el evento, estoy disponibles por aquí para asegurarnos que todo sale bien! 🙂";
+
+const getOwnerWhatsappUrl = (phone: string | null) => {
+  if (!phone) return null;
+  const withoutInternationalPrefix = phone.trim().replace(/^00/, "");
+  const digits = withoutInternationalPrefix.replace(/\D/g, "");
+  if (!digits) return null;
+  const whatsappPhone = digits.length === 9 ? `34${digits}` : digits;
+  return `https://wa.me/${whatsappPhone}?text=${encodeURIComponent(REVELAO_WHATSAPP_FOLLOWUP_MESSAGE)}`;
+};
+
 type HeaderStyle = "gradient" | "modern";
 type PlanType = "demo" | "small" | "medium" | "xxl" | "custom";
 type EventFormStep = "general" | "space" | "dates" | "options";
@@ -167,6 +179,7 @@ const EventForm = () => {
   const [ownerEmail, setOwnerEmail] = useState<string | null>(null);
   const [ownerPhone, setOwnerPhone] = useState<string | null>(null);
   const [eventNumber, setEventNumber] = useState<number | null>(null);
+  const [eventCreatedAt, setEventCreatedAt] = useState<string | null>(null);
   const [ownerEmailInput, setOwnerEmailInput] = useState("");
   const [qrPreview, setQrPreview] = useState<{ src?: string; value: string } | null>(null);
   const [galleryPreviewOpen, setGalleryPreviewOpen] = useState(false);
@@ -259,7 +272,7 @@ const EventForm = () => {
   });
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { t, pathPrefix } = useAdminI18n();
+  const { t, dateLocale, pathPrefix } = useAdminI18n();
   const isDemoEvent = planType === "demo";
   const eventUrl = eventId ? `https://acceso.revelao.cam/events/${formData.password}` : "";
   const mediaLimits = {
@@ -510,6 +523,7 @@ const EventForm = () => {
       
       const event = data as Event;
       setEventNumber(event.event_number ?? null);
+      setEventCreatedAt(event.created_at || null);
       const demoContact = getDemoContactFromLimits(event.limits_json);
       const eventTz = event.timezone || "Europe/Madrid";
       const uploadStartDate = event.upload_start_time ? toZonedTime(new Date(event.upload_start_time), eventTz) : new Date();
@@ -1279,7 +1293,7 @@ const EventForm = () => {
             >
               {eventUrl}
             </a>
-            {isSuperAdmin && (eventNumber || ownerEmail || ownerPhone) && (
+            {isSuperAdmin && (eventNumber || ownerEmail || ownerPhone || eventCreatedAt) && (
               <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
                 {ownerEmail && (
                   <p>
@@ -1293,10 +1307,38 @@ const EventForm = () => {
                     {eventNumber}
                   </p>
                 ) : null}
-                {ownerPhone && (
+                {eventCreatedAt ? (
                   <p>
+                    <span className="font-medium text-foreground">Creación:</span>{" "}
+                    {format(new Date(eventCreatedAt), "dd/MM/yyyy HH:mm", { locale: dateLocale })}
+                  </p>
+                ) : null}
+                {ownerPhone && (
+                  <p className="inline-flex items-center gap-1.5">
                     <span className="font-medium text-foreground">{t("events.ownerPhone")}:</span>{" "}
-                    {ownerPhone}
+                    <span>{ownerPhone}</span>
+                    {(() => {
+                      const whatsappUrl = getOwnerWhatsappUrl(ownerPhone);
+                      if (!whatsappUrl) return null;
+                      return (
+                        <a
+                          href={whatsappUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          aria-label="Abrir WhatsApp"
+                          title="Abrir WhatsApp"
+                          className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#25D366] text-white transition-opacity hover:opacity-80"
+                        >
+                          <svg
+                            viewBox="0 0 24 24"
+                            aria-hidden="true"
+                            className="h-3.5 w-3.5 fill-current"
+                          >
+                            <path d="M17.5 14.4c-.3-.2-1.8-.9-2.1-1-.3-.1-.5-.2-.7.2-.2.3-.8 1-.9 1.2-.2.2-.3.2-.6.1-.3-.2-1.3-.5-2.4-1.5-.9-.8-1.5-1.8-1.7-2.1-.2-.3 0-.5.1-.6.1-.1.3-.3.5-.5.1-.2.2-.3.3-.5.1-.2 0-.4 0-.5-.1-.2-.7-1.7-.9-2.3-.2-.6-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4-.3.3-1 1-1 2.4s1 2.8 1.2 3c.2.2 2 3.1 4.9 4.3.7.3 1.2.5 1.6.6.7.2 1.3.2 1.8.1.6-.1 1.8-.7 2-1.4.3-.7.3-1.3.2-1.4-.1-.1-.3-.2-.6-.4ZM12 2a9.9 9.9 0 0 0-8.6 14.9L2 22l5.3-1.4A10 10 0 1 0 12 2Zm0 18.3c-1.6 0-3.1-.4-4.4-1.2l-.3-.2-3.1.8.8-3-.2-.3A8.3 8.3 0 1 1 12 20.3Z" />
+                          </svg>
+                        </a>
+                      );
+                    })()}
                   </p>
                 )}
               </div>

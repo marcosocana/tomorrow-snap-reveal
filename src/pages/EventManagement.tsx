@@ -1506,6 +1506,7 @@ const EventManagement = () => {
                     <th className="py-3 pr-4 font-medium cursor-pointer" onClick={() => handleAdminSort("start")}>
                       {t("events.table.created")}
                     </th>
+                    <th className="py-3 pr-4 font-medium">Creación</th>
                     <th className="py-3 pr-4 font-medium cursor-pointer" onClick={() => handleAdminSort("email")}>
                       {t("events.table.email")}
                     </th>
@@ -1556,6 +1557,9 @@ const EventManagement = () => {
                           {event.upload_start_time
                             ? formatInTimeZone(new Date(event.upload_start_time), event.timezone || "Europe/Madrid", "dd/MM/yyyy")
                             : "-"}
+                        </td>
+                        <td className="py-3 pr-4">
+                          {format(new Date(event.created_at), "dd/MM/yyyy", { locale: dateLocale })}
                         </td>
                         <td className="py-3 pr-4">
                           {getAdminOwnerEmail(event) ? truncate(getAdminOwnerEmail(event) || "", 18) : "-"}
