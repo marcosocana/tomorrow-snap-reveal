@@ -223,7 +223,7 @@ const EventManagement = () => {
   const [adminTypeFilter, setAdminTypeFilter] = useState<"all" | "Demo" | "Start" | "Plus" | "Pro">("all");
   const [adminPhoneFilter, setAdminPhoneFilter] = useState<"all" | "yes" | "no">("all");
   const [adminActiveTab, setAdminActiveTab] = useState<AdminEventTab>("upcoming");
-  const [adminSort, setAdminSort] = useState<{ key: "name" | "type" | "start" | "email" | "photos"; direction: "asc" | "desc" }>({
+  const [adminSort, setAdminSort] = useState<{ key: "name" | "type" | "start" | "creation" | "email" | "photos"; direction: "asc" | "desc" }>({
     key: "start",
     direction: "desc",
   });
@@ -647,7 +647,7 @@ const EventManagement = () => {
     return { photos, videos, audios };
   };
 
-  const handleAdminSort = (key: "name" | "type" | "start" | "email" | "photos") => {
+  const handleAdminSort = (key: "name" | "type" | "start" | "creation" | "email" | "photos") => {
     setAdminSort((prev) => ({
       key,
       direction: prev.key === key && prev.direction === "asc" ? "desc" : "asc",
@@ -712,6 +712,8 @@ const EventManagement = () => {
             return (getAdminOwnerEmail(event) || "").toLowerCase();
           case "photos":
             return eventMediaCounts[event.id]?.photos ?? eventPhotoCounts[event.id] ?? 0;
+          case "creation":
+            return event.created_at || "";
           case "start":
           default:
             return event.upload_start_time || "";
@@ -1506,7 +1508,9 @@ const EventManagement = () => {
                     <th className="py-3 pr-4 font-medium cursor-pointer" onClick={() => handleAdminSort("start")}>
                       {t("events.table.created")}
                     </th>
-                    <th className="py-3 pr-4 font-medium">Creación</th>
+                    <th className="py-3 pr-4 font-medium cursor-pointer" onClick={() => handleAdminSort("creation")}>
+                      Creación
+                    </th>
                     <th className="py-3 pr-4 font-medium cursor-pointer" onClick={() => handleAdminSort("email")}>
                       {t("events.table.email")}
                     </th>
