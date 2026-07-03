@@ -327,6 +327,7 @@ const PublicDemoEventWizard = () => {
           show_legal_text: false,
           limits_json: {
             created_from: "nuevoeventodemo2",
+            admin_event_tab: "new",
             demo_contact: {
               name: formData.contactName.trim(),
               email: formData.contactEmail.trim(),

@@ -416,6 +416,7 @@ const RedeemEvent = () => {
           max_photos: plan?.maxPhotos ?? null,
           max_videos: plan?.maxVideos ?? null,
           max_audios: plan?.maxAudios ?? null,
+          admin_event_tab: "new",
         },
         formData.qrPasswordEnabled,
         qrPasswordHash,
