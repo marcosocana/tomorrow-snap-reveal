@@ -759,8 +759,9 @@ const CaptainsShell = ({ children, themeStyle = "pixel" }: { children: React.Rea
   </main>
 );
 
-const GameCard = ({ children, className }: { children: React.ReactNode; className?: string }) => (
+const GameCard = ({ children, className, ...props }: React.ComponentProps<"section">) => (
   <section
+    {...props}
     className={cn(
       "pixel-panel bg-white p-4 text-[#151515]",
       className,
@@ -1041,6 +1042,9 @@ export default function CaptainsPublic() {
   const [evidenceFile, setEvidenceFile] = useState<File | null>(null);
   const [evidencePreview, setEvidencePreview] = useState("");
   const [selectedQuestionOption, setSelectedQuestionOption] = useState("");
+  const [lastCorrectAnswer, setLastCorrectAnswer] = useState("");
+  const [lastResultType, setLastResultType] = useState<CaptainsEvidenceType | null>(null);
+  const [lastResultPoints, setLastResultPoints] = useState(0);
   const [liveEvidence, setLiveEvidence] = useState<CaptainsEvidence[]>([]);
   const [liveRows, setLiveRows] = useState<CaptainsTableChallenge[]>([]);
   const [liveFilter, setLiveFilter] = useState<EvidenceFilter>("all");
@@ -1212,13 +1216,16 @@ export default function CaptainsPublic() {
 
   useEffect(() => {
     if (step !== "play" || !currentRow) return;
-    setEvidenceFile(null);
-    setSelectedQuestionOption("");
     if (currentRow.status === "in_progress") {
       setPhase("progress");
       return;
     }
     if (phase === "result" || phase === "expired") return;
+    setEvidenceFile(null);
+    setSelectedQuestionOption("");
+    setLastCorrectAnswer("");
+    setLastResultType(null);
+    setLastResultPoints(0);
     if (!hasStartedGame) {
       setPhase("intro");
       return;
@@ -1236,6 +1243,8 @@ export default function CaptainsPublic() {
       setRemaining(next);
       if (next <= 0) {
         setPhase("expired");
+        setLastResultType(currentChallenge.evidence_type);
+        setLastResultPoints(0);
         setResultKind("expired");
         if (isDemo && session) {
           const expiredRow = {
@@ -1343,9 +1352,12 @@ export default function CaptainsPublic() {
     }
   };
 
-  const startCurrentChallenge = async () => {
-    if (!currentRow) return;
-    setBusy(true);
+    const startCurrentChallenge = async () => {
+      if (!currentRow) return;
+      setBusy(true);
+      setLastCorrectAnswer("");
+      setLastResultType(null);
+      setLastResultPoints(0);
     try {
       if (isDemo && session) {
         const row = {
@@ -1437,9 +1449,11 @@ export default function CaptainsPublic() {
           : nextRows;
         saveDemoRows(session.table_id, readyRows);
         setRanking(getDemoRanking(session.table_id, readyRows));
-        saveDemoEvidence([evidence, ...getDemoEvidence()]);
-        setResultEvidence(evidence);
-        setResultKind("success");
+          saveDemoEvidence([evidence, ...getDemoEvidence()]);
+          setResultEvidence(evidence);
+          setLastResultType(currentChallenge.evidence_type);
+          setLastResultPoints(pointsAwarded);
+          setResultKind("success");
         setPhase("result");
         setEvidenceFile(null);
         return;
@@ -1456,8 +1470,10 @@ export default function CaptainsPublic() {
         remainingSeconds: currentChallenge.has_time_limit ? remaining : null,
         scoringMode: event.scoring_mode,
       });
-      setResultEvidence(evidence);
-      setResultKind(event.scoring_mode === "manual" ? "manual" : "success");
+        setResultEvidence(evidence);
+        setLastResultType(currentChallenge.evidence_type);
+        setLastResultPoints(evidence.points_awarded || 0);
+        setResultKind(event.scoring_mode === "manual" ? "manual" : "success");
       setPhase("result");
       setEvidenceFile(null);
       await refreshGame();
@@ -1466,14 +1482,15 @@ export default function CaptainsPublic() {
     }
   };
 
-  const submitQuestion = async () => {
-    if (!event || !session || !currentRow || !currentChallenge || currentChallenge.evidence_type !== "question" || !selectedQuestionOption) return;
-    if (currentChallenge.has_time_limit && remaining <= 0) return;
-    setBusy(true);
-    try {
-      const total = currentChallenge.time_limit_seconds || null;
-      const elapsed = currentChallenge.has_time_limit && total ? Math.max(0, total - remaining) : null;
-      const correct = selectedQuestionOption === currentChallenge.question_correct_option;
+    const submitQuestion = async () => {
+      if (!event || !session || !currentRow || !currentChallenge || currentChallenge.evidence_type !== "question" || !selectedQuestionOption) return;
+      if (currentChallenge.has_time_limit && remaining <= 0) return;
+      setBusy(true);
+      try {
+        const total = currentChallenge.time_limit_seconds || null;
+        const elapsed = currentChallenge.has_time_limit && total ? Math.max(0, total - remaining) : null;
+        const correct = selectedQuestionOption === currentChallenge.question_correct_option;
+        setLastCorrectAnswer(currentChallenge.question_correct_option || "");
       const pointsAwarded = correct
         ? calculateCaptainsAutomaticScore({
             maxPoints: currentChallenge.points,
@@ -1502,23 +1519,27 @@ export default function CaptainsPublic() {
           ? nextRows.map((item) => (item.id === nextPending.id ? { ...item, status: "ready" as const } : item))
           : nextRows;
         saveDemoRows(session.table_id, readyRows);
-        setRanking(getDemoRanking(session.table_id, readyRows));
-        setResultEvidence(null);
-        setResultKind(correct ? "success" : "failed");
+          setRanking(getDemoRanking(session.table_id, readyRows));
+          setResultEvidence(null);
+          setLastResultType("question");
+          setLastResultPoints(pointsAwarded);
+          setResultKind(correct ? "success" : "failed");
         setPhase("result");
         return;
       }
 
-      const result = await completeCaptainsQuestionChallenge({
+        const result = await completeCaptainsQuestionChallenge({
         eventId: event.id,
         tableId: session.table_id,
         tableChallengeId: currentRow.id,
         answer: selectedQuestionOption,
         elapsedSeconds: elapsed,
         remainingSeconds: currentChallenge.has_time_limit ? remaining : null,
-      });
-      setResultEvidence(null);
-      setResultKind(result.correct ? "success" : "failed");
+        });
+        setResultEvidence(null);
+        setLastResultType("question");
+        setLastResultPoints(pointsAwarded);
+        setResultKind(result.correct ? "success" : "failed");
       setPhase("result");
       await refreshGame();
     } finally {
@@ -1543,15 +1564,19 @@ export default function CaptainsPublic() {
         const readyRows = nextPending
           ? nextRows.map((item) => (item.id === nextPending.id ? { ...item, status: "ready" as const } : item))
           : nextRows;
-        saveDemoRows(session.table_id, readyRows);
-        setRanking(getDemoRanking(session.table_id, readyRows));
-        setResultKind("failed");
+          saveDemoRows(session.table_id, readyRows);
+          setRanking(getDemoRanking(session.table_id, readyRows));
+          setLastResultType(currentChallenge?.evidence_type || null);
+          setLastResultPoints(0);
+          setResultKind("failed");
         setPhase("result");
         return;
       }
 
-      await failCaptainsTableChallenge(currentRow.id);
-      setResultKind("failed");
+        await failCaptainsTableChallenge(currentRow.id);
+        setLastResultType(currentChallenge?.evidence_type || null);
+        setLastResultPoints(0);
+        setResultKind("failed");
       setPhase("result");
       await refreshGame();
     } finally {
@@ -1813,12 +1838,12 @@ export default function CaptainsPublic() {
           <GameCard>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <PixelCaptainSprite table={currentTable} active size="sm" />
-                <div>
-                  <h1 className="text-sm">{currentTable.table_name}</h1>
-                  <p className="text-xl font-bold text-[#151515]/70">Capitán: {session?.captain_name}</p>
+                  <PixelCaptainSprite table={currentTable} active size="sm" />
+                  <div>
+                    <h1 className="text-sm">{currentTable.table_name}</h1>
+                    <p className="text-xl font-bold text-[#151515]/70">{session?.captain_name}</p>
+                  </div>
                 </div>
-              </div>
               <div className="pixel-button bg-white px-3 py-2 text-right text-[#151515]">
                 <div className="pixel-title text-sm">{totalPoints}</div>
                 <div className="text-base font-bold uppercase">pts</div>
@@ -1835,9 +1860,9 @@ export default function CaptainsPublic() {
 
           {phase === "intro" && (
             <GameCard className="animate-scale-in text-center">
-              <PixelCaptainSprite table={currentTable} active size="lg" />
-              <h2 className="mt-4 text-xl">{currentTable.table_name}</h2>
-              <p className="mt-2 text-2xl font-bold text-[#151515]/70">Capitán: {session?.captain_name}</p>
+                <PixelCaptainSprite table={currentTable} active size="lg" />
+                <h2 className="mt-4 text-xl">{currentTable.table_name}</h2>
+                <p className="mt-2 text-2xl font-bold text-[#151515]/70">{session?.captain_name}</p>
               <div className="mt-5 grid grid-cols-2 gap-3 text-left">
                 <PixelStat label={`de ${tableChallenges.length}`} value={`Ronda ${currentIndex}`} tone="secondary" />
                 <PixelStat label="puntos" value={totalPoints} tone="gold" />
@@ -1854,26 +1879,20 @@ export default function CaptainsPublic() {
                 <HeroBadge>Ronda {currentIndex}</HeroBadge>
                 <span className="pixel-button bg-white px-3 py-1 text-xl font-bold text-[#151515]">{currentChallenge.points} pts</span>
               </div>
-              <div className="pixel-panel bg-white p-3 text-[#151515]">
-                <h2 className="text-lg">{currentChallenge.title}</h2>
-                <p className="mt-3 text-2xl leading-7">{currentChallenge.description}</p>
-              </div>
               <div className="mt-4 grid gap-2 text-xl font-bold">
                 <div className="pixel-button flex items-center gap-2 bg-white p-3">
                   <EvidenceIcon type={currentChallenge.evidence_type} className="h-5 w-5 text-[#151515]" />
-                  Evidencia necesaria: {evidenceLabel[currentChallenge.evidence_type]}
-                </div>
-                <div className="pixel-button flex items-center gap-2 bg-white p-3">
-                  <Medal className="h-5 w-5 text-[#151515]" />
-                  Puntos máximos: {currentChallenge.points}
-                </div>
-                {currentChallenge.has_time_limit && (
+                    Reto de tipo {evidenceLabel[currentChallenge.evidence_type]}
+                  </div>
+                  <div className="pixel-button flex items-center gap-2 bg-white p-3">
+                    <Medal className="h-5 w-5 text-[#151515]" />
+                    Puntos máximos: {currentChallenge.points}
+                  </div>
                   <div className="pixel-button flex items-center gap-2 bg-white p-3">
                     <Clock3 className="h-5 w-5 text-[#151515]" />
-                    Tiempo límite: {currentChallenge.time_limit_seconds} segundos
+                    Tiempo límite: {currentChallenge.has_time_limit ? `${currentChallenge.time_limit_seconds} segundos` : "Sin límite"}
                   </div>
-                )}
-              </div>
+                </div>
               <GameButton className="mt-5" disabled={busy} onClick={startCurrentChallenge}>
                 Iniciar reto <Flame className="h-5 w-5" />
               </GameButton>
@@ -1900,11 +1919,15 @@ export default function CaptainsPublic() {
                       key={option}
                       type="button"
                       onClick={() => setSelectedQuestionOption(option)}
-                      className={cn(
-                        "pixel-button min-h-14 w-full bg-white px-4 py-3 text-left text-2xl font-bold text-[#151515]",
-                        selectedQuestionOption === option && "border-[var(--captains-primary)] bg-[var(--captains-primary)]/10",
-                      )}
-                    >
+                        className={cn(
+                          "pixel-button min-h-14 w-full bg-white px-4 py-3 text-left text-2xl font-bold text-[#151515]",
+                        )}
+                        style={
+                          selectedQuestionOption === option
+                            ? { backgroundColor: "rgba(240, 106, 95, 0.18)", borderColor: DEFAULT_CAPTAINS_PRIMARY }
+                            : undefined
+                        }
+                      >
                       {option}
                     </button>
                   ))}
@@ -1936,15 +1959,15 @@ export default function CaptainsPublic() {
                           {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : <CheckCircle2 className="h-5 w-5" />}
                           {evidenceConfirmLabel[currentChallenge.evidence_type]}
                         </GameButton>
-                        <SecondaryButton onClick={openEvidenceCapture}>
-                          <EvidenceIcon type={currentChallenge.evidence_type} className="h-5 w-5" />
-                          {evidenceRetakeLabel[currentChallenge.evidence_type]}
-                        </SecondaryButton>
+                          <SecondaryButton disabled={busy} onClick={openEvidenceCapture}>
+                            <EvidenceIcon type={currentChallenge.evidence_type} className="h-5 w-5" />
+                            {evidenceRetakeLabel[currentChallenge.evidence_type]}
+                          </SecondaryButton>
                       </>
                     ) : (
-                      <GameButton onClick={openEvidenceCapture}>
-                        <EvidenceIcon type={currentChallenge.evidence_type} className="h-5 w-5" />
-                        {evidenceActionLabel[currentChallenge.evidence_type]}
+                        <GameButton disabled={busy} onClick={openEvidenceCapture}>
+                          <EvidenceIcon type={currentChallenge.evidence_type} className="h-5 w-5" />
+                          {evidenceActionLabel[currentChallenge.evidence_type]}
                       </GameButton>
                     )}
                     <SecondaryButton disabled={busy} onClick={failChallenge}>
@@ -1962,15 +1985,15 @@ export default function CaptainsPublic() {
               {resultKind === "success" && (
                 <>
                   <CheckCircle2 className="mx-auto mb-3 h-12 w-12 text-[#151515]" />
-                  <h2 className="text-lg">{currentChallenge.evidence_type === "question" ? "¡Respuesta correcta!" : "¡Prueba enviada!"}</h2>
+                  <h2 className="text-lg">{lastResultType === "question" ? "¡Respuesta correcta!" : "¡Prueba enviada!"}</h2>
                   <p className="mt-3 text-2xl text-[#151515]/70">
                     {resultEvidence?.elapsed_seconds != null
                       ? `Habéis tardado ${resultEvidence.elapsed_seconds} segundos.`
-                      : currentChallenge.evidence_type === "question"
+                      : lastResultType === "question"
                         ? "Habéis acertado la pregunta."
                         : "Evidencia validada."}
                   </p>
-                  <p className="mt-2 text-3xl font-bold text-[#151515]">+{resultEvidence?.points_awarded || 0} puntos</p>
+                  <p className="mt-2 text-3xl font-bold text-[#151515]">+{lastResultPoints} puntos</p>
                 </>
               )}
               {resultKind === "manual" && (
@@ -1987,14 +2010,22 @@ export default function CaptainsPublic() {
                   <p className="mt-3 text-2xl text-[#151515]/70">Esta vez no suma puntos, pero todavía podéis remontar.</p>
                 </>
               )}
-              {resultKind === "expired" && (
-                <>
-                  <Clock3 className="mx-auto mb-3 h-12 w-12 text-[#151515]" />
-                  <h2 className="text-lg">Tiempo agotado</h2>
-                  <p className="mt-3 text-2xl text-[#151515]/70">Esta misión se ha quedado sin tiempo. Podéis pasar a la siguiente.</p>
-                </>
-              )}
-              <GameButton className="mt-5" onClick={() => go("ranking")}>Ver ranking</GameButton>
+                {resultKind === "expired" && (
+                  <>
+                    <Clock3 className="mx-auto mb-3 h-12 w-12 text-[#151515]" />
+                    <h2 className="text-lg">Tiempo agotado</h2>
+                    <p className="mt-3 text-2xl text-[#151515]/70">Esta misión se ha quedado sin tiempo. Podéis pasar a la siguiente.</p>
+                  </>
+                )}
+              {lastResultType === "question" && lastCorrectAnswer && (
+                  <div
+                    className="mt-4 pixel-panel p-3 text-left text-xl font-bold text-[#151515]"
+                    style={{ backgroundColor: "rgba(240, 106, 95, 0.12)", borderColor: DEFAULT_CAPTAINS_PRIMARY }}
+                  >
+                    Opción correcta: {lastCorrectAnswer}
+                  </div>
+                )}
+                <GameButton className="mt-5" onClick={() => go("ranking")}>Ver ranking</GameButton>
               {resultKind === "expired" && <SecondaryButton className="mt-3" onClick={nextAfterRanking}>Siguiente reto</SecondaryButton>}
             </GameCard>
           )}
@@ -2024,8 +2055,15 @@ export default function CaptainsPublic() {
             {ranking.map((item) => {
               const mine = item.id === session?.table_id;
               return (
-                <GameCard key={item.id} className={cn("flex items-center gap-3 p-3", mine && "border-[var(--captains-primary)] bg-[var(--captains-primary)]/10")}>
-                  <div className={cn("pixel-button flex h-12 w-12 items-center justify-center bg-white text-2xl font-bold", mine && "border-[var(--captains-primary)]")}>
+                  <GameCard
+                    key={item.id}
+                    className="flex items-center gap-3 p-3"
+                    style={mine ? { backgroundColor: "rgba(240, 106, 95, 0.16)", borderColor: DEFAULT_CAPTAINS_PRIMARY } : undefined}
+                  >
+                    <div
+                      className="pixel-button flex h-12 w-12 items-center justify-center bg-white text-2xl font-bold"
+                      style={mine ? { borderColor: DEFAULT_CAPTAINS_PRIMARY, color: DEFAULT_CAPTAINS_PRIMARY } : undefined}
+                    >
                     {item.rank}
                   </div>
                   <PixelCaptainSprite table={item} active={mine} size="sm" />

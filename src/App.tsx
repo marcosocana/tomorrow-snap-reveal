@@ -185,8 +185,6 @@ const App = () => {
               <Route path="/admin/capitanes/new" element={<CaptainsAdminForm />} />
               <Route path="/admin/capitanes/:eventId" element={<CaptainsAdminDetail />} />
               <Route path="/admin/capitanes/:eventId/edit" element={<CaptainsAdminForm edit />} />
-              <Route path="/admin/capitanes/:eventId/review" element={<CaptainsAdminDetail view="review" />} />
-              <Route path="/admin/capitanes/:eventId/ranking" element={<CaptainsAdminDetail view="ranking" />} />
               <Route path="/capitanes/onboarding" element={<CaptainsOnboarding />} />
               <Route path="/capitanes/:eventSlug" element={<CaptainsPublic />} />
               <Route path="/capitanes/:eventSlug/start" element={<CaptainsPublic />} />

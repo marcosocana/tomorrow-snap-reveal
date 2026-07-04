@@ -42,6 +42,7 @@ import {
 import { captainsDefaultChallengeCatalog } from "@/lib/captainsDefaultChallengeCatalog";
 import {
   approveCaptainsEvidence,
+  deleteCaptainsEvent,
   createCaptainsGame,
   deleteCaptainsEvidence,
   finishCaptainsEvent,
@@ -50,7 +51,10 @@ import {
   getCaptainsTableChallenges,
   rejectCaptainsEvidence,
   replaceCaptainsEventChallenges,
+  updateCaptainsEventChallenge,
+  updateCaptainsEvidence,
   updateCaptainsEvent,
+  updateCaptainsTable,
   updateCaptainsTables,
 } from "@/lib/captainsService";
 import { getCaptainsQrValue, normalizeCaptainsPublicUrl } from "@/lib/captainsUtils";
@@ -73,6 +77,7 @@ const DEFAULT_DESCRIPTION =
   "Bienvenidos a Capitanes by Revelao.\nCada mesa tendrá un capitán encargado de guiar a su equipo durante el juego.\nTendréis que completar retos, subir pruebas y competir contra el resto de mesas.\nPreparad la cámara, afinad la voz y jugad en equipo.\nQue empiece la misión.";
 const DEFAULT_PRIMARY_COLOR = "#f06a5f";
 const DEFAULT_SECONDARY_COLOR = "#2f292d";
+const CAPTAINS_MAX_CHALLENGES = 25;
 const isHexColor = (value: string) => /^#[0-9a-fA-F]{6}$/.test(value);
 const colorValue = (value: string, fallback: string) => (isHexColor(value) ? value : fallback);
 const readableTextColor = (background: string) => {
@@ -436,6 +441,23 @@ const catalogChallengeToInput = (item: CaptainsChallengeCatalogItem, orderIndex:
   is_required: false,
 });
 
+const eventChallengeToInput = (challenge: CaptainsEventChallenge): CaptainsChallengeInput => ({
+  id: challenge.id,
+  catalog_challenge_id: challenge.catalog_challenge_id,
+  title: challenge.title,
+  description: challenge.description,
+  evidence_type: challenge.evidence_type,
+  points: challenge.points,
+  category: challenge.category,
+  difficulty: challenge.difficulty,
+  has_time_limit: challenge.has_time_limit,
+  time_limit_seconds: challenge.time_limit_seconds,
+  question_options: challenge.question_options ?? ["", "", "", ""],
+  question_correct_option: challenge.question_correct_option ?? "",
+  order_index: challenge.order_index,
+  is_required: challenge.is_required,
+});
+
 const formatDateTime = (value?: string | null) => {
   if (!value) return "-";
   const date = new Date(value);
@@ -712,7 +734,48 @@ const EmptyState = ({ text }: { text: string }) => (
 export const CaptainsAdminList = () => {
   useRequireAdmin();
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const { data: events = [], isLoading, isError } = useCaptainsEvents();
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | CaptainsEvent["status"]>("all");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const filteredEvents = useMemo(() => {
+    const cleanSearch = search.trim().toLowerCase();
+    return events.filter((event) => {
+      const matchesSearch = !cleanSearch || [event.name, event.slug, event.description || ""].some((value) => value.toLowerCase().includes(cleanSearch));
+      const matchesStatus = statusFilter === "all" || event.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  }, [events, search, statusFilter]);
+  const statusCounts = useMemo(() => {
+    return events.reduce<Record<string, number>>((acc, event) => {
+      acc[event.status] = (acc[event.status] || 0) + 1;
+      return acc;
+    }, { all: events.length });
+  }, [events]);
+  const toggleSelection = (eventId: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(eventId)) next.delete(eventId);
+      else next.add(eventId);
+      return next;
+    });
+  };
+  const deleteSelection = async () => {
+    if (selectedIds.size === 0) return;
+    const confirmed = window.confirm(`¿Eliminar ${selectedIds.size} evento(s) de Capitanes seleccionados?`);
+    if (!confirmed) return;
+    try {
+      await Promise.all(Array.from(selectedIds).map((id) => deleteCaptainsEvent(id)));
+      setSelectedIds(new Set());
+      queryClient.invalidateQueries({ queryKey: captainsQueryKeys.events() });
+      toast({ title: "Eventos eliminados", description: "La selección se ha eliminado correctamente." });
+    } catch (error) {
+      console.error("Error deleting captains selection:", error);
+      toast({ title: "Error", description: "No hemos podido eliminar la selección.", variant: "destructive" });
+    }
+  };
 
   return (
     <AdminFrame
@@ -725,25 +788,49 @@ export const CaptainsAdminList = () => {
         </Button>
       }
     >
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="text-sm text-muted-foreground">{events.length} juegos de Capitanes</p>
-        </div>
-      </div>
+	      <Card className="rounded-2xl p-4 shadow-sm">
+	        <div className="flex flex-wrap gap-2">
+	          {(["all", "draft", "scheduled", "active", "finished", "archived"] as Array<"all" | CaptainsEvent["status"]>).map((status) => (
+	            <button
+	              key={status}
+	              type="button"
+	              onClick={() => setStatusFilter(status)}
+	              className={`inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm font-medium transition-colors ${
+	                statusFilter === status ? "!border-foreground !bg-foreground !text-background shadow-sm" : "border-border bg-background text-foreground hover:bg-muted"
+	              }`}
+	            >
+	              <span>{status === "all" ? "Todos" : statusLabels[status]}</span>
+	              <span className={`rounded-full px-2 py-0.5 text-xs ${statusFilter === status ? "bg-background/20 !text-background" : "bg-muted text-muted-foreground"}`}>
+	                {statusCounts[status] || 0}
+	              </span>
+	            </button>
+	          ))}
+	        </div>
+	        <div className="mt-4">
+	          <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar por nombre, slug o descripción" />
+	        </div>
+	        {selectedIds.size > 0 ? (
+	          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-muted/50 px-3 py-2">
+	            <p className="text-xs text-muted-foreground">{selectedIds.size} seleccionados</p>
+	            <Button variant="destructive" size="sm" onClick={deleteSelection}>Eliminar selección</Button>
+	          </div>
+	        ) : null}
+	      </Card>
 
-      <Card className="rounded-2xl p-4 shadow-sm">
+	      <Card className="rounded-2xl p-4 shadow-sm">
         {isLoading ? (
           <p className="p-8 text-center text-sm text-muted-foreground">Cargando juegos...</p>
         ) : isError ? (
           <p className="p-8 text-center text-sm text-destructive">No hemos podido cargar la información. Inténtalo de nuevo.</p>
-        ) : events.length === 0 ? (
-          <EmptyState text="Todavía no has creado ningún juego de Capitanes." />
+	        ) : filteredEvents.length === 0 ? (
+	          <EmptyState text="Todavía no has creado ningún juego de Capitanes." />
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-[980px] w-full text-sm">
               <thead>
                 <tr className="text-left text-muted-foreground border-b">
-                  <th className="py-3 pr-4 font-medium">Evento</th>
+	                  <th className="py-3 pr-3 font-medium w-10"> </th>
+	                  <th className="py-3 pr-4 font-medium">Evento</th>
                   <th className="py-3 pr-4 font-medium">Estado</th>
                   <th className="py-3 pr-4 font-medium">Creación</th>
                   <th className="py-3 pr-4 font-medium">Mesas</th>
@@ -754,9 +841,12 @@ export const CaptainsAdminList = () => {
                 </tr>
               </thead>
               <tbody>
-                {events.map((event) => (
-                  <tr key={event.id} className="border-b last:border-b-0">
-                    <td className="py-3 pr-4 font-medium">{event.name}</td>
+	                {filteredEvents.map((event) => (
+	                  <tr key={event.id} className="border-b last:border-b-0">
+	                    <td className="py-3 pr-3">
+	                      <input type="checkbox" checked={selectedIds.has(event.id)} onChange={() => toggleSelection(event.id)} className="h-4 w-4 accent-primary" />
+	                    </td>
+	                    <td className="py-3 pr-4 font-medium">{event.name}</td>
                     <td className="py-3 pr-4">
                       <Badge className="rounded-full" variant={event.status === "active" ? "default" : "outline"}>{statusLabels[event.status]}</Badge>
                     </td>
@@ -817,6 +907,7 @@ export const CaptainsOnboarding = () => {
   const [tableCount, setTableCount] = useState(6);
   const [editingTableIndex, setEditingTableIndex] = useState<number | null>(null);
   const [isCreatingChallenge, setIsCreatingChallenge] = useState(false);
+  const [challengeLimitOpen, setChallengeLimitOpen] = useState(false);
   const [draftChallenge, setDraftChallenge] = useState<CaptainsChallengeInput>(() => ({ ...EMPTY_CHALLENGE }));
   const [tables, setTables] = useState(() =>
     Array.from({ length: 6 }, (_, index) => ({
@@ -926,6 +1017,10 @@ export const CaptainsOnboarding = () => {
       setSelectedChallenges((current) => current.filter((item) => item.catalog_challenge_id !== challenge.id));
       return;
     }
+    if (selectedChallenges.length >= CAPTAINS_MAX_CHALLENGES) {
+      setChallengeLimitOpen(true);
+      return;
+    }
     setSelectedChallengeIds((prev) => [...prev, challenge.id]);
     setSelectedChallenges((current) => [...current, catalogChallengeToInput(challenge, current.length + 1)]);
   };
@@ -943,6 +1038,10 @@ export const CaptainsOnboarding = () => {
   };
 
   const addBlankOnboardingChallenge = () => {
+    if (selectedChallenges.length >= CAPTAINS_MAX_CHALLENGES) {
+      setChallengeLimitOpen(true);
+      return;
+    }
     setDraftChallenge({
       ...EMPTY_CHALLENGE,
       title: `Nuevo reto ${selectedChallenges.length + 1}`,
@@ -954,6 +1053,11 @@ export const CaptainsOnboarding = () => {
   const addDraftOnboardingChallenge = () => {
     if (!draftChallenge.title.trim()) {
       toast({ title: "Revisa el reto", description: "Pon un título para el reto nuevo.", variant: "destructive" });
+      return;
+    }
+    if (selectedChallenges.length >= CAPTAINS_MAX_CHALLENGES) {
+      setIsCreatingChallenge(false);
+      setChallengeLimitOpen(true);
       return;
     }
     setSelectedChallenges((prev) => [
@@ -1050,12 +1154,21 @@ export const CaptainsOnboarding = () => {
               {captainsThemeOptions.map((option) => {
                 const selected = themeStyle === option.value;
                 return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => setThemeStyle(option.value)}
-                    className={`rounded-2xl border p-4 text-left transition hover:border-primary hover:bg-primary/5 ${selected ? "border-primary bg-primary/10" : "border-border bg-card"}`}
-                  >
+	                  <button
+	                    key={option.value}
+	                    type="button"
+	                    onClick={() => setThemeStyle(option.value)}
+	                    className={`border p-4 text-left text-foreground transition hover:border-[#f06a5f] hover:bg-[#f06a5f]/5 ${selected ? "" : "rounded-2xl border-border bg-card"}`}
+	                    style={
+	                      selected
+	                        ? {
+	                            borderColor: DEFAULT_PRIMARY_COLOR,
+	                            backgroundColor: "rgba(240, 106, 95, 0.12)",
+	                            borderRadius: "0.375rem",
+	                          }
+	                        : undefined
+	                    }
+	                  >
                     <div className={`mb-3 p-3 text-lg font-black ${option.previewClass}`}>
                       <span className={option.headingClass}>{option.label}</span>
                     </div>
@@ -1121,7 +1234,7 @@ export const CaptainsOnboarding = () => {
           <div className="space-y-5">
             <div className="flex flex-col gap-3 rounded-2xl border border-border bg-muted/30 p-4 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="font-medium text-foreground">{selectedChallenges.length} retos añadidos al evento</p>
+                <p className="font-medium text-foreground">{selectedChallenges.length}/{CAPTAINS_MAX_CHALLENGES} retos añadidos al evento</p>
                 <p>Selecciona del catálogo completo, crea retos nuevos y edita el detalle antes de publicar.</p>
               </div>
               <Button type="button" variant="outline" className="gap-2" onClick={addBlankOnboardingChallenge}>
@@ -1137,12 +1250,21 @@ export const CaptainsOnboarding = () => {
                     {items.map((challenge) => {
                       const selected = selectedChallengeIds.includes(challenge.id);
                       return (
-                        <button
-                          key={challenge.id}
-                          type="button"
-                          onClick={() => toggleOnboardingCatalogChallenge(challenge)}
-                          className={`rounded-2xl border p-4 text-left text-foreground transition hover:border-primary hover:bg-primary/5 ${selected ? "border-primary bg-primary/10" : "border-border bg-card"}`}
-                        >
+	                        <button
+	                          key={challenge.id}
+	                          type="button"
+	                          onClick={() => toggleOnboardingCatalogChallenge(challenge)}
+	                          className={`border p-4 text-left text-foreground transition hover:border-[#f06a5f] hover:bg-[#f06a5f]/5 ${selected ? "" : "rounded-2xl border-border bg-card"}`}
+	                          style={
+	                            selected
+	                              ? {
+	                                  borderColor: DEFAULT_PRIMARY_COLOR,
+	                                  backgroundColor: "rgba(240, 106, 95, 0.12)",
+	                                  borderRadius: "0.375rem",
+	                                }
+	                              : undefined
+	                          }
+	                        >
                           <div className="mb-2 flex items-start justify-between gap-3">
                             <p className="font-semibold text-foreground">{challenge.title}</p>
                             <span className="shrink-0 rounded-full bg-muted px-2 py-1 text-xs font-semibold text-foreground">{challenge.default_points} pts</span>
@@ -1373,6 +1495,17 @@ export const CaptainsOnboarding = () => {
         </div>
       </DialogContent>
     </Dialog>
+    <Dialog open={challengeLimitOpen} onOpenChange={setChallengeLimitOpen}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Límite de retos alcanzado</DialogTitle>
+          <DialogDescription>El máximo por evento es de {CAPTAINS_MAX_CHALLENGES} retos. Elimina alguno del listado para añadir otro.</DialogDescription>
+        </DialogHeader>
+        <div className="flex justify-end">
+          <Button type="button" onClick={() => setChallengeLimitOpen(false)}>Entendido</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
     </>
   );
 };
@@ -1551,6 +1684,7 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
   const [backgroundImageUrl, setBackgroundImageUrl] = useState("");
   const [selectedChallenges, setSelectedChallenges] = useState<CaptainsChallengeInput[]>([]);
   const [selectedCatalogIds, setSelectedCatalogIds] = useState<string[]>([]);
+  const [challengeLimitOpen, setChallengeLimitOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -1642,6 +1776,7 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
 
   const validateChallenges = () => {
     if (selectedChallenges.length === 0) return "No se puede crear evento sin retos.";
+    if (selectedChallenges.length > CAPTAINS_MAX_CHALLENGES) return `El máximo por evento es de ${CAPTAINS_MAX_CHALLENGES} retos.`;
     for (const challenge of selectedChallenges) {
       if (!challenge.title.trim() || !challenge.description.trim()) return "Cada reto debe tener título y descripción.";
       if (!challenge.evidence_type) return "Cada reto debe tener evidencia.";
@@ -1689,6 +1824,10 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
       .map((catalogId) => catalog.find((challenge) => challenge.id === catalogId))
       .filter(Boolean) as CaptainsChallengeCatalogItem[];
     if (items.length === 0) return;
+    if (selectedChallenges.length + items.length > CAPTAINS_MAX_CHALLENGES) {
+      setChallengeLimitOpen(true);
+      return;
+    }
     setSelectedChallenges((prev) => [
       ...prev,
       ...items.map((item, index) => catalogChallengeToInput(item, prev.length + index + 1)),
@@ -1719,6 +1858,10 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
       const imported = csvToChallenges(text);
       if (imported.length === 0) {
         toast({ title: "Archivo sin retos", description: "Revisa que el CSV tenga cabeceras y al menos un reto válido.", variant: "destructive" });
+        return;
+      }
+      if (selectedChallenges.length + imported.length > CAPTAINS_MAX_CHALLENGES) {
+        setChallengeLimitOpen(true);
         return;
       }
       setSelectedChallenges((prev) => [
@@ -2173,7 +2316,7 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
             ) : null}
             <div className="rounded-md border border-border bg-muted/30 p-3 text-sm">
               <p className="font-medium">{selectedCatalogIds.length} retos seleccionados</p>
-              <p className="text-xs text-muted-foreground">{selectedChallenges.length} retos añadidos al evento</p>
+	            <p className="text-xs text-muted-foreground">{selectedChallenges.length}/{CAPTAINS_MAX_CHALLENGES} retos añadidos al evento</p>
             </div>
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
               {catalogByCategory.map(([category, items]) => (
@@ -2230,7 +2373,17 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
               className="hidden"
               onChange={(event) => handleImportChallenges(event.target.files?.[0])}
             />
-            <Button variant="outline" className="w-full gap-2" onClick={() => setSelectedChallenges((prev) => [...prev, { ...EMPTY_CHALLENGE }])}>
+	            <Button
+	              variant="outline"
+	              className="w-full gap-2"
+	              onClick={() => {
+	                if (selectedChallenges.length >= CAPTAINS_MAX_CHALLENGES) {
+	                  setChallengeLimitOpen(true);
+	                  return;
+	                }
+	                setSelectedChallenges((prev) => [...prev, { ...EMPTY_CHALLENGE, order_index: prev.length + 1 }]);
+	              }}
+	            >
               <Plus className="h-4 w-4" />
               Crear reto nuevo
             </Button>
@@ -2267,7 +2420,7 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
         </div>
       )}
     </AdminFrame>
-    <Dialog open={Boolean(captainPhotoCrop)} onOpenChange={(open) => { if (!open) closeCaptainPhotoCrop(); }}>
+	    <Dialog open={Boolean(captainPhotoCrop)} onOpenChange={(open) => { if (!open) closeCaptainPhotoCrop(); }}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Ajustar foto del capitán</DialogTitle>
@@ -2330,7 +2483,18 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
           </div>
         ) : null}
       </DialogContent>
-    </Dialog>
+	    </Dialog>
+	    <Dialog open={challengeLimitOpen} onOpenChange={setChallengeLimitOpen}>
+	      <DialogContent className="max-w-sm">
+	        <DialogHeader>
+	          <DialogTitle>Límite de retos alcanzado</DialogTitle>
+	          <DialogDescription>El máximo por evento es de {CAPTAINS_MAX_CHALLENGES} retos. Elimina alguno del listado para añadir otro.</DialogDescription>
+	        </DialogHeader>
+	        <div className="flex justify-end">
+	          <Button type="button" onClick={() => setChallengeLimitOpen(false)}>Entendido</Button>
+	        </div>
+	      </DialogContent>
+	    </Dialog>
     </>
   );
 };
@@ -2455,6 +2619,29 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
     refetchInterval: 5000,
   });
   const [selectedEvidence, setSelectedEvidence] = useState<CaptainsEvidence | null>(null);
+  const [generalDraft, setGeneralDraft] = useState({
+    name: "",
+    description: "",
+    startDate: "",
+    startHour: "",
+    endDate: "",
+    endHour: "",
+    scoringMode: "automatic" as CaptainsScoringMode,
+    themeStyle: "pixel" as CaptainsThemeStyle,
+    primaryColor: DEFAULT_PRIMARY_COLOR,
+    secondaryColor: DEFAULT_SECONDARY_COLOR,
+    backgroundImageUrl: "",
+    status: "active" as CaptainsEvent["status"],
+    showLiveGalleryAfterCompletion: true,
+  });
+  const [editingTable, setEditingTable] = useState<CaptainsTable | null>(null);
+  const [tableDraft, setTableDraft] = useState<CaptainsTable | null>(null);
+  const [editingChallenge, setEditingChallenge] = useState<CaptainsEventChallenge | null>(null);
+  const [challengeDraft, setChallengeDraft] = useState<CaptainsChallengeInput | null>(null);
+  const [editingEvidence, setEditingEvidence] = useState<CaptainsEvidence | null>(null);
+  const [evidenceDraft, setEvidenceDraft] = useState({ status: "uploaded" as CaptainsEvidence["status"], points: 0, comment: "" });
+  const [contentView, setContentView] = useState<"retos" | "capitanes">("retos");
+  const [isDetailSaving, setIsDetailSaving] = useState(false);
   const [activeDetailTab, setActiveDetailTab] = useState<CaptainsDetailTab>(
     view === "ranking" ? "tables" : view === "review" ? "content" : "general",
   );
@@ -2462,6 +2649,27 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
   useEffect(() => {
     setActiveDetailTab(view === "ranking" ? "tables" : view === "review" ? "content" : "general");
   }, [view]);
+
+  useEffect(() => {
+    if (!detail) return;
+    const start = splitDateTimeInput(detail.event.start_time);
+    const end = splitDateTimeInput(detail.event.end_time);
+    setGeneralDraft({
+      name: detail.event.name,
+      description: detail.event.description || "",
+      startDate: start.date,
+      startHour: start.time,
+      endDate: end.date,
+      endHour: end.time,
+      scoringMode: detail.event.scoring_mode,
+      themeStyle: detail.event.theme_style || "pixel",
+      primaryColor: detail.event.primary_color || DEFAULT_PRIMARY_COLOR,
+      secondaryColor: detail.event.secondary_color || DEFAULT_SECONDARY_COLOR,
+      backgroundImageUrl: detail.event.background_image_url || "",
+      status: detail.event.status,
+      showLiveGalleryAfterCompletion: detail.event.show_live_gallery_after_completion ?? true,
+    });
+  }, [detail]);
 
   const challengesById = useMemo(() => {
     const map = new Map<string, CaptainsEventChallenge>();
@@ -2477,17 +2685,7 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
     return map;
   }, [tableChallenges]);
 
-  const evidenceByTableChallenge = useMemo(() => {
-    const map = new Map<string, CaptainsEvidence>();
-    evidence.forEach((item) => {
-      if (!map.has(item.table_challenge_id)) map.set(item.table_challenge_id, item);
-    });
-    return map;
-  }, [evidence]);
-
-  const reviewEvidence = evidence.filter((item) => ["uploaded", "pending_review"].includes(item.status));
-
-  const refreshAll = () => {
+	  const refreshAll = () => {
     refetch();
     queryClient.invalidateQueries({ queryKey: captainsQueryKeys.ranking(eventId) });
     queryClient.invalidateQueries({ queryKey: captainsQueryKeys.evidence(eventId) });
@@ -2535,6 +2733,135 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
     refreshAll();
   };
 
+  const saveGeneralEditor = async () => {
+    if (!detail) return;
+    try {
+      setIsDetailSaving(true);
+      await updateCaptainsEvent(detail.event.id, {
+        name: generalDraft.name.trim(),
+        description: generalDraft.description.trim(),
+        start_time: dateTimePartsToIso(generalDraft.startDate, generalDraft.startHour),
+        end_time: dateTimePartsToIso(generalDraft.endDate, generalDraft.endHour),
+        scoring_mode: generalDraft.scoringMode,
+        theme_style: generalDraft.themeStyle,
+        primary_color: generalDraft.primaryColor,
+        secondary_color: generalDraft.secondaryColor,
+        background_image_url: generalDraft.backgroundImageUrl.trim() || null,
+        status: generalDraft.status,
+        show_live_gallery_after_completion: generalDraft.showLiveGalleryAfterCompletion,
+      });
+      toast({ title: "Evento actualizado", description: "Los datos generales se han guardado." });
+      refreshAll();
+    } catch (error) {
+      console.error("Error updating captains event:", error);
+      toast({ title: "Error", description: "No hemos podido actualizar el evento.", variant: "destructive" });
+    } finally {
+      setIsDetailSaving(false);
+    }
+  };
+
+  const openTableEditor = (table: CaptainsTable) => {
+    const normalized = {
+      ...table,
+      captain_name: table.captain_name || "",
+      active_captain_name: table.active_captain_name || table.captain_name || "",
+      captain_photo_url: table.captain_photo_url || "",
+      captain_sprite: table.captain_sprite || getDefaultCaptainSprite(table.table_number - 1),
+      captain_sprite_config: normalizeCaptainSpriteConfig(table.captain_sprite_config, table.table_number - 1),
+    } as CaptainsTable;
+    setEditingTable(table);
+    setTableDraft(normalized);
+  };
+
+  const saveTableEditor = async () => {
+    if (!editingTable || !tableDraft) return;
+    try {
+      setIsDetailSaving(true);
+      await updateCaptainsTable(editingTable.id, {
+        table_name: tableDraft.table_name,
+        captain_name: tableDraft.captain_name,
+        active_captain_name: tableDraft.active_captain_name || tableDraft.captain_name,
+        captain_photo_url: tableDraft.captain_photo_url,
+        captain_sprite: tableDraft.captain_sprite,
+        captain_sprite_config: tableDraft.captain_sprite_config,
+      });
+      toast({ title: "Capitán actualizado", description: "Los cambios se han guardado." });
+      setEditingTable(null);
+      setTableDraft(null);
+      refreshAll();
+    } catch (error) {
+      console.error("Error updating captains table:", error);
+      toast({ title: "Error", description: "No hemos podido actualizar el capitán.", variant: "destructive" });
+    } finally {
+      setIsDetailSaving(false);
+    }
+  };
+
+  const openChallengeEditor = (challenge: CaptainsEventChallenge) => {
+    setEditingChallenge(challenge);
+    setChallengeDraft(eventChallengeToInput(challenge));
+  };
+
+  const saveChallengeEditor = async () => {
+    if (!editingChallenge || !challengeDraft) return;
+    try {
+      setIsDetailSaving(true);
+      await updateCaptainsEventChallenge(editingChallenge.id, challengeDraft);
+      toast({ title: "Reto actualizado", description: "Se ha editado solo la implementación de este evento." });
+      setEditingChallenge(null);
+      setChallengeDraft(null);
+      refreshAll();
+    } catch (error) {
+      console.error("Error updating captains challenge:", error);
+      toast({ title: "Error", description: "No hemos podido actualizar el reto.", variant: "destructive" });
+    } finally {
+      setIsDetailSaving(false);
+    }
+  };
+
+  const openEvidenceEditor = (item: CaptainsEvidence) => {
+    setEditingEvidence(item);
+    setEvidenceDraft({
+      status: item.status,
+      points: item.points_awarded || 0,
+      comment: item.admin_comment || "",
+    });
+  };
+
+  const saveEvidenceEditor = async () => {
+    if (!editingEvidence) return;
+    try {
+      setIsDetailSaving(true);
+      await updateCaptainsEvidence(editingEvidence.id, {
+        status: evidenceDraft.status,
+        points_awarded: evidenceDraft.points,
+        admin_comment: evidenceDraft.comment || null,
+      });
+      toast({ title: "Contenido actualizado", description: "Los cambios se han guardado y el ranking se ha recalculado." });
+      setEditingEvidence(null);
+      refreshAll();
+    } catch (error) {
+      console.error("Error updating captains evidence:", error);
+      toast({ title: "Error", description: "No hemos podido actualizar el contenido.", variant: "destructive" });
+    } finally {
+      setIsDetailSaving(false);
+    }
+  };
+
+  const handleDeleteEvent = async () => {
+    if (!detail) return;
+    const confirmed = window.confirm(`¿Eliminar definitivamente "${detail.event.name}" y todo su contenido?`);
+    if (!confirmed) return;
+    try {
+      await deleteCaptainsEvent(detail.event.id);
+      toast({ title: "Evento eliminado", description: "El juego de Capitanes se ha eliminado." });
+      navigate("/admin/capitanes");
+    } catch (error) {
+      console.error("Error deleting captains event:", error);
+      toast({ title: "Error", description: "No hemos podido eliminar el evento.", variant: "destructive" });
+    }
+  };
+
   if (isLoading) {
     return (
       <AdminFrame title="Capitanes">
@@ -2554,7 +2881,7 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
   const { event, tables, challenges } = detail;
   const publicUrl = normalizeCaptainsPublicUrl(event.public_url, event.slug);
   const qrValue = normalizeCaptainsPublicUrl(event.qr_url || getCaptainsQrValue(event.slug), event.slug);
-  const visibleEvidence = view === "review" ? reviewEvidence : evidence;
+	  const visibleEvidence = evidence;
   const liveVisibleEvidence = evidence.filter((item) => item.file_url && !["deleted", "rejected"].includes(item.status));
   const photoCount = liveVisibleEvidence.filter((item) => item.evidence_type === "photo").length;
   const videoCount = liveVisibleEvidence.filter((item) => item.evidence_type === "video").length;
@@ -2562,7 +2889,7 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
   const lastLiveEvidence = liveVisibleEvidence[0];
 
   return (
-    <AdminFrame title={view === "review" ? "Revisión manual" : view === "ranking" ? "Ranking de Capitanes" : event.name}>
+	    <AdminFrame title={event.name}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Button variant="outline" className="gap-2 rounded-full" onClick={() => navigate("/admin/capitanes")}>
           <ArrowLeft className="h-4 w-4" />
@@ -2573,16 +2900,8 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
             <RefreshCw className="h-4 w-4" />
             Actualizar
           </Button>
-          <Button variant="outline" className="gap-2 rounded-full" onClick={() => navigate(`/admin/capitanes/${event.id}/ranking`)}>
-            <Trophy className="h-4 w-4" />
-            Ranking
-          </Button>
-          <Button variant="outline" className="gap-2 rounded-full" onClick={() => navigate(`/admin/capitanes/${event.id}/review`)}>
-            <Flag className="h-4 w-4" />
-            Revisión
-          </Button>
-        </div>
-      </div>
+	        </div>
+	      </div>
 
       <Tabs value={activeDetailTab} onValueChange={(value) => setActiveDetailTab(value as CaptainsDetailTab)} className="space-y-6">
         <TabsList className="grid h-auto w-full grid-cols-2 rounded-full bg-muted/50 p-1 sm:grid-cols-4">
@@ -2590,7 +2909,7 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
             General
           </TabsTrigger>
           <TabsTrigger value="tables" className="rounded-full data-[state=active]:!bg-foreground data-[state=active]:!text-background data-[state=active]:shadow-sm">
-            Mesas
+	            Capitanes
           </TabsTrigger>
           <TabsTrigger value="challenges" className="rounded-full data-[state=active]:!bg-foreground data-[state=active]:!text-background data-[state=active]:shadow-sm">
             Retos
@@ -2604,21 +2923,121 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
           <Card className="rounded-2xl p-5 shadow-sm">
             <div className="grid gap-5 lg:grid-cols-[1fr_220px]">
               <div className="space-y-4">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="text-2xl font-bold">{event.name}</h2>
-                  <Badge variant={event.status === "active" ? "default" : "outline"}>{statusLabels[event.status]}</Badge>
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="text-xl font-bold">General</h2>
+                    <Badge variant={event.status === "active" ? "default" : "outline"}>{statusLabels[event.status]}</Badge>
+                  </div>
+                  <p className="mt-1 text-sm text-muted-foreground">Edita la información base del evento como en la pantalla de creación.</p>
                 </div>
-                <p className="whitespace-pre-line text-sm text-muted-foreground">{event.description}</p>
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                  <Info label="Inicio" value={formatDateTime(event.start_time)} />
-                  <Info label="Fin" value={formatDateTime(event.end_time)} />
-                  <Info label="Puntuación" value={event.scoring_mode === "automatic" ? "Automática" : "Manual"} />
-                  <Info label="Mesas" value={String(tables.length)} />
-                  <Info label="Retos" value={String(challenges.length)} />
-                  <Info label="Estilo" value={getCaptainsThemeOption(event.theme_style).label} />
-                  <Info label="Color CTA" value={event.primary_color || DEFAULT_PRIMARY_COLOR} />
+                <div className="grid gap-4 md:grid-cols-2">
+                  <label className="space-y-1 md:col-span-2">
+                    <span className="text-xs font-medium text-muted-foreground">Nombre del juego</span>
+                    <Input value={generalDraft.name} onChange={(inputEvent) => setGeneralDraft((prev) => ({ ...prev, name: inputEvent.target.value }))} />
+                  </label>
+                  <label className="space-y-1 md:col-span-2">
+                    <span className="text-xs font-medium text-muted-foreground">Mensaje de bienvenida</span>
+                    <Textarea rows={5} value={generalDraft.description} onChange={(inputEvent) => setGeneralDraft((prev) => ({ ...prev, description: inputEvent.target.value }))} />
+                  </label>
+                  <div className="grid gap-2 sm:grid-cols-[1fr_110px]">
+                    <label className="space-y-1">
+                      <span className="text-xs font-medium text-muted-foreground">Inicio</span>
+                      <Input type="date" value={generalDraft.startDate} onChange={(inputEvent) => setGeneralDraft((prev) => ({ ...prev, startDate: inputEvent.target.value }))} />
+                    </label>
+                    <label className="space-y-1">
+                      <span className="text-xs font-medium text-muted-foreground">Hora</span>
+                      <Input type="time" value={generalDraft.startHour} onChange={(inputEvent) => setGeneralDraft((prev) => ({ ...prev, startHour: inputEvent.target.value }))} />
+                    </label>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-[1fr_110px]">
+                    <label className="space-y-1">
+                      <span className="text-xs font-medium text-muted-foreground">Fin</span>
+                      <Input type="date" value={generalDraft.endDate} onChange={(inputEvent) => setGeneralDraft((prev) => ({ ...prev, endDate: inputEvent.target.value }))} />
+                    </label>
+                    <label className="space-y-1">
+                      <span className="text-xs font-medium text-muted-foreground">Hora</span>
+                      <Input type="time" value={generalDraft.endHour} onChange={(inputEvent) => setGeneralDraft((prev) => ({ ...prev, endHour: inputEvent.target.value }))} />
+                    </label>
+                  </div>
+                  <label className="space-y-1">
+                    <span className="text-xs font-medium text-muted-foreground">Estado</span>
+                    <select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={generalDraft.status} onChange={(inputEvent) => setGeneralDraft((prev) => ({ ...prev, status: inputEvent.target.value as CaptainsEvent["status"] }))}>
+                      <option value="draft">Borrador</option>
+                      <option value="scheduled">Programado</option>
+                      <option value="active">Activo</option>
+                      <option value="finished">Finalizado</option>
+                      <option value="archived">Archivado</option>
+                    </select>
+                  </label>
+                  <label className="space-y-1">
+                    <span className="text-xs font-medium text-muted-foreground">Modo de puntuación</span>
+                    <select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={generalDraft.scoringMode} onChange={(inputEvent) => setGeneralDraft((prev) => ({ ...prev, scoringMode: inputEvent.target.value as CaptainsScoringMode }))}>
+                      <option value="automatic">Puntuación automática</option>
+                      <option value="manual">Revisión manual</option>
+                    </select>
+                  </label>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {captainsThemeOptions.map((option) => {
+                    const selected = generalDraft.themeStyle === option.value;
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => setGeneralDraft((prev) => ({ ...prev, themeStyle: option.value }))}
+                        className={`border p-4 text-left text-foreground transition hover:border-[#f06a5f] hover:bg-[#f06a5f]/5 ${selected ? "" : "rounded-2xl border-border bg-card"}`}
+                        style={
+                          selected
+                            ? {
+                                borderColor: DEFAULT_PRIMARY_COLOR,
+                                backgroundColor: "rgba(240, 106, 95, 0.12)",
+                                borderRadius: "0.375rem",
+                              }
+                            : undefined
+                        }
+                      >
+                        <div className={`mb-3 p-3 text-lg font-black ${option.previewClass}`}>
+                          <span className={option.headingClass}>{option.label}</span>
+                        </div>
+                        <p className="text-sm text-muted-foreground">{option.description}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <label className="space-y-1">
+                    <span className="text-xs font-medium text-muted-foreground">Color principal</span>
+                    <div className="flex gap-2">
+                      <Input type="color" value={colorValue(generalDraft.primaryColor, DEFAULT_PRIMARY_COLOR)} onChange={(inputEvent) => setGeneralDraft((prev) => ({ ...prev, primaryColor: inputEvent.target.value }))} className="h-10 w-14 p-1" />
+                      <Input value={generalDraft.primaryColor} onChange={(inputEvent) => setGeneralDraft((prev) => ({ ...prev, primaryColor: inputEvent.target.value }))} />
+                    </div>
+                  </label>
+                  <label className="space-y-1">
+                    <span className="text-xs font-medium text-muted-foreground">Color secundario</span>
+                    <div className="flex gap-2">
+                      <Input type="color" value={colorValue(generalDraft.secondaryColor, DEFAULT_SECONDARY_COLOR)} onChange={(inputEvent) => setGeneralDraft((prev) => ({ ...prev, secondaryColor: inputEvent.target.value }))} className="h-10 w-14 p-1" />
+                      <Input value={generalDraft.secondaryColor} onChange={(inputEvent) => setGeneralDraft((prev) => ({ ...prev, secondaryColor: inputEvent.target.value }))} />
+                    </div>
+                  </label>
+                  <label className="space-y-1 md:col-span-2">
+                    <span className="text-xs font-medium text-muted-foreground">Imagen de fondo</span>
+                    <Input value={generalDraft.backgroundImageUrl} onChange={(inputEvent) => setGeneralDraft((prev) => ({ ...prev, backgroundImageUrl: inputEvent.target.value }))} placeholder="https://..." />
+                  </label>
+                  <label className="flex items-center gap-2 text-sm md:col-span-2">
+                    <input
+                      type="checkbox"
+                      checked={generalDraft.showLiveGalleryAfterCompletion}
+                      onChange={(inputEvent) => setGeneralDraft((prev) => ({ ...prev, showLiveGalleryAfterCompletion: inputEvent.target.checked }))}
+                      className="h-4 w-4 accent-primary"
+                    />
+                    Mostrar galería live al completar los retos
+                  </label>
                 </div>
                 <div className="flex flex-wrap gap-2">
+                  <Button className="gap-2 rounded-full" onClick={saveGeneralEditor} disabled={isDetailSaving}>
+                    <Check className="h-4 w-4" />
+                    {isDetailSaving ? "Guardando..." : "Guardar cambios"}
+                  </Button>
                   <Button variant="outline" className="gap-2 rounded-full" onClick={() => handleCopy(publicUrl)}>
                     <Copy className="h-4 w-4" />
                     Copiar enlace
@@ -2627,13 +3046,13 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
                     <Download className="h-4 w-4" />
                     Descargar QR
                   </Button>
-                  <Button variant="outline" className="gap-2 rounded-full" onClick={() => navigate(`/admin/capitanes/${event.id}/edit`)}>
-                    <Pencil className="h-4 w-4" />
-                    Editar evento
-                  </Button>
                   <Button variant="destructive" className="gap-2 rounded-full" onClick={handleFinish} disabled={event.status === "finished"}>
                     <Flag className="h-4 w-4" />
                     Finalizar evento
+                  </Button>
+                  <Button variant="destructive" className="gap-2 rounded-full" onClick={handleDeleteEvent}>
+                    <Trash2 className="h-4 w-4" />
+                    Eliminar evento
                   </Button>
                 </div>
                 <p className="break-all rounded-xl border border-border bg-muted/50 p-3 text-xs text-muted-foreground">{publicUrl}</p>
@@ -2644,31 +3063,20 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
               </div>
             </div>
           </Card>
-        </TabsContent>
+	        </TabsContent>
 
-        <TabsContent value="tables" className="mt-0 space-y-6">
-          <RankingCard ranking={ranking} tableChallengesByTable={tableChallengesByTable} totalChallenges={challenges.length} />
-          <ProgressCard
-            tables={tables}
-            challengesById={challengesById}
-            tableChallengesByTable={tableChallengesByTable}
-            evidenceByTableChallenge={evidenceByTableChallenge}
-            totalChallenges={challenges.length}
-          />
-        </TabsContent>
+	        <TabsContent value="tables" className="mt-0 space-y-6">
+	          <RankingCard ranking={ranking} tableChallengesByTable={tableChallengesByTable} totalChallenges={challenges.length} onEdit={openTableEditor} />
+	        </TabsContent>
 
         <TabsContent value="challenges" className="mt-0 space-y-6">
           <Card className="rounded-2xl p-5 shadow-sm">
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <h2 className="font-semibold">Retos del juego</h2>
-                <p className="text-sm text-muted-foreground">Orden, tipo de evidencia, puntos y reglas de cada reto.</p>
-              </div>
-              <Button variant="outline" className="gap-2 rounded-full" onClick={() => navigate(`/admin/capitanes/${event.id}/edit`)}>
-                <Pencil className="h-4 w-4" />
-                Editar evento
-              </Button>
-            </div>
+	            <div className="mb-4">
+	              <div>
+	                <h2 className="font-semibold">Retos del juego</h2>
+	                <p className="text-sm text-muted-foreground">Orden, tipo de evidencia, puntos y reglas de cada reto.</p>
+	              </div>
+	            </div>
             <div className="grid gap-3 md:grid-cols-2">
               {challenges.map((challenge, index) => (
                 <div key={challenge.id} className="rounded-xl border border-border bg-card p-4 shadow-sm">
@@ -2677,8 +3085,8 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
                       <p className="text-xs font-medium uppercase text-muted-foreground">Reto {index + 1}</p>
                       <h3 className="mt-1 font-semibold">{challenge.title}</h3>
                     </div>
-                    <Badge variant="outline" className="rounded-full">{evidenceLabels[challenge.evidence_type]}</Badge>
-                  </div>
+	                    <Badge variant="outline" className="rounded-full">{evidenceLabels[challenge.evidence_type]}</Badge>
+	                  </div>
                   <p className="mt-2 text-sm text-muted-foreground">{challenge.description}</p>
                   <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
                     <span className="rounded-full border border-border px-2 py-1">{challenge.points} pts</span>
@@ -2686,10 +3094,14 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
                     <span className="rounded-full border border-border px-2 py-1">
                       {challenge.has_time_limit ? `${challenge.time_limit_seconds}s` : "sin tiempo"}
                     </span>
-                    <span className="rounded-full border border-border px-2 py-1">{challenge.category}</span>
-                  </div>
-                </div>
-              ))}
+	                    <span className="rounded-full border border-border px-2 py-1">{challenge.category}</span>
+	                  </div>
+	                  <Button variant="outline" size="sm" className="mt-4 gap-2 rounded-full" onClick={() => openChallengeEditor(challenge)}>
+	                    <Pencil className="h-4 w-4" />
+	                    Editar reto
+	                  </Button>
+	                </div>
+	              ))}
             </div>
           </Card>
         </TabsContent>
@@ -2697,8 +3109,8 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
         <TabsContent value="content" className="mt-0 space-y-6">
           <Card className="rounded-2xl p-5 shadow-sm">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
+	              <div>
+	                <div className="flex flex-wrap items-center gap-2">
                   <ImageIcon className="h-5 w-5 text-primary" />
                   <h2 className="font-semibold">Galería live</h2>
                   <Badge variant={(event.show_live_gallery_after_completion ?? true) ? "default" : "outline"}>
@@ -2708,11 +3120,19 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
                 <p className="mt-2 text-sm text-muted-foreground">
                   Las mesas podrán ver el contenido del resto de equipos cuando terminen todos los retos.
                 </p>
-              </div>
-              <Button className="rounded-full" variant={(event.show_live_gallery_after_completion ?? true) ? "outline" : "default"} onClick={handleToggleLiveGallery}>
+	              </div>
+	              <Button className="rounded-full" variant={(event.show_live_gallery_after_completion ?? true) ? "outline" : "default"} onClick={handleToggleLiveGallery}>
                 {(event.show_live_gallery_after_completion ?? true) ? "Desactivar visibilidad" : "Activar visibilidad"}
               </Button>
-            </div>
+	            </div>
+	            <div className="mt-4 flex flex-wrap gap-2">
+	              <Button type="button" variant={contentView === "retos" ? "default" : "outline"} className="rounded-full" onClick={() => setContentView("retos")}>
+	                Ver por Retos
+	              </Button>
+	              <Button type="button" variant={contentView === "capitanes" ? "default" : "outline"} className="rounded-full" onClick={() => setContentView("capitanes")}>
+	                Ver por Capitanes
+	              </Button>
+	            </div>
             <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
               <Info label="Visibles" value={String(liveVisibleEvidence.length)} />
               <Info label="Fotos" value={String(photoCount)} />
@@ -2725,19 +3145,32 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
           <Card className="rounded-2xl p-5 shadow-sm">
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <h2 className="font-semibold">{view === "review" ? "Evidencias pendientes" : "Feed de evidencias"}</h2>
-                <p className="text-sm text-muted-foreground">
-                  {view === "review" ? "Solo evidencias pendientes o revisables." : "Todas las evidencias subidas por las mesas."}
-                </p>
+	                <h2 className="font-semibold">Contenido subido</h2>
+	                <p className="text-sm text-muted-foreground">
+	                  Todas las evidencias, agrupadas por {contentView === "retos" ? "reto" : "capitán"}.
+	                </p>
               </div>
             </div>
             {visibleEvidence.length === 0 ? (
               <EmptyState text="Todavía no se ha subido ninguna evidencia." />
             ) : (
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {visibleEvidence.map((item) => {
-                  const table = tables.find((candidate) => candidate.id === item.table_id);
-                  const tableChallenge = tableChallenges.find((candidate) => candidate.id === item.table_challenge_id);
+	              <div className="space-y-6">
+	                {Array.from(
+	                  visibleEvidence.reduce<Map<string, CaptainsEvidence[]>>((groups, item) => {
+	                    const table = tables.find((candidate) => candidate.id === item.table_id);
+	                    const tableChallenge = tableChallenges.find((candidate) => candidate.id === item.table_challenge_id);
+	                    const challenge = tableChallenge ? challengesById.get(tableChallenge.challenge_id) : undefined;
+	                    const key = contentView === "retos" ? challenge?.title || "Reto" : table?.table_name || "Capitán";
+	                    groups.set(key, [...(groups.get(key) || []), item]);
+	                    return groups;
+	                  }, new Map()),
+	                ).map(([group, items]) => (
+	                  <div key={group} className="space-y-3">
+	                    <h3 className="text-sm font-semibold uppercase text-muted-foreground">{group}</h3>
+	                    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+	                {items.map((item) => {
+	                  const table = tables.find((candidate) => candidate.id === item.table_id);
+	                  const tableChallenge = tableChallenges.find((candidate) => candidate.id === item.table_challenge_id);
                   const challenge = tableChallenge ? challengesById.get(tableChallenge.challenge_id) : undefined;
                   return (
                     <Card key={item.id} className="space-y-3 rounded-2xl p-3 shadow-sm">
@@ -2762,18 +3195,119 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
                             Límite: {challenge.has_time_limit ? `${challenge.time_limit_seconds}s` : "sin tiempo"} · Máx: {challenge.points} pts
                           </p>
                         ) : null}
-                      </div>
-                      <EvidenceActions evidence={item} event={event} maxPoints={challenge?.points} onDone={refreshAll} />
-                    </Card>
-                  );
-                })}
-              </div>
+	                      </div>
+	                      <EvidenceActions evidence={item} event={event} maxPoints={challenge?.points} onDone={refreshAll} />
+	                      <Button variant="outline" size="sm" className="w-full gap-2 rounded-full" onClick={() => openEvidenceEditor(item)}>
+	                        <Pencil className="h-4 w-4" />
+	                        Editar contenido
+	                      </Button>
+	                    </Card>
+	                  );
+	                })}
+	                    </div>
+	                  </div>
+	                ))}
+	              </div>
             )}
           </Card>
         </TabsContent>
       </Tabs>
 
-      <Dialog open={!!selectedEvidence} onOpenChange={(open) => !open && setSelectedEvidence(null)}>
+	      <Dialog open={!!editingTable} onOpenChange={(open) => { if (!open) { setEditingTable(null); setTableDraft(null); } }}>
+	        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+	          <DialogHeader>
+	            <DialogTitle>Editar capitán</DialogTitle>
+	            <DialogDescription>Actualiza la mesa/capitán que aparece en el ranking.</DialogDescription>
+	          </DialogHeader>
+	          {tableDraft ? (
+	            <div className="space-y-4">
+	              <div className="flex justify-center">
+	                <CaptainSpritePreview value={tableDraft.captain_sprite} config={tableDraft.captain_sprite_config} />
+	              </div>
+	              <div className="grid gap-3 sm:grid-cols-2">
+	                <label className="space-y-1">
+	                  <span className="text-xs font-medium text-muted-foreground">Nombre mesa</span>
+	                  <Input value={tableDraft.table_name} onChange={(event) => setTableDraft((prev) => prev ? { ...prev, table_name: event.target.value } : prev)} />
+	                </label>
+	                <label className="space-y-1">
+	                  <span className="text-xs font-medium text-muted-foreground">Capitán/a</span>
+	                  <Input value={tableDraft.captain_name || ""} onChange={(event) => setTableDraft((prev) => prev ? { ...prev, captain_name: event.target.value } : prev)} />
+	                </label>
+	                <label className="space-y-1">
+	                  <span className="text-xs font-medium text-muted-foreground">Vestuario</span>
+	                  <select className="h-10 rounded-md border border-input bg-background px-3 text-sm" value={tableDraft.captain_sprite_config?.outfit_type || "suit"} onChange={(event) => setTableDraft((prev) => prev ? { ...prev, captain_sprite_config: { ...normalizeCaptainSpriteConfig(prev.captain_sprite_config, prev.table_number - 1), outfit_type: event.target.value as CaptainsSpriteConfig["outfit_type"] } } : prev)}>
+	                    <option value="dress">Vestido</option>
+	                    <option value="suit">Traje</option>
+	                  </select>
+	                </label>
+	                <label className="space-y-1">
+	                  <span className="text-xs font-medium text-muted-foreground">Color piel</span>
+	                  <select className="h-10 rounded-md border border-input bg-background px-3 text-sm" value={tableDraft.captain_sprite_config?.skin_color || "fair"} onChange={(event) => setTableDraft((prev) => prev ? { ...prev, captain_sprite_config: { ...normalizeCaptainSpriteConfig(prev.captain_sprite_config, prev.table_number - 1), skin_color: event.target.value as CaptainsSpriteConfig["skin_color"] } } : prev)}>
+	                    {skinColorOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+	                  </select>
+	                </label>
+	              </div>
+	              <div className="flex justify-end gap-2">
+	                <Button variant="outline" onClick={() => { setEditingTable(null); setTableDraft(null); }}>Cancelar</Button>
+	                <Button onClick={saveTableEditor} disabled={isDetailSaving}>{isDetailSaving ? "Guardando..." : "Guardar"}</Button>
+	              </div>
+	            </div>
+	          ) : null}
+	        </DialogContent>
+	      </Dialog>
+
+	      <Dialog open={!!editingChallenge} onOpenChange={(open) => { if (!open) { setEditingChallenge(null); setChallengeDraft(null); } }}>
+	        <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
+	          <DialogHeader>
+	            <DialogTitle>Editar reto</DialogTitle>
+	            <DialogDescription>Solo se modifica este reto dentro de este evento, no el catálogo general.</DialogDescription>
+	          </DialogHeader>
+	          {challengeDraft ? (
+	            <div className="space-y-4">
+	              <ChallengeEditor challenge={challengeDraft} index={(challengeDraft.order_index || 1) - 1} onChange={setChallengeDraft} onDelete={() => { setEditingChallenge(null); setChallengeDraft(null); }} />
+	              <div className="flex justify-end gap-2">
+	                <Button variant="outline" onClick={() => { setEditingChallenge(null); setChallengeDraft(null); }}>Cancelar</Button>
+	                <Button onClick={saveChallengeEditor} disabled={isDetailSaving}>{isDetailSaving ? "Guardando..." : "Guardar reto"}</Button>
+	              </div>
+	            </div>
+	          ) : null}
+	        </DialogContent>
+	      </Dialog>
+
+	      <Dialog open={!!editingEvidence} onOpenChange={(open) => { if (!open) setEditingEvidence(null); }}>
+	        <DialogContent className="max-w-lg">
+	          <DialogHeader>
+	            <DialogTitle>Editar contenido</DialogTitle>
+	            <DialogDescription>Cambia estado, puntos y comentario interno de esta evidencia.</DialogDescription>
+	          </DialogHeader>
+	          <div className="space-y-4">
+	            <label className="space-y-1">
+	              <span className="text-xs font-medium text-muted-foreground">Estado</span>
+	              <select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={evidenceDraft.status} onChange={(event) => setEvidenceDraft((prev) => ({ ...prev, status: event.target.value as CaptainsEvidence["status"] }))}>
+	                <option value="uploaded">Subido</option>
+	                <option value="pending_review">Pendiente revisión</option>
+	                <option value="approved">Aprobado</option>
+	                <option value="rejected">Rechazado</option>
+	                <option value="deleted">Eliminado</option>
+	              </select>
+	            </label>
+	            <label className="space-y-1">
+	              <span className="text-xs font-medium text-muted-foreground">Puntos</span>
+	              <Input type="number" min={0} value={evidenceDraft.points} onChange={(event) => setEvidenceDraft((prev) => ({ ...prev, points: Number(event.target.value) }))} />
+	            </label>
+	            <label className="space-y-1">
+	              <span className="text-xs font-medium text-muted-foreground">Comentario</span>
+	              <Textarea rows={3} value={evidenceDraft.comment} onChange={(event) => setEvidenceDraft((prev) => ({ ...prev, comment: event.target.value }))} />
+	            </label>
+	            <div className="flex justify-end gap-2">
+	              <Button variant="outline" onClick={() => setEditingEvidence(null)}>Cancelar</Button>
+	              <Button onClick={saveEvidenceEditor} disabled={isDetailSaving}>{isDetailSaving ? "Guardando..." : "Guardar"}</Button>
+	            </div>
+	          </div>
+	        </DialogContent>
+	      </Dialog>
+
+	      <Dialog open={!!selectedEvidence} onOpenChange={(open) => !open && setSelectedEvidence(null)}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>Evidencia</DialogTitle>
@@ -2797,10 +3331,12 @@ const RankingCard = ({
   ranking,
   tableChallengesByTable,
   totalChallenges,
+  onEdit,
 }: {
   ranking: CaptainsTable[];
   tableChallengesByTable: Map<string, CaptainsTableChallenge[]>;
   totalChallenges: number;
+  onEdit: (table: CaptainsTable) => void;
 }) => (
   <Card className="rounded-2xl p-5 shadow-sm">
     <h2 className="mb-4 font-semibold">Ranking en tiempo real</h2>
@@ -2817,6 +3353,7 @@ const RankingCard = ({
             <th className="px-3 py-2 font-medium">Fallidos</th>
             <th className="px-3 py-2 font-medium">Pendientes</th>
             <th className="px-3 py-2 font-medium">Última actividad</th>
+            <th className="px-3 py-2 font-medium">Acciones</th>
           </tr>
         </thead>
         <tbody>
@@ -2839,7 +3376,13 @@ const RankingCard = ({
                 <td className="border-y border-border px-3 py-4">{table.completed_challenges}</td>
                 <td className="border-y border-border px-3 py-4">{table.failed_challenges}</td>
                 <td className="border-y border-border px-3 py-4">{pending}</td>
-                <td className="rounded-r-xl border-y border-r border-border px-3 py-4">{formatDateTime(table.last_activity_at)}</td>
+                <td className="border-y border-border px-3 py-4">{formatDateTime(table.last_activity_at)}</td>
+                <td className="rounded-r-xl border-y border-r border-border px-3 py-4">
+                  <Button variant="outline" size="sm" className="gap-2 rounded-full" onClick={() => onEdit(table)}>
+                    <Pencil className="h-4 w-4" />
+                    Editar
+                  </Button>
+                </td>
               </tr>
             );
           })}

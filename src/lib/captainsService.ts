@@ -342,6 +342,50 @@ export const updateCaptainsTables = async (
   return (data || []) as CaptainsTable[];
 };
 
+export const updateCaptainsTable = async (
+  tableId: string,
+  input: Partial<Pick<CaptainsTable, "table_name" | "captain_name" | "active_captain_name" | "captain_photo_url" | "captain_sprite" | "captain_sprite_config">>,
+) => {
+  const payload = {
+    ...input,
+    active_captain_name: input.active_captain_name ?? input.captain_name,
+  };
+  const { data, error } = await db.from("captains_tables").update(payload).eq("id", tableId).select("*").single();
+  ensureNoError(error);
+  return data as CaptainsTable;
+};
+
+export const updateCaptainsEventChallenge = async (challengeId: string, input: CaptainsChallengeInput) => {
+  const payload = normalizeChallengeRow(input, Math.max((input.order_index ?? 1) - 1, 0), input.id || "");
+  delete (payload as Record<string, unknown>).event_id;
+  const { data, error } = await db.from("captains_event_challenges").update(payload).eq("id", challengeId).select("*").single();
+  if (error && isMissingCaptainQuestionColumnError(error)) {
+    const fallback = await db
+      .from("captains_event_challenges")
+      .update(withoutCaptainQuestionColumns(payload))
+      .eq("id", challengeId)
+      .select("*")
+      .single();
+    ensureNoError(fallback.error);
+    return fallback.data as CaptainsEventChallenge;
+  }
+  ensureNoError(error);
+  return data as CaptainsEventChallenge;
+};
+
+export const deleteCaptainsEvent = async (eventId: string) => {
+  const evidence = await db.from("captains_evidence").delete().eq("event_id", eventId);
+  ensureNoError(evidence.error);
+  const tableChallenges = await db.from("captains_table_challenges").delete().eq("event_id", eventId);
+  ensureNoError(tableChallenges.error);
+  const eventChallenges = await db.from("captains_event_challenges").delete().eq("event_id", eventId);
+  ensureNoError(eventChallenges.error);
+  const tables = await db.from("captains_tables").delete().eq("event_id", eventId);
+  ensureNoError(tables.error);
+  const event = await db.from("captains_events").delete().eq("id", eventId);
+  ensureNoError(event.error);
+};
+
 export const replaceCaptainsEventChallenges = async (eventId: string, challenges: CaptainsChallengeInput[]) => {
   const { error: deleteError } = await db.from("captains_event_challenges").delete().eq("event_id", eventId);
   ensureNoError(deleteError);
@@ -1097,6 +1141,31 @@ export const deleteCaptainsEvidence = async (evidenceId: string) => {
     .eq("id", evidence.table_challenge_id);
   await recalculateCaptainsTableScore(evidence.table_id);
 
+  return evidence;
+};
+
+export const updateCaptainsEvidence = async (
+  evidenceId: string,
+  input: Pick<CaptainsEvidence, "status" | "points_awarded"> & { admin_comment?: string | null },
+) => {
+  const { data, error } = await db.from("captains_evidence").update(input).eq("id", evidenceId).select("*").single();
+  ensureNoError(error);
+  const evidence = data as CaptainsEvidence;
+  const tableChallengeStatus: CaptainsTableChallengeStatus =
+    input.status === "approved"
+      ? "completed"
+      : input.status === "uploaded"
+        ? "submitted"
+        : input.status;
+  await db
+    .from("captains_table_challenges")
+    .update({
+      status: tableChallengeStatus,
+      points_awarded: input.points_awarded,
+      reviewed_at: new Date().toISOString(),
+    })
+    .eq("id", evidence.table_challenge_id);
+  await recalculateCaptainsTableScore(evidence.table_id);
   return evidence;
 };
 
