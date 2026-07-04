@@ -37,7 +37,7 @@ const ensureNoError = (error: unknown) => {
   if (error) throw error;
 };
 
-const captainThemeColumns = ["primary_color", "secondary_color", "background_image_url"];
+const captainThemeColumns = ["primary_color", "secondary_color", "background_image_url", "theme_style"];
 
 const withoutCaptainThemeColumns = <T extends Record<string, unknown>>(payload: T) => {
   const next = { ...payload };
