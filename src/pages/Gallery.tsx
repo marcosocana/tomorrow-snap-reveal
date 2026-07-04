@@ -1711,14 +1711,14 @@ const Gallery = () => {
   const showDemoEnvironmentBack =
     isDemoEnvironmentFromQuery || localStorage.getItem("demoEnvironmentMode") === "1";
   const demoBanner = isDemoEvent ? (
-    <div className="fixed top-0 left-0 right-0 z-40 bg-[#f06a5f] py-2 text-center text-xs font-semibold tracking-wide text-white">
-      <span>Evento de prueba. </span>
+    <div className="fixed top-0 left-0 right-0 z-[70] flex min-h-16 flex-wrap items-center justify-center gap-2 bg-[#f06a5f] px-3 py-3 text-center text-sm font-semibold tracking-wide text-white">
+      <span>Evento de prueba.</span>
       <button
         type="button"
-        className="underline underline-offset-2"
+        className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-black shadow-sm transition hover:bg-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#f06a5f]"
         onClick={() => setPricingOpen(true)}
       >
-        Ver planes de pago
+        Ver eventos de pago
       </button>
     </div>
   ) : null;
@@ -1735,7 +1735,7 @@ const Gallery = () => {
     return (
       <>
         {demoBanner}
-        <div className={`app-screen bg-background flex flex-col items-center justify-center p-4 ${isDemoEvent ? "pt-8" : ""}`}>
+        <div className={`app-screen bg-background flex flex-col items-center justify-center p-4 ${isDemoEvent ? "pt-16" : ""}`}>
         <div className="flex-1 flex flex-col items-center justify-center max-w-md w-full text-center space-y-6">
           <h1 
             className="text-2xl font-bold text-foreground"
@@ -1873,7 +1873,7 @@ const Gallery = () => {
   return (
     <>
       {demoBanner}
-      <div className={`app-screen bg-background ${isDemoEvent ? "pt-8" : ""}`}>
+      <div className={`app-screen bg-background ${isDemoEvent ? "pt-16" : ""}`}>
       {/* Hero Header with Background Image */}
       {eventBackgroundImage ? (
         <header className="relative w-full">
@@ -1987,7 +1987,7 @@ const Gallery = () => {
           )}
         </header>
       ) : (
-        <header className={`fixed left-0 right-0 z-50 border-b border-border bg-card ${isDemoEvent ? "top-8" : "top-0"}`}>
+        <header className={`fixed left-0 right-0 z-50 border-b border-border bg-card ${isDemoEvent ? "top-16" : "top-0"}`}>
           <div className="max-w-7xl mx-auto px-6 py-6">
             <div className="mb-4 flex items-center justify-between">
               <Button

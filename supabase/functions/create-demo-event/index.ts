@@ -4,7 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
-const DEMO_LOGO_URL = Deno.env.get("DEMO_LOGO_URL") ?? "https://acceso.revelao.cam/demo-logo.png";
+const DEMO_LOGO_URL = "https://acceso.revelao.cam/LogoMiniRevelao.svg";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -204,6 +204,8 @@ serve(async (req) => {
     expiryDate.setUTCDate(expiryDate.getUTCDate() + 10);
     expiryDate.setUTCHours(23, 59, 0, 0);
 
+    const resolvedCustomImageUrl = event.custom_image_url?.trim() || DEMO_LOGO_URL;
+
     const { data: createdEvent, error: eventError } = await supabaseAdmin
       .from("events")
       .insert({
@@ -214,7 +216,7 @@ serve(async (req) => {
         upload_end_time: event.upload_end_time,
         reveal_time: event.reveal_time,
         max_photos: event.max_photos ?? 10,
-        custom_image_url: event.custom_image_url ?? DEMO_LOGO_URL,
+        custom_image_url: resolvedCustomImageUrl,
         background_image_url: event.background_image_url ?? null,
         filter_type: event.filter_type ?? "none",
         font_family: event.font_family ?? "system",

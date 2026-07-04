@@ -1300,14 +1300,14 @@ const Camera = () => {
     </button>
   ) : null;
   const demoBanner = isDemoEvent ? (
-    <div className="fixed top-0 left-0 right-0 z-40 bg-[#f06a5f] py-2 text-center text-xs font-semibold tracking-wide text-white">
-      <span>Evento de prueba. </span>
+    <div className="fixed top-0 left-0 right-0 z-[70] flex min-h-16 flex-wrap items-center justify-center gap-2 bg-[#f06a5f] px-3 py-3 text-center text-sm font-semibold tracking-wide text-white">
+      <span>Evento de prueba.</span>
       <button
         type="button"
-        className="underline underline-offset-2"
+        className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-black shadow-sm transition hover:bg-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#f06a5f]"
         onClick={() => setPricingOpen(true)}
       >
-        Ver planes de pago
+        Ver eventos de pago
       </button>
     </div>
   ) : null;
@@ -1347,7 +1347,7 @@ const Camera = () => {
     return (
       <>
         {demoBanner}
-        <div className={`app-screen bg-background flex flex-col ${isDemoEvent ? "pt-8" : ""}`}>
+        <div className={`app-screen bg-background flex flex-col ${isDemoEvent ? "pt-16" : ""}`}>
         {backgroundImageUrl ? (
           <>
             {/* Hero Header with Background Image */}
@@ -1466,7 +1466,7 @@ const Camera = () => {
           </>
         ) : (
           <>
-            <header className={`fixed left-0 right-0 z-50 p-4 flex justify-between items-center bg-card border-b border-border ${isDemoEvent ? "top-8" : "top-0"}`}>
+            <header className={`fixed left-0 right-0 z-50 p-4 flex justify-between items-center bg-card border-b border-border ${isDemoEvent ? "top-16" : "top-0"}`}>
               <Button
                 variant="ghost"
                 size="icon"
@@ -1556,7 +1556,7 @@ const Camera = () => {
     return (
       <>
         {demoBanner}
-        <div className={`app-screen bg-background flex flex-col ${isDemoEvent ? "pt-8" : ""}`}>
+        <div className={`app-screen bg-background flex flex-col ${isDemoEvent ? "pt-16" : ""}`}>
         {backgroundImageUrl ? (
           <>
             {/* Hero Header with Background Image */}
@@ -1675,7 +1675,7 @@ const Camera = () => {
           </>
         ) : (
           <>
-            <header className={`fixed left-0 right-0 z-50 p-4 flex justify-between items-center bg-card border-b border-border ${isDemoEvent ? "top-8" : "top-0"}`}>
+            <header className={`fixed left-0 right-0 z-50 p-4 flex justify-between items-center bg-card border-b border-border ${isDemoEvent ? "top-16" : "top-0"}`}>
               <Button
                 variant="ghost"
                 size="icon"
@@ -1956,7 +1956,7 @@ const Camera = () => {
   return (
     <>
       {demoBanner}
-      <div className={`app-screen bg-background flex flex-col ${isDemoEvent ? "pt-8" : ""}`}>
+      <div className={`app-screen bg-background flex flex-col ${isDemoEvent ? "pt-16" : ""}`}>
       {backgroundImageUrl ? (
         <>
           {/* Hero Header with Background Image */}
@@ -2036,7 +2036,7 @@ const Camera = () => {
         </>
       ) : (
         <>
-          <header className={`fixed left-0 right-0 z-50 p-4 flex justify-between items-center bg-card border-b border-border ${isDemoEvent ? "top-8" : "top-0"}`}>
+          <header className={`fixed left-0 right-0 z-50 p-4 flex justify-between items-center bg-card border-b border-border ${isDemoEvent ? "top-16" : "top-0"}`}>
             <Button
               variant="ghost"
               size="icon"

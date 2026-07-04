@@ -5,7 +5,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 const ADMIN_EMAIL = "revelao.cam@gmail.com";
-const DEMO_LOGO_URL = Deno.env.get("DEMO_LOGO_URL") ?? "https://acceso.revelao.cam/demo-logo.png";
+const DEMO_LOGO_URL = "https://acceso.revelao.cam/LogoMiniRevelao.svg";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -266,7 +266,7 @@ serve(async (req) => {
 
     const planMeta = getPlanMetaByPlanId(event.plan_id, event.max_photos ?? null);
     const resolvedCustomImageUrl =
-      event.custom_image_url ?? (planMeta.type === "demo" ? DEMO_LOGO_URL : null);
+      event.custom_image_url?.trim() || (planMeta.type === "demo" ? DEMO_LOGO_URL : null);
 
     const { data: createdEvent, error: eventError } = await supabaseAdmin
       .from("events")

@@ -37,7 +37,7 @@ import {
 import { useAdminI18n } from "@/lib/adminI18n";
 import { QRCodeSVG } from "qrcode.react";
 const defaultQrLogo = "/marca_revelao_qr_evento.png";
-const defaultDemoLogo = "/demo-logo.png";
+const defaultDemoLogo = "/LogoMiniRevelao.svg";
 import weddingPreview from "@/assets/testimonial-wedding.jpg";
 
 // Background image - no size restrictions

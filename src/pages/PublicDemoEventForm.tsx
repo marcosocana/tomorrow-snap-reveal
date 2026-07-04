@@ -27,6 +27,7 @@ const BACKGROUND_IMAGE_SIZES = {
   tablet: { width: 1024, height: 576 },
   desktop: { width: 1920, height: 1080 },
 } as const;
+const DEFAULT_DEMO_LOGO_URL = "/LogoMiniRevelao.svg";
 
 // Generate a simple 8-character hash
 const generateHash = (): string => {
@@ -43,7 +44,7 @@ const PublicDemoEventForm = () => {
     fontFamily: "system" as EventFontFamily,
     filterType: "none" as FilterType,
     customImage: null as File | null,
-    customImageUrl: "",
+    customImageUrl: DEFAULT_DEMO_LOGO_URL,
     backgroundImage: null as File | null,
     backgroundImageUrl: "",
     description: "",
@@ -173,7 +174,7 @@ const PublicDemoEventForm = () => {
       const uploadEndDateTime = fromZonedTime(`${formData.uploadEndDate}T${formData.uploadEndTime}:00`, eventTz);
       const revealDateTime = fromZonedTime(`${formData.revealDate}T${formData.revealTime}:00`, eventTz);
 
-      let customImageUrl = formData.customImageUrl;
+      let customImageUrl = formData.customImageUrl || DEFAULT_DEMO_LOGO_URL;
       if (formData.customImage) {
         const uploadedUrl = await handleImageUpload(formData.customImage);
         if (uploadedUrl) {
@@ -198,7 +199,7 @@ const PublicDemoEventForm = () => {
         upload_end_time: uploadEndDateTime.toISOString(),
         reveal_time: revealDateTime.toISOString(),
         max_photos: 10, // Fixed at 10 for public demo
-        custom_image_url: customImageUrl,
+        custom_image_url: customImageUrl || DEFAULT_DEMO_LOGO_URL,
         background_image_url: backgroundImageUrl,
         filter_type: formData.filterType,
         font_family: formData.fontFamily,

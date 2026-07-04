@@ -31,7 +31,7 @@ const steps: Array<{ id: StepId; label: string }> = [
 ];
 
 const REVELAO_RED = "#f06a5f";
-const DEFAULT_LOGO_URL = "/LogoTransparent.png";
+const DEFAULT_LOGO_URL = "/LogoMiniRevelao.svg";
 const dateInputClass =
   "h-9 min-w-0 rounded px-1.5 text-[14px] sm:h-12 sm:rounded-full sm:px-4 sm:text-base [appearance:textfield] [color-scheme:light] [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none";
 const timeInputClass =
