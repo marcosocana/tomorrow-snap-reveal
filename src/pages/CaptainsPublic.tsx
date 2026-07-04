@@ -601,9 +601,7 @@ const useIsMobileCaptainDevice = () => {
   useEffect(() => {
     const evaluate = () => {
       const width = window.innerWidth;
-      const coarse = window.matchMedia("(pointer: coarse)").matches;
-      const mobileUa = /Android|webOS|iPhone|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-      setState({ ready: true, allowed: width <= 768 && (coarse || mobileUa), width });
+      setState({ ready: true, allowed: true, width });
     };
 
     evaluate();
