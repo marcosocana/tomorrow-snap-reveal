@@ -47,6 +47,7 @@ export interface CaptainsEvent {
   primary_color: string | null;
   secondary_color: string | null;
   background_image_url: string | null;
+  theme_style: CaptainsThemeStyle;
   qr_url: string | null;
   public_url: string;
   created_at: string;
