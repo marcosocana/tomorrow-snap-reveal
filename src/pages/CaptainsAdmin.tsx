@@ -1161,6 +1161,7 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
         primary_color: primaryColor,
         secondary_color: secondaryColor,
         background_image_url: backgroundImageUrl.trim() || null,
+        theme_style: themeStyle,
         status: startIso && new Date(startIso).getTime() > Date.now() ? "scheduled" as const : "active" as const,
       };
 
