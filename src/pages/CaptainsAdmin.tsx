@@ -110,7 +110,7 @@ const captainsThemeOptions: Array<{
     label: "Romántico",
     description: "Tipografía cursiva, bordes suaves y una sensación más elegante.",
     headingClass: "font-serif italic",
-    previewClass: "rounded-2xl border border-rose-200 bg-rose-50",
+    previewClass: "rounded-2xl border border-neutral-200 bg-white",
   },
   {
     value: "modern",
@@ -884,18 +884,12 @@ const captainsOnboardingSteps: Array<{ id: CaptainsOnboardingStep; label: string
   { id: "contact", label: "Contacto" },
 ];
 
-const CAPTAINS_ONBOARDING_DEFAULT_CHALLENGES = 8;
-
 export const CaptainsOnboarding = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { data: catalog = [] } = useCaptainsChallengeCatalog();
   const defaultDateRange = useMemo(() => getDefaultCaptainsDateRange(), []);
   const availableCatalog = catalog.length ? catalog : captainsDefaultChallengeCatalog;
-  const defaultChallenges = useMemo(
-    () => availableCatalog.slice(0, CAPTAINS_ONBOARDING_DEFAULT_CHALLENGES).map((item, index) => catalogChallengeToInput(item, index + 1)),
-    [availableCatalog],
-  );
   const [stepIndex, setStepIndex] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [name, setName] = useState("");
@@ -916,14 +910,14 @@ export const CaptainsOnboarding = () => {
       table_number: index + 1,
       table_name: `Mesa ${index + 1}`,
       captain_name: "",
+      captain_photo_url: "",
       captain_sprite: getDefaultCaptainSprite(index),
       captain_sprite_config: defaultCaptainSpriteConfig(index),
     })),
   );
-  const [selectedChallengeIds, setSelectedChallengeIds] = useState<string[]>(() =>
-    defaultChallenges.map((challenge) => challenge.catalog_challenge_id || challenge.title),
-  );
-  const [selectedChallenges, setSelectedChallenges] = useState<CaptainsChallengeInput[]>(defaultChallenges);
+  const [uploadingOnboardingCaptainPhotoIndex, setUploadingOnboardingCaptainPhotoIndex] = useState<number | null>(null);
+  const [selectedChallengeIds, setSelectedChallengeIds] = useState<string[]>([]);
+  const [selectedChallenges, setSelectedChallenges] = useState<CaptainsChallengeInput[]>([]);
   const [scoringMode, setScoringMode] = useState<"automatic" | "manual">("automatic");
   const [contactName, setContactName] = useState("");
   const [contactEmail, setContactEmail] = useState("");
@@ -942,14 +936,6 @@ export const CaptainsOnboarding = () => {
   }, [availableCatalog]);
   const editingTable = editingTableIndex === null ? null : tables[editingTableIndex];
 
-  useEffect(() => {
-    setSelectedChallengeIds((prev) => {
-      if (prev.length) return prev;
-      return defaultChallenges.map((challenge) => challenge.catalog_challenge_id || challenge.title);
-    });
-    setSelectedChallenges((prev) => (prev.length ? prev : defaultChallenges));
-  }, [defaultChallenges]);
-
   const syncTables = (count: number) => {
     const cleanCount = Math.max(1, Math.min(30, Math.floor(count || 1)));
     setTableCount(cleanCount);
@@ -960,6 +946,7 @@ export const CaptainsOnboarding = () => {
           table_number: index + 1,
           table_name: `Mesa ${index + 1}`,
           captain_name: "",
+          captain_photo_url: "",
           captain_sprite: getDefaultCaptainSprite(index),
           captain_sprite_config: defaultCaptainSpriteConfig(index),
         };
@@ -967,6 +954,7 @@ export const CaptainsOnboarding = () => {
         ...table,
         table_number: index + 1,
         table_name: table.table_name || `Mesa ${index + 1}`,
+        captain_photo_url: table.captain_photo_url || "",
       })),
     );
   };
@@ -1017,6 +1005,32 @@ export const CaptainsOnboarding = () => {
           : table,
       ),
     );
+  };
+
+  const handleOnboardingCaptainPhotoSelected = async (index: number, file?: File | null) => {
+    if (!file) return;
+    const previewUrl = URL.createObjectURL(file);
+    try {
+      setUploadingOnboardingCaptainPhotoIndex(index);
+      const blob = await createCircularCaptainPhotoBlob({ index, file, previewUrl, zoom: 1, offsetX: 0, offsetY: 0 });
+      const cleanName = sanitizeCaptainPhotoName(file.name.replace(/\.[^.]+$/, ""));
+      const filePath = `captains/captain-photos/new-onboarding/${Date.now()}-${index + 1}-${cleanName}.png`;
+      const { error } = await supabase.storage.from("event-photos").upload(filePath, blob, {
+        cacheControl: "3600",
+        contentType: "image/png",
+        upsert: true,
+      });
+      if (error) throw error;
+      const { data } = supabase.storage.from("event-photos").getPublicUrl(filePath);
+      updateOnboardingTable(index, { captain_photo_url: data.publicUrl });
+      toast({ title: "Foto añadida", description: "La foto del capitán se ha aplicado a la mesa." });
+    } catch (error) {
+      console.error("Onboarding captain photo upload error:", error);
+      toast({ title: "Error", description: "No hemos podido subir la foto del capitán.", variant: "destructive" });
+    } finally {
+      URL.revokeObjectURL(previewUrl);
+      setUploadingOnboardingCaptainPhotoIndex(null);
+    }
   };
 
   const toggleOnboardingCatalogChallenge = (challenge: CaptainsChallengeCatalogItem) => {
@@ -1247,24 +1261,70 @@ export const CaptainsOnboarding = () => {
             <div className="grid gap-3 sm:grid-cols-2">
               {tables.map((table, index) => (
                 <div key={index} className="rounded-2xl border border-border bg-card p-4">
-                  <div className="mb-3 flex items-center gap-3">
-                    <button
-                      type="button"
-                      className="rounded-xl border border-transparent p-1 transition hover:border-primary hover:bg-primary/5"
-                      onClick={() => setEditingTableIndex(index)}
+	                  <div className="mb-3 flex items-center gap-3">
+	                    <button
+	                      type="button"
+	                      className="rounded-xl border border-transparent p-1 transition hover:border-primary hover:bg-primary/5"
+	                      onClick={() => setEditingTableIndex(index)}
                       aria-label={`Editar detalles de la mesa ${index + 1}`}
                     >
                       <CaptainSpritePreview value={table.captain_sprite} config={table.captain_sprite_config} size="sm" />
                     </button>
                     <div>
                       <p className="text-sm font-semibold">Mesa {index + 1}</p>
-                      <p className="text-xs text-muted-foreground">Click en el muñeco para editar</p>
-                    </div>
-                  </div>
-                  <div className="grid gap-2">
-                    <Input value={table.table_name} onChange={(event) => setTables((prev) => prev.map((item, itemIndex) => itemIndex === index ? { ...item, table_name: event.target.value } : item))} placeholder={`Mesa ${index + 1}`} />
-                    <Input value={table.captain_name} onChange={(event) => setTables((prev) => prev.map((item, itemIndex) => itemIndex === index ? { ...item, captain_name: event.target.value } : item))} placeholder="Nombre capitán/a" />
-                  </div>
+	                      <p className="text-xs text-muted-foreground">Click en el muñeco para editar</p>
+	                    </div>
+	                  </div>
+	                  <div className="mb-3 flex items-center justify-between gap-3 rounded-xl border border-border bg-muted/20 p-3">
+	                    <div className="flex min-w-0 items-center gap-3">
+	                      <CaptainPhotoPreview table={table} size="sm" />
+	                      <div className="min-w-0">
+	                        <p className="text-xs font-medium text-foreground">Foto del capitán/a</p>
+	                        <p className="truncate text-xs text-muted-foreground">
+	                          {table.captain_photo_url ? "Foto añadida" : "Añádela desde aquí sin entrar al modal"}
+	                        </p>
+	                      </div>
+	                    </div>
+	                    <div className="flex shrink-0 items-center gap-2">
+	                      {table.captain_photo_url ? (
+	                        <Button
+	                          type="button"
+	                          variant="outline"
+	                          size="icon"
+	                          className="h-9 w-9 rounded-full"
+	                          onClick={() => updateOnboardingTable(index, { captain_photo_url: "" })}
+	                          aria-label={`Quitar foto de la mesa ${index + 1}`}
+	                          title="Quitar foto"
+	                        >
+	                          <X className="h-4 w-4" />
+	                        </Button>
+	                      ) : null}
+	                      <label className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-full border border-input bg-background px-3 text-xs font-medium text-foreground transition hover:bg-muted">
+	                        {uploadingOnboardingCaptainPhotoIndex === index ? (
+	                          <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+	                        ) : (
+	                          <Upload className="h-3.5 w-3.5" />
+	                        )}
+	                        <span className="hidden sm:inline">
+	                          {uploadingOnboardingCaptainPhotoIndex === index ? "Subiendo..." : table.captain_photo_url ? "Cambiar" : "Subir"}
+	                        </span>
+	                        <input
+	                          type="file"
+	                          accept="image/*"
+	                          className="hidden"
+	                          disabled={uploadingOnboardingCaptainPhotoIndex === index}
+	                          onChange={(event) => {
+	                            handleOnboardingCaptainPhotoSelected(index, event.target.files?.[0]);
+	                            event.currentTarget.value = "";
+	                          }}
+	                        />
+	                      </label>
+	                    </div>
+	                  </div>
+	                  <div className="grid gap-2">
+	                    <Input value={table.table_name} onChange={(event) => setTables((prev) => prev.map((item, itemIndex) => itemIndex === index ? { ...item, table_name: event.target.value } : item))} placeholder={`Mesa ${index + 1}`} />
+	                    <Input value={table.captain_name} onChange={(event) => setTables((prev) => prev.map((item, itemIndex) => itemIndex === index ? { ...item, captain_name: event.target.value } : item))} placeholder="Nombre capitán/a" />
+	                  </div>
                 </div>
               ))}
             </div>
@@ -3292,20 +3352,6 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
                   </Button>
                 </div>
                 <p className="break-all rounded-xl border border-border bg-muted/50 p-3 text-xs text-muted-foreground">{publicUrl}</p>
-              </div>
-	            <div className="flex flex-col justify-center rounded-2xl border border-border bg-muted/20 p-4">
-	              <p className="text-sm font-semibold text-foreground">Acceso público</p>
-	              <p className="mt-2 break-all text-xs text-muted-foreground">{publicUrl}</p>
-	              <div className="mt-4 grid gap-2">
-	                <Button variant="outline" className="gap-2 rounded-full" onClick={() => setQrPreviewOpen(true)}>
-	                  <Eye className="h-4 w-4" />
-	                  Ver QR
-	                </Button>
-	                <Button variant="outline" className="gap-2 rounded-full" onClick={handleDownloadQr}>
-	                  <Download className="h-4 w-4" />
-	                  Descargar QR
-	                </Button>
-	              </div>
               </div>
             </div>
           </Card>
