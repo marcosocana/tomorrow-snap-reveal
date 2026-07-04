@@ -38,7 +38,15 @@ const ensureNoError = (error: unknown) => {
   if (error) throw error;
 };
 
-const captainThemeColumns = ["primary_color", "secondary_color", "background_image_url", "theme_style"];
+const captainThemeColumns = [
+  "primary_color",
+  "secondary_color",
+  "background_image_url",
+  "theme_style",
+  "contact_name",
+  "contact_email",
+  "contact_phone",
+];
 
 const withoutCaptainThemeColumns = <T extends Record<string, unknown>>(payload: T) => {
   const next = { ...payload };
@@ -187,6 +195,9 @@ export const createCaptainsEvent = async (input: CreateCaptainsEventInput) => {
     primary_color: input.primary_color ?? null,
     secondary_color: input.secondary_color ?? null,
     background_image_url: input.background_image_url ?? null,
+    contact_name: input.contact_name?.trim() || null,
+    contact_email: input.contact_email?.trim().toLowerCase() || null,
+    contact_phone: input.contact_phone?.trim() || null,
     public_url: publicUrl,
     qr_url: getCaptainsQrValue(slug),
   };

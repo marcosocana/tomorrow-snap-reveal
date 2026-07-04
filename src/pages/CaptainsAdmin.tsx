@@ -63,10 +63,11 @@ import type {
   CaptainsChallengeCatalogItem,
   CaptainsDifficulty,
   CaptainsEvent,
-  CaptainsEventChallenge,
-  CaptainsEvidence,
-  CaptainsEvidenceType,
-  CaptainsSpriteConfig,
+	  CaptainsEventChallenge,
+	  CaptainsEvidence,
+	  CaptainsEvidenceType,
+	  CaptainsScoringMode,
+	  CaptainsSpriteConfig,
   CaptainsSpriteStyle,
   CaptainsThemeStyle,
   CaptainsTable,
@@ -872,14 +873,14 @@ export const CaptainsAdminList = () => {
   );
 };
 
-type CaptainsOnboardingStep = "intro" | "style" | "tables" | "challenges" | "review";
+type CaptainsOnboardingStep = "intro" | "style" | "tables" | "challenges" | "contact";
 
 const captainsOnboardingSteps: Array<{ id: CaptainsOnboardingStep; label: string }> = [
   { id: "intro", label: "Evento" },
   { id: "style", label: "Estilo" },
   { id: "tables", label: "Mesas" },
   { id: "challenges", label: "Retos" },
-  { id: "review", label: "Resumen" },
+  { id: "contact", label: "Contacto" },
 ];
 
 const CAPTAINS_ONBOARDING_DEFAULT_CHALLENGES = 8;
@@ -923,6 +924,9 @@ export const CaptainsOnboarding = () => {
   );
   const [selectedChallenges, setSelectedChallenges] = useState<CaptainsChallengeInput[]>(defaultChallenges);
   const [scoringMode, setScoringMode] = useState<"automatic" | "manual">("automatic");
+  const [contactName, setContactName] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
+  const [contactPhone, setContactPhone] = useState("");
   const currentStep = captainsOnboardingSteps[stepIndex];
   const progress = Math.round(((stepIndex + 1) / captainsOnboardingSteps.length) * 100);
   const primaryTextColor = readableTextColor(primaryColor);
@@ -976,6 +980,10 @@ export const CaptainsOnboarding = () => {
     }
     if (step === "tables" && tableCount < 1) return "Añade al menos una mesa.";
     if (step === "challenges" && selectedChallenges.length < 1) return "Selecciona al menos un reto.";
+    if (step === "contact") {
+      if (!contactName.trim() || !contactEmail.trim() || !contactPhone.trim()) return "Completa nombre, email y teléfono.";
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail.trim())) return "Introduce un email válido.";
+    }
     return null;
   };
 
@@ -1094,14 +1102,46 @@ export const CaptainsOnboarding = () => {
           theme_style: themeStyle,
           primary_color: primaryColor,
           secondary_color: DEFAULT_SECONDARY_COLOR,
-          background_image_url: null,
-          status: startIso && new Date(startIso).getTime() > Date.now() ? "scheduled" : "active",
-        },
-        tables,
-        challenges: selectedChallenges,
-      });
-      toast({ title: "Juego creado", description: "Capitanes ya está listo para usar." });
-      navigate(`/admin/capitanes/${created?.event.id}`);
+	          background_image_url: null,
+	          contact_name: contactName.trim(),
+	          contact_email: contactEmail.trim(),
+	          contact_phone: contactPhone.trim(),
+	          status: startIso && new Date(startIso).getTime() > Date.now() ? "scheduled" : "active",
+	        },
+	        tables,
+	        challenges: selectedChallenges,
+	      });
+	      const createdEvent = created?.event;
+	      if (createdEvent) {
+	        const publicUrl = normalizeCaptainsPublicUrl(createdEvent.public_url, createdEvent.slug);
+	        const adminUrl = `${window.location.origin}/admin/capitanes/${createdEvent.id}`;
+	        const contactInfo = {
+	          name: contactName.trim(),
+	          email: contactEmail.trim(),
+	          phone: contactPhone.trim(),
+	        };
+	        await Promise.allSettled([
+	          supabase.functions.invoke("send-captains-event-email", {
+	            body: {
+	              event: createdEvent,
+	              contactInfo,
+	              publicUrl,
+	              adminUrl,
+	              tableCount: tables.length,
+	              challengeCount: selectedChallenges.length,
+	            },
+	          }),
+	          supabase.functions.invoke("notify-admin-new-event", {
+	            body: {
+	              event: createdEvent,
+	              planLabel: "Capitanes",
+	              panelPath: `/admin/capitanes/${createdEvent.id}`,
+	            },
+	          }),
+	        ]);
+	      }
+	      toast({ title: "Juego creado", description: "Capitanes ya está listo para usar." });
+	      navigate(`/admin/capitanes/${created?.event.id}`);
     } catch (error) {
       console.error("Error creating captains onboarding game:", error);
       toast({ title: "Error", description: "No hemos podido crear el juego.", variant: "destructive" });
@@ -1303,19 +1343,24 @@ export const CaptainsOnboarding = () => {
             </div>
           </div>
         );
-      case "review":
+      case "contact":
         return (
-          <div className="space-y-4">
-            <div className="rounded-2xl border border-border bg-muted/30 p-4 text-sm">
-              <p><strong>Juego:</strong> {name || "-"}</p>
-              <p><strong>Estilo:</strong> {getCaptainsThemeOption(themeStyle).label}</p>
-              <p><strong>Mesas:</strong> {tables.length}</p>
-              <p><strong>Retos:</strong> {selectedChallenges.length}</p>
-              <p><strong>Puntuación:</strong> {scoringMode === "automatic" ? "Automática" : "Manual"}</p>
-              <p><strong>Inicio:</strong> {startDate} {startHour}</p>
-              <p><strong>Fin:</strong> {endDate} {endHour}</p>
+          <div className="space-y-5">
+            <div className="rounded-2xl border border-border bg-muted/30 p-4 text-sm text-muted-foreground">
+              Estos datos se guardarán en el detalle del evento. Al crear Capitanes enviaremos al usuario el resumen y el enlace de edición, y a Revelao el aviso interno del nuevo evento.
             </div>
-            <p className="text-sm text-muted-foreground">Al crear el juego se generará el enlace público y el QR de Capitanes.</p>
+            <label className="space-y-2">
+              <span className="text-sm font-medium">Nombre</span>
+              <Input value={contactName} onChange={(event) => setContactName(event.target.value)} placeholder="Nombre y apellidos" className="h-12 rounded-full px-4 text-base" />
+            </label>
+            <label className="space-y-2">
+              <span className="text-sm font-medium">Email</span>
+              <Input type="email" value={contactEmail} onChange={(event) => setContactEmail(event.target.value)} placeholder="tu@email.com" className="h-12 rounded-full px-4 text-base" />
+            </label>
+            <label className="space-y-2">
+              <span className="text-sm font-medium">Teléfono</span>
+              <Input type="tel" value={contactPhone} onChange={(event) => setContactPhone(event.target.value)} placeholder="+34 600 000 000" className="h-12 rounded-full px-4 text-base" />
+            </label>
           </div>
         );
     }
@@ -1377,8 +1422,8 @@ export const CaptainsOnboarding = () => {
                   <ArrowLeft className="h-4 w-4 sm:mr-2" />
                   <span className="hidden sm:inline">Atrás</span>
                 </Button>
-                <Button type="button" className="h-12 flex-1 rounded-full hover:opacity-90" style={{ backgroundColor: primaryColor, color: primaryTextColor }} onClick={currentStep.id === "review" ? handleSave : goNext} disabled={isSaving}>
-                  {currentStep.id === "review" ? (isSaving ? "Creando..." : "Crear Capitanes") : "Siguiente"}
+                <Button type="button" className="h-12 flex-1 rounded-full hover:opacity-90" style={{ backgroundColor: primaryColor, color: primaryTextColor }} onClick={currentStep.id === "contact" ? handleSave : goNext} disabled={isSaving}>
+                  {currentStep.id === "contact" ? (isSaving ? "Creando..." : "Crear Capitanes") : "Siguiente"}
                 </Button>
               </div>
             </div>
@@ -2631,11 +2676,16 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
     primaryColor: DEFAULT_PRIMARY_COLOR,
     secondaryColor: DEFAULT_SECONDARY_COLOR,
     backgroundImageUrl: "",
+    contactName: "",
+    contactEmail: "",
+    contactPhone: "",
     status: "active" as CaptainsEvent["status"],
     showLiveGalleryAfterCompletion: true,
   });
   const [editingTable, setEditingTable] = useState<CaptainsTable | null>(null);
   const [tableDraft, setTableDraft] = useState<CaptainsTable | null>(null);
+  const [detailCaptainPhotoCrop, setDetailCaptainPhotoCrop] = useState<CaptainPhotoCropState | null>(null);
+  const [isUploadingDetailCaptainPhoto, setIsUploadingDetailCaptainPhoto] = useState(false);
   const [editingChallenge, setEditingChallenge] = useState<CaptainsEventChallenge | null>(null);
   const [challengeDraft, setChallengeDraft] = useState<CaptainsChallengeInput | null>(null);
   const [editingEvidence, setEditingEvidence] = useState<CaptainsEvidence | null>(null);
@@ -2666,6 +2716,9 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
       primaryColor: detail.event.primary_color || DEFAULT_PRIMARY_COLOR,
       secondaryColor: detail.event.secondary_color || DEFAULT_SECONDARY_COLOR,
       backgroundImageUrl: detail.event.background_image_url || "",
+      contactName: detail.event.contact_name || "",
+      contactEmail: detail.event.contact_email || "",
+      contactPhone: detail.event.contact_phone || "",
       status: detail.event.status,
       showLiveGalleryAfterCompletion: detail.event.show_live_gallery_after_completion ?? true,
     });
@@ -2747,6 +2800,9 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
         primary_color: generalDraft.primaryColor,
         secondary_color: generalDraft.secondaryColor,
         background_image_url: generalDraft.backgroundImageUrl.trim() || null,
+        contact_name: generalDraft.contactName.trim() || null,
+        contact_email: generalDraft.contactEmail.trim().toLowerCase() || null,
+        contact_phone: generalDraft.contactPhone.trim() || null,
         status: generalDraft.status,
         show_live_gallery_after_completion: generalDraft.showLiveGalleryAfterCompletion,
       });
@@ -2773,7 +2829,7 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
     setTableDraft(normalized);
   };
 
-  const saveTableEditor = async () => {
+	  const saveTableEditor = async () => {
     if (!editingTable || !tableDraft) return;
     try {
       setIsDetailSaving(true);
@@ -2794,6 +2850,63 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
       toast({ title: "Error", description: "No hemos podido actualizar el capitán.", variant: "destructive" });
     } finally {
       setIsDetailSaving(false);
+    }
+	  };
+
+  const updateTableDraftSpriteConfig = (patch: Partial<CaptainsSpriteConfig>) => {
+    setTableDraft((prev) =>
+      prev
+        ? {
+            ...prev,
+            captain_sprite_config: {
+              ...normalizeCaptainSpriteConfig(prev.captain_sprite_config, prev.table_number - 1),
+              ...patch,
+            },
+          }
+        : prev,
+    );
+  };
+
+  const handleDetailCaptainPhotoSelected = (file?: File | null) => {
+    if (!file || !tableDraft) return;
+    const previewUrl = URL.createObjectURL(file);
+    setDetailCaptainPhotoCrop({
+      index: tableDraft.table_number - 1,
+      file,
+      previewUrl,
+      zoom: 1,
+      offsetX: 0,
+      offsetY: 0,
+    });
+  };
+
+  const closeDetailCaptainPhotoCrop = () => {
+    if (detailCaptainPhotoCrop?.previewUrl) URL.revokeObjectURL(detailCaptainPhotoCrop.previewUrl);
+    setDetailCaptainPhotoCrop(null);
+  };
+
+  const handleDetailCaptainPhotoUpload = async () => {
+    if (!detailCaptainPhotoCrop || !tableDraft || !eventId) return;
+    try {
+      setIsUploadingDetailCaptainPhoto(true);
+      const blob = await createCircularCaptainPhotoBlob(detailCaptainPhotoCrop);
+      const cleanName = sanitizeCaptainPhotoName(detailCaptainPhotoCrop.file.name.replace(/\.[^.]+$/, ""));
+      const filePath = `captains/captain-photos/${eventId}/${Date.now()}-${tableDraft.table_number}-${cleanName}.png`;
+      const { error } = await supabase.storage.from("event-photos").upload(filePath, blob, {
+        cacheControl: "3600",
+        contentType: "image/png",
+        upsert: true,
+      });
+      if (error) throw error;
+      const { data } = supabase.storage.from("event-photos").getPublicUrl(filePath);
+      setTableDraft((prev) => (prev ? { ...prev, captain_photo_url: data.publicUrl } : prev));
+      closeDetailCaptainPhotoCrop();
+      toast({ title: "Foto subida", description: "La imagen del capitán se ha añadido al detalle." });
+    } catch (error) {
+      console.error("Detail captain photo upload error:", error);
+      toast({ title: "Error", description: "No hemos podido subir la imagen del capitán.", variant: "destructive" });
+    } finally {
+      setIsUploadingDetailCaptainPhoto(false);
     }
   };
 
@@ -2935,11 +3048,25 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
                     <span className="text-xs font-medium text-muted-foreground">Nombre del juego</span>
                     <Input value={generalDraft.name} onChange={(inputEvent) => setGeneralDraft((prev) => ({ ...prev, name: inputEvent.target.value }))} />
                   </label>
-                  <label className="space-y-1 md:col-span-2">
-                    <span className="text-xs font-medium text-muted-foreground">Mensaje de bienvenida</span>
-                    <Textarea rows={5} value={generalDraft.description} onChange={(inputEvent) => setGeneralDraft((prev) => ({ ...prev, description: inputEvent.target.value }))} />
-                  </label>
-                  <div className="grid gap-2 sm:grid-cols-[1fr_110px]">
+	                  <label className="space-y-1 md:col-span-2">
+	                    <span className="text-xs font-medium text-muted-foreground">Mensaje de bienvenida</span>
+	                    <Textarea rows={5} value={generalDraft.description} onChange={(inputEvent) => setGeneralDraft((prev) => ({ ...prev, description: inputEvent.target.value }))} />
+	                  </label>
+	                  <div className="grid gap-3 rounded-2xl border border-border bg-muted/20 p-4 md:col-span-2 md:grid-cols-3">
+	                    <label className="space-y-1">
+	                      <span className="text-xs font-medium text-muted-foreground">Nombre contacto</span>
+	                      <Input value={generalDraft.contactName} onChange={(inputEvent) => setGeneralDraft((prev) => ({ ...prev, contactName: inputEvent.target.value }))} />
+	                    </label>
+	                    <label className="space-y-1">
+	                      <span className="text-xs font-medium text-muted-foreground">Email contacto</span>
+	                      <Input type="email" value={generalDraft.contactEmail} onChange={(inputEvent) => setGeneralDraft((prev) => ({ ...prev, contactEmail: inputEvent.target.value }))} />
+	                    </label>
+	                    <label className="space-y-1">
+	                      <span className="text-xs font-medium text-muted-foreground">Teléfono contacto</span>
+	                      <Input type="tel" value={generalDraft.contactPhone} onChange={(inputEvent) => setGeneralDraft((prev) => ({ ...prev, contactPhone: inputEvent.target.value }))} />
+	                    </label>
+	                  </div>
+	                  <div className="grid gap-2 sm:grid-cols-[1fr_110px]">
                     <label className="space-y-1">
                       <span className="text-xs font-medium text-muted-foreground">Inicio</span>
                       <Input type="date" value={generalDraft.startDate} onChange={(inputEvent) => setGeneralDraft((prev) => ({ ...prev, startDate: inputEvent.target.value }))} />
@@ -3213,50 +3340,163 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
         </TabsContent>
       </Tabs>
 
-	      <Dialog open={!!editingTable} onOpenChange={(open) => { if (!open) { setEditingTable(null); setTableDraft(null); } }}>
-	        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
-	          <DialogHeader>
-	            <DialogTitle>Editar capitán</DialogTitle>
-	            <DialogDescription>Actualiza la mesa/capitán que aparece en el ranking.</DialogDescription>
-	          </DialogHeader>
-	          {tableDraft ? (
-	            <div className="space-y-4">
-	              <div className="flex justify-center">
-	                <CaptainSpritePreview value={tableDraft.captain_sprite} config={tableDraft.captain_sprite_config} />
-	              </div>
-	              <div className="grid gap-3 sm:grid-cols-2">
-	                <label className="space-y-1">
-	                  <span className="text-xs font-medium text-muted-foreground">Nombre mesa</span>
-	                  <Input value={tableDraft.table_name} onChange={(event) => setTableDraft((prev) => prev ? { ...prev, table_name: event.target.value } : prev)} />
+		      <Dialog open={!!editingTable} onOpenChange={(open) => { if (!open) { setEditingTable(null); setTableDraft(null); closeDetailCaptainPhotoCrop(); } }}>
+		        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+		          <DialogHeader>
+		            <DialogTitle>Editar capitán</DialogTitle>
+		            <DialogDescription>Actualiza todos los detalles de la mesa/capitán: nombres, imagen y aspecto del muñeco.</DialogDescription>
+		          </DialogHeader>
+		          {tableDraft ? (
+		            <div className="space-y-4">
+		              <div className="flex flex-wrap items-center justify-center gap-5 rounded-2xl border border-border bg-muted/20 p-4">
+		                <CaptainPhotoPreview table={tableDraft} />
+		                <CaptainSpritePreview value={tableDraft.captain_sprite} config={tableDraft.captain_sprite_config} />
+		              </div>
+		              <div className="grid gap-3 sm:grid-cols-2">
+		                <label className="space-y-1">
+		                  <span className="text-xs font-medium text-muted-foreground">Nombre mesa</span>
+		                  <Input value={tableDraft.table_name} onChange={(event) => setTableDraft((prev) => prev ? { ...prev, table_name: event.target.value } : prev)} />
 	                </label>
 	                <label className="space-y-1">
-	                  <span className="text-xs font-medium text-muted-foreground">Capitán/a</span>
-	                  <Input value={tableDraft.captain_name || ""} onChange={(event) => setTableDraft((prev) => prev ? { ...prev, captain_name: event.target.value } : prev)} />
-	                </label>
-	                <label className="space-y-1">
-	                  <span className="text-xs font-medium text-muted-foreground">Vestuario</span>
-	                  <select className="h-10 rounded-md border border-input bg-background px-3 text-sm" value={tableDraft.captain_sprite_config?.outfit_type || "suit"} onChange={(event) => setTableDraft((prev) => prev ? { ...prev, captain_sprite_config: { ...normalizeCaptainSpriteConfig(prev.captain_sprite_config, prev.table_number - 1), outfit_type: event.target.value as CaptainsSpriteConfig["outfit_type"] } } : prev)}>
-	                    <option value="dress">Vestido</option>
-	                    <option value="suit">Traje</option>
-	                  </select>
-	                </label>
-	                <label className="space-y-1">
-	                  <span className="text-xs font-medium text-muted-foreground">Color piel</span>
-	                  <select className="h-10 rounded-md border border-input bg-background px-3 text-sm" value={tableDraft.captain_sprite_config?.skin_color || "fair"} onChange={(event) => setTableDraft((prev) => prev ? { ...prev, captain_sprite_config: { ...normalizeCaptainSpriteConfig(prev.captain_sprite_config, prev.table_number - 1), skin_color: event.target.value as CaptainsSpriteConfig["skin_color"] } } : prev)}>
-	                    {skinColorOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-	                  </select>
-	                </label>
-	              </div>
-	              <div className="flex justify-end gap-2">
-	                <Button variant="outline" onClick={() => { setEditingTable(null); setTableDraft(null); }}>Cancelar</Button>
-	                <Button onClick={saveTableEditor} disabled={isDetailSaving}>{isDetailSaving ? "Guardando..." : "Guardar"}</Button>
+		                  <span className="text-xs font-medium text-muted-foreground">Capitán/a</span>
+		                  <Input value={tableDraft.captain_name || ""} onChange={(event) => setTableDraft((prev) => prev ? { ...prev, captain_name: event.target.value } : prev)} />
+		                </label>
+		                <div className="space-y-2 rounded-xl border border-border bg-muted/20 p-3 sm:col-span-2">
+		                  <div className="flex items-center justify-between gap-3">
+		                    <span className="text-xs font-medium text-muted-foreground">Imagen del capitán/a</span>
+		                    <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-xs font-medium hover:bg-muted">
+		                      {isUploadingDetailCaptainPhoto ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+		                      {isUploadingDetailCaptainPhoto ? "Subiendo..." : "Subir imagen"}
+		                      <input
+		                        type="file"
+		                        accept="image/*"
+		                        className="hidden"
+		                        onChange={(event) => {
+		                          handleDetailCaptainPhotoSelected(event.target.files?.[0]);
+		                          event.currentTarget.value = "";
+		                        }}
+		                      />
+		                    </label>
+		                  </div>
+		                  {tableDraft.captain_photo_url ? (
+		                    <Button type="button" variant="outline" size="sm" className="h-8 gap-2" onClick={() => setTableDraft((prev) => prev ? { ...prev, captain_photo_url: "" } : prev)}>
+		                      <X className="h-3.5 w-3.5" />
+		                      Quitar imagen
+		                    </Button>
+		                  ) : (
+		                    <p className="flex items-center gap-1 text-xs text-muted-foreground">
+		                      <ImageIcon className="h-3.5 w-3.5" />
+		                      Si subes una imagen, se verá en la selección de mesa.
+		                    </p>
+		                  )}
+		                </div>
+		                <label className="space-y-1">
+		                  <span className="text-xs font-medium text-muted-foreground">Sexo</span>
+		                  <select
+		                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+		                    value={tableDraft.captain_sprite_config?.sex || "unspecified"}
+		                    onChange={(event) => {
+		                      const sex = event.target.value as CaptainsSpriteConfig["sex"];
+		                      updateTableDraftSpriteConfig({ sex, outfit_type: sex === "female" ? "dress" : "suit" });
+		                    }}
+		                  >
+		                    <option value="male">Hombre</option>
+		                    <option value="female">Mujer</option>
+		                    <option value="unspecified">Prefiero no decirlo</option>
+		                  </select>
+		                </label>
+		                <label className="space-y-1">
+		                  <span className="text-xs font-medium text-muted-foreground">Pelo</span>
+		                  <select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={tableDraft.captain_sprite_config?.hair_length || "short"} onChange={(event) => updateTableDraftSpriteConfig({ hair_length: event.target.value as CaptainsSpriteConfig["hair_length"] })}>
+		                    <option value="short">Corto</option>
+		                    <option value="long">Largo</option>
+		                  </select>
+		                </label>
+		                <label className="space-y-1">
+		                  <span className="text-xs font-medium text-muted-foreground">Color pelo</span>
+		                  <select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={tableDraft.captain_sprite_config?.hair_color || "dark"} onChange={(event) => updateTableDraftSpriteConfig({ hair_color: event.target.value as CaptainsSpriteConfig["hair_color"] })}>
+		                    {hairColorOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+		                  </select>
+		                </label>
+		                <label className="space-y-1">
+		                  <span className="text-xs font-medium text-muted-foreground">Vestuario</span>
+		                  <select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={tableDraft.captain_sprite_config?.outfit_type || "suit"} onChange={(event) => updateTableDraftSpriteConfig({ outfit_type: event.target.value as CaptainsSpriteConfig["outfit_type"] })}>
+		                    <option value="dress">Vestido</option>
+		                    <option value="suit">Traje</option>
+		                  </select>
+		                </label>
+		                <label className="space-y-1">
+		                  <span className="text-xs font-medium text-muted-foreground">Color piel</span>
+		                  <select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={tableDraft.captain_sprite_config?.skin_color || "fair"} onChange={(event) => updateTableDraftSpriteConfig({ skin_color: event.target.value as CaptainsSpriteConfig["skin_color"] })}>
+		                    {skinColorOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+		                  </select>
+		                </label>
+		                <label className="space-y-1">
+		                  <span className="text-xs font-medium text-muted-foreground">Color vestido</span>
+		                  <Input type="color" value={colorValue(tableDraft.captain_sprite_config?.dress_color || "", "#202235")} onChange={(event) => updateTableDraftSpriteConfig({ dress_color: event.target.value })} className="h-10" disabled={tableDraft.captain_sprite_config?.outfit_type !== "dress"} />
+		                </label>
+		                <label className="space-y-1">
+		                  <span className="text-xs font-medium text-muted-foreground">Color traje</span>
+		                  <Input type="color" value={colorValue(tableDraft.captain_sprite_config?.suit_color || "", "#1f2937")} onChange={(event) => updateTableDraftSpriteConfig({ suit_color: event.target.value })} className="h-10" disabled={tableDraft.captain_sprite_config?.outfit_type !== "suit"} />
+		                </label>
+		                <label className="space-y-1">
+		                  <span className="text-xs font-medium text-muted-foreground">Color corbata</span>
+		                  <Input type="color" value={colorValue(tableDraft.captain_sprite_config?.tie_color || "", "#f06a5f")} onChange={(event) => updateTableDraftSpriteConfig({ tie_color: event.target.value })} className="h-10" disabled={tableDraft.captain_sprite_config?.outfit_type !== "suit"} />
+		                </label>
+		              </div>
+		              <div className="flex justify-end gap-2">
+		                <Button variant="outline" onClick={() => { setEditingTable(null); setTableDraft(null); }}>Cancelar</Button>
+		                <Button onClick={saveTableEditor} disabled={isDetailSaving}>{isDetailSaving ? "Guardando..." : "Guardar"}</Button>
 	              </div>
 	            </div>
 	          ) : null}
-	        </DialogContent>
-	      </Dialog>
+		        </DialogContent>
+		      </Dialog>
 
-	      <Dialog open={!!editingChallenge} onOpenChange={(open) => { if (!open) { setEditingChallenge(null); setChallengeDraft(null); } }}>
+		      <Dialog open={Boolean(detailCaptainPhotoCrop)} onOpenChange={(open) => { if (!open) closeDetailCaptainPhotoCrop(); }}>
+		        <DialogContent className="max-w-lg">
+		          <DialogHeader>
+		            <DialogTitle>Encuadrar imagen del capitán</DialogTitle>
+		            <DialogDescription>Ajusta el encuadre circular antes de guardarlo.</DialogDescription>
+		          </DialogHeader>
+		          {detailCaptainPhotoCrop ? (
+		            <div className="space-y-4">
+		              <div className="mx-auto flex h-64 w-64 items-center justify-center overflow-hidden rounded-full border border-border bg-muted">
+		                <img
+		                  src={detailCaptainPhotoCrop.previewUrl}
+		                  alt=""
+		                  className="h-full w-full object-cover"
+		                  style={{
+		                    transform: `translate(${detailCaptainPhotoCrop.offsetX}%, ${detailCaptainPhotoCrop.offsetY}%) scale(${detailCaptainPhotoCrop.zoom})`,
+		                  }}
+		                />
+		              </div>
+		              <div className="grid gap-3">
+		                <label className="space-y-1">
+		                  <span className="text-sm font-medium">Zoom</span>
+		                  <Input type="range" min="1" max="2.6" step="0.05" value={detailCaptainPhotoCrop.zoom} onChange={(event) => setDetailCaptainPhotoCrop((prev) => prev ? { ...prev, zoom: Number(event.target.value) } : prev)} />
+		                </label>
+		                <label className="space-y-1">
+		                  <span className="text-sm font-medium">Mover horizontal</span>
+		                  <Input type="range" min="-35" max="35" step="1" value={detailCaptainPhotoCrop.offsetX} onChange={(event) => setDetailCaptainPhotoCrop((prev) => prev ? { ...prev, offsetX: Number(event.target.value) } : prev)} />
+		                </label>
+		                <label className="space-y-1">
+		                  <span className="text-sm font-medium">Mover vertical</span>
+		                  <Input type="range" min="-35" max="35" step="1" value={detailCaptainPhotoCrop.offsetY} onChange={(event) => setDetailCaptainPhotoCrop((prev) => prev ? { ...prev, offsetY: Number(event.target.value) } : prev)} />
+		                </label>
+		              </div>
+		              <div className="flex justify-end gap-2">
+		                <Button variant="outline" onClick={closeDetailCaptainPhotoCrop}>Cancelar</Button>
+		                <Button onClick={handleDetailCaptainPhotoUpload} disabled={isUploadingDetailCaptainPhoto}>
+		                  {isUploadingDetailCaptainPhoto ? "Subiendo..." : "Guardar encuadre"}
+		                </Button>
+		              </div>
+		            </div>
+		          ) : null}
+		        </DialogContent>
+		      </Dialog>
+
+		      <Dialog open={!!editingChallenge} onOpenChange={(open) => { if (!open) { setEditingChallenge(null); setChallengeDraft(null); } }}>
 	        <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
 	          <DialogHeader>
 	            <DialogTitle>Editar reto</DialogTitle>

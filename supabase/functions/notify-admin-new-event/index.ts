@@ -132,7 +132,10 @@ Deno.serve(async (req) => {
 
   const eventType = inferType(event, body?.planLabel);
   const eventName = String(event.name);
-  const panelUrl = `${APP_ORIGIN}/event-form/${event.id}`;
+  const panelPath = typeof body?.panelPath === "string" && body.panelPath.startsWith("/")
+    ? body.panelPath
+    : `/event-form/${event.id}`;
+  const panelUrl = `${APP_ORIGIN}${panelPath}`;
 
   const html = buildHtml({
     logoUrl: LOGO_URL,
