@@ -234,12 +234,12 @@ All colors MUST be HSL.
     letter-spacing: 0;
   }
 
-  .admin-demo2-shell button[class*="bg-primary"] {
+  .admin-demo2-shell button.bg-primary {
     background-color: var(--admin-demo2-accent);
     color: white;
   }
 
-  .admin-demo2-shell button[class*="bg-primary"]:hover {
+  .admin-demo2-shell button.bg-primary:hover {
     background-color: var(--admin-demo2-accent);
     opacity: 0.9;
   }

@@ -39,6 +39,7 @@ import {
   useCaptainsEvents,
   useCaptainsRanking,
 } from "@/hooks/useCaptains";
+import { captainsDefaultChallengeCatalog } from "@/lib/captainsDefaultChallengeCatalog";
 import {
   approveCaptainsEvidence,
   createCaptainsGame,
@@ -74,6 +75,13 @@ const DEFAULT_PRIMARY_COLOR = "#f06a5f";
 const DEFAULT_SECONDARY_COLOR = "#2f292d";
 const isHexColor = (value: string) => /^#[0-9a-fA-F]{6}$/.test(value);
 const colorValue = (value: string, fallback: string) => (isHexColor(value) ? value : fallback);
+const readableTextColor = (background: string) => {
+  const safeBackground = colorValue(background, DEFAULT_PRIMARY_COLOR).replace("#", "");
+  const r = parseInt(safeBackground.slice(0, 2), 16);
+  const g = parseInt(safeBackground.slice(2, 4), 16);
+  const b = parseInt(safeBackground.slice(4, 6), 16);
+  return (r * 299 + g * 587 + b * 114) / 1000 > 145 ? "#111827" : "#ffffff";
+};
 const sanitizeCaptainPhotoName = (value: string) => value.toLowerCase().replace(/[^a-z0-9.-]+/g, "-").replace(/^-+|-+$/g, "") || "captain-photo";
 
 const captainsThemeOptions: Array<{
@@ -711,7 +719,7 @@ export const CaptainsAdminList = () => {
       title="Capitanes by Revelao"
       subtitle="Gestiona juegos de retos por mesas."
       actions={
-        <Button className="gap-2" onClick={() => navigate("/admin/capitanes/new")}>
+        <Button className="gap-2" onClick={() => navigate("/admin/capitanes/onboarding")}>
           <Plus className="h-4 w-4" />
           Nuevo Capitán
         </Button>
@@ -771,6 +779,601 @@ export const CaptainsAdminList = () => {
         )}
       </Card>
     </AdminFrame>
+  );
+};
+
+type CaptainsOnboardingStep = "intro" | "style" | "tables" | "challenges" | "review";
+
+const captainsOnboardingSteps: Array<{ id: CaptainsOnboardingStep; label: string }> = [
+  { id: "intro", label: "Evento" },
+  { id: "style", label: "Estilo" },
+  { id: "tables", label: "Mesas" },
+  { id: "challenges", label: "Retos" },
+  { id: "review", label: "Resumen" },
+];
+
+const CAPTAINS_ONBOARDING_DEFAULT_CHALLENGES = 8;
+
+export const CaptainsOnboarding = () => {
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const { data: catalog = [] } = useCaptainsChallengeCatalog();
+  const defaultDateRange = useMemo(() => getDefaultCaptainsDateRange(), []);
+  const availableCatalog = catalog.length ? catalog : captainsDefaultChallengeCatalog;
+  const defaultChallenges = useMemo(
+    () => availableCatalog.slice(0, CAPTAINS_ONBOARDING_DEFAULT_CHALLENGES).map((item, index) => catalogChallengeToInput(item, index + 1)),
+    [availableCatalog],
+  );
+  const [stepIndex, setStepIndex] = useState(0);
+  const [isSaving, setIsSaving] = useState(false);
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState(DEFAULT_DESCRIPTION);
+  const [startDate, setStartDate] = useState(defaultDateRange.startDate);
+  const [startHour, setStartHour] = useState(defaultDateRange.startTime);
+  const [endDate, setEndDate] = useState(defaultDateRange.endDate);
+  const [endHour, setEndHour] = useState(defaultDateRange.endTime);
+  const [themeStyle, setThemeStyle] = useState<CaptainsThemeStyle>("pixel");
+  const [primaryColor, setPrimaryColor] = useState(DEFAULT_PRIMARY_COLOR);
+  const [tableCount, setTableCount] = useState(6);
+  const [editingTableIndex, setEditingTableIndex] = useState<number | null>(null);
+  const [isCreatingChallenge, setIsCreatingChallenge] = useState(false);
+  const [draftChallenge, setDraftChallenge] = useState<CaptainsChallengeInput>(() => ({ ...EMPTY_CHALLENGE }));
+  const [tables, setTables] = useState(() =>
+    Array.from({ length: 6 }, (_, index) => ({
+      table_number: index + 1,
+      table_name: `Mesa ${index + 1}`,
+      captain_name: "",
+      captain_sprite: getDefaultCaptainSprite(index),
+      captain_sprite_config: defaultCaptainSpriteConfig(index),
+    })),
+  );
+  const [selectedChallengeIds, setSelectedChallengeIds] = useState<string[]>(() =>
+    defaultChallenges.map((challenge) => challenge.catalog_challenge_id || challenge.title),
+  );
+  const [selectedChallenges, setSelectedChallenges] = useState<CaptainsChallengeInput[]>(defaultChallenges);
+  const [scoringMode, setScoringMode] = useState<"automatic" | "manual">("automatic");
+  const currentStep = captainsOnboardingSteps[stepIndex];
+  const progress = Math.round(((stepIndex + 1) / captainsOnboardingSteps.length) * 100);
+  const primaryTextColor = readableTextColor(primaryColor);
+  const catalogByCategory = useMemo(() => {
+    return availableCatalog.reduce<Array<[string, CaptainsChallengeCatalogItem[]]>>((groups, item) => {
+      const category = item.category || "General";
+      const existing = groups.find(([group]) => group === category);
+      if (existing) existing[1].push(item);
+      else groups.push([category, [item]]);
+      return groups;
+    }, []);
+  }, [availableCatalog]);
+  const editingTable = editingTableIndex === null ? null : tables[editingTableIndex];
+
+  useEffect(() => {
+    setSelectedChallengeIds((prev) => {
+      if (prev.length) return prev;
+      return defaultChallenges.map((challenge) => challenge.catalog_challenge_id || challenge.title);
+    });
+    setSelectedChallenges((prev) => (prev.length ? prev : defaultChallenges));
+  }, [defaultChallenges]);
+
+  const syncTables = (count: number) => {
+    const cleanCount = Math.max(1, Math.min(30, Math.floor(count || 1)));
+    setTableCount(cleanCount);
+    setTables((prev) =>
+      Array.from({ length: cleanCount }, (_, index) => {
+        const existing = prev[index];
+        return existing || {
+          table_number: index + 1,
+          table_name: `Mesa ${index + 1}`,
+          captain_name: "",
+          captain_sprite: getDefaultCaptainSprite(index),
+          captain_sprite_config: defaultCaptainSpriteConfig(index),
+        };
+      }).map((table, index) => ({
+        ...table,
+        table_number: index + 1,
+        table_name: table.table_name || `Mesa ${index + 1}`,
+      })),
+    );
+  };
+
+  const validateStep = (step: CaptainsOnboardingStep) => {
+    if (step === "intro") {
+      if (!name.trim()) return "Pon un nombre para el juego.";
+      const start = new Date(`${startDate}T${startHour}`);
+      const end = new Date(`${endDate}T${endHour}`);
+      if (!startDate || !startHour || !endDate || !endHour || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return "Revisa las fechas del juego.";
+      if (end <= start) return "La fecha de fin debe ser posterior al inicio.";
+    }
+    if (step === "tables" && tableCount < 1) return "Añade al menos una mesa.";
+    if (step === "challenges" && selectedChallenges.length < 1) return "Selecciona al menos un reto.";
+    return null;
+  };
+
+  const goNext = () => {
+    const error = validateStep(currentStep.id);
+    if (error) {
+      toast({ title: "Revisa este paso", description: error, variant: "destructive" });
+      return;
+    }
+    setStepIndex((index) => Math.min(index + 1, captainsOnboardingSteps.length - 1));
+  };
+
+  const goBack = () => setStepIndex((index) => Math.max(index - 1, 0));
+
+  const updateOnboardingTable = (index: number, patch: Partial<(typeof tables)[number]>) => {
+    setTables((prev) => prev.map((table, itemIndex) => (itemIndex === index ? { ...table, ...patch } : table)));
+  };
+
+  const updateOnboardingSpriteConfig = (index: number, patch: Partial<CaptainsSpriteConfig>) => {
+    setTables((prev) =>
+      prev.map((table, itemIndex) =>
+        itemIndex === index
+          ? {
+              ...table,
+              captain_sprite_config: {
+                ...normalizeCaptainSpriteConfig(table.captain_sprite_config, index),
+                ...patch,
+              },
+            }
+          : table,
+      ),
+    );
+  };
+
+  const toggleOnboardingCatalogChallenge = (challenge: CaptainsChallengeCatalogItem) => {
+    const checked = selectedChallengeIds.includes(challenge.id);
+    if (checked) {
+      setSelectedChallengeIds((prev) => prev.filter((id) => id !== challenge.id));
+      setSelectedChallenges((current) => current.filter((item) => item.catalog_challenge_id !== challenge.id));
+      return;
+    }
+    setSelectedChallengeIds((prev) => [...prev, challenge.id]);
+    setSelectedChallenges((current) => [...current, catalogChallengeToInput(challenge, current.length + 1)]);
+  };
+
+  const updateOnboardingChallenge = (index: number, challenge: CaptainsChallengeInput) => {
+    setSelectedChallenges((prev) => prev.map((item, itemIndex) => (itemIndex === index ? challenge : item)));
+  };
+
+  const deleteOnboardingChallenge = (index: number) => {
+    const removed = selectedChallenges[index];
+    if (removed?.catalog_challenge_id) {
+      setSelectedChallengeIds((current) => current.filter((id) => id !== removed.catalog_challenge_id));
+    }
+    setSelectedChallenges((prev) => prev.filter((_, itemIndex) => itemIndex !== index));
+  };
+
+  const addBlankOnboardingChallenge = () => {
+    setDraftChallenge({
+      ...EMPTY_CHALLENGE,
+      title: `Nuevo reto ${selectedChallenges.length + 1}`,
+      order_index: selectedChallenges.length + 1,
+    });
+    setIsCreatingChallenge(true);
+  };
+
+  const addDraftOnboardingChallenge = () => {
+    if (!draftChallenge.title.trim()) {
+      toast({ title: "Revisa el reto", description: "Pon un título para el reto nuevo.", variant: "destructive" });
+      return;
+    }
+    setSelectedChallenges((prev) => [
+      ...prev,
+      {
+        ...draftChallenge,
+        title: draftChallenge.title.trim(),
+        description: draftChallenge.description.trim(),
+        category: draftChallenge.category.trim() || "Personalizado",
+        order_index: prev.length + 1,
+      },
+    ]);
+    setIsCreatingChallenge(false);
+  };
+
+  const handleSave = async () => {
+    const firstError = captainsOnboardingSteps.map((step) => validateStep(step.id)).find(Boolean);
+    if (firstError) {
+      toast({ title: "Revisa el juego", description: firstError, variant: "destructive" });
+      return;
+    }
+    try {
+      setIsSaving(true);
+      const startIso = dateTimePartsToIso(startDate, startHour);
+      const endIso = dateTimePartsToIso(endDate, endHour);
+      const created = await createCaptainsGame({
+        event: {
+          name: name.trim(),
+          description: description.trim(),
+          start_time: startIso,
+          end_time: endIso,
+          scoring_mode: scoringMode,
+          show_live_gallery_after_completion: true,
+          theme_style: themeStyle,
+          primary_color: primaryColor,
+          secondary_color: DEFAULT_SECONDARY_COLOR,
+          background_image_url: null,
+          status: startIso && new Date(startIso).getTime() > Date.now() ? "scheduled" : "active",
+        },
+        tables,
+        challenges: selectedChallenges,
+      });
+      toast({ title: "Juego creado", description: "Capitanes ya está listo para usar." });
+      navigate(`/admin/capitanes/${created?.event.id}`);
+    } catch (error) {
+      console.error("Error creating captains onboarding game:", error);
+      toast({ title: "Error", description: "No hemos podido crear el juego.", variant: "destructive" });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const renderStep = () => {
+    switch (currentStep.id) {
+      case "intro":
+        return (
+          <div className="space-y-5">
+            <label className="space-y-2">
+              <span className="text-sm font-medium">Nombre del juego</span>
+              <Input value={name} onChange={(event) => setName(event.target.value)} placeholder="Capitanes - Boda Ana y Marcos" className="h-12 rounded-full px-4 text-base" autoFocus />
+            </label>
+            <label className="space-y-2">
+              <span className="text-sm font-medium">Mensaje de bienvenida</span>
+              <Textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={5} className="rounded-2xl px-4 py-3" />
+            </label>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-2 sm:grid-cols-[1fr_110px]">
+                <label className="space-y-2">
+                  <span className="text-sm font-medium">Inicio</span>
+                  <Input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
+                </label>
+                <label className="space-y-2">
+                  <span className="text-sm font-medium">Hora</span>
+                  <Input type="time" value={startHour} onChange={(event) => setStartHour(event.target.value)} />
+                </label>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-[1fr_110px]">
+                <label className="space-y-2">
+                  <span className="text-sm font-medium">Fin</span>
+                  <Input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} />
+                </label>
+                <label className="space-y-2">
+                  <span className="text-sm font-medium">Hora</span>
+                  <Input type="time" value={endHour} onChange={(event) => setEndHour(event.target.value)} />
+                </label>
+              </div>
+            </div>
+          </div>
+        );
+      case "style":
+        return (
+          <div className="space-y-5">
+            <div className="grid gap-3 sm:grid-cols-2">
+              {captainsThemeOptions.map((option) => {
+                const selected = themeStyle === option.value;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setThemeStyle(option.value)}
+                    className={`rounded-2xl border p-4 text-left transition hover:border-primary hover:bg-primary/5 ${selected ? "border-primary bg-primary/10" : "border-border bg-card"}`}
+                  >
+                    <div className={`mb-3 p-3 text-lg font-black ${option.previewClass}`}>
+                      <span className={option.headingClass}>{option.label}</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">{option.description}</p>
+                  </button>
+                );
+              })}
+            </div>
+            <label className="space-y-2">
+              <span className="text-sm font-medium">Color principal</span>
+              <div className="flex gap-2">
+                <Input type="color" value={isHexColor(primaryColor) ? primaryColor : DEFAULT_PRIMARY_COLOR} onChange={(event) => setPrimaryColor(event.target.value)} className="h-12 w-16 rounded-xl p-1" />
+                <Input value={primaryColor} onChange={(event) => setPrimaryColor(event.target.value)} className="h-12 rounded-full px-4" />
+              </div>
+            </label>
+            <label className="space-y-2">
+              <span className="text-sm font-medium">Modo de puntuación</span>
+              <select className="h-12 w-full rounded-full border border-input bg-background px-4 text-base" value={scoringMode} onChange={(event) => setScoringMode(event.target.value as "automatic" | "manual")}>
+                <option value="automatic">Puntuación automática</option>
+                <option value="manual">Revisión manual</option>
+              </select>
+            </label>
+          </div>
+        );
+      case "tables":
+        return (
+          <div className="space-y-5">
+            <label className="space-y-2">
+              <span className="text-sm font-medium">Número de mesas</span>
+              <Input type="number" min={1} max={30} value={tableCount} onChange={(event) => syncTables(Number(event.target.value))} className="h-12 w-32 rounded-full px-4 text-center text-base" />
+            </label>
+            <div className="rounded-2xl border border-border bg-muted/30 p-4 text-sm text-muted-foreground">
+              Haz click en el muñeco de cada mesa para editar todos los detalles del capitán: nombre, mesa, aspecto, pelo, piel y vestuario.
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {tables.map((table, index) => (
+                <div key={index} className="rounded-2xl border border-border bg-card p-4">
+                  <div className="mb-3 flex items-center gap-3">
+                    <button
+                      type="button"
+                      className="rounded-xl border border-transparent p-1 transition hover:border-primary hover:bg-primary/5"
+                      onClick={() => setEditingTableIndex(index)}
+                      aria-label={`Editar detalles de la mesa ${index + 1}`}
+                    >
+                      <CaptainSpritePreview value={table.captain_sprite} config={table.captain_sprite_config} size="sm" />
+                    </button>
+                    <div>
+                      <p className="text-sm font-semibold">Mesa {index + 1}</p>
+                      <p className="text-xs text-muted-foreground">Click en el muñeco para editar</p>
+                    </div>
+                  </div>
+                  <div className="grid gap-2">
+                    <Input value={table.table_name} onChange={(event) => setTables((prev) => prev.map((item, itemIndex) => itemIndex === index ? { ...item, table_name: event.target.value } : item))} placeholder={`Mesa ${index + 1}`} />
+                    <Input value={table.captain_name} onChange={(event) => setTables((prev) => prev.map((item, itemIndex) => itemIndex === index ? { ...item, captain_name: event.target.value } : item))} placeholder="Nombre capitán/a" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      case "challenges":
+        return (
+          <div className="space-y-5">
+            <div className="flex flex-col gap-3 rounded-2xl border border-border bg-muted/30 p-4 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="font-medium text-foreground">{selectedChallenges.length} retos añadidos al evento</p>
+                <p>Selecciona del catálogo completo, crea retos nuevos y edita el detalle antes de publicar.</p>
+              </div>
+              <Button type="button" variant="outline" className="gap-2" onClick={addBlankOnboardingChallenge}>
+                <Plus className="h-4 w-4" />
+                Crear reto nuevo
+              </Button>
+            </div>
+            <div className="max-h-[440px] space-y-5 overflow-y-auto rounded-2xl border border-border bg-card p-4">
+              {catalogByCategory.map(([category, items]) => (
+                <div key={category} className="space-y-2">
+                  <p className="text-xs font-semibold uppercase text-muted-foreground">{category}</p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {items.map((challenge) => {
+                      const selected = selectedChallengeIds.includes(challenge.id);
+                      return (
+                        <button
+                          key={challenge.id}
+                          type="button"
+                          onClick={() => toggleOnboardingCatalogChallenge(challenge)}
+                          className={`rounded-2xl border p-4 text-left text-foreground transition hover:border-primary hover:bg-primary/5 ${selected ? "border-primary bg-primary/10" : "border-border bg-card"}`}
+                        >
+                          <div className="mb-2 flex items-start justify-between gap-3">
+                            <p className="font-semibold text-foreground">{challenge.title}</p>
+                            <span className="shrink-0 rounded-full bg-muted px-2 py-1 text-xs font-semibold text-foreground">{challenge.default_points} pts</span>
+                          </div>
+                          <p className="line-clamp-2 text-sm text-muted-foreground">{challenge.description}</p>
+                          <p className="mt-2 text-xs font-medium text-muted-foreground">{evidenceLabels[challenge.evidence_type]} · {difficultyLabels[challenge.difficulty]}</p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="space-y-3">
+              <div>
+                <h2 className="text-base font-semibold">Retos del evento</h2>
+                <p className="text-sm text-muted-foreground">Edita cualquier reto añadido desde el catálogo o creado manualmente.</p>
+              </div>
+              {selectedChallenges.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+                  Todavía no hay retos seleccionados para este evento.
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {selectedChallenges.map((challenge, index) => (
+                    <ChallengeEditor
+                      key={`${challenge.catalog_challenge_id || "custom"}-${index}`}
+                      challenge={challenge}
+                      index={index}
+                      onChange={(next) => updateOnboardingChallenge(index, next)}
+                      onDelete={() => deleteOnboardingChallenge(index)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      case "review":
+        return (
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-border bg-muted/30 p-4 text-sm">
+              <p><strong>Juego:</strong> {name || "-"}</p>
+              <p><strong>Estilo:</strong> {getCaptainsThemeOption(themeStyle).label}</p>
+              <p><strong>Mesas:</strong> {tables.length}</p>
+              <p><strong>Retos:</strong> {selectedChallenges.length}</p>
+              <p><strong>Puntuación:</strong> {scoringMode === "automatic" ? "Automática" : "Manual"}</p>
+              <p><strong>Inicio:</strong> {startDate} {startHour}</p>
+              <p><strong>Fin:</strong> {endDate} {endHour}</p>
+            </div>
+            <p className="text-sm text-muted-foreground">Al crear el juego se generará el enlace público y el QR de Capitanes.</p>
+          </div>
+        );
+    }
+  };
+
+  return (
+    <>
+    <main className="admin-demo2-shell min-h-screen bg-background" data-scroll-container>
+      <div className="mx-auto flex min-h-screen w-full max-w-4xl flex-col px-4 py-5 sm:px-6 lg:py-8">
+        <section className="flex flex-1 flex-col">
+          <div className="mb-5 space-y-3">
+            <div className="flex justify-center sm:justify-start">
+              <img src="/LogoTransparent.png" alt="Revelao" className="h-8 w-auto" />
+            </div>
+            <div className="space-y-1">
+              <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Crea tu juego de Capitanes</h1>
+              <p className="text-sm text-muted-foreground">Configura lo básico por pasos para dejar el juego listo al comprar el plan.</p>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-muted">
+              <div className="h-full rounded-full transition-all" style={{ width: `${progress}%`, backgroundColor: primaryColor }} />
+            </div>
+            <ol className="-mx-4 flex gap-0 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0">
+              {captainsOnboardingSteps.map((step, index) => (
+                <li key={step.id} className="flex min-w-[128px] flex-1 items-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (index <= stepIndex) setStepIndex(index);
+                  }}
+                  className={`flex min-h-12 w-full items-center gap-2 rounded-xl border px-3 text-left text-xs font-semibold transition ${
+                    index === stepIndex
+                      ? "border-primary bg-primary/10 text-foreground shadow-sm"
+                      : index < stepIndex
+                        ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                        : "border-border bg-card text-muted-foreground"
+                  }`}
+                >
+                  <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] ${index === stepIndex ? "bg-primary/15 text-foreground" : index < stepIndex ? "bg-emerald-100" : "bg-muted"}`}>
+                    {index < stepIndex ? <Check className="h-3.5 w-3.5" /> : index + 1}
+                  </span>
+                  <span>{step.label}</span>
+                </button>
+                {index < captainsOnboardingSteps.length - 1 ? <span className={`mx-1 hidden h-px w-5 shrink-0 sm:block ${index < stepIndex ? "bg-emerald-300" : "bg-border"}`} /> : null}
+                </li>
+              ))}
+            </ol>
+          </div>
+
+          <div className="flex flex-1 flex-col pb-28">
+            <div className="flex-1 rounded-lg border border-border bg-card p-4 shadow-sm sm:p-6">
+              <div className="mb-5">
+                <p className="text-xs font-semibold uppercase text-muted-foreground">{currentStep.label}</p>
+              </div>
+              {renderStep()}
+            </div>
+            <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/95 px-4 py-3 shadow-[0_-8px_24px_rgba(15,23,42,0.08)] backdrop-blur">
+              <div className="mx-auto flex max-w-4xl gap-3">
+                <Button type="button" variant="outline" className="h-12 w-14 flex-none rounded-full sm:w-auto sm:flex-1" onClick={goBack} disabled={stepIndex === 0 || isSaving}>
+                  <ArrowLeft className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Atrás</span>
+                </Button>
+                <Button type="button" className="h-12 flex-1 rounded-full hover:opacity-90" style={{ backgroundColor: primaryColor, color: primaryTextColor }} onClick={currentStep.id === "review" ? handleSave : goNext} disabled={isSaving}>
+                  {currentStep.id === "review" ? (isSaving ? "Creando..." : "Crear Capitanes") : "Siguiente"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+    <Dialog open={editingTableIndex !== null} onOpenChange={(open) => { if (!open) setEditingTableIndex(null); }}>
+      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Editar detalles de la mesa</DialogTitle>
+          <DialogDescription>Personaliza el capitán que verá cada mesa al entrar al juego.</DialogDescription>
+        </DialogHeader>
+        {editingTable && editingTableIndex !== null ? (
+          <div className="space-y-5">
+            <div className="flex justify-center">
+              <CaptainSpritePreview value={editingTable.captain_sprite} config={editingTable.captain_sprite_config} />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="space-y-1">
+                <span className="text-xs font-medium text-muted-foreground">Nombre de la mesa</span>
+                <Input value={editingTable.table_name} onChange={(event) => updateOnboardingTable(editingTableIndex, { table_name: event.target.value })} />
+              </label>
+              <label className="space-y-1">
+                <span className="text-xs font-medium text-muted-foreground">Nombre del capitán/a</span>
+                <Input value={editingTable.captain_name} onChange={(event) => updateOnboardingTable(editingTableIndex, { captain_name: event.target.value })} placeholder="Opcional" />
+              </label>
+              <label className="space-y-1">
+                <span className="text-xs font-medium text-muted-foreground">Sexo</span>
+                <select
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  value={editingTable.captain_sprite_config.sex}
+                  onChange={(event) => {
+                    const sex = event.target.value as CaptainsSpriteConfig["sex"];
+                    updateOnboardingSpriteConfig(editingTableIndex, { sex, outfit_type: sex === "female" ? "dress" : "suit" });
+                  }}
+                >
+                  <option value="male">Hombre</option>
+                  <option value="female">Mujer</option>
+                  <option value="unspecified">Prefiero no decirlo</option>
+                </select>
+              </label>
+              <label className="space-y-1">
+                <span className="text-xs font-medium text-muted-foreground">Pelo</span>
+                <select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={editingTable.captain_sprite_config.hair_length} onChange={(event) => updateOnboardingSpriteConfig(editingTableIndex, { hair_length: event.target.value as CaptainsSpriteConfig["hair_length"] })}>
+                  <option value="short">Corto</option>
+                  <option value="long">Largo</option>
+                </select>
+              </label>
+              <label className="space-y-1">
+                <span className="text-xs font-medium text-muted-foreground">Color pelo</span>
+                <select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={editingTable.captain_sprite_config.hair_color} onChange={(event) => updateOnboardingSpriteConfig(editingTableIndex, { hair_color: event.target.value as CaptainsSpriteConfig["hair_color"] })}>
+                  {hairColorOptions.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="space-y-1">
+                <span className="text-xs font-medium text-muted-foreground">Color piel</span>
+                <select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={editingTable.captain_sprite_config.skin_color} onChange={(event) => updateOnboardingSpriteConfig(editingTableIndex, { skin_color: event.target.value as CaptainsSpriteConfig["skin_color"] })}>
+                  {skinColorOptions.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="space-y-1">
+                <span className="text-xs font-medium text-muted-foreground">Vestuario</span>
+                <select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={editingTable.captain_sprite_config.outfit_type} onChange={(event) => updateOnboardingSpriteConfig(editingTableIndex, { outfit_type: event.target.value as CaptainsSpriteConfig["outfit_type"] })}>
+                  <option value="dress">Vestido</option>
+                  <option value="suit">Traje</option>
+                </select>
+              </label>
+              <label className="space-y-1">
+                <span className="text-xs font-medium text-muted-foreground">Color vestido</span>
+                <Input type="color" value={colorValue(editingTable.captain_sprite_config.dress_color, "#202235")} onChange={(event) => updateOnboardingSpriteConfig(editingTableIndex, { dress_color: event.target.value })} className="h-10" disabled={editingTable.captain_sprite_config.outfit_type !== "dress"} />
+              </label>
+              <label className="space-y-1">
+                <span className="text-xs font-medium text-muted-foreground">Color traje</span>
+                <Input type="color" value={colorValue(editingTable.captain_sprite_config.suit_color, "#1f2937")} onChange={(event) => updateOnboardingSpriteConfig(editingTableIndex, { suit_color: event.target.value })} className="h-10" disabled={editingTable.captain_sprite_config.outfit_type !== "suit"} />
+              </label>
+              <label className="space-y-1">
+                <span className="text-xs font-medium text-muted-foreground">Color corbata</span>
+                <Input type="color" value={colorValue(editingTable.captain_sprite_config.tie_color, "#f06a5f")} onChange={(event) => updateOnboardingSpriteConfig(editingTableIndex, { tie_color: event.target.value })} className="h-10" disabled={editingTable.captain_sprite_config.outfit_type !== "suit"} />
+              </label>
+            </div>
+            <div className="flex justify-end">
+              <Button type="button" onClick={() => setEditingTableIndex(null)}>Listo</Button>
+            </div>
+          </div>
+        ) : null}
+      </DialogContent>
+    </Dialog>
+    <Dialog open={isCreatingChallenge} onOpenChange={setIsCreatingChallenge}>
+      <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Crear reto nuevo</DialogTitle>
+          <DialogDescription>Completa la información del reto. Al añadirlo aparecerá en el listado con el resto de retos del evento.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <ChallengeEditor
+            challenge={draftChallenge}
+            index={selectedChallenges.length}
+            onChange={setDraftChallenge}
+            onDelete={() => setIsCreatingChallenge(false)}
+          />
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button type="button" variant="outline" onClick={() => setIsCreatingChallenge(false)}>
+              Cancelar
+            </Button>
+            <Button type="button" onClick={addDraftOnboardingChallenge}>
+              Añadir al listado
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 };
 

@@ -25,7 +25,7 @@ import { AdminI18nProvider } from "@/lib/adminI18n";
 import RedeemEvent from "./pages/RedeemEvent";
 import PaidEventSummary from "./pages/PaidEventSummary";
 import Register from "./pages/Register";
-import { CaptainsAdminDetail, CaptainsAdminForm, CaptainsAdminList } from "./pages/CaptainsAdmin";
+import { CaptainsAdminDetail, CaptainsAdminForm, CaptainsAdminList, CaptainsOnboarding } from "./pages/CaptainsAdmin";
 import CaptainsPublic from "./pages/CaptainsPublic";
 
 const queryClient = new QueryClient();
@@ -176,15 +176,18 @@ const App = () => {
               <Route path="/privacy" element={<PrivacyPolicy />} />
               <Route path="/nuevoeventodemo" element={<PublicDemoEventForm />} />
               <Route path="/nuevoeventodemo2" element={<PublicDemoEventWizard />} />
+              <Route path="/nuevoeventocapitanes" element={<CaptainsOnboarding />} />
               <Route path="/nuevoeventodemo/resumen" element={<DemoEventSummary />} />
               <Route path="/evento-pago/resumen" element={<PaidEventSummary />} />
               <Route path="/planes" element={<PricingPlans />} />
               <Route path="/admin/capitanes" element={<CaptainsAdminList />} />
+              <Route path="/admin/capitanes/onboarding" element={<CaptainsOnboarding />} />
               <Route path="/admin/capitanes/new" element={<CaptainsAdminForm />} />
               <Route path="/admin/capitanes/:eventId" element={<CaptainsAdminDetail />} />
               <Route path="/admin/capitanes/:eventId/edit" element={<CaptainsAdminForm edit />} />
               <Route path="/admin/capitanes/:eventId/review" element={<CaptainsAdminDetail view="review" />} />
               <Route path="/admin/capitanes/:eventId/ranking" element={<CaptainsAdminDetail view="ranking" />} />
+              <Route path="/capitanes/onboarding" element={<CaptainsOnboarding />} />
               <Route path="/capitanes/:eventSlug" element={<CaptainsPublic />} />
               <Route path="/capitanes/:eventSlug/start" element={<CaptainsPublic />} />
               <Route path="/capitanes/:eventSlug/play" element={<CaptainsPublic />} />
@@ -205,6 +208,7 @@ const App = () => {
               <Route path="/en/planes" element={<PricingPlans />} />
               <Route path="/en/nuevoeventodemo" element={<PublicDemoEventForm />} />
               <Route path="/en/nuevoeventodemo2" element={<PublicDemoEventWizard />} />
+              <Route path="/en/nuevoeventocapitanes" element={<CaptainsOnboarding />} />
               <Route path="/en/nuevoeventodemo/resumen" element={<DemoEventSummary />} />
               <Route path="/en/logout" element={<Logout />} />
               <Route path="/en/redeem/:token" element={<RedeemEvent />} />
@@ -223,6 +227,7 @@ const App = () => {
               <Route path="/it/planes" element={<PricingPlans />} />
               <Route path="/it/nuevoeventodemo" element={<PublicDemoEventForm />} />
               <Route path="/it/nuevoeventodemo2" element={<PublicDemoEventWizard />} />
+              <Route path="/it/nuevoeventocapitanes" element={<CaptainsOnboarding />} />
               <Route path="/it/nuevoeventodemo/resumen" element={<DemoEventSummary />} />
               <Route path="/it/logout" element={<Logout />} />
               <Route path="/it/redeem/:token" element={<RedeemEvent />} />
