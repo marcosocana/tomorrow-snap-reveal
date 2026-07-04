@@ -105,6 +105,7 @@ const demoEventDetail: CaptainsEventDetail = {
     primary_color: DEFAULT_CAPTAINS_PRIMARY,
     secondary_color: DEFAULT_CAPTAINS_SECONDARY,
     background_image_url: null,
+    theme_style: "pixel",
     qr_url: `/capitanes/${DEMO_SLUG}`,
     public_url: `/capitanes/${DEMO_SLUG}`,
     created_at: nowIso(),
