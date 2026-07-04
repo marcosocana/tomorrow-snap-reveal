@@ -15,6 +15,12 @@ const escape = (value: unknown) =>
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 
+const getQrImageUrl = (value: string, providedQrImageUrl?: unknown) => {
+  const provided = String(providedQrImageUrl || "").trim();
+  if (provided) return provided;
+  return `https://quickchart.io/qr?size=360&margin=1&ecLevel=H&text=${encodeURIComponent(value)}`;
+};
+
 const formatDate = (value?: string | null) => {
   if (!value) return "-";
   try {
@@ -62,6 +68,7 @@ Deno.serve(async (req) => {
 
   const publicUrl = String(body?.publicUrl || event?.public_url || `${APP_ORIGIN}/capitanes/${event?.slug || ""}`);
   const adminUrl = String(body?.adminUrl || `${APP_ORIGIN}/admin/capitanes/${event.id}`);
+  const qrImageUrl = getQrImageUrl(publicUrl, body?.qrImageUrl);
   const tableCount = Number(body?.tableCount || 0);
   const challengeCount = Number(body?.challengeCount || 0);
   const contactName = String(contactInfo?.name || event?.contact_name || "").trim();
@@ -83,14 +90,25 @@ Deno.serve(async (req) => {
                     <div><strong>Inicio:</strong> ${escape(formatDate(event.start_time))}</div>
                     <div><strong>Fin:</strong> ${escape(formatDate(event.end_time))}</div>
                     <div><strong>Capitanes/mesas:</strong> ${tableCount || "-"}</div>
-                    <div><strong>Retos:</strong> ${challengeCount || "-"}</div>
-                    <div><strong>Acceso público:</strong> <a href="${escape(publicUrl)}">${escape(publicUrl)}</a></div>
-                  </div>
-                </td>
-              </tr>
-              <tr>
-                <td style="padding-top:20px;">
-                  <a href="${escape(adminUrl)}" style="display:inline-block;background:#151515;color:#fff;text-decoration:none;padding:12px 18px;border-radius:999px;font-weight:700;">
+	                    <div><strong>Retos:</strong> ${challengeCount || "-"}</div>
+	                    <div><strong>Acceso público:</strong> <a href="${escape(publicUrl)}">${escape(publicUrl)}</a></div>
+	                  </div>
+	                </td>
+	              </tr>
+	              <tr>
+	                <td style="padding-top:20px;">
+	                  <div style="background:#fff7f5;border:1px solid #ffd6d0;border-radius:14px;padding:18px;text-align:center;">
+	                    <div style="font-size:14px;font-weight:800;color:#151515;margin-bottom:8px;">Código QR del juego</div>
+	                    <a href="${escape(publicUrl)}" style="display:inline-block;text-decoration:none;">
+	                      <img src="${escape(qrImageUrl)}" alt="QR de acceso al juego de Capitanes" width="180" height="180" style="width:180px;height:180px;display:block;margin:0 auto;border:0;" />
+	                    </a>
+	                    <div style="font-size:12px;line-height:1.45;color:#666;margin-top:10px;">Escanéalo con el móvil para entrar directamente al juego.</div>
+	                  </div>
+	                </td>
+	              </tr>
+	              <tr>
+	                <td style="padding-top:20px;">
+	                  <a href="${escape(adminUrl)}" style="display:inline-block;background:#151515;color:#fff;text-decoration:none;padding:12px 18px;border-radius:999px;font-weight:700;">
                     Editar mi juego
                   </a>
                 </td>

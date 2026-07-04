@@ -7,6 +7,7 @@ import {
   Check,
   Copy,
   Download,
+  ExternalLink,
   Eye,
   Flag,
   Gamepad2,
@@ -2689,9 +2690,10 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
   const [editingChallenge, setEditingChallenge] = useState<CaptainsEventChallenge | null>(null);
   const [challengeDraft, setChallengeDraft] = useState<CaptainsChallengeInput | null>(null);
   const [editingEvidence, setEditingEvidence] = useState<CaptainsEvidence | null>(null);
-  const [evidenceDraft, setEvidenceDraft] = useState({ status: "uploaded" as CaptainsEvidence["status"], points: 0, comment: "" });
-  const [contentView, setContentView] = useState<"retos" | "capitanes">("retos");
-  const [isDetailSaving, setIsDetailSaving] = useState(false);
+	  const [evidenceDraft, setEvidenceDraft] = useState({ status: "uploaded" as CaptainsEvidence["status"], points: 0, comment: "" });
+	  const [contentView, setContentView] = useState<"retos" | "capitanes">("retos");
+	  const [isDetailSaving, setIsDetailSaving] = useState(false);
+	  const [qrPreviewOpen, setQrPreviewOpen] = useState(false);
   const [activeDetailTab, setActiveDetailTab] = useState<CaptainsDetailTab>(
     view === "ranking" ? "tables" : view === "review" ? "content" : "general",
   );
@@ -2750,19 +2752,45 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
     toast({ title: "Enlace copiado", description: "La URL pública está en el portapapeles." });
   };
 
-  const handleDownloadQr = () => {
-    const svg = document.getElementById("captains-admin-qr");
-    if (!svg) return;
-    const blob = new Blob([new XMLSerializer().serializeToString(svg)], { type: "image/svg+xml;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${detail?.event.slug || "capitanes"}-qr.svg`;
-    document.body.appendChild(a);
-    a.click();
-    URL.revokeObjectURL(url);
-    document.body.removeChild(a);
-  };
+	  const handleDownloadQr = async () => {
+	    const svg = document.getElementById("captains-admin-qr");
+	    if (!svg) return;
+	    try {
+	      const svgText = new XMLSerializer().serializeToString(svg);
+	      const svgBlob = new Blob([svgText], { type: "image/svg+xml;charset=utf-8" });
+	      const svgUrl = URL.createObjectURL(svgBlob);
+	      const image = new Image();
+	      image.decoding = "async";
+	      await new Promise<void>((resolve, reject) => {
+	        image.onload = () => resolve();
+	        image.onerror = reject;
+	        image.src = svgUrl;
+	      });
+	      const canvas = document.createElement("canvas");
+	      canvas.width = 1024;
+	      canvas.height = 1024;
+	      const context = canvas.getContext("2d");
+	      if (!context) throw new Error("CANVAS_CONTEXT_NOT_FOUND");
+	      context.fillStyle = "#ffffff";
+	      context.fillRect(0, 0, canvas.width, canvas.height);
+	      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+	      URL.revokeObjectURL(svgUrl);
+	      const pngBlob = await new Promise<Blob>((resolve, reject) => {
+	        canvas.toBlob((result) => (result ? resolve(result) : reject(new Error("PNG_EXPORT_FAILED"))), "image/png");
+	      });
+	      const pngUrl = URL.createObjectURL(pngBlob);
+	      const a = document.createElement("a");
+	      a.href = pngUrl;
+	      a.download = `${detail?.event.slug || "capitanes"}-qr.png`;
+	      document.body.appendChild(a);
+	      a.click();
+	      URL.revokeObjectURL(pngUrl);
+	      document.body.removeChild(a);
+	    } catch (error) {
+	      console.error("Captains QR download error:", error);
+	      toast({ title: "Error", description: "No hemos podido descargar el QR.", variant: "destructive" });
+	    }
+	  };
 
   const handleFinish = async () => {
     if (!eventId) return;
@@ -2991,15 +3019,15 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
     );
   }
 
-  const { event, tables, challenges } = detail;
-  const publicUrl = normalizeCaptainsPublicUrl(event.public_url, event.slug);
-  const qrValue = normalizeCaptainsPublicUrl(event.qr_url || getCaptainsQrValue(event.slug), event.slug);
+	  const { event, tables, challenges } = detail;
+	  const publicUrl = normalizeCaptainsPublicUrl(event.public_url, event.slug);
+	  const qrValue = normalizeCaptainsPublicUrl(event.qr_url || getCaptainsQrValue(event.slug), event.slug);
 	  const visibleEvidence = evidence;
-  const liveVisibleEvidence = evidence.filter((item) => item.file_url && !["deleted", "rejected"].includes(item.status));
-  const photoCount = liveVisibleEvidence.filter((item) => item.evidence_type === "photo").length;
-  const videoCount = liveVisibleEvidence.filter((item) => item.evidence_type === "video").length;
-  const questionCount = challenges.filter((item) => item.evidence_type === "question").length;
-  const lastLiveEvidence = liveVisibleEvidence[0];
+	  const liveVisibleEvidence = evidence.filter((item) => item.file_url && !["deleted", "rejected"].includes(item.status));
+	  const photoCount = liveVisibleEvidence.filter((item) => item.evidence_type === "photo").length;
+	  const videoCount = liveVisibleEvidence.filter((item) => item.evidence_type === "video").length;
+	  const questionCount = challenges.filter((item) => item.evidence_type === "question").length;
+	  const lastLiveEvidence = liveVisibleEvidence[0];
 
   return (
 	    <AdminFrame title={event.name}>
@@ -3012,11 +3040,92 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
           <Button variant="outline" className="gap-2 rounded-full" onClick={refreshAll}>
             <RefreshCw className="h-4 w-4" />
             Actualizar
-          </Button>
-	        </div>
-	      </div>
+	          </Button>
+		        </div>
+		      </div>
 
-      <Tabs value={activeDetailTab} onValueChange={(value) => setActiveDetailTab(value as CaptainsDetailTab)} className="space-y-6">
+	      <Card className="rounded-2xl p-4 shadow-sm">
+	        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+	          <div className="flex min-w-0 items-center gap-4">
+		            <button
+		              type="button"
+		              className="shrink-0 rounded-lg border border-border bg-white p-2 transition hover:bg-muted/50"
+		              onClick={() => setQrPreviewOpen(true)}
+		              aria-label="Ver QR"
+		              title="Ver QR"
+		            >
+		              <QRCodeSVG id="captains-admin-qr" value={qrValue} size={80} includeMargin />
+	            </button>
+	            <div className="min-w-0">
+	              <div className="flex flex-wrap items-center gap-2">
+	                <p className="truncate text-sm font-semibold text-foreground">{event.name}</p>
+	                <Badge variant={event.status === "active" ? "default" : "outline"}>{statusLabels[event.status]}</Badge>
+	              </div>
+	              <a
+	                href={publicUrl}
+	                target="_blank"
+	                rel="noopener noreferrer"
+	                className="block truncate text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+	              >
+	                {publicUrl}
+	              </a>
+	              <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+	                <p>
+	                  <span className="font-medium text-foreground">ID:</span> {event.id}
+	                </p>
+	                <p>
+	                  <span className="font-medium text-foreground">Creación:</span> {formatDateTime(event.created_at)}
+	                </p>
+	                {event.contact_email ? (
+	                  <p>
+	                    <span className="font-medium text-foreground">Email:</span> {event.contact_email}
+	                  </p>
+	                ) : null}
+	                {event.contact_phone ? (
+	                  <p>
+	                    <span className="font-medium text-foreground">Teléfono:</span> {event.contact_phone}
+	                  </p>
+	                ) : null}
+	                {event.contact_name ? (
+	                  <p>
+	                    <span className="font-medium text-foreground">Contacto:</span> {event.contact_name}
+	                  </p>
+	                ) : null}
+	              </div>
+	            </div>
+	          </div>
+	          <div className="grid grid-cols-[44px_1fr_44px] gap-2 md:min-w-[360px]">
+	            <Button variant="outline" size="icon" onClick={handleDownloadQr} aria-label="Descargar QR" title="Descargar QR">
+	              <Download className="h-4 w-4" />
+	            </Button>
+	            <Button variant="outline" size="sm" className="h-auto justify-center gap-3 px-3 py-2 text-xs font-medium text-foreground" onClick={() => setActiveDetailTab("content")}>
+	              <span className="inline-flex items-center gap-1 whitespace-nowrap">
+	                <ImageIcon className="h-3.5 w-3.5" />
+	                {photoCount}
+	              </span>
+	              <span className="inline-flex items-center gap-1 whitespace-nowrap">
+	                <Video className="h-3.5 w-3.5" />
+	                {videoCount}
+	              </span>
+	              <span className="inline-flex items-center gap-1 whitespace-nowrap">
+	                <Gamepad2 className="h-3.5 w-3.5" />
+	                {questionCount}/{challenges.length}
+	              </span>
+	            </Button>
+	            <Button variant="outline" size="icon" onClick={() => window.open(publicUrl, "_blank", "noopener,noreferrer")} aria-label="Abrir evento" title="Abrir evento">
+	              <ExternalLink className="h-4 w-4" />
+	            </Button>
+	          </div>
+	        </div>
+	        <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
+	          <span className="rounded-full border border-border px-2 py-1">{tables.length} capitanes</span>
+	          <span className="rounded-full border border-border px-2 py-1">{challenges.length} retos</span>
+	          <span className="rounded-full border border-border px-2 py-1">{liveVisibleEvidence.length} contenidos visibles</span>
+	          <span className="rounded-full border border-border px-2 py-1">Última subida: {lastLiveEvidence ? formatDateTime(lastLiveEvidence.created_at) : "-"}</span>
+	        </div>
+	      </Card>
+
+	      <Tabs value={activeDetailTab} onValueChange={(value) => setActiveDetailTab(value as CaptainsDetailTab)} className="space-y-6">
         <TabsList className="grid h-auto w-full grid-cols-2 rounded-full bg-muted/50 p-1 sm:grid-cols-4">
           <TabsTrigger value="general" className="rounded-full data-[state=active]:!bg-foreground data-[state=active]:!text-background data-[state=active]:shadow-sm">
             General
@@ -3184,9 +3293,19 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
                 </div>
                 <p className="break-all rounded-xl border border-border bg-muted/50 p-3 text-xs text-muted-foreground">{publicUrl}</p>
               </div>
-              <div className="flex flex-col items-center justify-center rounded-2xl border border-border bg-muted/20 p-4">
-                <QRCodeSVG id="captains-admin-qr" value={qrValue} size={160} includeMargin />
-                <p className="mt-2 text-center text-xs text-muted-foreground">QR del evento</p>
+	            <div className="flex flex-col justify-center rounded-2xl border border-border bg-muted/20 p-4">
+	              <p className="text-sm font-semibold text-foreground">Acceso público</p>
+	              <p className="mt-2 break-all text-xs text-muted-foreground">{publicUrl}</p>
+	              <div className="mt-4 grid gap-2">
+	                <Button variant="outline" className="gap-2 rounded-full" onClick={() => setQrPreviewOpen(true)}>
+	                  <Eye className="h-4 w-4" />
+	                  Ver QR
+	                </Button>
+	                <Button variant="outline" className="gap-2 rounded-full" onClick={handleDownloadQr}>
+	                  <Download className="h-4 w-4" />
+	                  Descargar QR
+	                </Button>
+	              </div>
               </div>
             </div>
           </Card>
@@ -3547,18 +3666,42 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
 	        </DialogContent>
 	      </Dialog>
 
-	      <Dialog open={!!selectedEvidence} onOpenChange={(open) => !open && setSelectedEvidence(null)}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>Evidencia</DialogTitle>
-            <DialogDescription>Vista previa de la evidencia subida por la mesa.</DialogDescription>
-          </DialogHeader>
-          {selectedEvidence ? <EvidencePreview evidence={selectedEvidence} /> : null}
-        </DialogContent>
-      </Dialog>
-    </AdminFrame>
-  );
-};
+		      <Dialog open={!!selectedEvidence} onOpenChange={(open) => !open && setSelectedEvidence(null)}>
+	        <DialogContent className="max-w-3xl">
+	          <DialogHeader>
+	            <DialogTitle>Evidencia</DialogTitle>
+	            <DialogDescription>Vista previa de la evidencia subida por la mesa.</DialogDescription>
+	          </DialogHeader>
+	          {selectedEvidence ? <EvidencePreview evidence={selectedEvidence} /> : null}
+	        </DialogContent>
+	      </Dialog>
+	      {qrPreviewOpen && (
+	        <div
+	          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+	          onClick={() => setQrPreviewOpen(false)}
+	        >
+	          <button
+	            type="button"
+	            className="absolute right-4 top-4 text-3xl leading-none text-white"
+	            aria-label="Cerrar"
+	            onClick={() => setQrPreviewOpen(false)}
+	          >
+	            ×
+	          </button>
+	          <div
+	            className="rounded-xl bg-white p-3"
+	            style={{ width: "min(90vw, 90vh)", height: "min(90vw, 90vh)" }}
+	            onClick={(event) => event.stopPropagation()}
+	          >
+	            <div className="flex h-full w-full items-center justify-center">
+	              <QRCodeSVG value={qrValue} size={1024} level="H" includeMargin />
+	            </div>
+	          </div>
+	        </div>
+	      )}
+	    </AdminFrame>
+	  );
+	};
 
 const Info = ({ label, value }: { label: string; value: string }) => (
   <div className="rounded-xl border border-border bg-card p-3 shadow-sm">
