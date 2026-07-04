@@ -176,6 +176,7 @@ export interface CreateCaptainsEventInput {
   primary_color?: string | null;
   secondary_color?: string | null;
   background_image_url?: string | null;
+  theme_style?: CaptainsThemeStyle;
 }
 
 export interface CaptainsChallengeInput {
