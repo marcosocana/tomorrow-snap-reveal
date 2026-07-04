@@ -246,9 +246,6 @@ export type Database = {
       captains_events: {
         Row: {
           background_image_url: string | null
-          contact_email: string | null
-          contact_name: string | null
-          contact_phone: string | null
           created_at: string
           description: string | null
           end_time: string | null
@@ -264,14 +261,11 @@ export type Database = {
           slug: string
           start_time: string | null
           status: string
-          theme_style: string | null
+          theme_style: string
           updated_at: string
         }
         Insert: {
           background_image_url?: string | null
-          contact_email?: string | null
-          contact_name?: string | null
-          contact_phone?: string | null
           created_at?: string
           description?: string | null
           end_time?: string | null
@@ -287,14 +281,11 @@ export type Database = {
           slug: string
           start_time?: string | null
           status?: string
-          theme_style?: string | null
+          theme_style?: string
           updated_at?: string
         }
         Update: {
           background_image_url?: string | null
-          contact_email?: string | null
-          contact_name?: string | null
-          contact_phone?: string | null
           created_at?: string
           description?: string | null
           end_time?: string | null
@@ -310,7 +301,7 @@ export type Database = {
           slug?: string
           start_time?: string | null
           status?: string
-          theme_style?: string | null
+          theme_style?: string
           updated_at?: string
         }
         Relationships: [
