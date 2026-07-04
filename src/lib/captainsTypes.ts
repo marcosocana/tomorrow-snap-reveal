@@ -1,5 +1,7 @@
 export type CaptainsScoringMode = "automatic" | "manual";
 export type CaptainsEventStatus = "draft" | "scheduled" | "active" | "finished" | "archived";
+export type CaptainsThemeStyle = "pixel" | "romantic" | "modern" | "classic";
+export const CAPTAINS_THEME_STYLES: CaptainsThemeStyle[] = ["pixel", "romantic", "modern", "classic"];
 export type CaptainsEvidenceType = "photo" | "video" | "question";
 export type CaptainsDifficulty = "easy" | "medium" | "hard" | "special";
 export type CaptainsSpriteStyle = "suit" | "dress" | "jacket" | "skirt" | "festival" | "tunic" | "uniform" | "kimono";
@@ -45,6 +47,7 @@ export interface CaptainsEvent {
   primary_color: string | null;
   secondary_color: string | null;
   background_image_url: string | null;
+  theme_style: CaptainsThemeStyle;
   qr_url: string | null;
   public_url: string;
   created_at: string;
@@ -173,6 +176,7 @@ export interface CreateCaptainsEventInput {
   primary_color?: string | null;
   secondary_color?: string | null;
   background_image_url?: string | null;
+  theme_style?: CaptainsThemeStyle;
 }
 
 export interface CaptainsChallengeInput {

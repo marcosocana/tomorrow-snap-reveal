@@ -105,6 +105,7 @@ const demoEventDetail: CaptainsEventDetail = {
     primary_color: DEFAULT_CAPTAINS_PRIMARY,
     secondary_color: DEFAULT_CAPTAINS_SECONDARY,
     background_image_url: null,
+    theme_style: "pixel",
     qr_url: `/capitanes/${DEMO_SLUG}`,
     public_url: `/capitanes/${DEMO_SLUG}`,
     created_at: nowIso(),
@@ -1012,13 +1013,18 @@ export default function CaptainsPublic() {
       isThemeColor(event?.secondary_color) ? event?.secondary_color || DEFAULT_CAPTAINS_SECONDARY : DEFAULT_CAPTAINS_SECONDARY,
     );
     root.style.setProperty("--captains-background-image", cssUrl(event?.background_image_url));
+    const theme = (event?.theme_style as string) || "pixel";
+    root.setAttribute("data-captains-theme", theme);
+    document.body.setAttribute("data-captains-theme", theme);
 
     return () => {
       root.style.removeProperty("--captains-primary");
       root.style.removeProperty("--captains-secondary");
       root.style.removeProperty("--captains-background-image");
+      root.removeAttribute("data-captains-theme");
+      document.body.removeAttribute("data-captains-theme");
     };
-  }, [event?.background_image_url, event?.primary_color, event?.secondary_color]);
+  }, [event?.background_image_url, event?.primary_color, event?.secondary_color, event?.theme_style]);
 
   useEffect(() => {
     if (!eventSlug) return;

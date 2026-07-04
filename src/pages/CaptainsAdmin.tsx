@@ -24,6 +24,7 @@ import {
   Image as ImageIcon,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -65,7 +66,16 @@ import type {
   CaptainsSpriteStyle,
   CaptainsTable,
   CaptainsTableChallenge,
+  CaptainsThemeStyle,
 } from "@/lib/captainsTypes";
+import { CAPTAINS_THEME_STYLES } from "@/lib/captainsTypes";
+
+const THEME_STYLE_LABELS: Record<CaptainsThemeStyle, { label: string; description: string }> = {
+  pixel: { label: "Pixel", description: "Retro brutalista con fondo blanco." },
+  romantic: { label: "Romántico", description: "Tonos cálidos y tipografía elegante." },
+  modern: { label: "Moderno", description: "Minimalista y limpio." },
+  classic: { label: "Clásico", description: "Sobrio y atemporal." },
+};
 
 const DEFAULT_DESCRIPTION =
   "Bienvenidos a Capitanes by Revelao.\nCada mesa tendrá un capitán encargado de guiar a su equipo durante el juego.\nTendréis que completar retos, subir pruebas y competir contra el resto de mesas.\nPreparad la cámara, afinad la voz y jugad en equipo.\nQue empiece la misión.";
@@ -904,6 +914,7 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
   const [primaryColor, setPrimaryColor] = useState(DEFAULT_PRIMARY_COLOR);
   const [secondaryColor, setSecondaryColor] = useState(DEFAULT_SECONDARY_COLOR);
   const [backgroundImageUrl, setBackgroundImageUrl] = useState("");
+  const [themeStyle, setThemeStyle] = useState<CaptainsThemeStyle>("pixel");
   const [selectedChallenges, setSelectedChallenges] = useState<CaptainsChallengeInput[]>([]);
   const [selectedCatalogIds, setSelectedCatalogIds] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
@@ -935,6 +946,7 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
     setPrimaryColor(detail.event.primary_color || DEFAULT_PRIMARY_COLOR);
     setSecondaryColor(detail.event.secondary_color || DEFAULT_SECONDARY_COLOR);
     setBackgroundImageUrl(detail.event.background_image_url || "");
+    setThemeStyle((detail.event.theme_style as CaptainsThemeStyle) || "pixel");
     setSelectedChallenges(
       detail.challenges.map((challenge) => ({
         id: challenge.id,
@@ -1150,6 +1162,7 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
         primary_color: primaryColor,
         secondary_color: secondaryColor,
         background_image_url: backgroundImageUrl.trim() || null,
+        theme_style: themeStyle,
         status: startIso && new Date(startIso).getTime() > Date.now() ? "scheduled" as const : "active" as const,
       };
 
@@ -1206,8 +1219,27 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
               <div className="space-y-1 md:col-span-2">
                 <span className="text-sm font-medium">Estilo visual del juego mobile</span>
                 <p className="text-xs text-muted-foreground">
-                  La experiencia pública usa fondo blanco, estética pixel art brutalista y el color principal para los CTA.
+                  Elige la estética base de la experiencia pública. El color principal se usa para los CTA.
                 </p>
+              </div>
+              <div className="md:col-span-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {CAPTAINS_THEME_STYLES.map((style) => {
+                  const active = themeStyle === style;
+                  return (
+                    <button
+                      key={style}
+                      type="button"
+                      onClick={() => setThemeStyle(style)}
+                      className={cn(
+                        "rounded-xl border p-3 text-left transition",
+                        active ? "border-primary ring-2 ring-primary bg-primary/5" : "border-border hover:border-primary/60",
+                      )}
+                    >
+                      <div className="text-sm font-semibold">{THEME_STYLE_LABELS[style].label}</div>
+                      <div className="text-xs text-muted-foreground">{THEME_STYLE_LABELS[style].description}</div>
+                    </button>
+                  );
+                })}
               </div>
               <label className="space-y-1">
                 <span className="text-sm font-medium">Color principal de CTAs</span>
