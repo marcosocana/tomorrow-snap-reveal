@@ -1722,6 +1722,20 @@ const Gallery = () => {
       </button>
     </div>
   ) : null;
+  const pricingDialog = (
+    <Dialog open={pricingOpen} onOpenChange={setPricingOpen}>
+      <DialogContent className="w-screen h-[100dvh] max-h-[100dvh] rounded-none p-4 sm:p-6 sm:rounded-lg sm:h-auto sm:max-h-[90vh] sm:w-full sm:max-w-6xl">
+        <DialogHeader>
+          <DialogTitle>Elige tu plan</DialogTitle>
+        </DialogHeader>
+        <div className="max-h-[calc(100dvh-80px)] sm:max-h-[80vh] overflow-y-auto pr-1">
+          <div className="mx-auto w-full max-w-6xl">
+            <PricingPreview showHeader={false} mobileLayout="stack" hideDemo />
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
 
   // Expired event screen
   if (isExpired) {
@@ -1735,6 +1749,7 @@ const Gallery = () => {
     return (
       <>
         {demoBanner}
+        {pricingDialog}
         <div className={`app-screen bg-background flex flex-col items-center justify-center p-4 ${isDemoEvent ? "pt-16" : ""}`}>
         <div className="flex-1 flex flex-col items-center justify-center max-w-md w-full text-center space-y-6">
           <h1 
@@ -1873,6 +1888,7 @@ const Gallery = () => {
   return (
     <>
       {demoBanner}
+      {pricingDialog}
       <div className={`app-screen bg-background ${isDemoEvent ? "pt-16" : ""}`}>
       {/* Hero Header with Background Image */}
       {eventBackgroundImage ? (
@@ -2388,18 +2404,6 @@ const Gallery = () => {
           onLikeMedia={handleLikeMedia}
         />
       )}
-      <Dialog open={pricingOpen} onOpenChange={setPricingOpen}>
-        <DialogContent className="w-screen h-[100dvh] max-h-[100dvh] rounded-none p-4 sm:p-6 sm:rounded-lg sm:h-auto sm:max-h-[90vh] sm:w-full sm:max-w-6xl">
-          <DialogHeader>
-            <DialogTitle>Elige tu plan</DialogTitle>
-          </DialogHeader>
-          <div className="max-h-[calc(100dvh-80px)] sm:max-h-[80vh] overflow-y-auto pr-1">
-            <div className="mx-auto w-full max-w-6xl">
-              <PricingPreview showHeader={false} mobileLayout="stack" hideDemo />
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
       <Dialog open={isAttachModalOpen} onOpenChange={setIsAttachModalOpen}>
         <DialogContent className="max-w-md bg-card p-6">
           <DialogHeader>

@@ -1311,6 +1311,20 @@ const Camera = () => {
       </button>
     </div>
   ) : null;
+  const pricingDialog = (
+    <Dialog open={pricingOpen} onOpenChange={setPricingOpen}>
+      <DialogContent className="w-screen h-[100dvh] max-h-[100dvh] rounded-none p-4 sm:p-6 sm:rounded-lg sm:h-auto sm:max-h-[90vh] sm:w-full sm:max-w-6xl">
+        <DialogHeader>
+          <DialogTitle>Elige tu plan</DialogTitle>
+        </DialogHeader>
+        <div className="max-h-[calc(100dvh-80px)] sm:max-h-[80vh] overflow-y-auto pr-1">
+          <div className="mx-auto w-full max-w-6xl">
+            <PricingPreview showHeader={false} mobileLayout="stack" hideDemo />
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
   const mediaCountsHeaderText = isPhotoOnlyConfigured
     ? language === "en"
     ? `📷 ${photoCount} photos`
@@ -1347,6 +1361,7 @@ const Camera = () => {
     return (
       <>
         {demoBanner}
+        {pricingDialog}
         <div className={`app-screen bg-background flex flex-col ${isDemoEvent ? "pt-16" : ""}`}>
         {backgroundImageUrl ? (
           <>
@@ -1556,6 +1571,7 @@ const Camera = () => {
     return (
       <>
         {demoBanner}
+        {pricingDialog}
         <div className={`app-screen bg-background flex flex-col ${isDemoEvent ? "pt-16" : ""}`}>
         {backgroundImageUrl ? (
           <>
@@ -1956,6 +1972,7 @@ const Camera = () => {
   return (
     <>
       {demoBanner}
+      {pricingDialog}
       <div className={`app-screen bg-background flex flex-col ${isDemoEvent ? "pt-16" : ""}`}>
       {backgroundImageUrl ? (
         <>
@@ -2257,18 +2274,6 @@ const Camera = () => {
         onChange={handleAttachmentChange}
         className="hidden"
       />
-      <Dialog open={pricingOpen} onOpenChange={setPricingOpen}>
-        <DialogContent className="w-screen h-[100dvh] max-h-[100dvh] rounded-none p-4 sm:p-6 sm:rounded-lg sm:h-auto sm:max-h-[90vh] sm:w-full sm:max-w-6xl">
-          <DialogHeader>
-            <DialogTitle>Elige tu plan</DialogTitle>
-          </DialogHeader>
-          <div className="max-h-[calc(100dvh-80px)] sm:max-h-[80vh] overflow-y-auto pr-1">
-            <div className="mx-auto w-full max-w-6xl">
-              <PricingPreview showHeader={false} mobileLayout="stack" hideDemo />
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
       {demoBackButton}
       </div>
     </>
