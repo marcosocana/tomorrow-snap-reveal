@@ -65,7 +65,16 @@ import type {
   CaptainsSpriteStyle,
   CaptainsTable,
   CaptainsTableChallenge,
+  CaptainsThemeStyle,
 } from "@/lib/captainsTypes";
+import { CAPTAINS_THEME_STYLES } from "@/lib/captainsTypes";
+
+const THEME_STYLE_LABELS: Record<CaptainsThemeStyle, { label: string; description: string }> = {
+  pixel: { label: "Pixel", description: "Retro brutalista con fondo blanco." },
+  romantic: { label: "Romántico", description: "Tonos cálidos y tipografía elegante." },
+  modern: { label: "Moderno", description: "Minimalista y limpio." },
+  classic: { label: "Clásico", description: "Sobrio y atemporal." },
+};
 
 const DEFAULT_DESCRIPTION =
   "Bienvenidos a Capitanes by Revelao.\nCada mesa tendrá un capitán encargado de guiar a su equipo durante el juego.\nTendréis que completar retos, subir pruebas y competir contra el resto de mesas.\nPreparad la cámara, afinad la voz y jugad en equipo.\nQue empiece la misión.";
