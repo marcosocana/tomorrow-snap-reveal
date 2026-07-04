@@ -24,6 +24,7 @@ import type {
   CaptainsSpriteStyle,
   CaptainsTable,
   CaptainsTableChallenge,
+  CaptainsThemeStyle,
 } from "@/lib/captainsTypes";
 import { useCaptainsEventDetail } from "@/hooks/useCaptains";
 import { calculateCaptainsAutomaticScore, getCaptainsPublicUrl, normalizeCaptainsPublicUrl, shuffleCaptainsItems } from "@/lib/captainsUtils";
@@ -102,6 +103,7 @@ const demoEventDetail: CaptainsEventDetail = {
     scoring_mode: "automatic",
     status: "active",
     show_live_gallery_after_completion: true,
+    theme_style: "pixel",
     primary_color: DEFAULT_CAPTAINS_PRIMARY,
     secondary_color: DEFAULT_CAPTAINS_SECONDARY,
     background_image_url: null,
@@ -476,7 +478,7 @@ const evidenceAccept: Record<Exclude<CaptainsEvidenceType, "question">, string> 
 
 const evidenceActionLabel: Record<Exclude<CaptainsEvidenceType, "question">, string> = {
   photo: "Hacer foto",
-  video: "Grabar vídeo",
+  video: "Hacer vídeo",
 };
 
 const evidenceRetakeLabel: Record<Exclude<CaptainsEvidenceType, "question">, string> = {
@@ -616,22 +618,62 @@ const useIsMobileCaptainDevice = () => {
   return state;
 };
 
-const CaptainsShell = ({ children }: { children: React.ReactNode }) => (
-  <main className="captains-public min-h-[var(--app-height,100svh)] bg-white text-[#151515]">
+const normalizeCaptainsThemeStyle = (value?: string | null): CaptainsThemeStyle =>
+  value === "romantic" || value === "modern" || value === "classic" ? value : "pixel";
+
+const CaptainsShell = ({ children, themeStyle = "pixel" }: { children: React.ReactNode; themeStyle?: CaptainsThemeStyle }) => (
+  <main className={cn("captains-public min-h-[var(--app-height,100svh)] bg-white text-[#151515]", `captains-theme-${themeStyle}`)}>
     <style>{`
-      @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap');
+      @import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=Dancing+Script:wght@700&family=Inter:wght@500;700;900&family=Lora:wght@500;700&family=Playfair+Display:wght@700;900&family=Press+Start+2P&family=VT323&display=swap');
       .captains-public h1,
       .captains-public h2,
       .captains-public .pixel-title {
-        font-family: "Press Start 2P", ui-monospace, monospace;
-        font-weight: 400;
+        font-family: var(--captains-heading-font);
+        font-weight: var(--captains-heading-weight);
         letter-spacing: 0;
         line-height: 1.25;
         text-shadow: none;
       }
       .captains-public {
-        font-family: "VT323", ui-monospace, monospace;
+        --captains-heading-font: "Press Start 2P", ui-monospace, monospace;
+        --captains-body-font: "VT323", ui-monospace, monospace;
+        --captains-heading-weight: 400;
+        --captains-border-width: 3px;
+        --captains-radius: 0;
+        --captains-panel-shadow: none;
+        --captains-grid-opacity: .06;
+        font-family: var(--captains-body-font);
         image-rendering: pixelated;
+      }
+      .captains-theme-romantic {
+        --captains-heading-font: "Dancing Script", "Playfair Display", cursive;
+        --captains-body-font: "Lora", Georgia, serif;
+        --captains-heading-weight: 700;
+        --captains-border-width: 1px;
+        --captains-radius: 18px;
+        --captains-panel-shadow: 0 18px 48px rgba(47,41,45,.12);
+        --captains-grid-opacity: .025;
+        image-rendering: auto;
+      }
+      .captains-theme-modern {
+        --captains-heading-font: "Archivo Black", Arial Black, Arial, sans-serif;
+        --captains-body-font: "Inter", Arial, sans-serif;
+        --captains-heading-weight: 900;
+        --captains-border-width: 2px;
+        --captains-radius: 8px;
+        --captains-panel-shadow: 0 16px 44px rgba(21,21,21,.10);
+        --captains-grid-opacity: .035;
+        image-rendering: auto;
+      }
+      .captains-theme-classic {
+        --captains-heading-font: "Playfair Display", Georgia, serif;
+        --captains-body-font: "Lora", Georgia, serif;
+        --captains-heading-weight: 900;
+        --captains-border-width: 1px;
+        --captains-radius: 10px;
+        --captains-panel-shadow: 0 14px 36px rgba(21,21,21,.09);
+        --captains-grid-opacity: .03;
+        image-rendering: auto;
       }
       .captains-public button,
       .captains-public input,
@@ -641,19 +683,31 @@ const CaptainsShell = ({ children }: { children: React.ReactNode }) => (
       }
       .captains-public button,
       .captains-public input {
-        font-family: "VT323", ui-monospace, monospace;
+        font-family: var(--captains-body-font);
       }
       .pixel-panel {
-        border: 3px solid #151515;
-        box-shadow: none;
+        border: var(--captains-border-width) solid #151515;
+        border-radius: var(--captains-radius);
+        box-shadow: var(--captains-panel-shadow);
       }
       .pixel-button {
-        border: 3px solid #151515;
+        border: var(--captains-border-width) solid #151515;
+        border-radius: var(--captains-radius);
         box-shadow: none;
       }
-      .pixel-button:active {
-        transform: translate(2px, 2px);
-        box-shadow: none;
+      .captains-public button.pixel-button {
+        transition: filter .16s ease, background-color .16s ease, border-color .16s ease;
+      }
+      .captains-public button.pixel-button:hover:not(:disabled) {
+        filter: brightness(1.04);
+      }
+      .captains-theme-romantic button {
+        text-transform: none;
+      }
+      .captains-theme-romantic h1,
+      .captains-theme-romantic h2,
+      .captains-theme-romantic .pixel-title {
+        line-height: 1.05;
       }
       .pixel-sprite > div {
         image-rendering: pixelated;
@@ -665,7 +719,8 @@ const CaptainsShell = ({ children }: { children: React.ReactNode }) => (
         inset: auto 18% -6% 18%;
         height: 10%;
         background: var(--captains-primary);
-        border: 3px solid #151515;
+        border: var(--captains-border-width) solid #151515;
+        border-radius: var(--captains-radius);
       }
       .pixel-map {
         background:
@@ -696,7 +751,7 @@ const CaptainsShell = ({ children }: { children: React.ReactNode }) => (
       className="fixed inset-0 bg-cover bg-center opacity-0"
       style={{ backgroundImage: "var(--captains-background-image)", backgroundColor: "#ffffff" }}
     />
-    <div className="fixed inset-0 opacity-100 [background-image:linear-gradient(90deg,rgba(21,21,21,.06)_1px,transparent_1px),linear-gradient(rgba(21,21,21,.06)_1px,transparent_1px)] [background-size:20px_20px]" />
+    <div className="fixed inset-0 opacity-100 [background-image:linear-gradient(90deg,rgba(21,21,21,var(--captains-grid-opacity))_1px,transparent_1px),linear-gradient(rgba(21,21,21,var(--captains-grid-opacity))_1px,transparent_1px)] [background-size:20px_20px]" />
     <div className="fixed inset-x-0 top-0 h-2 bg-[var(--captains-primary)]" />
     <div className="relative mx-auto flex min-h-[var(--app-height,100svh)] w-full max-w-[430px] flex-col px-4 py-5">
       {children}
@@ -730,7 +785,7 @@ const SecondaryButton = ({ className, ...props }: React.ComponentProps<typeof Bu
     {...props}
     variant="outline"
     className={cn(
-      "pixel-button h-12 w-full rounded-none bg-white text-xl font-bold uppercase text-[#151515] hover:bg-neutral-100 hover:text-[#151515]",
+      "pixel-button min-h-14 w-full rounded-none bg-white px-5 py-4 text-2xl font-bold uppercase text-[#151515] hover:bg-neutral-100 hover:text-[#151515]",
       className,
     )}
   />
@@ -970,6 +1025,7 @@ export default function CaptainsPublic() {
   const eventQuery = useCaptainsEventDetail(isDemo ? null : eventSlug);
   const detail = isDemo ? demoEventDetail : eventQuery.data;
   const event = detail?.event;
+  const themeStyle = normalizeCaptainsThemeStyle(event?.theme_style);
   const tables = detail?.tables || [];
   const challenges = detail?.challenges || [];
   const [session, setSession] = useState<CaptainSession | null>(null);
@@ -1651,7 +1707,7 @@ export default function CaptainsPublic() {
   if ((!isDemo && eventQuery.isLoading) || !mobile.ready) return <LoadingScreen />;
   if (!event || !detail) {
     return (
-      <CaptainsShell>
+      <CaptainsShell themeStyle={themeStyle}>
         <div className="flex flex-1 items-center justify-center text-center">
           <GameCard>
             <XCircle className="mx-auto mb-3 h-10 w-10 text-[#151515]" />
@@ -1666,7 +1722,7 @@ export default function CaptainsPublic() {
 
   if (step === "home") {
     return (
-      <CaptainsShell>
+      <CaptainsShell themeStyle={themeStyle}>
         <div className="flex flex-1 flex-col justify-between gap-5">
           <div className="flex flex-1 items-center">
             <GameCard>
@@ -1686,7 +1742,7 @@ export default function CaptainsPublic() {
   if (step === "start") {
     const canEnter = Boolean(selectedTable);
     return (
-      <CaptainsShell>
+      <CaptainsShell themeStyle={themeStyle}>
         <div className="flex min-h-[calc(var(--app-height,100svh)-40px)] flex-col gap-4 pb-5">
           <div className="pt-3">
             <h1 className="mt-4 text-3xl">Elige tu mesa</h1>
@@ -1712,7 +1768,7 @@ export default function CaptainsPublic() {
   if (step === "play") {
     if (needsWait) {
       return (
-        <CaptainsShell>
+        <CaptainsShell themeStyle={themeStyle}>
           <div className="flex flex-1 flex-col justify-center gap-4">
             <GameCard className="text-center">
               <Clock3 className="mx-auto mb-4 h-12 w-12 text-[#151515]" />
@@ -1736,7 +1792,7 @@ export default function CaptainsPublic() {
 
     if (!currentRow || !currentChallenge || !currentTable) {
       return (
-        <CaptainsShell>
+        <CaptainsShell themeStyle={themeStyle}>
           <div className="flex flex-1 items-center justify-center">
             <GameCard className="text-center">
               <Loader2 className="mx-auto mb-3 h-8 w-8 animate-spin text-[#151515]" />
@@ -1752,7 +1808,7 @@ export default function CaptainsPublic() {
       : 100;
 
     return (
-      <CaptainsShell>
+      <CaptainsShell themeStyle={themeStyle}>
         <div className="space-y-4 pb-5">
           <GameCard>
             <div className="flex items-center justify-between">
@@ -1770,7 +1826,7 @@ export default function CaptainsPublic() {
             </div>
             <div className="mt-4">
               <div className="mb-2 flex justify-between text-base font-bold uppercase text-[#151515]/70">
-                <span>Reto {currentIndex} de {tableChallenges.length}</span>
+                <span>Ronda {currentIndex} de {tableChallenges.length}</span>
                 <span>{Math.round((completedRows.length / Math.max(tableChallenges.length, 1)) * 100)}%</span>
               </div>
               <Progress value={(completedRows.length / Math.max(tableChallenges.length, 1)) * 100} className="h-4 rounded-none bg-[#151515]/15 [&>div]:rounded-none [&>div]:bg-[#151515]" />
@@ -1783,7 +1839,7 @@ export default function CaptainsPublic() {
               <h2 className="mt-4 text-xl">{currentTable.table_name}</h2>
               <p className="mt-2 text-2xl font-bold text-[#151515]/70">Capitán: {session?.captain_name}</p>
               <div className="mt-5 grid grid-cols-2 gap-3 text-left">
-                <PixelStat label={`de ${tableChallenges.length}`} value={`R${currentIndex}`} tone="secondary" />
+                <PixelStat label={`de ${tableChallenges.length}`} value={`Ronda ${currentIndex}`} tone="secondary" />
                 <PixelStat label="puntos" value={totalPoints} tone="gold" />
               </div>
               <GameButton className="mt-5" onClick={() => setPhase("preview")}>
@@ -1795,7 +1851,7 @@ export default function CaptainsPublic() {
           {phase === "preview" && (
             <GameCard className="animate-scale-in">
               <div className="mb-4 flex items-center justify-between">
-                <HeroBadge>Misión {currentIndex}</HeroBadge>
+                <HeroBadge>Ronda {currentIndex}</HeroBadge>
                 <span className="pixel-button bg-white px-3 py-1 text-xl font-bold text-[#151515]">{currentChallenge.points} pts</span>
               </div>
               <div className="pixel-panel bg-white p-3 text-[#151515]">
@@ -1957,7 +2013,7 @@ export default function CaptainsPublic() {
           : "Vais bien, pero todavía podéis remontar.";
 
     return (
-      <CaptainsShell>
+      <CaptainsShell themeStyle={themeStyle}>
         <div className="space-y-4 pb-5">
           <div className="pt-3">
             <HeroBadge>Ranking</HeroBadge>
@@ -1999,7 +2055,7 @@ export default function CaptainsPublic() {
     }
 
     return (
-      <CaptainsShell>
+      <CaptainsShell themeStyle={themeStyle}>
         <div className="flex flex-1 flex-col justify-center gap-4">
           <GameCard className="text-center">
             <PixelCaptainSprite table={currentTable} active size="lg" />
@@ -2032,7 +2088,7 @@ export default function CaptainsPublic() {
   if (step === "resumen") {
     if (!summaryUnlocked) {
       return (
-        <CaptainsShell>
+        <CaptainsShell themeStyle={themeStyle}>
           <div className="flex flex-1 flex-col justify-center gap-4">
             <GameCard className="text-center">
               <Film className="mx-auto mb-4 h-12 w-12 text-[#151515]" />
@@ -2048,7 +2104,7 @@ export default function CaptainsPublic() {
     }
 
     return (
-      <CaptainsShell>
+      <CaptainsShell themeStyle={themeStyle}>
         <div className="flex min-h-[var(--app-height,100svh)] flex-col gap-4 pb-5">
           <div className="pt-3">
             <HeroBadge>Resumen</HeroBadge>
@@ -2179,7 +2235,7 @@ export default function CaptainsPublic() {
 
   if (!liveEventAvailable || !liveEnabled) {
     return (
-      <CaptainsShell>
+      <CaptainsShell themeStyle={themeStyle}>
         <div className="flex flex-1 flex-col justify-center gap-4">
           <GameCard className="text-center">
             <Shield className="mx-auto mb-4 h-12 w-12 text-[#151515]" />
@@ -2193,7 +2249,7 @@ export default function CaptainsPublic() {
 
   if (!allDone) {
     return (
-      <CaptainsShell>
+      <CaptainsShell themeStyle={themeStyle}>
         <div className="flex flex-1 flex-col justify-center gap-4">
           <GameCard className="text-center">
             <Shield className="mx-auto mb-4 h-12 w-12 text-[#151515]" />
@@ -2210,7 +2266,7 @@ export default function CaptainsPublic() {
   }
 
   return (
-    <CaptainsShell>
+    <CaptainsShell themeStyle={themeStyle}>
       <div className="space-y-4 pb-5">
         <div className="pt-3">
           <HeroBadge>En directo</HeroBadge>

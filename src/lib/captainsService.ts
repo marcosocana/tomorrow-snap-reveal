@@ -21,6 +21,7 @@ import type {
   CaptainsTable,
   CaptainsTableChallenge,
   CaptainsTableChallengeStatus,
+  CaptainsThemeStyle,
   CreateCaptainsEventInput,
   CaptainsScoringMode,
   CaptainsSpriteConfig,
@@ -37,7 +38,7 @@ const ensureNoError = (error: unknown) => {
   if (error) throw error;
 };
 
-const captainThemeColumns = ["primary_color", "secondary_color", "background_image_url"];
+const captainThemeColumns = ["primary_color", "secondary_color", "background_image_url", "theme_style"];
 
 const withoutCaptainThemeColumns = <T extends Record<string, unknown>>(payload: T) => {
   const next = { ...payload };
@@ -182,6 +183,7 @@ export const createCaptainsEvent = async (input: CreateCaptainsEventInput) => {
     scoring_mode: input.scoring_mode ?? "automatic",
     status: input.status ?? "draft",
     show_live_gallery_after_completion: input.show_live_gallery_after_completion ?? true,
+    theme_style: input.theme_style ?? "pixel" as CaptainsThemeStyle,
     primary_color: input.primary_color ?? null,
     secondary_color: input.secondary_color ?? null,
     background_image_url: input.background_image_url ?? null,

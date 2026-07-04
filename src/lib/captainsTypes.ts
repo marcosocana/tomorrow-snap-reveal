@@ -2,6 +2,7 @@ export type CaptainsScoringMode = "automatic" | "manual";
 export type CaptainsEventStatus = "draft" | "scheduled" | "active" | "finished" | "archived";
 export type CaptainsEvidenceType = "photo" | "video" | "question";
 export type CaptainsDifficulty = "easy" | "medium" | "hard" | "special";
+export type CaptainsThemeStyle = "pixel" | "romantic" | "modern" | "classic";
 export type CaptainsSpriteStyle = "suit" | "dress" | "jacket" | "skirt" | "festival" | "tunic" | "uniform" | "kimono";
 export type CaptainsSpriteSex = "female" | "male" | "unspecified";
 export type CaptainsSpriteHairLength = "short" | "long";
@@ -42,6 +43,7 @@ export interface CaptainsEvent {
   scoring_mode: CaptainsScoringMode;
   status: CaptainsEventStatus;
   show_live_gallery_after_completion: boolean;
+  theme_style: CaptainsThemeStyle | null;
   primary_color: string | null;
   secondary_color: string | null;
   background_image_url: string | null;
@@ -170,6 +172,7 @@ export interface CreateCaptainsEventInput {
   scoring_mode?: CaptainsScoringMode;
   status?: CaptainsEventStatus;
   show_live_gallery_after_completion?: boolean;
+  theme_style?: CaptainsThemeStyle | null;
   primary_color?: string | null;
   secondary_color?: string | null;
   background_image_url?: string | null;

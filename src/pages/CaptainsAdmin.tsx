@@ -63,6 +63,7 @@ import type {
   CaptainsEvidenceType,
   CaptainsSpriteConfig,
   CaptainsSpriteStyle,
+  CaptainsThemeStyle,
   CaptainsTable,
   CaptainsTableChallenge,
 } from "@/lib/captainsTypes";
@@ -74,6 +75,46 @@ const DEFAULT_SECONDARY_COLOR = "#2f292d";
 const isHexColor = (value: string) => /^#[0-9a-fA-F]{6}$/.test(value);
 const colorValue = (value: string, fallback: string) => (isHexColor(value) ? value : fallback);
 const sanitizeCaptainPhotoName = (value: string) => value.toLowerCase().replace(/[^a-z0-9.-]+/g, "-").replace(/^-+|-+$/g, "") || "captain-photo";
+
+const captainsThemeOptions: Array<{
+  value: CaptainsThemeStyle;
+  label: string;
+  description: string;
+  headingClass: string;
+  previewClass: string;
+}> = [
+  {
+    value: "pixel",
+    label: "Pixel art",
+    description: "Borde negro, estética arcade y tipografía pixelada.",
+    headingClass: "font-mono uppercase",
+    previewClass: "rounded-none border-2 border-black bg-white",
+  },
+  {
+    value: "romantic",
+    label: "Romántico",
+    description: "Tipografía cursiva, bordes suaves y una sensación más elegante.",
+    headingClass: "font-serif italic",
+    previewClass: "rounded-2xl border border-rose-200 bg-rose-50",
+  },
+  {
+    value: "modern",
+    label: "Moderno",
+    description: "Palo seco, peso fuerte tipo Arial Black y controles limpios.",
+    headingClass: "font-sans uppercase",
+    previewClass: "rounded-lg border-2 border-neutral-900 bg-neutral-50",
+  },
+  {
+    value: "classic",
+    label: "Clásico",
+    description: "Serif editorial, elegante y sobrio para celebraciones formales.",
+    headingClass: "font-serif",
+    previewClass: "rounded-xl border border-stone-300 bg-white",
+  },
+];
+
+const getCaptainsThemeOption = (value?: CaptainsThemeStyle | null) =>
+  captainsThemeOptions.find((option) => option.value === value) || captainsThemeOptions[0];
 
 const hairColorOptions = [
   { value: "blonde", label: "Rubio", color: "#e8c85b" },
@@ -901,6 +942,7 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
   const [endHour, setEndHour] = useState(defaultDateRange.endTime);
   const [scoringMode, setScoringMode] = useState<"automatic" | "manual">("automatic");
   const [showLiveGalleryAfterCompletion, setShowLiveGalleryAfterCompletion] = useState(true);
+  const [themeStyle, setThemeStyle] = useState<CaptainsThemeStyle>("pixel");
   const [primaryColor, setPrimaryColor] = useState(DEFAULT_PRIMARY_COLOR);
   const [secondaryColor, setSecondaryColor] = useState(DEFAULT_SECONDARY_COLOR);
   const [backgroundImageUrl, setBackgroundImageUrl] = useState("");
@@ -932,6 +974,7 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
     setEndHour(endParts.time);
     setScoringMode(detail.event.scoring_mode);
     setShowLiveGalleryAfterCompletion(detail.event.show_live_gallery_after_completion ?? true);
+    setThemeStyle(detail.event.theme_style || "pixel");
     setPrimaryColor(detail.event.primary_color || DEFAULT_PRIMARY_COLOR);
     setSecondaryColor(detail.event.secondary_color || DEFAULT_SECONDARY_COLOR);
     setBackgroundImageUrl(detail.event.background_image_url || "");
@@ -1147,6 +1190,7 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
         end_time: endIso,
         scoring_mode: scoringMode,
         show_live_gallery_after_completion: showLiveGalleryAfterCompletion,
+        theme_style: themeStyle,
         primary_color: primaryColor,
         secondary_color: secondaryColor,
         background_image_url: backgroundImageUrl.trim() || null,
@@ -1206,8 +1250,42 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
               <div className="space-y-1 md:col-span-2">
                 <span className="text-sm font-medium">Estilo visual del juego mobile</span>
                 <p className="text-xs text-muted-foreground">
-                  La experiencia pública usa fondo blanco, estética pixel art brutalista y el color principal para los CTA.
+                  Elige la personalidad visual de la experiencia pública: tipografías, bordes y tono de los controles.
                 </p>
+              </div>
+              <label className="space-y-1 md:col-span-2">
+                <span className="text-sm font-medium">Estilo</span>
+                <select
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  value={themeStyle}
+                  onChange={(event) => setThemeStyle(event.target.value as CaptainsThemeStyle)}
+                >
+                  {captainsThemeOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="grid gap-3 md:col-span-2 md:grid-cols-4">
+                {captainsThemeOptions.map((option) => {
+                  const selected = themeStyle === option.value;
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setThemeStyle(option.value)}
+                      className={`min-h-[122px] rounded-xl border p-3 text-left transition hover:border-primary hover:bg-primary/5 ${
+                        selected ? "border-primary bg-primary/10" : "border-border bg-card"
+                      }`}
+                    >
+                      <div className={`mb-2 p-3 text-lg font-black ${option.previewClass}`}>
+                        <span className={option.headingClass}>{option.label}</span>
+                      </div>
+                      <p className="text-xs font-medium text-foreground">{option.description}</p>
+                    </button>
+                  );
+                })}
               </div>
               <label className="space-y-1">
                 <span className="text-sm font-medium">Color principal de CTAs</span>
@@ -1227,14 +1305,19 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
                 <div className="flex items-center justify-between gap-4">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-normal text-muted-foreground">Vista previa</p>
-                    <p className="mt-1 text-sm font-semibold text-foreground">Fondo blanco, borde negro y CTA con color principal.</p>
+                    <p className="mt-1 text-sm font-semibold text-foreground">
+                      {getCaptainsThemeOption(themeStyle).label}: {getCaptainsThemeOption(themeStyle).description}
+                    </p>
                   </div>
                   <CaptainSpritePreview
                     value={captains[0]?.captain_sprite || "suit"}
                     config={captains[0]?.captain_sprite_config || defaultCaptainSpriteConfig(0)}
                   />
                 </div>
-                <div className="mt-4 inline-flex rounded-none border-2 border-black px-4 py-2 text-sm font-bold text-white" style={{ backgroundColor: primaryColor }}>
+                <div
+                  className={`mt-4 inline-flex border px-4 py-2 text-sm font-bold text-white ${getCaptainsThemeOption(themeStyle).previewClass}`}
+                  style={{ backgroundColor: primaryColor }}
+                >
                   Hacer foto
                 </div>
               </div>
@@ -1929,7 +2012,7 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
                   <Info label="Puntuación" value={event.scoring_mode === "automatic" ? "Automática" : "Manual"} />
                   <Info label="Mesas" value={String(tables.length)} />
                   <Info label="Retos" value={String(challenges.length)} />
-                  <Info label="Estilo" value="Pixel art brutalista" />
+                  <Info label="Estilo" value={getCaptainsThemeOption(event.theme_style).label} />
                   <Info label="Color CTA" value={event.primary_color || DEFAULT_PRIMARY_COLOR} />
                 </div>
                 <div className="flex flex-wrap gap-2">
