@@ -185,6 +185,7 @@ export const createCaptainsEvent = async (input: CreateCaptainsEventInput) => {
     primary_color: input.primary_color ?? null,
     secondary_color: input.secondary_color ?? null,
     background_image_url: input.background_image_url ?? null,
+    theme_style: input.theme_style ?? "pixel",
     public_url: publicUrl,
     qr_url: getCaptainsQrValue(slug),
   };
