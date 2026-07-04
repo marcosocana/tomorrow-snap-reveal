@@ -1218,8 +1218,27 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
               <div className="space-y-1 md:col-span-2">
                 <span className="text-sm font-medium">Estilo visual del juego mobile</span>
                 <p className="text-xs text-muted-foreground">
-                  La experiencia pública usa fondo blanco, estética pixel art brutalista y el color principal para los CTA.
+                  Elige la estética base de la experiencia pública. El color principal se usa para los CTA.
                 </p>
+              </div>
+              <div className="md:col-span-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {CAPTAINS_THEME_STYLES.map((style) => {
+                  const active = themeStyle === style;
+                  return (
+                    <button
+                      key={style}
+                      type="button"
+                      onClick={() => setThemeStyle(style)}
+                      className={cn(
+                        "rounded-xl border p-3 text-left transition",
+                        active ? "border-primary ring-2 ring-primary bg-primary/5" : "border-border hover:border-primary/60",
+                      )}
+                    >
+                      <div className="text-sm font-semibold">{THEME_STYLE_LABELS[style].label}</div>
+                      <div className="text-xs text-muted-foreground">{THEME_STYLE_LABELS[style].description}</div>
+                    </button>
+                  );
+                })}
               </div>
               <label className="space-y-1">
                 <span className="text-sm font-medium">Color principal de CTAs</span>
