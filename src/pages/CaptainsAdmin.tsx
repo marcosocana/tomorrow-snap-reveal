@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { QRCodeSVG } from "qrcode.react";
 import {
@@ -886,10 +886,15 @@ const captainsOnboardingSteps: Array<{ id: CaptainsOnboardingStep; label: string
 
 export const CaptainsOnboarding = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
   const { data: catalog = [] } = useCaptainsChallengeCatalog();
   const defaultDateRange = useMemo(() => getDefaultCaptainsDateRange(), []);
   const availableCatalog = catalog.length ? catalog : captainsDefaultChallengeCatalog;
+  const initialTableCount = useMemo(() => {
+    const value = Number(searchParams.get("tableCount") || 6);
+    return Math.max(1, Math.min(30, Math.floor(Number.isFinite(value) ? value : 6)));
+  }, [searchParams]);
   const [stepIndex, setStepIndex] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [name, setName] = useState("");
@@ -900,13 +905,13 @@ export const CaptainsOnboarding = () => {
   const [endHour, setEndHour] = useState(defaultDateRange.endTime);
   const [themeStyle, setThemeStyle] = useState<CaptainsThemeStyle>("pixel");
   const [primaryColor, setPrimaryColor] = useState(DEFAULT_PRIMARY_COLOR);
-  const [tableCount, setTableCount] = useState(6);
+  const [tableCount, setTableCount] = useState(initialTableCount);
   const [editingTableIndex, setEditingTableIndex] = useState<number | null>(null);
   const [isCreatingChallenge, setIsCreatingChallenge] = useState(false);
   const [challengeLimitOpen, setChallengeLimitOpen] = useState(false);
   const [draftChallenge, setDraftChallenge] = useState<CaptainsChallengeInput>(() => ({ ...EMPTY_CHALLENGE }));
   const [tables, setTables] = useState(() =>
-    Array.from({ length: 6 }, (_, index) => ({
+    Array.from({ length: initialTableCount }, (_, index) => ({
       table_number: index + 1,
       table_name: `Mesa ${index + 1}`,
       captain_name: "",

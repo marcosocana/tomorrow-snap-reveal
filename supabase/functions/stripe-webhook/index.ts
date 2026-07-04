@@ -65,6 +65,61 @@ const sendRedeemEmail = async (to: string, redeemUrl: string, planLabel: string,
   }
 };
 
+const sendCaptainsCheckoutEmail = async (
+  to: string,
+  onboardingUrl: string,
+  tableCount: number,
+  captainPack: boolean,
+) => {
+  if (!RESEND_API_KEY || !FROM_EMAIL) {
+    throw new Error("Missing RESEND_API_KEY or FROM_EMAIL");
+  }
+
+  const totalPerTable = captainPack ? "15,95 €" : "3,00 €";
+  const html = `
+    <div style="font-family:sans-serif;max-width:520px;margin:auto;padding:24px;">
+      ${LOGO_URL ? `<p style="text-align:center;"><img src="${LOGO_URL}" alt="Logo" style="height:48px;" /></p>` : ""}
+      <h2 style="text-align:center;">Tu compra de Capitanes está lista</h2>
+      <p style="text-align:center;color:#444;">
+        Ya puedes crear tu juego de Capitanes con la configuración comprada.
+      </p>
+      <div style="background:#f5f5f5;border-radius:12px;padding:16px;margin:20px 0;">
+        <p style="margin:0 0 8px;"><strong>Mesas:</strong> ${tableCount}</p>
+        <p style="margin:0 0 8px;"><strong>Pack Capitán:</strong> ${captainPack ? "Sí" : "No"}</p>
+        <p style="margin:0;"><strong>Precio por mesa:</strong> ${totalPerTable}</p>
+      </div>
+      <p style="text-align:center;">
+        <a href="${onboardingUrl}" style="display:inline-block;background:#f06a5f;color:#fff;padding:12px 24px;border-radius:999px;text-decoration:none;font-weight:700;">
+          Crear mi juego de Capitanes
+        </a>
+      </p>
+      <p style="font-size:12px;color:#777;text-align:center;margin-top:18px;">
+        También puedes acceder desde este enlace:<br />
+        <a href="${onboardingUrl}">${onboardingUrl}</a>
+      </p>
+    </div>
+  `;
+
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${RESEND_API_KEY}`,
+    },
+    body: JSON.stringify({
+      from: FROM_EMAIL,
+      to,
+      subject: "Tu enlace para crear Capitanes",
+      html,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Resend error (${response.status}): ${errorText}`);
+  }
+};
+
 const generateRedeemToken = (length = 16) => {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   const values = new Uint8Array(length);
@@ -165,6 +220,86 @@ serve(async (req) => {
   }
 
   const planId = session.metadata?.planId || "";
+  const userEmail = session.customer_email || session.customer_details?.email || null;
+  let userId = session.metadata?.userId || null;
+  const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  if (!userId && userEmail) {
+    userId = await findUserIdByEmail(supabaseAdmin, userEmail);
+  }
+
+  if (planId === "captains") {
+    const tableCount = Math.max(1, Math.floor(Number(session.metadata?.tableCount || 1)));
+    const captainPack = session.metadata?.captainPack === "true";
+
+    const { data: existingPurchase, error: existingPurchaseError } = await supabaseAdmin
+      .from("purchases")
+      .select("id,user_id,user_email,redeem_token,status")
+      .eq("stripe_session_id", session.id)
+      .maybeSingle();
+
+    if (existingPurchaseError) {
+      console.error("Find captains purchase error:", existingPurchaseError);
+      return json({ error: "DB error" }, 500);
+    }
+
+    const redeemToken = existingPurchase?.redeem_token ?? generateRedeemToken(16);
+    const redeemExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+    let purchase = existingPurchase;
+
+    if (!purchase) {
+      const { data: inserted, error } = await supabaseAdmin
+        .from("purchases")
+        .insert({
+          user_id: userId,
+          user_email: userEmail,
+          stripe_session_id: session.id,
+          plan_id: "captains",
+          status: "paid",
+          redeem_token: redeemToken,
+          redeem_token_expires_at: redeemExpiresAt,
+        })
+        .select("id,user_id,user_email,redeem_token,status")
+        .maybeSingle();
+
+      if (error || !inserted?.id) {
+        console.error("Insert captains purchase error:", error);
+        return json({ error: "DB error" }, 500);
+      }
+
+      purchase = inserted;
+    }
+
+    if (userId && purchase && !purchase.user_id) {
+      const { error: userPatchError } = await supabaseAdmin
+        .from("purchases")
+        .update({ user_id: userId })
+        .eq("id", purchase.id);
+      if (userPatchError) {
+        console.error("stripe-webhook captains purchase user patch error:", userPatchError.message);
+      }
+    }
+
+    if (userEmail) {
+      const onboardingParams = new URLSearchParams({
+        checkout: "success",
+        tableCount: String(tableCount),
+        captainPack: captainPack ? "1" : "0",
+        purchase: purchase?.redeem_token || redeemToken,
+      });
+      const onboardingUrl = `${APP_ORIGIN}/nuevoeventocapitanes?${onboardingParams.toString()}`;
+      try {
+        await sendCaptainsCheckoutEmail(userEmail, onboardingUrl, tableCount, captainPack);
+      } catch (emailError) {
+        console.error("stripe-webhook captains email error:", emailError);
+        return json({ error: "EMAIL_SEND_FAILED" }, 500);
+      }
+    } else {
+      console.error("stripe-webhook missing captains customer email for session:", session.id);
+    }
+
+    return json({ received: true });
+  }
+
   let plan = getPlanById(planId);
   if (!plan) {
     const lineItems = await fetchStripeJson(`checkout/sessions/${session.id}/line_items?limit=1`);
@@ -173,14 +308,6 @@ serve(async (req) => {
   }
   if (!plan) {
     return json({ error: "Unknown plan" }, 400);
-  }
-
-  let userId = session.metadata?.userId || null;
-  const userEmail = session.customer_email || session.customer_details?.email || null;
-
-  const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-  if (!userId && userEmail) {
-    userId = await findUserIdByEmail(supabaseAdmin, userEmail);
   }
 
   const { data: existingPurchase, error: existingPurchaseError } = await supabaseAdmin

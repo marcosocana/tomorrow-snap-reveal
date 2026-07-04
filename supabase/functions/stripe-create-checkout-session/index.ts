@@ -6,6 +6,8 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 const STRIPE_SECRET_KEY = Deno.env.get("STRIPE_SECRET_KEY") ?? "";
 const APP_ORIGIN = Deno.env.get("APP_ORIGIN") ?? "https://acceso.revelao.cam";
+const STRIPE_PRICE_CAPTAINS_TABLE = Deno.env.get("STRIPE_PRICE_CAPTAINS_TABLE") ?? "";
+const STRIPE_PRICE_CAPTAINS_PACK = Deno.env.get("STRIPE_PRICE_CAPTAINS_PACK") ?? "";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -19,6 +21,12 @@ const json = (body: unknown, status = 200) =>
     status,
     headers: { "Content-Type": "application/json", ...corsHeaders },
   });
+
+const normalizeTableCount = (value: unknown) => {
+  const count = Number(value);
+  if (!Number.isFinite(count)) return null;
+  return Math.max(1, Math.min(999, Math.floor(count)));
+};
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -34,16 +42,8 @@ serve(async (req) => {
   }
 
   try {
-    const { planId } = (await req.json()) as { planId?: string };
-    const plan = getPlanById(planId ?? "");
-    if (!plan) {
-      return json({ error: "INVALID_PLAN" }, 400);
-    }
-
-    const priceId = Deno.env.get(plan.stripePriceIdEnv) ?? "";
-    if (!priceId) {
-      return json({ error: "MISSING_PRICE_ID" }, 500);
-    }
+    const body = (await req.json()) as { planId?: string; tableCount?: number; captainPack?: boolean };
+    const planId = body.planId ?? "";
 
     const authHeader = req.headers.get("Authorization") || "";
     const token = authHeader.replace("Bearer ", "").trim();
@@ -61,17 +61,57 @@ serve(async (req) => {
 
     const params = new URLSearchParams();
     params.set("mode", "payment");
-    params.set("success_url", `${APP_ORIGIN}/?checkout=success`);
-    params.set("cancel_url", `${APP_ORIGIN}/?checkout=cancel`);
-    params.append("line_items[0][price]", priceId);
-    params.append("line_items[0][quantity]", "1");
 
     if (userEmail) {
       params.set("customer_email", userEmail);
     }
-    params.append("metadata[planId]", plan.id);
     if (userId) {
       params.append("metadata[userId]", userId);
+    }
+
+    if (planId === "captains") {
+      const tableCount = normalizeTableCount(body.tableCount);
+      if (!tableCount) {
+        return json({ error: "INVALID_TABLE_COUNT" }, 400);
+      }
+      if (!STRIPE_PRICE_CAPTAINS_TABLE || !STRIPE_PRICE_CAPTAINS_PACK) {
+        return json({ error: "MISSING_CAPTAINS_PRICE_ID" }, 500);
+      }
+
+      const captainPack = Boolean(body.captainPack);
+      const onboardingParams = new URLSearchParams({
+        checkout: "success",
+        tableCount: String(tableCount),
+        captainPack: captainPack ? "1" : "0",
+      });
+
+      params.set("success_url", `${APP_ORIGIN}/nuevoeventocapitanes?${onboardingParams.toString()}`);
+      params.set("cancel_url", `${APP_ORIGIN}/planes?checkout=cancel`);
+      params.append("line_items[0][price]", STRIPE_PRICE_CAPTAINS_TABLE);
+      params.append("line_items[0][quantity]", String(tableCount));
+      if (captainPack) {
+        params.append("line_items[1][price]", STRIPE_PRICE_CAPTAINS_PACK);
+        params.append("line_items[1][quantity]", String(tableCount));
+      }
+      params.append("metadata[planId]", "captains");
+      params.append("metadata[tableCount]", String(tableCount));
+      params.append("metadata[captainPack]", captainPack ? "true" : "false");
+    } else {
+      const plan = getPlanById(planId);
+      if (!plan) {
+        return json({ error: "INVALID_PLAN" }, 400);
+      }
+
+      const priceId = Deno.env.get(plan.stripePriceIdEnv) ?? "";
+      if (!priceId) {
+        return json({ error: "MISSING_PRICE_ID" }, 500);
+      }
+
+      params.set("success_url", `${APP_ORIGIN}/?checkout=success`);
+      params.set("cancel_url", `${APP_ORIGIN}/?checkout=cancel`);
+      params.append("line_items[0][price]", priceId);
+      params.append("line_items[0][quantity]", "1");
+      params.append("metadata[planId]", plan.id);
     }
 
     const response = await fetch("https://api.stripe.com/v1/checkout/sessions", {
