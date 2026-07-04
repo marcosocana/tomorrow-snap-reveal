@@ -913,6 +913,7 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
   const [primaryColor, setPrimaryColor] = useState(DEFAULT_PRIMARY_COLOR);
   const [secondaryColor, setSecondaryColor] = useState(DEFAULT_SECONDARY_COLOR);
   const [backgroundImageUrl, setBackgroundImageUrl] = useState("");
+  const [themeStyle, setThemeStyle] = useState<CaptainsThemeStyle>("pixel");
   const [selectedChallenges, setSelectedChallenges] = useState<CaptainsChallengeInput[]>([]);
   const [selectedCatalogIds, setSelectedCatalogIds] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
