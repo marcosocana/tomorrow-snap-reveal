@@ -945,6 +945,7 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
     setPrimaryColor(detail.event.primary_color || DEFAULT_PRIMARY_COLOR);
     setSecondaryColor(detail.event.secondary_color || DEFAULT_SECONDARY_COLOR);
     setBackgroundImageUrl(detail.event.background_image_url || "");
+    setThemeStyle((detail.event.theme_style as CaptainsThemeStyle) || "pixel");
     setSelectedChallenges(
       detail.challenges.map((challenge) => ({
         id: challenge.id,
