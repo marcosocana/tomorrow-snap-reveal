@@ -868,10 +868,15 @@ const PixelTableMap = ({
             <div className="absolute right-2 top-2 bg-[#151515] px-2 py-1 text-sm font-bold text-white">
               #{table.table_number}
             </div>
-            <div className={cn("relative mt-5 bg-white", table.captain_photo_url ? "border-3 border-[#151515]" : "flex h-28 items-center justify-center border-3 border-[#151515]")}>
+            <div className="relative mt-5 flex h-28 items-center justify-center bg-transparent">
               {table.captain_photo_url ? (
                 <>
-                  <img src={table.captain_photo_url} alt="" loading="lazy" className="h-28 w-full object-cover" />
+                  <img
+                    src={table.captain_photo_url}
+                    alt=""
+                    loading="lazy"
+                    className="aspect-square h-28 w-28 shrink-0 rounded-full border-3 border-[#151515] object-cover"
+                  />
                   <div className="absolute -bottom-3 right-2 px-1">
                     <PixelCaptainSprite table={table} active={active} size="sm" />
                   </div>
