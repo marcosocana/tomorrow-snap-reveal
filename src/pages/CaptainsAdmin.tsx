@@ -2,9 +2,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { QRCodeSVG } from "qrcode.react";
+import JSZip from "jszip";
 import {
   ArrowLeft,
   Check,
+  CheckCircle2,
   Copy,
   Download,
   ExternalLink,
@@ -649,9 +651,6 @@ const AdminFrame = ({
           <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border bg-card text-sm font-bold text-foreground">
-                  C
-                </span>
                 <h1 className="truncate text-2xl font-bold text-foreground sm:text-3xl" data-scroll-anchor>{title}</h1>
               </div>
               {subtitle ? <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p> : null}
@@ -2761,10 +2760,11 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
 
 const EvidencePreview = ({ evidence }: { evidence: CaptainsEvidence }) => {
   const [url, setUrl] = useState("");
+  const [videoPoster, setVideoPoster] = useState("");
 
   useEffect(() => {
     let active = true;
-    getCaptainsEvidenceSignedUrl(evidence.file_url)
+    getCaptainsEvidenceSignedUrl(evidence.file_url, evidence.evidence_type === "photo")
       .then((signedUrl) => {
         if (active) setUrl(signedUrl);
       })
@@ -2774,6 +2774,34 @@ const EvidencePreview = ({ evidence }: { evidence: CaptainsEvidence }) => {
     };
   }, [evidence.file_url]);
 
+  useEffect(() => {
+    if (!url || evidence.evidence_type !== "video") return;
+    let active = true;
+    const video = document.createElement("video");
+    video.crossOrigin = "anonymous";
+    video.preload = "metadata";
+    video.muted = true;
+    video.playsInline = true;
+    const capture = () => {
+      if (!active || !video.videoWidth || !video.videoHeight) return;
+      const canvas = document.createElement("canvas");
+      const scale = Math.min(1, 640 / video.videoWidth);
+      canvas.width = Math.round(video.videoWidth * scale);
+      canvas.height = Math.round(video.videoHeight * scale);
+      const context = canvas.getContext("2d");
+      if (!context) return;
+      try {
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        setVideoPoster(canvas.toDataURL("image/jpeg", 0.7));
+      } catch { setVideoPoster(""); }
+    };
+    video.addEventListener("loadeddata", capture, { once: true });
+    video.addEventListener("loadedmetadata", () => { try { video.currentTime = 0.1; } catch { /* no-op */ } }, { once: true });
+    video.addEventListener("seeked", capture, { once: true });
+    video.src = url;
+    return () => { active = false; video.removeAttribute("src"); video.load(); };
+  }, [evidence.evidence_type, url]);
+
   if (!url) {
     return <div className="flex aspect-video items-center justify-center rounded-md bg-muted text-xs text-muted-foreground">Preview</div>;
   }
@@ -2782,7 +2810,7 @@ const EvidencePreview = ({ evidence }: { evidence: CaptainsEvidence }) => {
     return <img src={url} alt="" className="aspect-video w-full rounded-md object-cover" />;
   }
   if (evidence.evidence_type === "video") {
-    return <video src={url} controls className="aspect-video w-full rounded-md bg-black object-contain" />;
+    return <video src={url} poster={videoPoster || undefined} controls playsInline preload="metadata" className="aspect-video w-full rounded-md bg-black object-contain" />;
   }
   return <div className="flex aspect-video items-center justify-center rounded-md bg-muted text-xs text-muted-foreground">Sin preview</div>;
 };
@@ -2833,7 +2861,7 @@ const EvidenceActions = ({
             <Input type="number" min={0} value={points} onChange={(ev) => setPoints(Number(ev.target.value))} />
             <Input value={comment} onChange={(ev) => setComment(ev.target.value)} placeholder="Comentario interno" />
           </div>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2">
             <Button size="sm" className="gap-1" disabled={busy} onClick={() => run("approve")}>
               <Check className="h-4 w-4" />
               Aprobar
@@ -2842,18 +2870,9 @@ const EvidenceActions = ({
               <X className="h-4 w-4" />
               Rechazar
             </Button>
-            <Button size="sm" variant="destructive" className="gap-1" disabled={busy} onClick={() => run("delete")}>
-              <Trash2 className="h-4 w-4" />
-              Eliminar
-            </Button>
           </div>
         </>
-      ) : (
-        <Button size="sm" variant="destructive" className="w-full gap-1" disabled={busy} onClick={() => run("delete")}>
-          <Trash2 className="h-4 w-4" />
-          Eliminar evidencia
-        </Button>
-      )}
+      ) : null}
     </div>
   );
 };
@@ -2924,6 +2943,8 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
 	  const [contentView, setContentView] = useState<"retos" | "capitanes">("retos");
 	  const [isDetailSaving, setIsDetailSaving] = useState(false);
 	  const [qrPreviewOpen, setQrPreviewOpen] = useState(false);
+  const [deleteEventOpen, setDeleteEventOpen] = useState(false);
+  const [isDownloadingAll, setIsDownloadingAll] = useState(false);
   const [activeDetailTab, setActiveDetailTab] = useState<CaptainsDetailTab>(
     view === "ranking" ? "tables" : view === "review" ? "content" : "general",
   );
@@ -3199,6 +3220,19 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
     });
   };
 
+  const deleteEvidenceFromCard = async (item: CaptainsEvidence) => {
+    const confirmed = window.confirm("¿Seguro que quieres eliminar esta evidencia? Se restarán sus puntos y se actualizará el ranking.");
+    if (!confirmed) return;
+    try {
+      await deleteCaptainsEvidence(item.id);
+      toast({ title: "Evidencia eliminada", description: "El ranking se ha actualizado correctamente." });
+      refreshAll();
+    } catch (error) {
+      console.error("Error deleting captains evidence:", error);
+      toast({ title: "Error", description: "No hemos podido eliminar la evidencia.", variant: "destructive" });
+    }
+  };
+
   const saveEvidenceEditor = async () => {
     if (!editingEvidence) return;
     try {
@@ -3221,8 +3255,6 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
 
   const handleDeleteEvent = async () => {
     if (!detail) return;
-    const confirmed = window.confirm(`¿Eliminar definitivamente "${detail.event.name}" y todo su contenido?`);
-    if (!confirmed) return;
     try {
       await deleteCaptainsEvent(detail.event.id);
       toast({ title: "Evento eliminado", description: "El juego de Capitanes se ha eliminado." });
@@ -3257,7 +3289,46 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
 	  const photoCount = liveVisibleEvidence.filter((item) => item.evidence_type === "photo").length;
 	  const videoCount = liveVisibleEvidence.filter((item) => item.evidence_type === "video").length;
 	  const questionCount = challenges.filter((item) => item.evidence_type === "question").length;
+	  const answeredQuestionCount = tableChallenges.filter((row) => {
+      const challenge = challengesById.get(row.challenge_id);
+      return challenge?.evidence_type === "question" && ["completed", "failed", "pending_review"].includes(row.status);
+    }).length;
 	  const lastLiveEvidence = liveVisibleEvidence[0];
+
+  const handleDownloadAllContent = async () => {
+    if (!visibleEvidence.length) return;
+    try {
+      setIsDownloadingAll(true);
+      const zip = new JSZip();
+      const sanitize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9_-]+/g, "-").replace(/^-+|-+$/g, "") || "contenido";
+      await Promise.all(visibleEvidence.filter((item) => item.file_url && item.evidence_type !== "question").map(async (item, index) => {
+        const table = tables.find((candidate) => candidate.id === item.table_id);
+        const tableChallenge = tableChallenges.find((candidate) => candidate.id === item.table_challenge_id);
+        const challenge = tableChallenge ? challengesById.get(tableChallenge.challenge_id) : undefined;
+        const signedUrl = await getCaptainsEvidenceSignedUrl(item.file_url);
+        const response = await fetch(signedUrl);
+        if (!response.ok) throw new Error("DOWNLOAD_FAILED");
+        const blob = await response.blob();
+        const rawExtension = item.file_url.split("?")[0].split(".").pop()?.toLowerCase();
+        const extension = rawExtension && /^[a-z0-9]{2,5}$/.test(rawExtension) ? rawExtension : item.evidence_type === "video" ? "mp4" : "jpg";
+        const time = new Date(item.created_at).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }).replace(/:/g, "-");
+        const folder = zip.folder(sanitize(challenge?.title || "Reto"));
+        folder?.file(`${sanitize(table?.table_name || "Mesa")}_${time}_${index + 1}.${extension}`, blob);
+      }));
+      const content = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(content);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `${event.slug}-contenido.zip`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Captains content ZIP error:", error);
+      toast({ title: "Error", description: "No hemos podido descargar todo el contenido.", variant: "destructive" });
+    } finally {
+      setIsDownloadingAll(false);
+    }
+  };
 
   if (codeAccessState === "checking") {
     return <main className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">Validando acceso al evento...</main>;
@@ -3300,7 +3371,7 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
 	          <div className="flex min-w-0 items-center gap-4">
 		            <button
 		              type="button"
-		              className="shrink-0 rounded-lg border border-border bg-white p-2 transition hover:bg-muted/50"
+		              className="shrink-0 border border-border bg-muted/50 p-2 transition hover:bg-muted/50"
 		              onClick={() => setQrPreviewOpen(true)}
 		              aria-label="Ver QR"
 		              title="Ver QR"
@@ -3312,14 +3383,10 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
 	                <p className="truncate text-sm font-semibold text-foreground">{event.name}</p>
 	                <Badge variant={event.status === "active" ? "default" : "outline"}>{statusLabels[event.status]}</Badge>
 	              </div>
-	              <a
-	                href={publicUrl}
-	                target="_blank"
-	                rel="noopener noreferrer"
-	                className="block truncate text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
-	              >
-	                {publicUrl}
-	              </a>
+	              <div className="flex min-w-0 items-center gap-1">
+	                <a href={publicUrl} target="_blank" rel="noopener noreferrer" className="truncate text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline">{publicUrl}</a>
+	                <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => handleCopy(publicUrl)} aria-label="Copiar enlace" title="Copiar enlace"><Copy className="h-3.5 w-3.5" /></Button>
+	              </div>
 	              <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
 	                <p>
 	                  <span className="font-medium text-foreground">ID:</span> {event.id}
@@ -3345,11 +3412,8 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
 	              </div>
 	            </div>
 	          </div>
-	          <div className="grid grid-cols-[44px_1fr_44px] gap-2 md:min-w-[360px]">
-	            <Button variant="outline" size="icon" onClick={handleDownloadQr} aria-label="Descargar QR" title="Descargar QR">
-	              <Download className="h-4 w-4" />
-	            </Button>
-	            <Button variant="outline" size="sm" className="h-auto justify-center gap-3 px-3 py-2 text-xs font-medium text-foreground" onClick={() => setActiveDetailTab("content")}>
+	          <div className="md:min-w-[280px]">
+	            <Button variant="outline" size="sm" className="h-auto w-full justify-center gap-4 px-3 py-2 text-xs font-medium text-foreground" onClick={() => setActiveDetailTab("content")}>
 	              <span className="inline-flex items-center gap-1 whitespace-nowrap">
 	                <ImageIcon className="h-3.5 w-3.5" />
 	                {photoCount}
@@ -3359,12 +3423,9 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
 	                {videoCount}
 	              </span>
 	              <span className="inline-flex items-center gap-1 whitespace-nowrap">
-	                <Gamepad2 className="h-3.5 w-3.5" />
-	                {questionCount}/{challenges.length}
+	                <CheckCircle2 className="h-3.5 w-3.5" />
+	                {answeredQuestionCount}
 	              </span>
-	            </Button>
-	            <Button variant="outline" size="icon" onClick={() => window.open(publicUrl, "_blank", "noopener,noreferrer")} aria-label="Abrir evento" title="Abrir evento">
-	              <ExternalLink className="h-4 w-4" />
 	            </Button>
 	          </div>
 	        </div>
@@ -3525,24 +3586,11 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
                     <Check className="h-4 w-4" />
                     {isDetailSaving ? "Guardando..." : "Guardar cambios"}
                   </Button>
-                  <Button variant="outline" className="gap-2 rounded-full" onClick={() => handleCopy(publicUrl)}>
-                    <Copy className="h-4 w-4" />
-                    Copiar enlace
-                  </Button>
-                  <Button variant="outline" className="gap-2 rounded-full" onClick={handleDownloadQr}>
-                    <Download className="h-4 w-4" />
-                    Descargar QR
-                  </Button>
-                  <Button variant="destructive" className="gap-2 rounded-full" onClick={handleFinish} disabled={event.status === "finished"}>
-                    <Flag className="h-4 w-4" />
-                    Finalizar evento
-                  </Button>
-                  <Button variant="destructive" className="gap-2 rounded-full" onClick={handleDeleteEvent}>
+                  <Button className="gap-2 rounded-full bg-black text-white hover:bg-black/85" onClick={() => setDeleteEventOpen(true)}>
                     <Trash2 className="h-4 w-4" />
                     Eliminar evento
                   </Button>
                 </div>
-                <p className="break-all rounded-xl border border-border bg-muted/50 p-3 text-xs text-muted-foreground">{publicUrl}</p>
               </div>
             </div>
           </Card>
@@ -3604,17 +3652,6 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
                   Las mesas podrán ver el contenido del resto de equipos cuando terminen todos los retos.
                 </p>
 	              </div>
-	              <Button className="rounded-full" variant={(event.show_live_gallery_after_completion ?? true) ? "outline" : "default"} onClick={handleToggleLiveGallery}>
-                {(event.show_live_gallery_after_completion ?? true) ? "Desactivar visibilidad" : "Activar visibilidad"}
-              </Button>
-	            </div>
-	            <div className="mt-4 flex flex-wrap gap-2">
-	              <Button type="button" variant={contentView === "retos" ? "default" : "outline"} className="rounded-full" onClick={() => setContentView("retos")}>
-	                Ver por Retos
-	              </Button>
-	              <Button type="button" variant={contentView === "capitanes" ? "default" : "outline"} className="rounded-full" onClick={() => setContentView("capitanes")}>
-	                Ver por Capitanes
-	              </Button>
 	            </div>
             <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
               <Info label="Visibles" value={String(liveVisibleEvidence.length)} />
@@ -3626,13 +3663,21 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
           </Card>
 
           <Card className="rounded-2xl p-5 shadow-sm">
-            <div className="mb-4 flex items-center justify-between">
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
 	                <h2 className="font-semibold">Contenido subido</h2>
 	                <p className="text-sm text-muted-foreground">
 	                  Todas las evidencias, agrupadas por {contentView === "retos" ? "reto" : "capitán"}.
 	                </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Button type="button" variant={contentView === "retos" ? "default" : "outline"} className="rounded-full" onClick={() => setContentView("retos")}>Ver por retos</Button>
+                    <Button type="button" variant={contentView === "capitanes" ? "default" : "outline"} className="rounded-full" onClick={() => setContentView("capitanes")}>Ver por capitanes</Button>
+                  </div>
               </div>
+              <Button variant="outline" className="gap-2 rounded-full" onClick={handleDownloadAllContent} disabled={!visibleEvidence.length || isDownloadingAll}>
+                {isDownloadingAll ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                {isDownloadingAll ? "Preparando ZIP..." : "Descargar todo"}
+              </Button>
             </div>
             {visibleEvidence.length === 0 ? (
               <EmptyState text="Todavía no se ha subido ninguna evidencia." />
@@ -3657,9 +3702,19 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
                   const challenge = tableChallenge ? challengesById.get(tableChallenge.challenge_id) : undefined;
                   return (
                     <Card key={item.id} className="space-y-3 rounded-2xl p-3 shadow-sm">
-                      <button type="button" className="block w-full text-left" onClick={() => setSelectedEvidence(item)}>
-                        <EvidencePreview evidence={item} />
-                      </button>
+                      <div className="relative">
+                        <button type="button" className="block w-full text-left" onClick={() => setSelectedEvidence(item)}>
+                          <EvidencePreview evidence={item} />
+                        </button>
+                        <div className="absolute right-2 top-2 z-10 flex gap-1.5">
+                          <Button variant="outline" size="icon" className="h-8 w-8 rounded-full shadow-sm hover:!bg-[var(--admin-demo2-accent-soft)] hover:!text-foreground" onClick={() => openEvidenceEditor(item)} aria-label="Editar evidencia" title="Editar evidencia">
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button variant="outline" size="icon" className="h-8 w-8 rounded-full shadow-sm hover:!bg-[var(--admin-demo2-accent-soft)] hover:!text-foreground" onClick={() => deleteEvidenceFromCard(item)} aria-label="Eliminar evidencia" title="Eliminar evidencia">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </div>
                       <div className="space-y-1 text-sm">
                         <div className="flex items-center justify-between gap-2">
                           <p className="font-medium">{table?.table_name || "Mesa"}</p>
@@ -3680,10 +3735,6 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
                         ) : null}
 	                      </div>
 	                      <EvidenceActions evidence={item} event={event} maxPoints={challenge?.points} onDone={refreshAll} />
-	                      <Button variant="outline" size="sm" className="w-full gap-2 rounded-full" onClick={() => openEvidenceEditor(item)}>
-	                        <Pencil className="h-4 w-4" />
-	                        Editar contenido
-	                      </Button>
 	                    </Card>
 	                  );
 	                })}
@@ -3903,13 +3954,25 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
 	        </DialogContent>
 	      </Dialog>
 
-		      <Dialog open={!!selectedEvidence} onOpenChange={(open) => !open && setSelectedEvidence(null)}>
+	      <Dialog open={!!selectedEvidence} onOpenChange={(open) => !open && setSelectedEvidence(null)}>
 	        <DialogContent className="max-w-3xl">
 	          <DialogHeader>
 	            <DialogTitle>Evidencia</DialogTitle>
 	            <DialogDescription>Vista previa de la evidencia subida por la mesa.</DialogDescription>
 	          </DialogHeader>
 	          {selectedEvidence ? <EvidencePreview evidence={selectedEvidence} /> : null}
+	        </DialogContent>
+	      </Dialog>
+	      <Dialog open={deleteEventOpen} onOpenChange={setDeleteEventOpen}>
+	        <DialogContent className="max-w-md">
+	          <DialogHeader>
+	            <DialogTitle>¿Eliminar este evento?</DialogTitle>
+	            <DialogDescription>Se perderán definitivamente todas las mesas, retos, puntuaciones, fotos y vídeos. Esta acción no se puede deshacer.</DialogDescription>
+	          </DialogHeader>
+	          <div className="flex justify-end gap-2">
+	            <Button variant="outline" onClick={() => setDeleteEventOpen(false)}>Cancelar</Button>
+	            <Button className="bg-black text-white hover:bg-black/85" onClick={handleDeleteEvent}>Sí, eliminar todo</Button>
+	          </div>
 	        </DialogContent>
 	      </Dialog>
 	      {qrPreviewOpen && (
@@ -3926,13 +3989,13 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
 	            ×
 	          </button>
 	          <div
-	            className="rounded-xl bg-white p-3"
-	            style={{ width: "min(90vw, 90vh)", height: "min(90vw, 90vh)" }}
+	            className="flex max-h-[92vh] w-[min(90vw,720px)] flex-col gap-3 bg-white p-4"
 	            onClick={(event) => event.stopPropagation()}
 	          >
-	            <div className="flex h-full w-full items-center justify-center">
-	              <QRCodeSVG value={qrValue} size={1024} level="H" includeMargin />
+	            <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden">
+	              <QRCodeSVG value={qrValue} size={640} level="H" includeMargin className="h-auto max-h-[75vh] w-full" />
 	            </div>
+	            <Button className="w-full gap-2" onClick={handleDownloadQr}><Download className="h-4 w-4" />Descargar QR</Button>
 	          </div>
 	        </div>
 	      )}
