@@ -176,6 +176,7 @@ export type Database = {
           event_id: string | null
           expires_at: string
           id: string
+          max_tables: number
           redeemed_at: string | null
         }
         Insert: {
@@ -185,6 +186,7 @@ export type Database = {
           event_id?: string | null
           expires_at?: string
           id?: string
+          max_tables: number
           redeemed_at?: string | null
         }
         Update: {
@@ -194,6 +196,7 @@ export type Database = {
           event_id?: string | null
           expires_at?: string
           id?: string
+          max_tables?: number
           redeemed_at?: string | null
         }
         Relationships: [
