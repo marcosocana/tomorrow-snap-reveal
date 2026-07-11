@@ -550,14 +550,15 @@ const createCircularCaptainPhotoBlob = async (crop: CaptainPhotoCropState) => {
   });
 };
 
-const useRequireAdmin = () => {
+const useRequireAdmin = (disabled = false) => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    if (disabled) return;
     supabase.auth.getSession().then(({ data }) => {
       if (!data.session) navigate("/admin-login");
     });
-  }, [navigate]);
+  }, [disabled, navigate]);
 };
 
 const AdminFrame = ({
@@ -1250,7 +1251,7 @@ export const CaptainsOnboarding = () => {
 	      const createdEvent = created?.event;
 	      if (createdEvent && !editingEventId) {
 	        const publicUrl = normalizeCaptainsPublicUrl(createdEvent.public_url, createdEvent.slug);
-	        const adminUrl = `${window.location.origin}/admin/capitanes/onboarding?code=${encodeURIComponent(accessCode)}`;
+	        const adminUrl = `${window.location.origin}/admin/capitanes/${createdEvent.id}?code=${encodeURIComponent(accessCode)}`;
 	        const contactInfo = {
 	          name: contactName.trim(),
 	          email: contactEmail.trim(),
@@ -1277,7 +1278,7 @@ export const CaptainsOnboarding = () => {
 	        ]);
 	      }
 	      toast({ title: editingEventId ? "Juego actualizado" : "Juego creado", description: "Capitanes ya está listo para usar." });
-	      navigate(`/capitanes/${created?.event.slug}`);
+	      navigate(`/admin/capitanes/${created?.event.id}?code=${encodeURIComponent(accessCode)}`);
     } catch (error) {
       console.error("Error creating captains onboarding game:", error);
       const detail = error instanceof Error ? error.message : "Error desconocido";
@@ -2858,11 +2859,26 @@ const EvidenceActions = ({
 };
 
 export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "review" | "ranking" }) => {
-  useRequireAdmin();
   const { eventId } = useParams();
+  const [detailSearchParams] = useSearchParams();
+  const detailAccessCode = (detailSearchParams.get("code") || "").trim().toUpperCase();
+  useRequireAdmin(Boolean(detailAccessCode));
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [codeAccessState, setCodeAccessState] = useState<"checking" | "valid" | "invalid">(detailAccessCode ? "checking" : "valid");
+  useEffect(() => {
+    if (!detailAccessCode) {
+      setCodeAccessState("valid");
+      return;
+    }
+    let active = true;
+    supabase.functions.invoke("redeem-captains-code", { body: { action: "validate", code: detailAccessCode } }).then(({ data, error }) => {
+      if (!active) return;
+      setCodeAccessState(!error && data?.mode === "edit" && data?.event?.id === eventId ? "valid" : "invalid");
+    });
+    return () => { active = false; };
+  }, [detailAccessCode, eventId]);
   const { data: detail, isLoading, isError, refetch } = useCaptainsEventDetail(eventId);
   const { data: ranking = [] } = useCaptainsRanking(eventId);
   const { data: tableChallenges = [] } = useQuery({
@@ -3242,6 +3258,21 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
 	  const questionCount = challenges.filter((item) => item.evidence_type === "question").length;
 	  const lastLiveEvidence = liveVisibleEvidence[0];
 
+  if (codeAccessState === "checking") {
+    return <main className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">Validando acceso al evento...</main>;
+  }
+  if (codeAccessState === "invalid") {
+    return (
+      <main className="flex min-h-screen items-center justify-center p-4">
+        <Card className="max-w-md rounded-2xl p-8 text-center">
+          <KeyRound className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
+          <h1 className="text-xl font-bold">Código de acceso no válido</h1>
+          <Button className="mt-5" onClick={() => navigate("/admin/capitanes/onboarding")}>Introducir otro código</Button>
+        </Card>
+      </main>
+    );
+  }
+
   return (
 	    <AdminFrame title={event.name}>
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -3250,6 +3281,12 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
           Volver
         </Button>
         <div className="flex flex-wrap gap-2">
+          {detailAccessCode ? (
+            <Button className="gap-2 rounded-full" onClick={() => navigate(`/admin/capitanes/onboarding?code=${encodeURIComponent(detailAccessCode)}`)}>
+              <Pencil className="h-4 w-4" />
+              Editar evento
+            </Button>
+          ) : null}
           <Button variant="outline" className="gap-2 rounded-full" onClick={refreshAll}>
             <RefreshCw className="h-4 w-4" />
             Actualizar
