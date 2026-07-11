@@ -168,6 +168,51 @@ export type Database = {
         }
         Relationships: []
       }
+      captains_creation_codes: {
+        Row: {
+          code: string
+          created_at: string
+          created_by: string | null
+          event_id: string | null
+          expires_at: string
+          id: string
+          redeemed_at: string | null
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          created_by?: string | null
+          event_id?: string | null
+          expires_at?: string
+          id?: string
+          redeemed_at?: string | null
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          event_id?: string | null
+          expires_at?: string
+          id?: string
+          redeemed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "captains_creation_codes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "captains_creation_codes_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "captains_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       captains_event_challenges: {
         Row: {
           catalog_challenge_id: string | null
