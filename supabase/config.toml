@@ -3,5 +3,11 @@ project_id = "towysccybgjyojcxkbkp"
 [functions.admin-generate-redeem]
 verify_jwt = false
 
+[functions.admin-generate-captains-code]
+verify_jwt = false
+
+[functions.redeem-captains-code]
+verify_jwt = false
+
 [functions.delete-account]
 verify_jwt = false

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { QRCodeSVG } from "qrcode.react";
 import {
@@ -23,6 +23,7 @@ import {
   Upload,
   User,
   Image as ImageIcon,
+  KeyRound,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
@@ -742,6 +743,24 @@ export const CaptainsAdminList = () => {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | CaptainsEvent["status"]>("all");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [codeDialogOpen, setCodeDialogOpen] = useState(false);
+  const [generatedCode, setGeneratedCode] = useState<string | null>(null);
+  const [isGeneratingCode, setIsGeneratingCode] = useState(false);
+  const generateCreationCode = async () => {
+    try {
+      setIsGeneratingCode(true);
+      setGeneratedCode(null);
+      const { data, error } = await supabase.functions.invoke("admin-generate-captains-code", { body: {} });
+      if (error || !data?.code) throw error || new Error("NO_CODE");
+      setGeneratedCode(data.code);
+      toast({ title: "Código generado", description: "Será válido durante 30 días y para un único evento." });
+    } catch (error) {
+      console.error("Error generating captains code:", error);
+      toast({ title: "Error", description: "No se pudo generar el código.", variant: "destructive" });
+    } finally {
+      setIsGeneratingCode(false);
+    }
+  };
   const filteredEvents = useMemo(() => {
     const cleanSearch = search.trim().toLowerCase();
     return events.filter((event) => {
@@ -784,10 +803,16 @@ export const CaptainsAdminList = () => {
       title="Capitanes by Revelao"
       subtitle="Gestiona juegos de retos por mesas."
       actions={
-        <Button className="gap-2" onClick={() => navigate("/admin/capitanes/onboarding")}>
-          <Plus className="h-4 w-4" />
-          Nuevo Capitán
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" className="gap-2" onClick={() => setCodeDialogOpen(true)}>
+            <KeyRound className="h-4 w-4" />
+            Generar código
+          </Button>
+          <Button className="gap-2" onClick={() => navigate("/admin/capitanes/onboarding")}>
+            <Plus className="h-4 w-4" />
+            Nuevo Capitán
+          </Button>
+        </div>
       }
     >
 	      <Card className="rounded-2xl p-4 shadow-sm">
@@ -870,6 +895,29 @@ export const CaptainsAdminList = () => {
           </div>
         )}
       </Card>
+      <Dialog open={codeDialogOpen} onOpenChange={setCodeDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Generar código de Capitanes</DialogTitle>
+            <DialogDescription>Da acceso al formulario público para crear un único evento.</DialogDescription>
+          </DialogHeader>
+          <Button onClick={generateCreationCode} disabled={isGeneratingCode}>
+            {isGeneratingCode ? "Generando..." : "Generar código"}
+          </Button>
+          {generatedCode ? (
+            <div className="space-y-3 rounded-xl border bg-muted/30 p-4">
+              <p className="text-center font-mono text-xl font-bold tracking-widest">{generatedCode}</p>
+              <Button variant="outline" className="w-full" onClick={async () => {
+                const link = `${window.location.origin}/nuevoeventocapitanes?code=${generatedCode}`;
+                await navigator.clipboard.writeText(link);
+                toast({ title: "Enlace copiado", description: "Ya puedes compartirlo con el cliente." });
+              }}>
+                <Copy className="mr-2 h-4 w-4" /> Copiar enlace público
+              </Button>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </AdminFrame>
   );
 };
@@ -886,6 +934,7 @@ const captainsOnboardingSteps: Array<{ id: CaptainsOnboardingStep; label: string
 
 export const CaptainsOnboarding = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
   const { data: catalog = [] } = useCaptainsChallengeCatalog();
@@ -897,6 +946,52 @@ export const CaptainsOnboarding = () => {
   }, [searchParams]);
   const [stepIndex, setStepIndex] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
+  const isAdminRoute = location.pathname.startsWith("/admin/");
+  const [adminSessionReady, setAdminSessionReady] = useState(false);
+  const [isCheckingAdminSession, setIsCheckingAdminSession] = useState(isAdminRoute);
+  const [accessCode, setAccessCode] = useState(() => (searchParams.get("code") || "").trim().toUpperCase());
+  const [codeValidated, setCodeValidated] = useState(false);
+  const [isValidatingCode, setIsValidatingCode] = useState(false);
+  useEffect(() => {
+    if (!isAdminRoute) {
+      setIsCheckingAdminSession(false);
+      return;
+    }
+    let active = true;
+    const checkSession = async () => {
+      const { data: sessionData } = await supabase.auth.getSession();
+      let session = sessionData.session;
+      if (session) {
+        const { data: userData, error: userError } = await supabase.auth.getUser();
+        if (userError || !userData.user) {
+          const { data: refreshed } = await supabase.auth.refreshSession();
+          session = refreshed.session;
+        }
+      }
+      if (!active) return;
+      if (!session) {
+        const redirect = `${location.pathname}${location.search}`;
+        navigate(`/admin-login?redirect=${encodeURIComponent(redirect)}`, { replace: true });
+        return;
+      }
+      setAdminSessionReady(true);
+      setIsCheckingAdminSession(false);
+    };
+    checkSession();
+    return () => { active = false; };
+  }, [isAdminRoute, location.pathname, location.search, navigate]);
+  const validateAccessCode = async () => {
+    try {
+      setIsValidatingCode(true);
+      const { data, error } = await supabase.functions.invoke("redeem-captains-code", { body: { action: "validate", code: accessCode } });
+      if (error || !data?.valid) throw error || new Error("INVALID_CODE");
+      setCodeValidated(true);
+    } catch (error) {
+      toast({ title: "Código no válido", description: "Revisa el código o solicita uno nuevo.", variant: "destructive" });
+    } finally {
+      setIsValidatingCode(false);
+    }
+  };
   const [name, setName] = useState("");
   const [description, setDescription] = useState(DEFAULT_DESCRIPTION);
   const [startDate, setStartDate] = useState(defaultDateRange.startDate);
@@ -1111,7 +1206,7 @@ export const CaptainsOnboarding = () => {
       setIsSaving(true);
       const startIso = dateTimePartsToIso(startDate, startHour);
       const endIso = dateTimePartsToIso(endDate, endHour);
-      const created = await createCaptainsGame({
+      const gameInput = {
         event: {
           name: name.trim(),
           description: description.trim(),
@@ -1130,7 +1225,17 @@ export const CaptainsOnboarding = () => {
 	        },
 	        tables,
 	        challenges: selectedChallenges,
-	      });
+	      };
+      let created;
+      if (adminSessionReady) {
+        created = await createCaptainsGame(gameInput);
+      } else {
+        const { data, error } = await supabase.functions.invoke("redeem-captains-code", {
+          body: { action: "create", code: accessCode, ...gameInput },
+        });
+        if (error || !data?.event) throw error || new Error(data?.error || "PUBLIC_CREATE_FAILED");
+        created = data;
+      }
 	      const createdEvent = created?.event;
 	      if (createdEvent) {
 	        const publicUrl = normalizeCaptainsPublicUrl(createdEvent.public_url, createdEvent.slug);
@@ -1164,7 +1269,14 @@ export const CaptainsOnboarding = () => {
 	      navigate(`/admin/capitanes/${created?.event.id}`);
     } catch (error) {
       console.error("Error creating captains onboarding game:", error);
-      toast({ title: "Error", description: "No hemos podido crear el juego.", variant: "destructive" });
+      const status = Number((error as { status?: number })?.status || 0);
+      if (status === 401 || (error as { code?: string })?.code === "PGRST301") {
+        toast({ title: "Sesión caducada", description: "Vuelve a iniciar sesión para crear el evento.", variant: "destructive" });
+        const redirect = `${location.pathname}${location.search}`;
+        navigate(`/admin-login?redirect=${encodeURIComponent(redirect)}`, { replace: true });
+      } else {
+        toast({ title: "Error", description: "No hemos podido crear el juego.", variant: "destructive" });
+      }
     } finally {
       setIsSaving(false);
     }
@@ -1431,6 +1543,37 @@ export const CaptainsOnboarding = () => {
         );
     }
   };
+
+  if (isCheckingAdminSession) {
+    return <main className="flex min-h-screen items-center justify-center bg-muted/30 text-sm text-muted-foreground">Comprobando sesión...</main>;
+  }
+
+  if (!adminSessionReady && !codeValidated) {
+    return (
+      <main className="min-h-screen bg-muted/30 px-4 py-10 sm:py-16">
+        <Card className="mx-auto max-w-md rounded-3xl p-6 shadow-sm sm:p-8">
+          <img src="/LogoTransparent.png" alt="Revelao" className="mb-8 h-8 w-auto" />
+          <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+            <KeyRound className="h-6 w-6 text-primary" />
+          </div>
+          <h1 className="text-2xl font-bold">Crea tu evento de Capitanes</h1>
+          <p className="mt-2 text-sm text-muted-foreground">Introduce el código que te ha facilitado Revelao para acceder al formulario.</p>
+          <form className="mt-6 space-y-4" onSubmit={(event) => { event.preventDefault(); validateAccessCode(); }}>
+            <Input
+              value={accessCode}
+              onChange={(event) => setAccessCode(event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 16))}
+              placeholder="CÓDIGO DE 16 CARACTERES"
+              className="h-12 text-center font-mono tracking-widest"
+              autoFocus
+            />
+            <Button type="submit" className="h-12 w-full rounded-full" disabled={accessCode.length !== 16 || isValidatingCode}>
+              {isValidatingCode ? "Validando..." : "Acceder al formulario"}
+            </Button>
+          </form>
+        </Card>
+      </main>
+    );
+  }
 
   return (
     <>
