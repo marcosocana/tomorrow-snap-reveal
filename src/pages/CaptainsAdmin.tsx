@@ -2875,7 +2875,8 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
     let active = true;
     supabase.functions.invoke("redeem-captains-code", { body: { action: "validate", code: detailAccessCode } }).then(({ data, error }) => {
       if (!active) return;
-      setCodeAccessState(!error && data?.mode === "edit" && data?.event?.id === eventId ? "valid" : "invalid");
+      const recognizedMode = data?.mode === "edit" || data?.mode === "existing";
+      setCodeAccessState(!error && recognizedMode && data?.event?.id === eventId ? "valid" : "invalid");
     });
     return () => { active = false; };
   }, [detailAccessCode, eventId]);
