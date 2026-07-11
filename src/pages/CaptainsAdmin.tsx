@@ -436,8 +436,10 @@ const catalogChallengeToInput = (item: CaptainsChallengeCatalogItem, orderIndex:
   points: item.default_points,
   category: item.category,
   difficulty: item.difficulty,
-  has_time_limit: item.has_time_limit,
-  time_limit_seconds: item.time_limit_seconds,
+  // Catalog challenges start without a timer in every new event. Organizers can
+  // opt in and configure a duration later from the challenge editor.
+  has_time_limit: false,
+  time_limit_seconds: null,
   question_options: item.question_options ?? null,
   question_correct_option: item.question_correct_option ?? null,
   order_index: orderIndex,

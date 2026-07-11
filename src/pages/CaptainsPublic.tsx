@@ -1044,6 +1044,7 @@ export default function CaptainsPublic() {
   const [remaining, setRemaining] = useState(0);
   const [evidenceFile, setEvidenceFile] = useState<File | null>(null);
   const [evidencePreview, setEvidencePreview] = useState("");
+  const [evidenceVideoPoster, setEvidenceVideoPoster] = useState("");
   const [selectedQuestionOption, setSelectedQuestionOption] = useState("");
   const [lastCorrectAnswer, setLastCorrectAnswer] = useState("");
   const [lastResultType, setLastResultType] = useState<CaptainsEvidenceType | null>(null);
@@ -1117,6 +1118,12 @@ export default function CaptainsPublic() {
   }, [tableChallenges]);
 
   const currentChallenge = currentRow ? challengeById.get(currentRow.challenge_id) || null : null;
+  const getCurrentRemaining = () => {
+    if (!currentChallenge?.has_time_limit) return remaining;
+    const total = currentChallenge.time_limit_seconds || 0;
+    const startedAt = currentRow?.started_at ? new Date(currentRow.started_at).getTime() : Date.now();
+    return Math.max(0, total - Math.max(0, Math.floor((Date.now() - startedAt) / 1000)));
+  };
   const completedRows = tableChallenges.filter((row) => terminalStatuses.has(row.status));
   const allDone = tableChallenges.length > 0 && completedRows.length === tableChallenges.length;
   const hasStartedGame = tableChallenges.some((row) => row.status !== "pending" && row.status !== "ready");
@@ -1274,18 +1281,70 @@ export default function CaptainsPublic() {
     };
     tick();
     const id = window.setInterval(tick, 1000);
-    return () => window.clearInterval(id);
+    const syncAfterCamera = () => {
+      if (document.visibilityState === "visible") void tick();
+    };
+    window.addEventListener("focus", syncAfterCamera);
+    document.addEventListener("visibilitychange", syncAfterCamera);
+    return () => {
+      window.clearInterval(id);
+      window.removeEventListener("focus", syncAfterCamera);
+      document.removeEventListener("visibilitychange", syncAfterCamera);
+    };
   }, [step, phase, currentRow?.id, currentRow?.started_at, currentChallenge?.id]);
 
   useEffect(() => {
     if (!evidenceFile) {
       setEvidencePreview("");
+      setEvidenceVideoPoster("");
       return;
     }
     const url = URL.createObjectURL(evidenceFile);
     setEvidencePreview(url);
     return () => URL.revokeObjectURL(url);
   }, [evidenceFile]);
+
+  useEffect(() => {
+    if (!evidencePreview || !evidenceFile?.type.startsWith("video/")) {
+      setEvidenceVideoPoster("");
+      return;
+    }
+    let cancelled = false;
+    const video = document.createElement("video");
+    video.preload = "auto";
+    video.muted = true;
+    video.playsInline = true;
+    const captureFrame = () => {
+      if (cancelled || !video.videoWidth || !video.videoHeight) return;
+      const canvas = document.createElement("canvas");
+      const maxWidth = 720;
+      const scale = Math.min(1, maxWidth / video.videoWidth);
+      canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
+      canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
+      const context = canvas.getContext("2d");
+      if (!context) return;
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      try {
+        setEvidenceVideoPoster(canvas.toDataURL("image/jpeg", 0.78));
+      } catch {
+        setEvidenceVideoPoster("");
+      }
+    };
+    video.addEventListener("loadeddata", captureFrame, { once: true });
+    video.addEventListener("loadedmetadata", () => {
+      if (Number.isFinite(video.duration) && video.duration > 0.15) {
+        try { video.currentTime = Math.min(0.1, video.duration / 2); } catch { /* Safari may reject seeking before data is ready. */ }
+      }
+    }, { once: true });
+    video.addEventListener("seeked", captureFrame, { once: true });
+    video.src = evidencePreview;
+    video.load();
+    return () => {
+      cancelled = true;
+      video.removeAttribute("src");
+      video.load();
+    };
+  }, [evidenceFile, evidencePreview]);
 
   const go = (next: PublicStep) => {
     const suffix = next === "home" ? "" : `/${next}`;
@@ -1402,17 +1461,19 @@ export default function CaptainsPublic() {
   const submitEvidence = async () => {
     if (!event || !session || !currentRow || !currentChallenge || !evidenceFile) return;
     if (currentChallenge.evidence_type === "question") return;
-    if (currentChallenge.has_time_limit && remaining <= 0) return;
+    const liveRemaining = getCurrentRemaining();
+    setRemaining(liveRemaining);
+    if (currentChallenge.has_time_limit && liveRemaining <= 0) return;
     setBusy(true);
     try {
       const total = currentChallenge.time_limit_seconds || null;
-      const elapsed = currentChallenge.has_time_limit && total ? Math.max(0, total - remaining) : null;
+      const elapsed = currentChallenge.has_time_limit && total ? Math.max(0, total - liveRemaining) : null;
       if (isDemo) {
         const pointsAwarded = calculateCaptainsAutomaticScore({
           maxPoints: currentChallenge.points,
           hasTimeLimit: currentChallenge.has_time_limit,
           totalSeconds: total,
-          remainingSeconds: currentChallenge.has_time_limit ? remaining : null,
+          remainingSeconds: currentChallenge.has_time_limit ? liveRemaining : null,
           succeeded: true,
         });
         const fileUrl = URL.createObjectURL(evidenceFile);
@@ -1429,7 +1490,7 @@ export default function CaptainsPublic() {
           points_awarded: pointsAwarded,
           admin_comment: null,
           elapsed_seconds: elapsed,
-          remaining_seconds: currentChallenge.has_time_limit ? remaining : null,
+          remaining_seconds: currentChallenge.has_time_limit ? liveRemaining : null,
           created_at: nowIso(),
           reviewed_at: nowIso(),
           deleted_at: null,
@@ -1440,7 +1501,7 @@ export default function CaptainsPublic() {
           points_awarded: pointsAwarded,
           submitted_at: nowIso(),
           elapsed_seconds: elapsed,
-          remaining_seconds: currentChallenge.has_time_limit ? remaining : null,
+          remaining_seconds: currentChallenge.has_time_limit ? liveRemaining : null,
           reviewed_at: nowIso(),
           automatic_score_calculated: true,
           updated_at: nowIso(),
@@ -1470,7 +1531,7 @@ export default function CaptainsPublic() {
         evidenceType: currentChallenge.evidence_type as "photo" | "video",
         file: evidenceFile,
         elapsedSeconds: elapsed,
-        remainingSeconds: currentChallenge.has_time_limit ? remaining : null,
+        remainingSeconds: currentChallenge.has_time_limit ? liveRemaining : null,
         scoringMode: event.scoring_mode,
       });
         setResultEvidence(evidence);
@@ -1487,11 +1548,13 @@ export default function CaptainsPublic() {
 
     const submitQuestion = async () => {
       if (!event || !session || !currentRow || !currentChallenge || currentChallenge.evidence_type !== "question" || !selectedQuestionOption) return;
-      if (currentChallenge.has_time_limit && remaining <= 0) return;
+      const liveRemaining = getCurrentRemaining();
+      setRemaining(liveRemaining);
+      if (currentChallenge.has_time_limit && liveRemaining <= 0) return;
       setBusy(true);
       try {
         const total = currentChallenge.time_limit_seconds || null;
-        const elapsed = currentChallenge.has_time_limit && total ? Math.max(0, total - remaining) : null;
+        const elapsed = currentChallenge.has_time_limit && total ? Math.max(0, total - liveRemaining) : null;
         const correct = selectedQuestionOption === currentChallenge.question_correct_option;
         setLastCorrectAnswer(currentChallenge.question_correct_option || "");
       const pointsAwarded = correct
@@ -1499,7 +1562,7 @@ export default function CaptainsPublic() {
             maxPoints: currentChallenge.points,
             hasTimeLimit: currentChallenge.has_time_limit,
             totalSeconds: total,
-            remainingSeconds: currentChallenge.has_time_limit ? remaining : null,
+            remainingSeconds: currentChallenge.has_time_limit ? liveRemaining : null,
             succeeded: true,
           })
         : 0;
@@ -1511,7 +1574,7 @@ export default function CaptainsPublic() {
           points_awarded: pointsAwarded,
           submitted_at: nowIso(),
           elapsed_seconds: elapsed,
-          remaining_seconds: currentChallenge.has_time_limit ? remaining : null,
+          remaining_seconds: currentChallenge.has_time_limit ? liveRemaining : null,
           reviewed_at: nowIso(),
           automatic_score_calculated: true,
           updated_at: nowIso(),
@@ -1537,7 +1600,7 @@ export default function CaptainsPublic() {
         tableChallengeId: currentRow.id,
         answer: selectedQuestionOption,
         elapsedSeconds: elapsed,
-        remainingSeconds: currentChallenge.has_time_limit ? remaining : null,
+        remainingSeconds: currentChallenge.has_time_limit ? liveRemaining : null,
         });
         setResultEvidence(null);
         setLastResultType("question");
@@ -1952,7 +2015,16 @@ export default function CaptainsPublic() {
                   {evidencePreview && (
                     <div className="pixel-panel mt-4 overflow-hidden bg-white p-2">
                       {currentChallenge.evidence_type === "photo" && <img src={evidencePreview} alt="" className="aspect-[4/3] w-full object-cover" />}
-                      {currentChallenge.evidence_type === "video" && <video src={evidencePreview} controls className="aspect-[4/3] w-full object-cover" />}
+                      {currentChallenge.evidence_type === "video" && (
+                        <video
+                          src={evidencePreview}
+                          poster={evidenceVideoPoster || undefined}
+                          controls
+                          playsInline
+                          preload="auto"
+                          className="aspect-[4/3] w-full bg-black object-cover"
+                        />
+                      )}
                     </div>
                   )}
                   <div className="mt-5 space-y-3">
