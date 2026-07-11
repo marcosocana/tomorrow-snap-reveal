@@ -17,7 +17,7 @@ serve(async (req) => {
   const code = String(body.code ?? "").trim().toUpperCase();
   if (code.length !== 16) return json({ error: "INVALID_CODE" }, 400);
   const admin = createClient(url, serviceKey);
-  const { data: access } = await admin.from("captains_creation_codes").select("id, redeemed_at, expires_at, event_id").eq("code", code).maybeSingle();
+  const { data: access } = await admin.from("captains_creation_codes").select("id, redeemed_at, expires_at, event_id, max_tables").eq("code", code).maybeSingle();
   if (!access || new Date(access.expires_at).getTime() <= Date.now()) return json({ error: "INVALID_CODE" }, 400);
   if (access.redeemed_at && access.event_id) {
     const { data: existingEvent } = await admin.from("captains_events").select("*").eq("id", access.event_id).maybeSingle();
@@ -27,9 +27,10 @@ serve(async (req) => {
         admin.from("captains_tables").select("*").eq("event_id", access.event_id).order("table_number"),
         admin.from("captains_event_challenges").select("*").eq("event_id", access.event_id).order("order_index"),
       ]);
-      return json({ valid: true, mode: "edit", event: existingEvent, tables: tables || [], challenges: challenges || [] });
+      return json({ valid: true, mode: "edit", event: existingEvent, tables: tables || [], challenges: challenges || [], maxTables: access.max_tables });
     }
     if (body.action === "update" && body.event?.name && Array.isArray(body.tables) && Array.isArray(body.challenges)) {
+      if (body.tables.length < 1 || body.tables.length > access.max_tables) return json({ error: "TABLE_LIMIT_EXCEEDED", maxTables: access.max_tables }, 400);
       const eventChanges = { ...pick(body.event, ["name", "description", "start_time", "end_time", "scoring_mode", "status", "show_live_gallery_after_completion", "theme_style", "primary_color", "secondary_color", "background_image_url", "contact_name", "contact_email", "contact_phone"]), updated_at: new Date().toISOString() };
       const { data: updatedEvent, error: updateEventError } = await admin.from("captains_events").update(eventChanges).eq("id", access.event_id).select("*").single();
       if (updateEventError) return json({ error: "UPDATE_EVENT_FAILED", detail: updateEventError.message }, 500);
@@ -60,8 +61,9 @@ serve(async (req) => {
     return json({ error: "CODE_ALREADY_USED" }, 409);
   }
   if (access.redeemed_at) return json({ error: "INVALID_CODE" }, 400);
-  if (body.action === "validate") return json({ valid: true, mode: "create" });
+  if (body.action === "validate") return json({ valid: true, mode: "create", maxTables: access.max_tables });
   if (body.action !== "create" || !body.event?.name || !Array.isArray(body.tables) || !Array.isArray(body.challenges)) return json({ error: "INVALID_PAYLOAD" }, 400);
+  if (body.tables.length < 1 || body.tables.length > access.max_tables) return json({ error: "TABLE_LIMIT_EXCEEDED", maxTables: access.max_tables }, 400);
 
   let slug = slugify(body.event.name);
   for (let suffix = 2;; suffix += 1) {

@@ -748,14 +748,15 @@ export const CaptainsAdminList = () => {
   const [codeDialogOpen, setCodeDialogOpen] = useState(false);
   const [generatedCode, setGeneratedCode] = useState<string | null>(null);
   const [isGeneratingCode, setIsGeneratingCode] = useState(false);
+  const [codeTableCount, setCodeTableCount] = useState(6);
   const generateCreationCode = async () => {
     try {
       setIsGeneratingCode(true);
       setGeneratedCode(null);
-      const { data, error } = await supabase.functions.invoke("admin-generate-captains-code", { body: {} });
+      const { data, error } = await supabase.functions.invoke("admin-generate-captains-code", { body: { tableCount: codeTableCount } });
       if (error || !data?.code) throw error || new Error("NO_CODE");
       setGeneratedCode(data.code);
-      toast({ title: "Código generado", description: "Será válido durante 30 días y para un único evento." });
+      toast({ title: "Código generado", description: `Permitirá crear un evento de hasta ${codeTableCount} mesas.` });
     } catch (error) {
       console.error("Error generating captains code:", error);
       toast({ title: "Error", description: "No se pudo generar el código.", variant: "destructive" });
@@ -903,6 +904,10 @@ export const CaptainsAdminList = () => {
             <DialogTitle>Generar código de Capitanes</DialogTitle>
             <DialogDescription>Da acceso al formulario público para crear un único evento.</DialogDescription>
           </DialogHeader>
+          <label className="space-y-2">
+            <span className="text-sm font-medium">Número máximo de mesas</span>
+            <Input type="number" min={1} max={999} value={codeTableCount} onChange={(event) => setCodeTableCount(Math.max(1, Math.min(999, Math.floor(Number(event.target.value) || 1))))} />
+          </label>
           <Button onClick={generateCreationCode} disabled={isGeneratingCode}>
             {isGeneratingCode ? "Generando..." : "Generar código"}
           </Button>
@@ -910,7 +915,7 @@ export const CaptainsAdminList = () => {
             <div className="space-y-3 rounded-xl border bg-muted/30 p-4">
               <p className="text-center font-mono text-xl font-bold tracking-widest">{generatedCode}</p>
               <Button variant="outline" className="w-full" onClick={async () => {
-                const link = `${window.location.origin}/admin/capitanes/onboarding?code=${generatedCode}`;
+                const link = `${window.location.origin}/admin/capitanes/onboarding?code=${generatedCode}&tableCount=${codeTableCount}`;
                 await navigator.clipboard.writeText(link);
                 toast({ title: "Enlace copiado", description: "Ya puedes compartirlo con el cliente." });
               }}>
@@ -943,11 +948,12 @@ export const CaptainsOnboarding = () => {
   const availableCatalog = catalog.length ? catalog : captainsDefaultChallengeCatalog;
   const initialTableCount = useMemo(() => {
     const value = Number(searchParams.get("tableCount") || 6);
-    return Math.max(1, Math.min(30, Math.floor(Number.isFinite(value) ? value : 6)));
+    return Math.max(1, Math.min(999, Math.floor(Number.isFinite(value) ? value : 6)));
   }, [searchParams]);
   const [stepIndex, setStepIndex] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
+  const [maxTables, setMaxTables] = useState<number | null>(null);
   const [accessCode, setAccessCode] = useState(() => (searchParams.get("code") || "").trim().toUpperCase());
   const [codeValidated, setCodeValidated] = useState(false);
   const [isValidatingCode, setIsValidatingCode] = useState(false);
@@ -956,6 +962,8 @@ export const CaptainsOnboarding = () => {
       setIsValidatingCode(true);
       const { data, error } = await supabase.functions.invoke("redeem-captains-code", { body: { action: "validate", code: accessCode } });
       if (error || !data?.valid) throw error || new Error("INVALID_CODE");
+      const validatedMaxTables = Math.max(1, Number(data.maxTables) || 1);
+      setMaxTables(validatedMaxTables);
       if (data.mode === "edit" && data.event?.id) {
         const start = splitDateTimeInput(data.event.start_time);
         const end = splitDateTimeInput(data.event.end_time);
@@ -987,6 +995,7 @@ export const CaptainsOnboarding = () => {
         setSelectedChallenges(loadedChallenges);
         setSelectedChallengeIds(loadedChallenges.map((challenge: CaptainsChallengeInput) => challenge.catalog_challenge_id).filter(Boolean) as string[]);
       }
+      if (data.mode !== "edit") syncTables(Math.min(tableCount, validatedMaxTables));
       setCodeValidated(true);
     } catch (error) {
       toast({ title: "Código no válido", description: "Revisa el código o solicita uno nuevo.", variant: "destructive" });
@@ -1039,7 +1048,7 @@ export const CaptainsOnboarding = () => {
   const editingTable = editingTableIndex === null ? null : tables[editingTableIndex];
 
   const syncTables = (count: number) => {
-    const cleanCount = Math.max(1, Math.min(30, Math.floor(count || 1)));
+    const cleanCount = Math.max(1, Math.min(maxTables ?? 999, Math.floor(count || 1)));
     setTableCount(cleanCount);
     setTables((prev) =>
       Array.from({ length: cleanCount }, (_, index) => {
@@ -1379,7 +1388,8 @@ export const CaptainsOnboarding = () => {
           <div className="space-y-5">
             <label className="space-y-2">
               <span className="text-sm font-medium">Número de mesas</span>
-              <Input type="number" min={1} max={30} value={tableCount} onChange={(event) => syncTables(Number(event.target.value))} className="h-12 w-32 rounded-full px-4 text-center text-base" />
+              <Input type="number" min={1} max={maxTables ?? 999} value={tableCount} onChange={(event) => syncTables(Number(event.target.value))} className="h-12 w-32 rounded-full px-4 text-center text-base" />
+              {maxTables ? <span className="block text-xs text-muted-foreground">Máximo incluido en tu código: {maxTables} mesas.</span> : null}
             </label>
             <div className="rounded-2xl border border-border bg-muted/30 p-4 text-sm text-muted-foreground">
               Haz click en el muñeco de cada mesa para editar todos los detalles del capitán: nombre, mesa, aspecto, pelo, piel y vestuario.

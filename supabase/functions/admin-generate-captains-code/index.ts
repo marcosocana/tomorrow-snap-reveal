@@ -22,9 +22,12 @@ serve(async (req) => {
   if (!user) return json({ error: "UNAUTHORIZED" }, 401);
 
   const admin = createClient(url, serviceKey);
+  const payload = await req.json().catch(() => ({}));
+  const maxTables = Math.floor(Number(payload?.tableCount));
+  if (!Number.isFinite(maxTables) || maxTables < 1 || maxTables > 999) return json({ error: "INVALID_TABLE_COUNT" }, 400);
   const code = makeCode();
   const expiresAt = new Date(Date.now() + 30 * 86400000).toISOString();
-  const { error } = await admin.from("captains_creation_codes").insert({ code, created_by: user.id, expires_at: expiresAt });
+  const { error } = await admin.from("captains_creation_codes").insert({ code, created_by: user.id, expires_at: expiresAt, max_tables: maxTables });
   if (error) return json({ error: "DB_ERROR" }, 500);
-  return json({ code, expiresAt });
+  return json({ code, expiresAt, maxTables });
 });

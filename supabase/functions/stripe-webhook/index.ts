@@ -68,6 +68,7 @@ const sendRedeemEmail = async (to: string, redeemUrl: string, planLabel: string,
 const sendCaptainsCheckoutEmail = async (
   to: string,
   onboardingUrl: string,
+  creationCode: string,
   tableCount: number,
   captainPack: boolean,
 ) => {
@@ -93,6 +94,11 @@ const sendCaptainsCheckoutEmail = async (
           Crear mi juego de Capitanes
         </a>
       </p>
+      <div style="background:#f5f5f5;border-radius:12px;padding:16px;margin:20px 0;text-align:center;">
+        <p style="margin:0 0 5px;font-size:13px;color:#777;">Código de acceso</p>
+        <p style="margin:0;font-size:22px;font-weight:800;letter-spacing:3px;">${creationCode}</p>
+        <p style="margin:8px 0 0;font-size:12px;color:#777;">Este código permite crear el evento y volver a editarlo después.</p>
+      </div>
       <p style="font-size:12px;color:#777;text-align:center;margin-top:18px;">
         También puedes acceder desde este enlace:<br />
         <a href="${onboardingUrl}">${onboardingUrl}</a>
@@ -279,16 +285,35 @@ serve(async (req) => {
       }
     }
 
+    const creationCode = purchase?.redeem_token || redeemToken;
+    const { data: existingCreationCode, error: creationCodeReadError } = await supabaseAdmin
+      .from("captains_creation_codes")
+      .select("id")
+      .eq("code", creationCode)
+      .maybeSingle();
+    if (creationCodeReadError) {
+      console.error("stripe-webhook captains creation code lookup error:", creationCodeReadError);
+      return json({ error: "DB error" }, 500);
+    }
+    if (!existingCreationCode) {
+      const { error: creationCodeInsertError } = await supabaseAdmin
+        .from("captains_creation_codes")
+        .insert({ code: creationCode, created_by: null, expires_at: redeemExpiresAt, max_tables: tableCount });
+      if (creationCodeInsertError) {
+        console.error("stripe-webhook captains creation code insert error:", creationCodeInsertError);
+        return json({ error: "DB error" }, 500);
+      }
+    }
+
     if (userEmail) {
       const onboardingParams = new URLSearchParams({
-        checkout: "success",
+        code: creationCode,
         tableCount: String(tableCount),
         captainPack: captainPack ? "1" : "0",
-        purchase: purchase?.redeem_token || redeemToken,
       });
-      const onboardingUrl = `${APP_ORIGIN}/nuevoeventocapitanes?${onboardingParams.toString()}`;
+      const onboardingUrl = `${APP_ORIGIN}/admin/capitanes/onboarding?${onboardingParams.toString()}`;
       try {
-        await sendCaptainsCheckoutEmail(userEmail, onboardingUrl, tableCount, captainPack);
+        await sendCaptainsCheckoutEmail(userEmail, onboardingUrl, creationCode, tableCount, captainPack);
       } catch (emailError) {
         console.error("stripe-webhook captains email error:", emailError);
         return json({ error: "EMAIL_SEND_FAILED" }, 500);
