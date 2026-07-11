@@ -947,6 +947,7 @@ export const CaptainsOnboarding = () => {
   }, [searchParams]);
   const [stepIndex, setStepIndex] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
+  const [editingEventId, setEditingEventId] = useState<string | null>(null);
   const [accessCode, setAccessCode] = useState(() => (searchParams.get("code") || "").trim().toUpperCase());
   const [codeValidated, setCodeValidated] = useState(false);
   const [isValidatingCode, setIsValidatingCode] = useState(false);
@@ -955,9 +956,36 @@ export const CaptainsOnboarding = () => {
       setIsValidatingCode(true);
       const { data, error } = await supabase.functions.invoke("redeem-captains-code", { body: { action: "validate", code: accessCode } });
       if (error || !data?.valid) throw error || new Error("INVALID_CODE");
-      if (data.mode === "existing" && data.event?.slug) {
-        navigate(`/capitanes/${data.event.slug}`);
-        return;
+      if (data.mode === "edit" && data.event?.id) {
+        const start = splitDateTimeInput(data.event.start_time);
+        const end = splitDateTimeInput(data.event.end_time);
+        setEditingEventId(data.event.id);
+        setName(data.event.name || "");
+        setDescription(data.event.description || "");
+        setStartDate(start.date);
+        setStartHour(start.time);
+        setEndDate(end.date);
+        setEndHour(end.time);
+        setThemeStyle(data.event.theme_style || "pixel");
+        setPrimaryColor(data.event.primary_color || DEFAULT_PRIMARY_COLOR);
+        setScoringMode(data.event.scoring_mode || "automatic");
+        setContactName(data.event.contact_name || "");
+        setContactEmail(data.event.contact_email || "");
+        setContactPhone(data.event.contact_phone || "");
+        const loadedTables = (data.tables || []).map((table: CaptainsTable, index: number) => ({
+          id: table.id,
+          table_number: index + 1,
+          table_name: table.table_name,
+          captain_name: table.captain_name || "",
+          captain_photo_url: table.captain_photo_url || "",
+          captain_sprite: table.captain_sprite || getDefaultCaptainSprite(index),
+          captain_sprite_config: normalizeCaptainSpriteConfig(table.captain_sprite_config, index),
+        }));
+        setTableCount(Math.max(1, loadedTables.length));
+        setTables(loadedTables.length ? loadedTables : tables);
+        const loadedChallenges = (data.challenges || []).map((challenge: CaptainsEventChallenge) => eventChallengeToInput(challenge));
+        setSelectedChallenges(loadedChallenges);
+        setSelectedChallengeIds(loadedChallenges.map((challenge: CaptainsChallengeInput) => challenge.catalog_challenge_id).filter(Boolean) as string[]);
       }
       setCodeValidated(true);
     } catch (error) {
@@ -1202,7 +1230,7 @@ export const CaptainsOnboarding = () => {
 	      };
       let created;
       const { data, error } = await supabase.functions.invoke("redeem-captains-code", {
-        body: { action: "create", code: accessCode, ...gameInput },
+        body: { action: editingEventId ? "update" : "create", code: accessCode, ...gameInput },
       });
       if (error) {
         let responseBody: { error?: string; detail?: string } | null = null;
@@ -1220,9 +1248,9 @@ export const CaptainsOnboarding = () => {
       if (!data?.event) throw new Error(data?.detail || data?.error || "PUBLIC_CREATE_FAILED");
       created = data;
 	      const createdEvent = created?.event;
-	      if (createdEvent) {
+	      if (createdEvent && !editingEventId) {
 	        const publicUrl = normalizeCaptainsPublicUrl(createdEvent.public_url, createdEvent.slug);
-	        const adminUrl = `${window.location.origin}/admin/capitanes/${createdEvent.id}`;
+	        const adminUrl = `${window.location.origin}/admin/capitanes/onboarding?code=${encodeURIComponent(accessCode)}`;
 	        const contactInfo = {
 	          name: contactName.trim(),
 	          email: contactEmail.trim(),
@@ -1248,8 +1276,8 @@ export const CaptainsOnboarding = () => {
 	          }),
 	        ]);
 	      }
-	      toast({ title: "Juego creado", description: "Capitanes ya está listo para usar." });
-	      navigate(`/admin/capitanes/${created?.event.id}`);
+	      toast({ title: editingEventId ? "Juego actualizado" : "Juego creado", description: "Capitanes ya está listo para usar." });
+	      navigate(`/capitanes/${created?.event.slug}`);
     } catch (error) {
       console.error("Error creating captains onboarding game:", error);
       const detail = error instanceof Error ? error.message : "Error desconocido";
@@ -1562,8 +1590,8 @@ export const CaptainsOnboarding = () => {
               <img src="/LogoTransparent.png" alt="Revelao" className="h-8 w-auto" />
             </div>
             <div className="space-y-1">
-              <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Crea tu juego de Capitanes</h1>
-              <p className="text-sm text-muted-foreground">Configura lo básico por pasos para dejar el juego listo al comprar el plan.</p>
+              <h1 className="text-2xl font-bold text-foreground sm:text-3xl">{editingEventId ? "Edita tu juego de Capitanes" : "Crea tu juego de Capitanes"}</h1>
+              <p className="text-sm text-muted-foreground">Configura el juego por pasos y guarda todos los cambios sin necesidad de iniciar sesión.</p>
             </div>
             <div className="h-2 overflow-hidden rounded-full bg-muted">
               <div className="h-full rounded-full transition-all" style={{ width: `${progress}%`, backgroundColor: primaryColor }} />
@@ -1609,7 +1637,7 @@ export const CaptainsOnboarding = () => {
                   <span className="hidden sm:inline">Atrás</span>
                 </Button>
                 <Button type="button" className="h-12 flex-1 rounded-full hover:opacity-90" style={{ backgroundColor: primaryColor, color: primaryTextColor }} onClick={currentStep.id === "contact" ? handleSave : goNext} disabled={isSaving}>
-                  {currentStep.id === "contact" ? (isSaving ? "Creando..." : "Crear Capitanes") : "Siguiente"}
+                  {currentStep.id === "contact" ? (isSaving ? "Guardando..." : editingEventId ? "Guardar cambios" : "Crear Capitanes") : "Siguiente"}
                 </Button>
               </div>
             </div>

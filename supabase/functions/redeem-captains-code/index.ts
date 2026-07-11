@@ -20,9 +20,44 @@ serve(async (req) => {
   const { data: access } = await admin.from("captains_creation_codes").select("id, redeemed_at, expires_at, event_id").eq("code", code).maybeSingle();
   if (!access || new Date(access.expires_at).getTime() <= Date.now()) return json({ error: "INVALID_CODE" }, 400);
   if (access.redeemed_at && access.event_id) {
-    const { data: existingEvent } = await admin.from("captains_events").select("id, slug").eq("id", access.event_id).maybeSingle();
+    const { data: existingEvent } = await admin.from("captains_events").select("*").eq("id", access.event_id).maybeSingle();
     if (!existingEvent) return json({ error: "EVENT_NOT_FOUND" }, 404);
-    return json({ valid: true, mode: "existing", event: existingEvent });
+    if (body.action === "validate") {
+      const [{ data: tables }, { data: challenges }] = await Promise.all([
+        admin.from("captains_tables").select("*").eq("event_id", access.event_id).order("table_number"),
+        admin.from("captains_event_challenges").select("*").eq("event_id", access.event_id).order("order_index"),
+      ]);
+      return json({ valid: true, mode: "edit", event: existingEvent, tables: tables || [], challenges: challenges || [] });
+    }
+    if (body.action === "update" && body.event?.name && Array.isArray(body.tables) && Array.isArray(body.challenges)) {
+      const eventChanges = { ...pick(body.event, ["name", "description", "start_time", "end_time", "scoring_mode", "status", "show_live_gallery_after_completion", "theme_style", "primary_color", "secondary_color", "background_image_url", "contact_name", "contact_email", "contact_phone"]), updated_at: new Date().toISOString() };
+      const { data: updatedEvent, error: updateEventError } = await admin.from("captains_events").update(eventChanges).eq("id", access.event_id).select("*").single();
+      if (updateEventError) return json({ error: "UPDATE_EVENT_FAILED", detail: updateEventError.message }, 500);
+
+      const { data: oldTables } = await admin.from("captains_tables").select("id").eq("event_id", access.event_id);
+      const incomingTableIds = body.tables.map((table: Record<string, unknown>) => table.id).filter(isUuid);
+      const removedTableIds = (oldTables || []).map((row: { id: string }) => row.id).filter((id: string) => !incomingTableIds.includes(id));
+      if (removedTableIds.length) await admin.from("captains_tables").delete().in("id", removedTableIds);
+      for (let index = 0; index < body.tables.length; index += 1) {
+        const table = body.tables[index] as Record<string, unknown>;
+        const row = { ...pick(table, ["table_name", "captain_name", "captain_photo_url", "captain_sprite", "captain_sprite_config"]), active_captain_name: table.captain_name || null, event_id: access.event_id, table_number: index + 1 };
+        if (isUuid(table.id)) await admin.from("captains_tables").update(row).eq("id", table.id).eq("event_id", access.event_id);
+        else await admin.from("captains_tables").insert(row);
+      }
+
+      const { data: oldChallenges } = await admin.from("captains_event_challenges").select("id").eq("event_id", access.event_id);
+      const incomingChallengeIds = body.challenges.map((challenge: Record<string, unknown>) => challenge.id).filter(isUuid);
+      const removedChallengeIds = (oldChallenges || []).map((row: { id: string }) => row.id).filter((id: string) => !incomingChallengeIds.includes(id));
+      if (removedChallengeIds.length) await admin.from("captains_event_challenges").delete().in("id", removedChallengeIds);
+      for (let index = 0; index < body.challenges.length; index += 1) {
+        const challenge = body.challenges[index] as Record<string, unknown>;
+        const row = { ...pick(challenge, ["catalog_challenge_id", "title", "description", "evidence_type", "points", "category", "difficulty", "has_time_limit", "time_limit_seconds", "question_options", "question_correct_option", "is_required"]), catalog_challenge_id: isUuid(challenge.catalog_challenge_id) ? challenge.catalog_challenge_id : null, event_id: access.event_id, order_index: index + 1 };
+        if (isUuid(challenge.id)) await admin.from("captains_event_challenges").update(row).eq("id", challenge.id).eq("event_id", access.event_id);
+        else await admin.from("captains_event_challenges").insert(row);
+      }
+      return json({ event: updatedEvent, mode: "edit" });
+    }
+    return json({ error: "CODE_ALREADY_USED" }, 409);
   }
   if (access.redeemed_at) return json({ error: "INVALID_CODE" }, 400);
   if (body.action === "validate") return json({ valid: true, mode: "create" });
