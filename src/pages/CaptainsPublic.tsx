@@ -1114,8 +1114,22 @@ export default function CaptainsPublic() {
   const currentRow = useMemo(() => {
     const active = tableChallenges.find((row) => ["ready", "in_progress"].includes(row.status));
     if (active) return active;
-    return tableChallenges.find((row) => !terminalStatuses.has(row.status)) || null;
-  }, [tableChallenges]);
+    const pending = tableChallenges.find((row) => !terminalStatuses.has(row.status));
+    if (pending) return pending;
+    // Once the final challenge becomes terminal there is no active row anymore.
+    // Keep the most recently finished one while its result screen is visible so
+    // the UI does not fall through to the "Preparando misiones" loading state.
+    if (phase === "result" || phase === "expired") {
+      return [...tableChallenges]
+        .filter((row) => terminalStatuses.has(row.status))
+        .sort((a, b) => {
+          const aTime = new Date(a.updated_at || a.reviewed_at || a.submitted_at || 0).getTime();
+          const bTime = new Date(b.updated_at || b.reviewed_at || b.submitted_at || 0).getTime();
+          return bTime - aTime;
+        })[0] || null;
+    }
+    return null;
+  }, [phase, tableChallenges]);
 
   const currentChallenge = currentRow ? challengeById.get(currentRow.challenge_id) || null : null;
   const getCurrentRemaining = () => {
