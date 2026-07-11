@@ -52,7 +52,8 @@ serve(async (req) => {
       if (removedChallengeIds.length) await admin.from("captains_event_challenges").delete().in("id", removedChallengeIds);
       for (let index = 0; index < body.challenges.length; index += 1) {
         const challenge = body.challenges[index] as Record<string, unknown>;
-        const row = { ...pick(challenge, ["catalog_challenge_id", "title", "description", "evidence_type", "points", "category", "difficulty", "has_time_limit", "time_limit_seconds", "question_options", "question_correct_option", "is_required"]), catalog_challenge_id: isUuid(challenge.catalog_challenge_id) ? challenge.catalog_challenge_id : null, is_required: typeof challenge.is_required === "boolean" ? challenge.is_required : true, event_id: access.event_id, order_index: index + 1 };
+        const hasTimeLimit = challenge.has_time_limit === true;
+        const row = { ...pick(challenge, ["catalog_challenge_id", "title", "description", "evidence_type", "points", "category", "difficulty", "question_options", "question_correct_option"]), catalog_challenge_id: isUuid(challenge.catalog_challenge_id) ? challenge.catalog_challenge_id : null, has_time_limit: hasTimeLimit, time_limit_seconds: hasTimeLimit ? Number(challenge.time_limit_seconds) || 60 : null, is_required: typeof challenge.is_required === "boolean" ? challenge.is_required : true, event_id: access.event_id, order_index: index + 1 };
         if (isUuid(challenge.id)) await admin.from("captains_event_challenges").update(row).eq("id", challenge.id).eq("event_id", access.event_id);
         else await admin.from("captains_event_challenges").insert(row);
       }
@@ -93,8 +94,10 @@ serve(async (req) => {
     table_number: index + 1,
   }));
   const challengeRows = body.challenges.map((challenge: Record<string, unknown>, index: number) => ({
-    ...pick(challenge, ["catalog_challenge_id", "title", "description", "evidence_type", "points", "category", "difficulty", "has_time_limit", "time_limit_seconds", "question_options", "question_correct_option", "is_required"]),
+    ...pick(challenge, ["catalog_challenge_id", "title", "description", "evidence_type", "points", "category", "difficulty", "question_options", "question_correct_option"]),
     catalog_challenge_id: isUuid(challenge.catalog_challenge_id) ? challenge.catalog_challenge_id : null,
+    has_time_limit: challenge.has_time_limit === true,
+    time_limit_seconds: challenge.has_time_limit === true ? Number(challenge.time_limit_seconds) || 60 : null,
     is_required: typeof challenge.is_required === "boolean" ? challenge.is_required : true,
     event_id: event.id,
     order_index: index + 1,
