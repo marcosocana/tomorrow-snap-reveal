@@ -1079,6 +1079,12 @@ export default function CaptainsPublic() {
   const eventQuery = useCaptainsEventDetail(isDemo ? null : eventSlug);
   const detail = isDemo ? demoEventDetail : eventQuery.data;
   const event = detail?.event;
+  const eventEnded = Boolean(
+    event && (
+      event.status === "finished" ||
+      (event.end_time && new Date(event.end_time).getTime() <= Date.now())
+    ),
+  );
   const themeStyle = normalizeCaptainsThemeStyle(event?.theme_style);
   const tables = detail?.tables || [];
   const challenges = detail?.challenges || [];
@@ -1287,6 +1293,12 @@ export default function CaptainsPublic() {
     if (!event || !session || !["play", "ranking", "final", "live", "resumen"].includes(step)) return;
     refreshGame();
   }, [event?.id, session?.table_id, step]);
+
+  useEffect(() => {
+    if (!event || !eventEnded) return;
+    getCaptainsRanking(event.id).then(setRanking).catch(() => setRanking([]));
+    if (!["ranking", "resumen", "live"].includes(step)) go("ranking");
+  }, [event?.id, eventEnded, step]);
 
   useEffect(() => {
     if (step !== "play" || !currentRow) return;
@@ -1874,6 +1886,7 @@ export default function CaptainsPublic() {
     );
   }
   if (!mobile.allowed) return <DesktopBlock eventUrl={publicUrl} />;
+  if (eventEnded && !["ranking", "resumen", "live"].includes(step)) return <LoadingScreen />;
 
   if (step === "home") {
     return (
@@ -1915,7 +1928,7 @@ export default function CaptainsPublic() {
     );
   }
 
-  if (!session) {
+  if (!session && !eventEnded) {
     go("start");
     return <LoadingScreen />;
   }
@@ -2179,8 +2192,9 @@ export default function CaptainsPublic() {
 
   if (step === "ranking") {
     const rankIndex = myRank?.rank || ranking.length;
-    const message =
-      rankIndex <= 1
+    const message = !session && eventEnded
+      ? "Clasificación final del evento."
+      : rankIndex <= 1
         ? "¡Vais liderando la misión!"
         : rankIndex >= ranking.length
           ? "Nada está perdido. La siguiente misión puede cambiarlo todo."
@@ -2223,7 +2237,11 @@ export default function CaptainsPublic() {
               );
             })}
           </div>
-          <GameButton onClick={nextAfterRanking}>{allDone ? "Ver resultado final" : "Siguiente reto"}</GameButton>
+          {eventEnded ? (
+            <GameButton onClick={() => go("resumen")}>Ver resumen</GameButton>
+          ) : (
+            <GameButton onClick={nextAfterRanking}>{allDone ? "Ver resultado final" : "Siguiente reto"}</GameButton>
+          )}
         </div>
       </CaptainsShell>
     );
@@ -2267,8 +2285,7 @@ export default function CaptainsPublic() {
   const rowById = new Map(liveRows.map((row) => [row.id, row]));
   const liveEnabled = event.show_live_gallery_after_completion ?? true;
   const liveEventAvailable = event.status === "active" || event.status === "finished";
-  const endTimeReached = event.end_time ? new Date(event.end_time).getTime() <= Date.now() : false;
-  const summaryUnlocked = isDemo || allDone || endTimeReached || event.status === "finished";
+  const summaryUnlocked = isDemo || allDone || eventEnded;
 
   if (step === "resumen") {
     if (!summaryUnlocked) {
