@@ -861,21 +861,24 @@ const PixelTableMap = ({
             onClick={() => onSelect(table.id)}
             className={cn(
               "pixel-button relative min-h-[154px] bg-white p-3 text-left transition",
-              active && "border-[#f06a5f] bg-[#f06a5f]/10",
+              active && "border-[#151515] bg-[var(--captains-primary)] shadow-[inset_0_-4px_0_rgba(0,0,0,0.18)]",
             )}
+            aria-pressed={active}
           >
             <div className="absolute right-2 top-2 bg-[#151515] px-2 py-1 text-sm font-bold text-white">
               #{table.table_number}
             </div>
-            <div className={cn("relative mt-5 bg-white", table.captain_photo_url && "border-3 border-[#151515]")}>
+            <div className={cn("relative mt-5 bg-white", table.captain_photo_url ? "border-3 border-[#151515]" : "flex h-28 items-center justify-center border-3 border-[#151515]")}>
               {table.captain_photo_url ? (
-                <img src={table.captain_photo_url} alt="" loading="lazy" className="h-28 w-full object-cover" />
+                <>
+                  <img src={table.captain_photo_url} alt="" loading="lazy" className="h-28 w-full object-cover" />
+                  <div className="absolute -bottom-3 right-2 px-1">
+                    <PixelCaptainSprite table={table} active={active} size="sm" />
+                  </div>
+                </>
               ) : (
-                <div className="h-16 w-full" aria-hidden="true" />
-              )}
-              <div className="absolute -bottom-3 right-2 px-1">
                 <PixelCaptainSprite table={table} active={active} size="sm" />
-              </div>
+              )}
             </div>
             <p className="mt-5 truncate text-2xl font-bold leading-none">{table.table_name}</p>
             <p className="truncate text-base font-bold text-[#151515]/65">
@@ -1845,13 +1848,11 @@ export default function CaptainsPublic() {
 
   useEffect(() => {
     if (step !== "resumen") return;
-    const preferredTableId = session?.table_id && tables.some((table) => table.id === session.table_id)
-      ? session.table_id
-      : tables[0]?.id || "";
-    if (!summarySelectedTableId || !tables.some((table) => table.id === summarySelectedTableId)) {
-      setSummarySelectedTableId(preferredTableId);
-    }
-  }, [session?.table_id, step, summarySelectedTableId, tables]);
+    const firstTableId = [...tables].sort((a, b) => a.table_number - b.table_number)[0]?.id || "";
+    setSummaryMode("tables");
+    setSummarySelectedTableId(firstTableId);
+    setSummaryEvidenceIndex(0);
+  }, [event?.id, step]);
 
   useEffect(() => {
     if (step !== "resumen") return;
@@ -2396,7 +2397,7 @@ export default function CaptainsPublic() {
                     {summaryMode === "tables" ? activeSummaryItem.challenge?.title : summarySelectedChallenge?.title}
                   </h2>
                 </div>
-                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-4 !text-white [&_h2]:!text-white [&_p]:!text-white [&_span]:!text-white">
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-4 !text-white [&_h2]:!text-white [&_p]:!text-white">
                   <div className="flex items-end justify-between gap-3">
                     <div className="min-w-0">
                       <p className="truncate text-2xl font-bold text-white">{activeSummaryItem.table?.table_name || "Mesa"}</p>
@@ -2408,7 +2409,7 @@ export default function CaptainsPublic() {
                         {activeSummaryItem.evidence.points_awarded ? ` · +${activeSummaryItem.evidence.points_awarded} pts` : ""}
                       </p>
                     </div>
-                    <span className="pixel-button shrink-0 bg-white px-2 py-1 text-base font-bold text-[#151515]">
+                    <span className="pixel-button shrink-0 bg-white px-2 py-1 text-base font-bold !text-[#151515]">
                       {activeSummaryItems.length ? summaryEvidenceIndex + 1 : 0}/{activeSummaryItems.length}
                     </span>
                   </div>
