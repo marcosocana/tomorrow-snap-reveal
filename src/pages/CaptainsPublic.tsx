@@ -1813,7 +1813,7 @@ export default function CaptainsPublic() {
       );
     }
 
-    if (allDone) {
+    if (allDone && phase !== "result" && phase !== "expired") {
       go("final");
       return <LoadingScreen />;
     }
@@ -2016,8 +2016,12 @@ export default function CaptainsPublic() {
                 {resultKind === "expired" && (
                   <>
                     <Clock3 className="mx-auto mb-3 h-12 w-12 text-[#151515]" />
-                    <h2 className="text-lg">Tiempo agotado</h2>
-                    <p className="mt-3 text-2xl text-[#151515]/70">Esta misión se ha quedado sin tiempo. Podéis pasar a la siguiente.</p>
+                    <h2 className="text-lg">Te has quedado sin tiempo</h2>
+                    <p className="mt-3 text-2xl text-[#151515]/70">
+                      {lastResultType === "question"
+                        ? "Misión no completada. No se ha recibido ninguna respuesta."
+                        : "Misión no completada. No se ha recibido ninguna foto ni vídeo."}
+                    </p>
                   </>
                 )}
               {lastResultType === "question" && lastCorrectAnswer && (
@@ -2101,8 +2105,12 @@ export default function CaptainsPublic() {
           <GameCard className="text-center">
             <PixelCaptainSprite table={currentTable} active size="lg" />
             <Crown className="mx-auto mt-3 h-10 w-10 text-[#151515]" />
-            <h1 className="mt-3 text-2xl">Misión completada</h1>
-            <p className="mt-3 text-2xl leading-7 text-[#151515]/70">Habéis terminado todos los retos de {currentTable?.table_name || session?.table_name}.</p>
+            <h1 className="mt-3 text-2xl">{failedCount > 0 ? "Misión finalizada" : "Misión completada"}</h1>
+            <p className="mt-3 text-2xl leading-7 text-[#151515]/70">
+              {failedCount > 0
+                ? `Habéis terminado la partida con ${failedCount} ${failedCount === 1 ? "reto no completado" : "retos no completados"}.`
+                : `Habéis completado todos los retos de ${currentTable?.table_name || session?.table_name}.`}
+            </p>
             <div className="mt-5 grid grid-cols-2 gap-3 text-left">
               <PixelStat label="Retos completados" value={completedRows.filter((row) => row.status === "completed" || row.status === "pending_review").length} tone="secondary" />
               <PixelStat label="No conseguidos" value={failedCount} tone="primary" />
@@ -2157,21 +2165,29 @@ export default function CaptainsPublic() {
             <button
               type="button"
               onClick={() => setSummaryMode("tables")}
+              aria-pressed={summaryMode === "tables"}
               className={cn(
-                "pixel-button bg-white px-3 py-3 text-xl font-bold uppercase text-[#151515]",
-                summaryMode === "tables" && "border-[var(--captains-primary)] bg-[var(--captains-primary)]/10",
+                "pixel-button flex items-center justify-center gap-2 px-3 py-3 text-xl font-bold uppercase transition",
+                summaryMode === "tables"
+                  ? "border-[#151515] bg-[var(--captains-primary)] text-[#151515] shadow-[inset_0_-4px_0_rgba(0,0,0,0.18)]"
+                  : "bg-white text-[#151515]/60 hover:text-[#151515]",
               )}
             >
+              {summaryMode === "tables" ? <CheckCircle2 className="h-5 w-5" /> : null}
               Por mesas
             </button>
             <button
               type="button"
               onClick={() => setSummaryMode("challenges")}
+              aria-pressed={summaryMode === "challenges"}
               className={cn(
-                "pixel-button bg-white px-3 py-3 text-xl font-bold uppercase text-[#151515]",
-                summaryMode === "challenges" && "border-[var(--captains-primary)] bg-[var(--captains-primary)]/10",
+                "pixel-button flex items-center justify-center gap-2 px-3 py-3 text-xl font-bold uppercase transition",
+                summaryMode === "challenges"
+                  ? "border-[#151515] bg-[var(--captains-primary)] text-[#151515] shadow-[inset_0_-4px_0_rgba(0,0,0,0.18)]"
+                  : "bg-white text-[#151515]/60 hover:text-[#151515]",
               )}
             >
+              {summaryMode === "challenges" ? <CheckCircle2 className="h-5 w-5" /> : null}
               Por retos
             </button>
           </div>
@@ -2183,13 +2199,21 @@ export default function CaptainsPublic() {
                   key={table.id}
                   type="button"
                   onClick={() => setSummarySelectedTableId(table.id)}
+                  aria-pressed={summarySelectedTableId === table.id}
                   className={cn(
-                    "pixel-button min-w-[136px] bg-white px-3 py-2 text-left",
-                    summarySelectedTableId === table.id && "border-[var(--captains-primary)] bg-[var(--captains-primary)]/10",
+                    "pixel-button min-w-[136px] px-3 py-2 text-left transition",
+                    summarySelectedTableId === table.id
+                      ? "border-[#151515] bg-[var(--captains-primary)] text-[#151515] shadow-[inset_0_-4px_0_rgba(0,0,0,0.18)]"
+                      : "bg-white text-[#151515]/60 hover:text-[#151515]",
                   )}
                 >
-                  <p className="truncate text-xl font-bold">{table.table_name}</p>
-                  <p className="truncate text-base text-[#151515]/65">{table.active_captain_name || table.captain_name || "Sin capitán"}</p>
+                  <p className="flex items-center gap-1 truncate text-xl font-bold">
+                    {summarySelectedTableId === table.id ? <CheckCircle2 className="h-4 w-4 shrink-0" /> : null}
+                    <span className="truncate">{table.table_name}</span>
+                  </p>
+                  <p className={cn("truncate text-base", summarySelectedTableId === table.id ? "text-[#151515]/80" : "text-[#151515]/50")}>
+                    {table.active_captain_name || table.captain_name || "Sin capitán"}
+                  </p>
                 </button>
               ))}
             </div>

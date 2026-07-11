@@ -804,13 +804,13 @@ export const CaptainsAdminList = () => {
       subtitle="Gestiona juegos de retos por mesas."
       actions={
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" className="gap-2" onClick={() => setCodeDialogOpen(true)}>
-            <KeyRound className="h-4 w-4" />
-            Generar código
-          </Button>
           <Button className="gap-2" onClick={() => navigate("/admin/capitanes/onboarding")}>
             <Plus className="h-4 w-4" />
             Nuevo Capitán
+          </Button>
+          <Button variant="outline" className="gap-2" onClick={() => setCodeDialogOpen(true)}>
+            <KeyRound className="h-4 w-4" />
+            Generar código
           </Button>
         </div>
       }
