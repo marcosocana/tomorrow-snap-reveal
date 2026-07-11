@@ -52,7 +52,7 @@ serve(async (req) => {
       if (removedChallengeIds.length) await admin.from("captains_event_challenges").delete().in("id", removedChallengeIds);
       for (let index = 0; index < body.challenges.length; index += 1) {
         const challenge = body.challenges[index] as Record<string, unknown>;
-        const row = { ...pick(challenge, ["catalog_challenge_id", "title", "description", "evidence_type", "points", "category", "difficulty", "has_time_limit", "time_limit_seconds", "question_options", "question_correct_option", "is_required"]), catalog_challenge_id: isUuid(challenge.catalog_challenge_id) ? challenge.catalog_challenge_id : null, event_id: access.event_id, order_index: index + 1 };
+        const row = { ...pick(challenge, ["catalog_challenge_id", "title", "description", "evidence_type", "points", "category", "difficulty", "has_time_limit", "time_limit_seconds", "question_options", "question_correct_option", "is_required"]), catalog_challenge_id: isUuid(challenge.catalog_challenge_id) ? challenge.catalog_challenge_id : null, is_required: typeof challenge.is_required === "boolean" ? challenge.is_required : true, event_id: access.event_id, order_index: index + 1 };
         if (isUuid(challenge.id)) await admin.from("captains_event_challenges").update(row).eq("id", challenge.id).eq("event_id", access.event_id);
         else await admin.from("captains_event_challenges").insert(row);
       }
