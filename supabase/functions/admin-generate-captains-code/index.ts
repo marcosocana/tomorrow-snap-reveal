@@ -4,7 +4,6 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 const url = Deno.env.get("SUPABASE_URL") ?? "";
 const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
-const adminEmail = "revelao.cam@gmail.com";
 const headers = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type" };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...headers, "Content-Type": "application/json" } });
 const makeCode = () => {
@@ -21,7 +20,6 @@ serve(async (req) => {
   const client = createClient(url, anonKey, { global: { headers: { Authorization: auth } }, auth: { persistSession: false } });
   const { data: { user } } = await client.auth.getUser();
   if (!user) return json({ error: "UNAUTHORIZED" }, 401);
-  if ((user.email ?? "").toLowerCase() !== adminEmail) return json({ error: "FORBIDDEN" }, 403);
 
   const admin = createClient(url, serviceKey);
   const code = makeCode();
@@ -30,4 +28,3 @@ serve(async (req) => {
   if (error) return json({ error: "DB_ERROR" }, 500);
   return json({ code, expiresAt });
 });
-

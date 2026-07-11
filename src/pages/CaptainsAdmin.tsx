@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { QRCodeSVG } from "qrcode.react";
 import {
@@ -908,7 +908,7 @@ export const CaptainsAdminList = () => {
             <div className="space-y-3 rounded-xl border bg-muted/30 p-4">
               <p className="text-center font-mono text-xl font-bold tracking-widest">{generatedCode}</p>
               <Button variant="outline" className="w-full" onClick={async () => {
-                const link = `${window.location.origin}/nuevoeventocapitanes?code=${generatedCode}`;
+                const link = `${window.location.origin}/admin/capitanes/onboarding?code=${generatedCode}`;
                 await navigator.clipboard.writeText(link);
                 toast({ title: "Enlace copiado", description: "Ya puedes compartirlo con el cliente." });
               }}>
@@ -934,7 +934,6 @@ const captainsOnboardingSteps: Array<{ id: CaptainsOnboardingStep; label: string
 
 export const CaptainsOnboarding = () => {
   const navigate = useNavigate();
-  const location = useLocation();
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
   const { data: catalog = [] } = useCaptainsChallengeCatalog();
@@ -946,45 +945,18 @@ export const CaptainsOnboarding = () => {
   }, [searchParams]);
   const [stepIndex, setStepIndex] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
-  const isAdminRoute = location.pathname.startsWith("/admin/");
-  const [adminSessionReady, setAdminSessionReady] = useState(false);
-  const [isCheckingAdminSession, setIsCheckingAdminSession] = useState(isAdminRoute);
   const [accessCode, setAccessCode] = useState(() => (searchParams.get("code") || "").trim().toUpperCase());
   const [codeValidated, setCodeValidated] = useState(false);
   const [isValidatingCode, setIsValidatingCode] = useState(false);
-  useEffect(() => {
-    if (!isAdminRoute) {
-      setIsCheckingAdminSession(false);
-      return;
-    }
-    let active = true;
-    const checkSession = async () => {
-      const { data: sessionData } = await supabase.auth.getSession();
-      let session = sessionData.session;
-      if (session) {
-        const { data: userData, error: userError } = await supabase.auth.getUser();
-        if (userError || !userData.user) {
-          const { data: refreshed } = await supabase.auth.refreshSession();
-          session = refreshed.session;
-        }
-      }
-      if (!active) return;
-      if (!session) {
-        const redirect = `${location.pathname}${location.search}`;
-        navigate(`/admin-login?redirect=${encodeURIComponent(redirect)}`, { replace: true });
-        return;
-      }
-      setAdminSessionReady(true);
-      setIsCheckingAdminSession(false);
-    };
-    checkSession();
-    return () => { active = false; };
-  }, [isAdminRoute, location.pathname, location.search, navigate]);
   const validateAccessCode = async () => {
     try {
       setIsValidatingCode(true);
       const { data, error } = await supabase.functions.invoke("redeem-captains-code", { body: { action: "validate", code: accessCode } });
       if (error || !data?.valid) throw error || new Error("INVALID_CODE");
+      if (data.mode === "existing" && data.event?.slug) {
+        navigate(`/capitanes/${data.event.slug}`);
+        return;
+      }
       setCodeValidated(true);
     } catch (error) {
       toast({ title: "Código no válido", description: "Revisa el código o solicita uno nuevo.", variant: "destructive" });
@@ -1227,15 +1199,24 @@ export const CaptainsOnboarding = () => {
 	        challenges: selectedChallenges,
 	      };
       let created;
-      if (adminSessionReady) {
-        created = await createCaptainsGame(gameInput);
-      } else {
-        const { data, error } = await supabase.functions.invoke("redeem-captains-code", {
-          body: { action: "create", code: accessCode, ...gameInput },
-        });
-        if (error || !data?.event) throw error || new Error(data?.error || "PUBLIC_CREATE_FAILED");
-        created = data;
+      const { data, error } = await supabase.functions.invoke("redeem-captains-code", {
+        body: { action: "create", code: accessCode, ...gameInput },
+      });
+      if (error) {
+        let responseBody: { error?: string; detail?: string } | null = null;
+        const response = (error as { context?: Response })?.context;
+        if (response && typeof response.clone === "function") {
+          try {
+            responseBody = await response.clone().json();
+          } catch {
+            // The function may return an empty/non-JSON response in infrastructure failures.
+          }
+        }
+        const message = responseBody?.detail || responseBody?.error || error.message || "PUBLIC_CREATE_FAILED";
+        throw Object.assign(new Error(message), { functionError: responseBody });
       }
+      if (!data?.event) throw new Error(data?.detail || data?.error || "PUBLIC_CREATE_FAILED");
+      created = data;
 	      const createdEvent = created?.event;
 	      if (createdEvent) {
 	        const publicUrl = normalizeCaptainsPublicUrl(createdEvent.public_url, createdEvent.slug);
@@ -1269,14 +1250,12 @@ export const CaptainsOnboarding = () => {
 	      navigate(`/admin/capitanes/${created?.event.id}`);
     } catch (error) {
       console.error("Error creating captains onboarding game:", error);
-      const status = Number((error as { status?: number })?.status || 0);
-      if (status === 401 || (error as { code?: string })?.code === "PGRST301") {
-        toast({ title: "Sesión caducada", description: "Vuelve a iniciar sesión para crear el evento.", variant: "destructive" });
-        const redirect = `${location.pathname}${location.search}`;
-        navigate(`/admin-login?redirect=${encodeURIComponent(redirect)}`, { replace: true });
-      } else {
-        toast({ title: "Error", description: "No hemos podido crear el juego.", variant: "destructive" });
-      }
+      const detail = error instanceof Error ? error.message : "Error desconocido";
+      toast({
+        title: "No hemos podido crear el juego",
+        description: detail === "PUBLIC_CREATE_FAILED" ? "Comprueba que el código siga siendo válido." : detail,
+        variant: "destructive",
+      });
     } finally {
       setIsSaving(false);
     }
@@ -1544,11 +1523,7 @@ export const CaptainsOnboarding = () => {
     }
   };
 
-  if (isCheckingAdminSession) {
-    return <main className="flex min-h-screen items-center justify-center bg-muted/30 text-sm text-muted-foreground">Comprobando sesión...</main>;
-  }
-
-  if (!adminSessionReady && !codeValidated) {
+  if (!codeValidated) {
     return (
       <main className="min-h-screen bg-muted/30 px-4 py-10 sm:py-16">
         <Card className="mx-auto max-w-md rounded-3xl p-6 shadow-sm sm:p-8">
