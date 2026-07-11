@@ -95,6 +95,7 @@ serve(async (req) => {
   const challengeRows = body.challenges.map((challenge: Record<string, unknown>, index: number) => ({
     ...pick(challenge, ["catalog_challenge_id", "title", "description", "evidence_type", "points", "category", "difficulty", "has_time_limit", "time_limit_seconds", "question_options", "question_correct_option", "is_required"]),
     catalog_challenge_id: isUuid(challenge.catalog_challenge_id) ? challenge.catalog_challenge_id : null,
+    is_required: typeof challenge.is_required === "boolean" ? challenge.is_required : true,
     event_id: event.id,
     order_index: index + 1,
   }));
