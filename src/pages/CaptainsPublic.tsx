@@ -778,7 +778,7 @@ const GameButton = ({ className, ...props }: React.ComponentProps<typeof Button>
   <Button
     {...props}
     className={cn(
-      "pixel-button min-h-14 w-full rounded-none bg-[var(--captains-primary)] px-5 py-4 text-2xl font-bold uppercase text-[#151515] hover:bg-[var(--captains-primary)] hover:brightness-105",
+      "pixel-button min-h-14 w-full rounded-none bg-[var(--captains-primary)] px-5 py-4 text-2xl font-bold text-[#151515] hover:bg-[var(--captains-primary)] hover:brightness-105",
       className,
     )}
   />
@@ -789,7 +789,7 @@ const SecondaryButton = ({ className, ...props }: React.ComponentProps<typeof Bu
     {...props}
     variant="outline"
     className={cn(
-      "pixel-button min-h-14 w-full rounded-none bg-white px-5 py-4 text-2xl font-bold uppercase text-[#151515] hover:bg-neutral-100 hover:text-[#151515]",
+      "pixel-button min-h-14 w-full rounded-none bg-white px-5 py-4 text-2xl font-bold text-[#151515] hover:bg-neutral-100 hover:text-[#151515]",
       className,
     )}
   />
@@ -867,8 +867,12 @@ const PixelTableMap = ({
             <div className="absolute right-2 top-2 bg-[#151515] px-2 py-1 text-sm font-bold text-white">
               #{table.table_number}
             </div>
-            <div className="relative mt-5 border-3 border-[#151515] bg-white">
-              <img src={getCaptainPhotoUrl(table)} alt="" loading="lazy" className="h-28 w-full object-cover" />
+            <div className={cn("relative mt-5 bg-white", table.captain_photo_url && "border-3 border-[#151515]")}>
+              {table.captain_photo_url ? (
+                <img src={table.captain_photo_url} alt="" loading="lazy" className="h-28 w-full object-cover" />
+              ) : (
+                <div className="h-16 w-full" aria-hidden="true" />
+              )}
               <div className="absolute -bottom-3 right-2 px-1">
                 <PixelCaptainSprite table={table} active={active} size="sm" />
               </div>
@@ -925,6 +929,50 @@ const LoadingScreen = () => (
   </CaptainsShell>
 );
 
+const useVideoPoster = (url: string) => {
+  const [poster, setPoster] = useState("");
+  useEffect(() => {
+    if (!url || url.startsWith("data:image")) {
+      setPoster("");
+      return;
+    }
+    let cancelled = false;
+    const video = document.createElement("video");
+    video.crossOrigin = "anonymous";
+    video.preload = "auto";
+    video.muted = true;
+    video.playsInline = true;
+    const capture = () => {
+      if (cancelled || !video.videoWidth || !video.videoHeight) return;
+      const canvas = document.createElement("canvas");
+      const scale = Math.min(1, 720 / video.videoWidth);
+      canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
+      canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
+      const context = canvas.getContext("2d");
+      if (!context) return;
+      try {
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        if (!cancelled) setPoster(canvas.toDataURL("image/jpeg", 0.78));
+      } catch {
+        if (!cancelled) setPoster("");
+      }
+    };
+    video.addEventListener("loadeddata", capture, { once: true });
+    video.addEventListener("loadedmetadata", () => {
+      try { video.currentTime = Math.min(0.1, Math.max(0, video.duration / 2)); } catch { /* Safari can delay seeking. */ }
+    }, { once: true });
+    video.addEventListener("seeked", capture, { once: true });
+    video.src = url;
+    video.load();
+    return () => {
+      cancelled = true;
+      video.removeAttribute("src");
+      video.load();
+    };
+  }, [url]);
+  return poster;
+};
+
 const SignedEvidenceMedia = ({
   evidence,
   onPhotoOpen,
@@ -933,6 +981,7 @@ const SignedEvidenceMedia = ({
   onPhotoOpen?: (url: string) => void;
 }) => {
   const [url, setUrl] = useState("");
+  const videoPoster = useVideoPoster(evidence.evidence_type === "video" ? url : "");
 
   useEffect(() => {
     let active = true;
@@ -972,7 +1021,7 @@ const SignedEvidenceMedia = ({
     if (url.startsWith("data:image")) {
       return <img src={url} alt="" loading="lazy" className="aspect-[4/3] w-full rounded-[8px] object-cover" />;
     }
-    return <video src={url} controls preload="metadata" className="aspect-[4/3] w-full rounded-[8px] bg-black object-cover" />;
+    return <video src={url} poster={videoPoster || undefined} controls playsInline preload="auto" className="aspect-[4/3] w-full rounded-[8px] bg-black object-cover" />;
   }
 
   return null;
@@ -980,6 +1029,7 @@ const SignedEvidenceMedia = ({
 
 const SummaryFullScreenEvidence = ({ evidence }: { evidence?: CaptainsEvidence }) => {
   const [url, setUrl] = useState("");
+  const videoPoster = useVideoPoster(evidence?.evidence_type === "video" ? url : "");
 
   useEffect(() => {
     let active = true;
@@ -1014,7 +1064,7 @@ const SummaryFullScreenEvidence = ({ evidence }: { evidence?: CaptainsEvidence }
   }
 
   if (evidence.evidence_type === "video" && !url.startsWith("data:image")) {
-    return <video src={url} controls playsInline preload="metadata" className="absolute inset-0 h-full w-full bg-black object-cover" />;
+    return <video src={url} poster={videoPoster || undefined} controls playsInline preload="auto" className="absolute inset-0 h-full w-full bg-black object-cover" />;
   }
 
   return <img src={url} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />;
@@ -2321,7 +2371,7 @@ export default function CaptainsPublic() {
             {activeSummaryItem ? (
               <>
                 <SummaryFullScreenEvidence evidence={activeSummaryItem.evidence} />
-                <div className="absolute inset-x-0 top-0 bg-gradient-to-b from-black/70 to-transparent p-4 text-white">
+                <div className="absolute inset-x-0 top-0 bg-gradient-to-b from-black/70 to-transparent p-4 !text-white [&_h2]:!text-white [&_p]:!text-white [&_span]:!text-white">
                   <p className="text-base font-bold uppercase text-white/80">
                     {summaryMode === "tables" ? summarySelectedTable?.table_name || "Mesa" : `Reto ${Math.max(challenges.findIndex((challenge) => challenge.id === summarySelectedChallengeId) + 1, 1)}`}
                   </p>
@@ -2329,7 +2379,7 @@ export default function CaptainsPublic() {
                     {summaryMode === "tables" ? activeSummaryItem.challenge?.title : summarySelectedChallenge?.title}
                   </h2>
                 </div>
-                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-4 text-white">
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-4 !text-white [&_h2]:!text-white [&_p]:!text-white [&_span]:!text-white">
                   <div className="flex items-end justify-between gap-3">
                     <div className="min-w-0">
                       <p className="truncate text-2xl font-bold text-white">{activeSummaryItem.table?.table_name || "Mesa"}</p>
