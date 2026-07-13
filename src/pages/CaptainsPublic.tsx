@@ -89,6 +89,18 @@ const sessionKey = (slug: string) => `captains-session:${slug}`;
 const demoRowsKey = (slug: string, tableId: string) => `captains-demo-rows:${slug}:${tableId}`;
 const demoEvidenceKey = (slug: string) => `captains-demo-evidence:${slug}`;
 
+const resetDemoGameStorage = (slug: string) => {
+  const rowsPrefix = `captains-demo-rows:${slug}:`;
+  const keysToRemove = [sessionKey(slug), demoEvidenceKey(slug)];
+
+  for (let index = 0; index < localStorage.length; index += 1) {
+    const key = localStorage.key(index);
+    if (key?.startsWith(rowsPrefix)) keysToRemove.push(key);
+  }
+
+  keysToRemove.forEach((key) => localStorage.removeItem(key));
+};
+
 const nowIso = () => new Date().toISOString();
 
 const demoEventDetail: CaptainsEventDetail = {
@@ -330,6 +342,25 @@ const demoEventDetail: CaptainsEventDetail = {
       question_options: null,
       question_correct_option: null,
       order_index: 4,
+      is_required: true,
+      created_at: nowIso(),
+      updated_at: nowIso(),
+    },
+    {
+      id: "demo-challenge-5",
+      event_id: "demo-event-capitanes",
+      catalog_challenge_id: null,
+      title: "Coreografía exprés",
+      description: "Grabad un vídeo corto con toda la mesa haciendo vuestra mejor coreografía.",
+      evidence_type: "video",
+      points: 20,
+      category: "Fiesta",
+      difficulty: "medium",
+      has_time_limit: true,
+      time_limit_seconds: 90,
+      question_options: null,
+      question_correct_option: null,
+      order_index: 5,
       is_required: true,
       created_at: nowIso(),
       updated_at: nowIso(),
@@ -624,7 +655,14 @@ const useIsMobileCaptainDevice = () => {
 const normalizeCaptainsThemeStyle = (value?: string | null): CaptainsThemeStyle =>
   value === "romantic" || value === "modern" || value === "classic" ? value : "pixel";
 
-const CaptainsShell = ({ children, themeStyle = "pixel" }: { children: React.ReactNode; themeStyle?: CaptainsThemeStyle }) => (
+const CaptainsShell = ({ children, themeStyle = "pixel" }: { children: React.ReactNode; themeStyle?: CaptainsThemeStyle }) => {
+  const demoRootPath = `/capitanes/${DEMO_SLUG}`;
+  const currentPath = window.location.pathname.replace(/\/$/, "");
+  const isDemoPath = currentPath === demoRootPath || currentPath.startsWith(`${demoRootPath}/`);
+  const isEmbeddedDemo = new URLSearchParams(window.location.search).get("embed") === "1" || window.self !== window.top;
+  const showDemoBanner = isDemoPath && !isEmbeddedDemo;
+
+  return (
   <main className={cn("captains-public min-h-[var(--app-height,100svh)] bg-white text-[#151515]", `captains-theme-${themeStyle}`)}>
     <style>{`
       @import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=Dancing+Script:wght@700&family=Inter:wght@500;700;900&family=Lora:wght@500;700&family=Playfair+Display:wght@700;900&family=Press+Start+2P&family=VT323&display=swap');
@@ -755,12 +793,25 @@ const CaptainsShell = ({ children, themeStyle = "pixel" }: { children: React.Rea
       style={{ backgroundImage: "var(--captains-background-image)", backgroundColor: "#ffffff" }}
     />
     <div className="fixed inset-0 opacity-100 [background-image:linear-gradient(90deg,rgba(21,21,21,var(--captains-grid-opacity))_1px,transparent_1px),linear-gradient(rgba(21,21,21,var(--captains-grid-opacity))_1px,transparent_1px)] [background-size:20px_20px]" />
-    <div className="fixed inset-x-0 top-0 h-2 bg-[var(--captains-primary)]" />
-    <div className="relative mx-auto flex min-h-[var(--app-height,100svh)] w-full max-w-[430px] flex-col px-4 py-5">
+    {showDemoBanner ? (
+      <a
+        href="https://revelao.cam/capitanes"
+        className="fixed inset-x-0 top-0 z-50 flex min-h-16 items-center justify-center border-b-[3px] border-[#151515] bg-[#f4d35e] px-4 py-3 text-center text-base font-bold leading-5 text-[#151515] underline underline-offset-2 sm:text-lg"
+      >
+        Esto es una demo. Click aqui para volver a la web de Capitanes
+      </a>
+    ) : (
+      <div className="fixed inset-x-0 top-0 h-2 bg-[var(--captains-primary)]" />
+    )}
+    <div className={cn(
+      "relative mx-auto flex min-h-[var(--app-height,100svh)] w-full max-w-[430px] flex-col px-4 pb-5",
+      showDemoBanner ? "pt-24" : "pt-5",
+    )}>
       {children}
     </div>
   </main>
-);
+  );
+};
 
 const GameCard = ({ children, className, ...props }: React.ComponentProps<"section">) => (
   <section
@@ -1130,6 +1181,22 @@ export default function CaptainsPublic() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
+    if (!isDemo || step !== "home" || !eventSlug) return;
+    resetDemoGameStorage(eventSlug);
+    setSession(null);
+    setSelectedTableId("");
+    setCaptainNameInput("");
+    setTableChallenges([]);
+    setRanking([]);
+    setPhase("intro");
+    setEvidenceFile(null);
+    setEvidencePreview("");
+    setSelectedQuestionOption("");
+    setLiveEvidence([]);
+    setLiveRows([]);
+  }, [eventSlug, isDemo, step]);
+
+  useEffect(() => {
     const root = document.documentElement;
     root.style.setProperty(
       "--captains-primary",
@@ -1150,6 +1217,7 @@ export default function CaptainsPublic() {
 
   useEffect(() => {
     if (!eventSlug) return;
+    if (isDemo && step === "home") return;
     const raw = localStorage.getItem(sessionKey(eventSlug));
     if (!raw) return;
     try {
@@ -1157,7 +1225,7 @@ export default function CaptainsPublic() {
     } catch {
       localStorage.removeItem(sessionKey(eventSlug));
     }
-  }, [eventSlug]);
+  }, [eventSlug, isDemo, step]);
 
   const selectedTable = useMemo(
     () => tables.find((table) => table.id === selectedTableId) || null,
