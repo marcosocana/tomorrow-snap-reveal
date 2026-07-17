@@ -937,7 +937,7 @@ const PixelTableMap = ({
                 <PixelCaptainSprite table={table} active={active} size="sm" />
               )}
             </div>
-            <p className="mt-5 truncate text-2xl font-bold leading-none">{table.table_name}</p>
+            <p className="mt-3 break-words text-xl font-bold leading-tight">{table.table_name}</p>
             <p className="truncate text-base font-bold text-[#151515]/65">
               {table.captain_name || table.active_captain_name || "Sin capitán"}
             </p>
