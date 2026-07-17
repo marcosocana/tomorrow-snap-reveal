@@ -370,7 +370,7 @@ export const updateCaptainsTable = async (
 export const resetCaptainsTableLastActivity = async (tableId: string) => {
   const { data, error } = await db
     .from("captains_tables")
-    .update({ last_activity_at: null })
+    .update({ last_activity_at: null, claimed_at: null, claim_device_hash: null })
     .eq("id", tableId)
     .select("*")
     .single();
@@ -537,9 +537,13 @@ export const saveCaptainForTable = async (tableId: string, captainName: string) 
   } as CaptainsTable;
 };
 
-export const selectCaptainsTableSession = async (tableId: string, captainName: string) => {
+export const selectCaptainsTableSession = async (
+  tableId: string,
+  captainName: string,
+  previousSession?: { table_id: string; session_token: string } | null,
+) => {
   const cleanName = captainName.trim();
-  const claimDeviceKey = `captains-claim-device:${tableId}`;
+  const claimDeviceKey = "captains-claim-device";
   let deviceId = typeof localStorage === "undefined" ? "" : localStorage.getItem(claimDeviceKey) || "";
   if (!deviceId) {
     deviceId = typeof crypto.randomUUID === "function"
@@ -560,13 +564,23 @@ export const selectCaptainsTableSession = async (tableId: string, captainName: s
           language: navigator.language,
         };
 
-  const { data, error } = await db.rpc("claim_captains_table", {
-    p_table_id: tableId,
-    p_captain_name: cleanName,
-    p_device_id: deviceId,
-    p_user_agent: userAgent,
-    p_device_info: deviceInfo,
-  });
+  const isSwitching = Boolean(previousSession && previousSession.table_id !== tableId);
+  const { data, error } = await db.rpc(
+    isSwitching ? "switch_captains_table_claim" : "claim_captains_table",
+    {
+      p_table_id: tableId,
+      p_captain_name: cleanName,
+      p_device_id: deviceId,
+      p_user_agent: userAgent,
+      p_device_info: deviceInfo,
+      ...(isSwitching
+        ? {
+            p_previous_table_id: previousSession?.table_id,
+            p_previous_session_token: previousSession?.session_token,
+          }
+        : {}),
+    },
+  );
   if (error?.message?.includes("CAPTAINS_TABLE_ALREADY_CLAIMED")) {
     throw new Error("CAPTAINS_TABLE_ALREADY_CLAIMED");
   }

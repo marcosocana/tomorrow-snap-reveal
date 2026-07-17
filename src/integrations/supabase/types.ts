@@ -1127,6 +1127,18 @@ export type Database = {
         }
         Returns: Json
       }
+      switch_captains_table_claim: {
+        Args: {
+          p_captain_name: string
+          p_device_id: string
+          p_device_info?: Json
+          p_previous_session_token: string
+          p_previous_table_id: string
+          p_table_id: string
+          p_user_agent?: string
+        }
+        Returns: Json
+      }
     }
     Enums: {
       [_ in never]: never

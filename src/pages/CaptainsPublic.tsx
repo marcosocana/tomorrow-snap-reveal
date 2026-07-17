@@ -893,14 +893,12 @@ const PixelTableMap = ({
   tables,
   selectedTableId,
   occupiedTableIds,
-  lockedTableId,
   busyTableId,
   onSelect,
 }: {
   tables: CaptainsTable[];
   selectedTableId?: string;
   occupiedTableIds: Set<string>;
-  lockedTableId?: string;
   busyTableId?: string;
   onSelect: (tableId: string) => void;
 }) => (
@@ -913,19 +911,17 @@ const PixelTableMap = ({
       {tables.map((table) => {
         const active = selectedTableId === table.id;
         const occupied = occupiedTableIds.has(table.id);
-        const locked = Boolean(lockedTableId && lockedTableId !== table.id);
         const reserving = busyTableId === table.id;
         return (
           <button
             key={table.id}
             type="button"
-            disabled={occupied || locked || Boolean(busyTableId)}
+            disabled={occupied || Boolean(busyTableId)}
             onClick={() => onSelect(table.id)}
             className={cn(
               "pixel-button relative min-h-[154px] bg-white p-3 text-left transition",
               active && "border-[#151515] bg-[var(--captains-primary)] shadow-[inset_0_-4px_0_rgba(0,0,0,0.18)]",
               occupied && "cursor-not-allowed border-[#151515]/35 bg-neutral-200 opacity-55 grayscale",
-              locked && "cursor-not-allowed opacity-55",
             )}
             aria-pressed={active}
             aria-label={`${table.table_name}${occupied ? ", no disponible, jugando" : ""}`}
@@ -1283,7 +1279,7 @@ export default function CaptainsPublic() {
     [selectedTableId, tables],
   );
   const occupiedTableIds = useMemo(
-    () => new Set(tables.filter((table) => Boolean(table.claimed_at) && table.id !== session?.table_id).map((table) => table.id)),
+    () => new Set(tables.filter((table) => Boolean(table.last_activity_at) && table.id !== session?.table_id).map((table) => table.id)),
     [session?.table_id, tables],
   );
 
@@ -1576,7 +1572,7 @@ export default function CaptainsPublic() {
     : 0;
 
   const handleTableSelect = async (tableId: string) => {
-    if (occupiedTableIds.has(tableId) || busyTableId || (session && session.table_id !== tableId)) return;
+    if (occupiedTableIds.has(tableId) || busyTableId) return;
     setSelectionError("");
     setSelectedTableId(tableId);
     const table = tables.find((item) => item.id === tableId);
@@ -1586,7 +1582,7 @@ export default function CaptainsPublic() {
     const cleanName = (table.captain_name || table.active_captain_name || `Capitán ${table.table_name}`).trim();
     setBusyTableId(tableId);
     try {
-      const access = await selectCaptainsTableSession(table.id, cleanName);
+      const access = await selectCaptainsTableSession(table.id, cleanName, session);
       const nextSession: CaptainSession = {
         table_id: access.table.id,
         table_name: access.table.table_name,
@@ -1649,7 +1645,7 @@ export default function CaptainsPublic() {
       }
 
       if (session?.table_id !== selectedTable.id) {
-        const access = await selectCaptainsTableSession(selectedTable.id, cleanName);
+        const access = await selectCaptainsTableSession(selectedTable.id, cleanName, session);
         const nextSession: CaptainSession = {
           table_id: access.table.id,
           table_name: access.table.table_name,
@@ -2117,7 +2113,6 @@ export default function CaptainsPublic() {
               tables={tables}
               selectedTableId={selectedTableId}
               occupiedTableIds={occupiedTableIds}
-              lockedTableId={isDemo ? undefined : session?.table_id}
               busyTableId={busyTableId}
               onSelect={handleTableSelect}
             />
