@@ -1127,14 +1127,6 @@ export type Database = {
         }
         Returns: Json
       }
-      get_admin_database_usage: {
-        Args: Record<PropertyKey, never>
-        Returns: {
-          database_bytes: number
-          database_pretty: string
-          measured_at: string
-        }[]
-      }
     }
     Enums: {
       [_ in never]: never
