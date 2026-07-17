@@ -39,6 +39,29 @@ const ensureNoError = (error: unknown) => {
   if (error) throw error;
 };
 
+const getCaptainsEvidenceStoragePath = (value?: string | null) => {
+  const rawValue = value?.trim();
+  if (!rawValue) return null;
+  const bucketPrefix = `${CAPTAINS_EVIDENCE_BUCKET}/`;
+
+  if (!/^https?:\/\//i.test(rawValue)) {
+    return rawValue.replace(/^\/+/, "").replace(new RegExp(`^${bucketPrefix}`), "");
+  }
+
+  try {
+    const pathname = decodeURIComponent(new URL(rawValue).pathname);
+    const markers = [
+      `/storage/v1/object/public/${bucketPrefix}`,
+      `/storage/v1/object/sign/${bucketPrefix}`,
+      `/storage/v1/object/${bucketPrefix}`,
+    ];
+    const marker = markers.find((candidate) => pathname.includes(candidate));
+    return marker ? pathname.slice(pathname.indexOf(marker) + marker.length) : null;
+  } catch {
+    return null;
+  }
+};
+
 const captainThemeColumns = [
   "primary_color",
   "secondary_color",
@@ -888,6 +911,7 @@ export const getCaptainsEvidence = async (eventId: string, status?: CaptainsEvid
     .eq("event_id", eventId)
     .order("created_at", { ascending: false });
   if (status) query = query.eq("status", status);
+  else query = query.neq("status", "deleted");
 
   const { data, error } = await query;
   ensureNoError(error);
@@ -899,6 +923,7 @@ export const getCaptainsEvidenceIndex = async (eventId: string) => {
     .from("captains_evidence")
     .select("id,table_id,table_challenge_id,evidence_type,file_url,status,created_at")
     .eq("event_id", eventId)
+    .neq("status", "deleted")
     .order("created_at", { ascending: false });
   ensureNoError(error);
   return (data || []) as CaptainsEvidenceIndexItem[];
@@ -912,6 +937,7 @@ export const getCaptainsEvidenceGroup = async (
     .from("captains_evidence")
     .select("*")
     .eq("event_id", eventId)
+    .neq("status", "deleted")
     .order("created_at", { ascending: false });
 
   if (filter.tableId) {
@@ -1217,24 +1243,31 @@ export const rejectCaptainsEvidence = async (evidenceId: string, adminComment?: 
 };
 
 export const deleteCaptainsEvidence = async (evidenceId: string) => {
-  const deletedAt = new Date().toISOString();
   const { data, error } = await db
     .from("captains_evidence")
-    .update({
-      status: "deleted",
-      points_awarded: 0,
-      deleted_at: deletedAt,
-    })
-    .eq("id", evidenceId)
     .select("*")
+    .eq("id", evidenceId)
     .single();
   ensureNoError(error);
 
   const evidence = data as CaptainsEvidence;
-  await db
+  const storagePaths = [...new Set([
+    getCaptainsEvidenceStoragePath(evidence.file_url),
+    getCaptainsEvidenceStoragePath(evidence.thumbnail_url),
+  ].filter((path): path is string => Boolean(path)))];
+  if (storagePaths.length > 0) {
+    const { error: storageError } = await supabase.storage.from(CAPTAINS_EVIDENCE_BUCKET).remove(storagePaths);
+    ensureNoError(storageError);
+  }
+
+  const { error: deleteError } = await db.from("captains_evidence").delete().eq("id", evidenceId);
+  ensureNoError(deleteError);
+
+  const { error: challengeError } = await db
     .from("captains_table_challenges")
     .update({ status: "deleted", points_awarded: 0 })
     .eq("id", evidence.table_challenge_id);
+  ensureNoError(challengeError);
   await recalculateCaptainsTableScore(evidence.table_id);
 
   return evidence;

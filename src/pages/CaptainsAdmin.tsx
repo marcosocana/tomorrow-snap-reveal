@@ -318,6 +318,15 @@ const statusLabels: Record<string, string> = {
   approved: "Aprobado",
 };
 
+const finishedTableChallengeStatuses = new Set<CaptainsTableChallenge["status"]>([
+  "completed",
+  "failed",
+  "time_expired",
+  "pending_review",
+  "rejected",
+  "deleted",
+]);
+
 const evidenceLabels: Record<CaptainsEvidenceType, string> = {
   photo: "Foto",
   video: "Vídeo",
@@ -3304,11 +3313,20 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
   };
 
   const deleteEvidenceFromCard = async (item: CaptainsEvidence) => {
-    const confirmed = window.confirm("¿Seguro que quieres eliminar esta evidencia? Se restarán sus puntos y se actualizará el ranking.");
+    const confirmed = window.confirm("¿Seguro que quieres eliminar esta evidencia definitivamente? Se borrará también de Storage y se actualizará el ranking.");
     if (!confirmed) return;
     try {
       await deleteCaptainsEvidence(item.id);
-      toast({ title: "Evidencia eliminada", description: "El ranking se ha actualizado correctamente." });
+      queryClient.setQueryData(["captains", "evidence-index", eventId], (current: Array<{ id: string }> | undefined) =>
+        current?.filter((evidence) => evidence.id !== item.id),
+      );
+      queryClient.setQueriesData(
+        { queryKey: ["captains", "evidence-group", eventId] },
+        (current: Array<{ id: string }> | undefined) => current?.filter((evidence) => evidence.id !== item.id),
+      );
+      if (selectedEvidence?.id === item.id) setSelectedEvidence(null);
+      if (editingEvidence?.id === item.id) setEditingEvidence(null);
+      toast({ title: "Evidencia eliminada", description: "Se ha borrado del contenido, de Storage y del ranking." });
       refreshAll();
     } catch (error) {
       console.error("Error deleting captains evidence:", error);
@@ -4149,7 +4167,8 @@ const RankingCard = ({
         <tbody>
           {ranking.map((table: any, index) => {
             const rows = tableChallengesByTable.get(table.id) || [];
-            const pending = Math.max(0, totalChallenges - rows.filter((row) => row.status !== "pending").length);
+            const finished = rows.filter((row) => finishedTableChallengeStatuses.has(row.status)).length;
+            const pending = Math.max(0, totalChallenges - finished);
             return (
               <tr key={table.id} className="bg-card shadow-sm">
                 <td className="rounded-l-xl border-y border-l border-border px-3 py-4 font-semibold">#{table.rank || index + 1}</td>
