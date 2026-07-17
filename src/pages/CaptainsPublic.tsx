@@ -27,6 +27,7 @@ import type {
   CaptainsThemeStyle,
 } from "@/lib/captainsTypes";
 import { useCaptainsEventDetail } from "@/hooks/useCaptains";
+import { supabase } from "@/integrations/supabase/client";
 import { calculateCaptainsAutomaticScore, getCaptainsPublicUrl, normalizeCaptainsPublicUrl, shuffleCaptainsItems } from "@/lib/captainsUtils";
 import { cn } from "@/lib/utils";
 import {
@@ -891,10 +892,16 @@ const getCaptainPhotoUrl = (table: CaptainsTable) => {
 const PixelTableMap = ({
   tables,
   selectedTableId,
+  occupiedTableIds,
+  lockedTableId,
+  busyTableId,
   onSelect,
 }: {
   tables: CaptainsTable[];
   selectedTableId?: string;
+  occupiedTableIds: Set<string>;
+  lockedTableId?: string;
+  busyTableId?: string;
   onSelect: (tableId: string) => void;
 }) => (
   <div className="pixel-panel pixel-map p-3 text-[#151515]">
@@ -905,17 +912,34 @@ const PixelTableMap = ({
     <div className="grid grid-cols-2 gap-3">
       {tables.map((table) => {
         const active = selectedTableId === table.id;
+        const occupied = occupiedTableIds.has(table.id);
+        const locked = Boolean(lockedTableId && lockedTableId !== table.id);
+        const reserving = busyTableId === table.id;
         return (
           <button
             key={table.id}
             type="button"
+            disabled={occupied || locked || Boolean(busyTableId)}
             onClick={() => onSelect(table.id)}
             className={cn(
               "pixel-button relative min-h-[154px] bg-white p-3 text-left transition",
               active && "border-[#151515] bg-[var(--captains-primary)] shadow-[inset_0_-4px_0_rgba(0,0,0,0.18)]",
+              occupied && "cursor-not-allowed border-[#151515]/35 bg-neutral-200 opacity-55 grayscale",
+              locked && "cursor-not-allowed opacity-55",
             )}
             aria-pressed={active}
+            aria-label={`${table.table_name}${occupied ? ", no disponible, jugando" : ""}`}
           >
+            {occupied && (
+              <div className="absolute inset-x-2 top-2 z-10 bg-[#151515] px-2 py-1 text-center text-sm font-bold uppercase text-white">
+                No disponible - Jugando...
+              </div>
+            )}
+            {reserving && (
+              <div className="absolute inset-x-2 top-2 z-10 flex items-center justify-center gap-2 bg-[#151515] px-2 py-1 text-center text-sm font-bold uppercase text-white">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Reservando
+              </div>
+            )}
             <div className="absolute right-2 top-2 bg-[#151515] px-2 py-1 text-sm font-bold text-white">
               #{table.table_number}
             </div>
@@ -1136,6 +1160,7 @@ export default function CaptainsPublic() {
   const mobile = useIsMobileCaptainDevice();
   const isDemo = eventSlug === DEMO_SLUG;
   const eventQuery = useCaptainsEventDetail(isDemo ? null : eventSlug);
+  const refetchEvent = eventQuery.refetch;
   const detail = isDemo ? demoEventDetail : eventQuery.data;
   const event = detail?.event;
   const eventEnded = Boolean(
@@ -1145,11 +1170,13 @@ export default function CaptainsPublic() {
     ),
   );
   const themeStyle = normalizeCaptainsThemeStyle(event?.theme_style);
-  const tables = detail?.tables || [];
-  const challenges = detail?.challenges || [];
+  const tables = useMemo(() => detail?.tables || [], [detail?.tables]);
+  const challenges = useMemo(() => detail?.challenges || [], [detail?.challenges]);
   const [session, setSession] = useState<CaptainSession | null>(null);
   const [selectedTableId, setSelectedTableId] = useState("");
   const [captainNameInput, setCaptainNameInput] = useState("");
+  const [selectionError, setSelectionError] = useState("");
+  const [busyTableId, setBusyTableId] = useState("");
   const [busy, setBusy] = useState(false);
   const [tableChallenges, setTableChallenges] = useState<CaptainsTableChallenge[]>([]);
   const [ranking, setRanking] = useState<CaptainsRankingItem[]>([]);
@@ -1227,10 +1254,50 @@ export default function CaptainsPublic() {
     }
   }, [eventSlug, isDemo, step]);
 
+  useEffect(() => {
+    if (isDemo || step !== "start" || !event?.id) return;
+
+    const channel = supabase
+      .channel(`captains-table-claims:${event.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "captains_tables",
+          filter: `event_id=eq.${event.id}`,
+        },
+        () => {
+          void refetchEvent();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [event?.id, isDemo, refetchEvent, step]);
+
   const selectedTable = useMemo(
     () => tables.find((table) => table.id === selectedTableId) || null,
     [selectedTableId, tables],
   );
+  const occupiedTableIds = useMemo(
+    () => new Set(tables.filter((table) => Boolean(table.claimed_at) && table.id !== session?.table_id).map((table) => table.id)),
+    [session?.table_id, tables],
+  );
+
+  useEffect(() => {
+    if (!selectedTableId || !occupiedTableIds.has(selectedTableId)) return;
+    setSelectedTableId("");
+    setCaptainNameInput("");
+    setSelectionError("Otra persona acaba de elegir esa mesa. Selecciona una de las que siguen disponibles.");
+  }, [occupiedTableIds, selectedTableId]);
+
+  useEffect(() => {
+    if (step !== "start" || isDemo || !session?.table_id || selectedTableId) return;
+    if (tables.some((table) => table.id === session.table_id)) setSelectedTableId(session.table_id);
+  }, [isDemo, selectedTableId, session?.table_id, step, tables]);
   const currentTable = useMemo(
     () => tables.find((table) => table.id === session?.table_id) || null,
     [session?.table_id, tables],
@@ -1359,7 +1426,7 @@ export default function CaptainsPublic() {
     const [rows, rank] = await Promise.all([
       generateRandomChallengeOrderForTable(event.id, session.table_id),
       getCaptainsRanking(event.id),
-      eventQuery.refetch(),
+      refetchEvent(),
     ]);
     setTableChallenges(rows);
     setRanking(rank);
@@ -1508,10 +1575,43 @@ export default function CaptainsPublic() {
     ? Math.max(0, Math.ceil((new Date(event.start_time).getTime() - Date.now()) / 60000))
     : 0;
 
-  const handleTableSelect = (tableId: string) => {
+  const handleTableSelect = async (tableId: string) => {
+    if (occupiedTableIds.has(tableId) || busyTableId || (session && session.table_id !== tableId)) return;
+    setSelectionError("");
     setSelectedTableId(tableId);
     const table = tables.find((item) => item.id === tableId);
     setCaptainNameInput(table?.captain_name || "");
+    if (isDemo || !table || session?.table_id === tableId) return;
+
+    const cleanName = (table.captain_name || table.active_captain_name || `Capitán ${table.table_name}`).trim();
+    setBusyTableId(tableId);
+    try {
+      const access = await selectCaptainsTableSession(table.id, cleanName);
+      const nextSession: CaptainSession = {
+        table_id: access.table.id,
+        table_name: access.table.table_name,
+        captain_name: cleanName,
+        session_token: access.table.session_token,
+        selected_at: access.selected_at,
+        user_agent: access.user_agent,
+        device_info: access.device_info,
+      };
+      localStorage.setItem(sessionKey(eventSlug), JSON.stringify(nextSession));
+      setSession(nextSession);
+      await refetchEvent();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setSelectionError(
+        message.includes("CAPTAINS_TABLE_ALREADY_CLAIMED")
+          ? "Esa mesa acaba de ser elegida por otra persona. Selecciona otra disponible."
+          : "No hemos podido reservar la mesa. Comprueba la conexión e inténtalo de nuevo.",
+      );
+      setSelectedTableId("");
+      setCaptainNameInput("");
+      await refetchEvent();
+    } finally {
+      setBusyTableId("");
+    }
   };
 
   const enterGame = async () => {
@@ -1523,6 +1623,7 @@ export default function CaptainsPublic() {
       `Capitán ${selectedTable.table_name}`
     ).trim();
     setBusy(true);
+    setSelectionError("");
     try {
       if (isDemo) {
         const nextSession: CaptainSession = {
@@ -1547,20 +1648,32 @@ export default function CaptainsPublic() {
         return;
       }
 
-      const access = await selectCaptainsTableSession(selectedTable.id, cleanName);
-      const nextSession: CaptainSession = {
-        table_id: access.table.id,
-        table_name: access.table.table_name,
-        captain_name: cleanName,
-        session_token: access.table.session_token,
-        selected_at: access.selected_at,
-        user_agent: access.user_agent,
-        device_info: access.device_info,
-      };
-      localStorage.setItem(sessionKey(eventSlug), JSON.stringify(nextSession));
-      setSession(nextSession);
+      if (session?.table_id !== selectedTable.id) {
+        const access = await selectCaptainsTableSession(selectedTable.id, cleanName);
+        const nextSession: CaptainSession = {
+          table_id: access.table.id,
+          table_name: access.table.table_name,
+          captain_name: cleanName,
+          session_token: access.table.session_token,
+          selected_at: access.selected_at,
+          user_agent: access.user_agent,
+          device_info: access.device_info,
+        };
+        localStorage.setItem(sessionKey(eventSlug), JSON.stringify(nextSession));
+        setSession(nextSession);
+      }
       await generateRandomChallengeOrderForTable(event.id, selectedTable.id);
       go("play");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (message.includes("CAPTAINS_TABLE_ALREADY_CLAIMED")) {
+        setSelectionError("Esa mesa acaba de ser elegida por otra persona. Selecciona otra disponible.");
+        setSelectedTableId("");
+        setCaptainNameInput("");
+        await refetchEvent();
+      } else {
+        setSelectionError("No hemos podido reservar la mesa. Comprueba la conexión e inténtalo de nuevo.");
+      }
     } finally {
       setBusy(false);
     }
@@ -1982,7 +2095,7 @@ export default function CaptainsPublic() {
   }
 
   if (step === "start") {
-    const canEnter = Boolean(selectedTable);
+    const canEnter = Boolean(selectedTable && !occupiedTableIds.has(selectedTable.id));
     return (
       <CaptainsShell themeStyle={themeStyle}>
         <div className="flex min-h-[calc(var(--app-height,100svh)-40px)] flex-col gap-4 pb-5">
@@ -1991,9 +2104,21 @@ export default function CaptainsPublic() {
             <p className="mt-2 text-2xl leading-7 text-[#151515]/70">Selecciona tu mesa y capitán para entrar al juego.</p>
           </div>
           <div className="flex-1">
-            <PixelTableMap tables={tables} selectedTableId={selectedTableId} onSelect={handleTableSelect} />
+            <PixelTableMap
+              tables={tables}
+              selectedTableId={selectedTableId}
+              occupiedTableIds={occupiedTableIds}
+              lockedTableId={isDemo ? undefined : session?.table_id}
+              busyTableId={busyTableId}
+              onSelect={handleTableSelect}
+            />
           </div>
-          <GameButton disabled={!canEnter || busy} onClick={enterGame}>
+          {selectionError && (
+            <div role="alert" className="pixel-panel border-[#151515] bg-white p-3 text-base font-bold text-[#151515]">
+              {selectionError}
+            </div>
+          )}
+          <GameButton disabled={!canEnter || busy || Boolean(busyTableId)} onClick={enterGame}>
             {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : <Shield className="h-5 w-5" />}
             Entrar al juego
           </GameButton>

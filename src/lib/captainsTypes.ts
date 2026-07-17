@@ -72,6 +72,7 @@ export interface CaptainsTable {
   failed_challenges: number;
   current_challenge_id: string | null;
   last_activity_at: string | null;
+  claimed_at?: string | null;
   created_at: string;
   updated_at: string;
 }

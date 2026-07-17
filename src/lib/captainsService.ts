@@ -527,64 +527,40 @@ export const saveCaptainForTable = async (tableId: string, captainName: string) 
 
 export const selectCaptainsTableSession = async (tableId: string, captainName: string) => {
   const cleanName = captainName.trim();
-  const selectedAt = new Date().toISOString();
-  const { data: existingTable, error: readError } = await db
-    .from("captains_tables")
-    .select("*")
-    .eq("id", tableId)
-    .maybeSingle();
-  ensureNoError(readError);
-  if (!existingTable) throw new Error("No hemos podido encontrar la mesa seleccionada.");
+  const claimDeviceKey = `captains-claim-device:${tableId}`;
+  let deviceId = typeof localStorage === "undefined" ? "" : localStorage.getItem(claimDeviceKey) || "";
+  if (!deviceId) {
+    deviceId = crypto.randomUUID();
+    if (typeof localStorage !== "undefined") localStorage.setItem(claimDeviceKey, deviceId);
+  }
+  const userAgent = typeof navigator === "undefined" ? null : navigator.userAgent;
+  const deviceInfo =
+    typeof window === "undefined"
+      ? null
+      : {
+          width: window.innerWidth,
+          height: window.innerHeight,
+          platform: navigator.platform,
+          language: navigator.language,
+        };
 
-  const { error } = await db
-    .from("captains_tables")
-    .update({
-      captain_name: cleanName,
-      active_captain_name: cleanName,
-      last_activity_at: selectedAt,
-    })
-    .eq("id", tableId);
-  ensureNoError(error);
-
-  const table = {
-    ...(existingTable as CaptainsTable),
-    captain_name: cleanName,
-    active_captain_name: cleanName,
-    last_activity_at: selectedAt,
-  };
-
-  const { error: accessError } = await db.from("captains_table_accesses").insert({
-    event_id: table.event_id,
-    table_id: tableId,
-    table_name: table.table_name,
-    captain_name: cleanName,
-    session_token: table.session_token,
-    selected_at: selectedAt,
-    user_agent: typeof navigator === "undefined" ? null : navigator.userAgent,
-    device_info:
-      typeof window === "undefined"
-        ? null
-        : {
-            width: window.innerWidth,
-            height: window.innerHeight,
-            platform: navigator.platform,
-            language: navigator.language,
-          },
+  const { data, error } = await db.rpc("claim_captains_table", {
+    p_table_id: tableId,
+    p_captain_name: cleanName,
+    p_device_id: deviceId,
+    p_user_agent: userAgent,
+    p_device_info: deviceInfo,
   });
-  if (accessError) console.warn("Could not log captains table access:", accessError);
-
+  if (error?.message?.includes("CAPTAINS_TABLE_ALREADY_CLAIMED")) {
+    throw new Error("CAPTAINS_TABLE_ALREADY_CLAIMED");
+  }
+  ensureNoError(error);
+  if (!data?.table) throw new Error("No hemos podido reservar la mesa seleccionada.");
   return {
-    table,
-    selected_at: selectedAt,
-    user_agent: typeof navigator === "undefined" ? "" : navigator.userAgent,
-    device_info:
-      typeof window === "undefined"
-        ? null
-        : {
-            width: window.innerWidth,
-            height: window.innerHeight,
-            platform: navigator.platform,
-          },
+    table: data.table as CaptainsTable,
+    selected_at: data.selected_at as string,
+    user_agent: data.user_agent || userAgent || "",
+    device_info: data.device_info || deviceInfo,
   };
 };
 
