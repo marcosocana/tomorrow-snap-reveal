@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, Plus, Edit, Copy, Download, Eye, LogOut, ArrowLeft, User, Lock, Camera, Video, Mic, MoveRight, ChevronDown, MessageSquareText } from "lucide-react";
+import { Calendar, Plus, Edit, Copy, Download, Eye, LogOut, ArrowLeft, User, Lock, Camera, Video, Mic, MoveRight, ChevronDown, MessageSquareText, Database, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 import { getCountryByCode } from "@/lib/countries";
@@ -26,6 +26,7 @@ import FolderCard, { EventFolder } from "@/components/FolderCard";
 import SortableEventList from "@/components/SortableEventList";
 import { useAdminI18n } from "@/lib/adminI18n";
 import { PricingPreview } from "@/components/PricingPreview";
+import { deleteRevelaoEventsCompletely } from "@/lib/deleteRevelaoEvents";
 
 interface Event {
   id: string;
@@ -232,6 +233,8 @@ const EventManagement = () => {
   const [adminPageSize, setAdminPageSize] = useState<number | "all">(30);
   // pageSize computed after superAdminEvents below
   const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(new Set());
+  const [databaseUsage, setDatabaseUsage] = useState<{ bytes: number; pretty: string } | null>(null);
+  const [databaseUsageLoading, setDatabaseUsageLoading] = useState(false);
   const [redeemGeneratorOpen, setRedeemGeneratorOpen] = useState(false);
   const [redeemPlan, setRedeemPlan] = useState<"demo" | "small" | "medium" | "xxl">("small");
   const [generatedRedeem, setGeneratedRedeem] = useState<string | null>(null);
@@ -255,6 +258,25 @@ const EventManagement = () => {
   const location = useLocation();
   const { toast } = useToast();
   const { t, dateLocale, pathPrefix } = useAdminI18n();
+
+  const loadDatabaseUsage = useCallback(async () => {
+    setDatabaseUsageLoading(true);
+    try {
+      const { data, error } = await supabase.rpc("get_admin_database_usage");
+      if (error) throw error;
+      const usage = data?.[0];
+      setDatabaseUsage(usage ? { bytes: Number(usage.database_bytes), pretty: usage.database_pretty } : null);
+    } catch (error) {
+      console.error("Error loading database usage:", error);
+      setDatabaseUsage(null);
+    } finally {
+      setDatabaseUsageLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isSuperAdmin) void loadDatabaseUsage();
+  }, [isSuperAdmin, loadDatabaseUsage]);
 
   const loadMediaCounts = async (eventsList: Event[]) => {
     const eventIds = eventsList.map((event) => event.id).filter(Boolean);
@@ -806,14 +828,12 @@ const EventManagement = () => {
     if (!confirmed) return;
 
     try {
-      const { error } = await supabase
-        .from("events")
-        .delete()
-        .in("id", ids);
-
-      if (error) throw error;
+      await deleteRevelaoEventsCompletely(ids, {
+        adminPassword: selectedEvents.length === 1 ? selectedEvents[0].admin_password : null,
+      });
       setSelectedEventIds(new Set());
       await loadData();
+      if (isSuperAdmin) await loadDatabaseUsage();
       toast({
         title: t("events.deleteTitle"),
         description: t("events.deleteDesc"),
@@ -1318,6 +1338,24 @@ const EventManagement = () => {
               <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                 {isSuperAdmin ? (
                   <>
+                    <Button
+                      variant="outline"
+                      className="gap-2 rounded-full"
+                      onClick={() => void loadDatabaseUsage()}
+                      disabled={databaseUsageLoading}
+                      title={
+                        databaseUsage
+                          ? `PostgreSQL ocupa ${databaseUsage.bytes.toLocaleString("es-ES")} bytes. No incluye los archivos de Storage.`
+                          : "Espacio ocupado por PostgreSQL. No incluye los archivos de Storage."
+                      }
+                    >
+                      {databaseUsageLoading ? (
+                        <RefreshCw className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Database className="h-4 w-4" />
+                      )}
+                      BBDD {databaseUsage?.pretty || "—"}
+                    </Button>
                     <Button
                       className="gap-2"
                       onClick={() => navigate(`${pathPrefix}/event-form`)}

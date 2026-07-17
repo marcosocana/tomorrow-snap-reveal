@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useBeforeUnload, useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { deleteRevelaoEventsCompletely } from "@/lib/deleteRevelaoEvents";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -1154,8 +1155,9 @@ const EventForm = () => {
     if (!confirm(t("events.confirmDelete"))) return;
 
     try {
-      const { error } = await supabase.from("events").delete().eq("id", eventId);
-      if (error) throw error;
+      await deleteRevelaoEventsCompletely([eventId], {
+        adminPassword: formData.adminPassword,
+      });
 
       toast({
         title: t("events.deleteTitle"),
