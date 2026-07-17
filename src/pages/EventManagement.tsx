@@ -262,7 +262,7 @@ const EventManagement = () => {
   const loadDatabaseUsage = useCallback(async () => {
     setDatabaseUsageLoading(true);
     try {
-      const { data, error } = await supabase.rpc("get_admin_database_usage");
+      const { data, error } = await (supabase.rpc as (fn: string) => Promise<{ data: Array<{ database_bytes: number; database_pretty: string }> | null; error: unknown }>)("get_admin_database_usage");
       if (error) throw error;
       const usage = data?.[0];
       setDatabaseUsage(usage ? { bytes: Number(usage.database_bytes), pretty: usage.database_pretty } : null);
