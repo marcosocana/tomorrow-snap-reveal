@@ -3023,7 +3023,7 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
             .filter((row) => row.challenge_id === challenge.id)
             .map((row) => row.id);
           const count = tableChallengeIds.reduce((total, id) => total + (countByTableChallenge.get(id) || 0), 0);
-          return { id: `challenge:${challenge.id}`, label: challenge.title, count, tableChallengeIds };
+          return { id: `challenge:${challenge.id}`, label: challenge.title, count, tableChallengeIds, tableId: undefined as string | undefined };
         })
         .filter((group) => group.count > 0);
     }
