@@ -537,23 +537,34 @@ export const saveCaptainForTable = async (tableId: string, captainName: string) 
   } as CaptainsTable;
 };
 
-export const selectCaptainsTableSession = async (
-  tableId: string,
-  captainName: string,
-  previousSession?: { table_id: string; session_token: string } | null,
-) => {
+export const selectCaptainsTableSession = async (tableId: string, captainName: string) => {
   const cleanName = captainName.trim();
-  const claimDeviceKey = "captains-claim-device";
-  let deviceId = typeof localStorage === "undefined" ? "" : localStorage.getItem(claimDeviceKey) || "";
-  if (!deviceId) {
-    deviceId = typeof crypto.randomUUID === "function"
-      ? crypto.randomUUID()
-      : "10000000-1000-4000-8000-100000000000".replace(/[018]/g, (character) =>
-          (Number(character) ^ (crypto.getRandomValues(new Uint8Array(1))[0] & (15 >> (Number(character) / 4)))).toString(16),
-        );
-    if (typeof localStorage !== "undefined") localStorage.setItem(claimDeviceKey, deviceId);
-  }
-  const userAgent = typeof navigator === "undefined" ? null : navigator.userAgent;
+  const selectedAt = new Date().toISOString();
+  const { data: existingTable, error: readError } = await db
+    .from("captains_tables")
+    .select("*")
+    .eq("id", tableId)
+    .maybeSingle();
+  ensureNoError(readError);
+  if (!existingTable) throw new Error("No hemos podido encontrar la mesa seleccionada.");
+
+  const { error } = await db
+    .from("captains_tables")
+    .update({
+      captain_name: cleanName,
+      active_captain_name: cleanName,
+      last_activity_at: selectedAt,
+    })
+    .eq("id", tableId);
+  ensureNoError(error);
+
+  const table = {
+    ...(existingTable as CaptainsTable),
+    captain_name: cleanName,
+    active_captain_name: cleanName,
+    last_activity_at: selectedAt,
+  };
+  const userAgent = typeof navigator === "undefined" ? "" : navigator.userAgent;
   const deviceInfo =
     typeof window === "undefined"
       ? null
@@ -564,33 +575,23 @@ export const selectCaptainsTableSession = async (
           language: navigator.language,
         };
 
-  const isSwitching = Boolean(previousSession && previousSession.table_id !== tableId);
-  const { data, error } = await db.rpc(
-    isSwitching ? "switch_captains_table_claim" : "claim_captains_table",
-    {
-      p_table_id: tableId,
-      p_captain_name: cleanName,
-      p_device_id: deviceId,
-      p_user_agent: userAgent,
-      p_device_info: deviceInfo,
-      ...(isSwitching
-        ? {
-            p_previous_table_id: previousSession?.table_id,
-            p_previous_session_token: previousSession?.session_token,
-          }
-        : {}),
-    },
-  );
-  if (error?.message?.includes("CAPTAINS_TABLE_ALREADY_CLAIMED")) {
-    throw new Error("CAPTAINS_TABLE_ALREADY_CLAIMED");
-  }
-  ensureNoError(error);
-  if (!data?.table) throw new Error("No hemos podido reservar la mesa seleccionada.");
+  const { error: accessError } = await db.from("captains_table_accesses").insert({
+    event_id: table.event_id,
+    table_id: tableId,
+    table_name: table.table_name,
+    captain_name: cleanName,
+    session_token: table.session_token,
+    selected_at: selectedAt,
+    user_agent: userAgent || null,
+    device_info: deviceInfo,
+  });
+  if (accessError) console.warn("Could not log captains table access:", accessError);
+
   return {
-    table: data.table as CaptainsTable,
-    selected_at: data.selected_at as string,
-    user_agent: data.user_agent || userAgent || "",
-    device_info: data.device_info || deviceInfo,
+    table,
+    selected_at: selectedAt,
+    user_agent: userAgent,
+    device_info: deviceInfo,
   };
 };
 
