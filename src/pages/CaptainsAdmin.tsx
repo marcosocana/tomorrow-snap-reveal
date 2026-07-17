@@ -3181,11 +3181,11 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
     try {
       setResettingTableActivityId(table.id);
       await resetCaptainsTableLastActivity(table.id);
-      toast({ title: "Actividad reseteada", description: `La última actividad de ${table.table_name} se ha puesto a cero.` });
+      toast({ title: "Partida reiniciada", description: `${table.table_name} volverá a comenzar desde el primer reto.` });
       refreshAll();
     } catch (error) {
       console.error("Error resetting captains table activity:", error);
-      toast({ title: "Error", description: "No hemos podido resetear la última actividad.", variant: "destructive" });
+      toast({ title: "Error", description: "No hemos podido reiniciar la partida de la mesa.", variant: "destructive" });
     } finally {
       setResettingTableActivityId("");
     }

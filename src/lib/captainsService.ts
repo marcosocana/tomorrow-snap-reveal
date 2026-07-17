@@ -368,9 +368,50 @@ export const updateCaptainsTable = async (
 };
 
 export const resetCaptainsTableLastActivity = async (tableId: string) => {
+  const { data: challengeRows, error: challengeReadError } = await db
+    .from("captains_table_challenges")
+    .select("id")
+    .eq("table_id", tableId)
+    .order("randomized_order_index", { ascending: true });
+  ensureNoError(challengeReadError);
+
+  const challengeIds = ((challengeRows || []) as Array<{ id: string }>).map((row) => row.id);
+  if (challengeIds.length > 0) {
+    const { error: resetChallengesError } = await db
+      .from("captains_table_challenges")
+      .update({
+        status: "pending",
+        points_awarded: 0,
+        started_at: null,
+        submitted_at: null,
+        elapsed_seconds: null,
+        remaining_seconds: null,
+        is_time_expired: false,
+        automatic_score_calculated: false,
+        reviewed_at: null,
+      })
+      .in("id", challengeIds);
+    ensureNoError(resetChallengesError);
+
+    const { error: firstChallengeError } = await db
+      .from("captains_table_challenges")
+      .update({ status: "ready" })
+      .eq("id", challengeIds[0]);
+    ensureNoError(firstChallengeError);
+  }
+
   const { data, error } = await db
     .from("captains_tables")
-    .update({ last_activity_at: null, claimed_at: null, claim_device_hash: null })
+    .update({
+      total_points: 0,
+      completed_challenges: 0,
+      failed_challenges: 0,
+      current_challenge_id: null,
+      completed_at: null,
+      last_activity_at: null,
+      claimed_at: null,
+      claim_device_hash: null,
+    })
     .eq("id", tableId)
     .select("*")
     .single();
