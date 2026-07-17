@@ -603,6 +603,8 @@ export type Database = {
           captain_photo_url: string | null
           captain_sprite: string | null
           captain_sprite_config: Json | null
+          claim_device_hash: string | null
+          claimed_at: string | null
           completed_at: string | null
           completed_challenges: number
           created_at: string
@@ -623,6 +625,8 @@ export type Database = {
           captain_photo_url?: string | null
           captain_sprite?: string | null
           captain_sprite_config?: Json | null
+          claim_device_hash?: string | null
+          claimed_at?: string | null
           completed_at?: string | null
           completed_challenges?: number
           created_at?: string
@@ -643,6 +647,8 @@ export type Database = {
           captain_photo_url?: string | null
           captain_sprite?: string | null
           captain_sprite_config?: Json | null
+          claim_device_hash?: string | null
+          claimed_at?: string | null
           completed_at?: string | null
           completed_challenges?: number
           created_at?: string
@@ -1110,6 +1116,16 @@ export type Database = {
       captains_event_status: {
         Args: { _end: string; _start: string }
         Returns: string
+      }
+      claim_captains_table: {
+        Args: {
+          p_captain_name: string
+          p_device_id: string
+          p_device_info?: Json
+          p_table_id: string
+          p_user_agent?: string
+        }
+        Returns: Json
       }
     }
     Enums: {
