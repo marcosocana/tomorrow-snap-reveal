@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -51,6 +52,8 @@ import {
   deleteCaptainsEvidence,
   finishCaptainsEvent,
   getCaptainsEvidence,
+  getCaptainsEvidenceGroup,
+  getCaptainsEvidenceIndex,
   getCaptainsEvidenceSignedUrl,
   getCaptainsTableChallenges,
   rejectCaptainsEvidence,
@@ -2917,12 +2920,6 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
     enabled: Boolean(eventId),
     refetchInterval: 5000,
   });
-  const { data: evidence = [] } = useQuery({
-    queryKey: captainsQueryKeys.evidence(eventId),
-    queryFn: () => getCaptainsEvidence(eventId || ""),
-    enabled: Boolean(eventId),
-    refetchInterval: 5000,
-  });
   const [selectedEvidence, setSelectedEvidence] = useState<CaptainsEvidence | null>(null);
   const [generalDraft, setGeneralDraft] = useState({
     name: "",
@@ -2951,6 +2948,7 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
   const [editingEvidence, setEditingEvidence] = useState<CaptainsEvidence | null>(null);
 	  const [evidenceDraft, setEvidenceDraft] = useState({ status: "uploaded" as CaptainsEvidence["status"], points: 0, comment: "" });
 	  const [contentView, setContentView] = useState<"retos" | "capitanes">("retos");
+	  const [openContentGroup, setOpenContentGroup] = useState("");
 	  const [isDetailSaving, setIsDetailSaving] = useState(false);
 	  const [qrPreviewOpen, setQrPreviewOpen] = useState(false);
   const [deleteEventOpen, setDeleteEventOpen] = useState(false);
@@ -2958,10 +2956,20 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
   const [activeDetailTab, setActiveDetailTab] = useState<CaptainsDetailTab>(
     view === "ranking" ? "tables" : view === "review" ? "content" : "general",
   );
+  const { data: evidenceIndex = [] } = useQuery({
+    queryKey: ["captains", "evidence-index", eventId],
+    queryFn: () => getCaptainsEvidenceIndex(eventId || ""),
+    enabled: Boolean(eventId && activeDetailTab === "content"),
+    refetchInterval: activeDetailTab === "content" ? 5000 : false,
+  });
 
   useEffect(() => {
     setActiveDetailTab(view === "ranking" ? "tables" : view === "review" ? "content" : "general");
   }, [view]);
+
+  useEffect(() => {
+    setOpenContentGroup("");
+  }, [contentView, eventId]);
 
   useEffect(() => {
     if (!detail) return;
@@ -3001,10 +3009,59 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
     return map;
   }, [tableChallenges]);
 
+  const contentGroups = useMemo(() => {
+    if (contentView === "retos") {
+      const countByTableChallenge = new Map<string, number>();
+      evidenceIndex.forEach((item) => {
+        countByTableChallenge.set(item.table_challenge_id, (countByTableChallenge.get(item.table_challenge_id) || 0) + 1);
+      });
+      return (detail?.challenges || [])
+        .map((challenge) => {
+          const tableChallengeIds = tableChallenges
+            .filter((row) => row.challenge_id === challenge.id)
+            .map((row) => row.id);
+          const count = tableChallengeIds.reduce((total, id) => total + (countByTableChallenge.get(id) || 0), 0);
+          return { id: `challenge:${challenge.id}`, label: challenge.title, count, tableChallengeIds };
+        })
+        .filter((group) => group.count > 0);
+    }
+
+    const countByTable = new Map<string, number>();
+    evidenceIndex.forEach((item) => {
+      countByTable.set(item.table_id, (countByTable.get(item.table_id) || 0) + 1);
+    });
+    return (detail?.tables || [])
+      .map((table) => {
+        const captainName = table.active_captain_name || table.captain_name;
+        return {
+          id: `table:${table.id}`,
+          label: captainName ? `${table.table_name} - ${captainName}` : table.table_name,
+          count: countByTable.get(table.id) || 0,
+          tableId: table.id,
+          tableChallengeIds: undefined as string[] | undefined,
+        };
+      })
+      .filter((group) => group.count > 0);
+  }, [contentView, detail?.challenges, detail?.tables, evidenceIndex, tableChallenges]);
+
+  const activeContentGroup = contentGroups.find((group) => group.id === openContentGroup);
+  const { data: openGroupEvidence = [], isLoading: isOpenGroupLoading } = useQuery({
+    queryKey: ["captains", "evidence-group", eventId, contentView, openContentGroup],
+    queryFn: () =>
+      getCaptainsEvidenceGroup(eventId || "", {
+        tableId: activeContentGroup?.tableId,
+        tableChallengeIds: activeContentGroup?.tableChallengeIds,
+      }),
+    enabled: Boolean(eventId && activeDetailTab === "content" && activeContentGroup),
+    refetchInterval: activeContentGroup ? 5000 : false,
+  });
+
 	  const refreshAll = () => {
     refetch();
     queryClient.invalidateQueries({ queryKey: captainsQueryKeys.ranking(eventId) });
     queryClient.invalidateQueries({ queryKey: captainsQueryKeys.evidence(eventId) });
+    queryClient.invalidateQueries({ queryKey: ["captains", "evidence-index", eventId] });
+    queryClient.invalidateQueries({ queryKey: ["captains", "evidence-group", eventId] });
     queryClient.invalidateQueries({ queryKey: ["captains", "table-challenges", eventId] });
   };
 
@@ -3294,8 +3351,7 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
 	  const { event, tables, challenges } = detail;
 	  const publicUrl = normalizeCaptainsPublicUrl(event.public_url, event.slug);
 	  const qrValue = normalizeCaptainsPublicUrl(event.qr_url || getCaptainsQrValue(event.slug), event.slug);
-	  const visibleEvidence = evidence;
-	  const liveVisibleEvidence = evidence.filter((item) => item.file_url && !["deleted", "rejected"].includes(item.status));
+	  const liveVisibleEvidence = evidenceIndex.filter((item) => item.file_url && !["deleted", "rejected"].includes(item.status));
 	  const photoCount = liveVisibleEvidence.filter((item) => item.evidence_type === "photo").length;
 	  const videoCount = liveVisibleEvidence.filter((item) => item.evidence_type === "video").length;
 	  const questionCount = challenges.filter((item) => item.evidence_type === "question").length;
@@ -3306,12 +3362,13 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
 	  const lastLiveEvidence = liveVisibleEvidence[0];
 
   const handleDownloadAllContent = async () => {
-    if (!visibleEvidence.length) return;
+    if (!evidenceIndex.length) return;
     try {
       setIsDownloadingAll(true);
+      const allEvidence = await getCaptainsEvidence(event.id);
       const zip = new JSZip();
       const sanitize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9_-]+/g, "-").replace(/^-+|-+$/g, "") || "contenido";
-      await Promise.all(visibleEvidence.filter((item) => item.file_url && item.evidence_type !== "question").map(async (item, index) => {
+      await Promise.all(allEvidence.filter((item) => item.file_url && item.evidence_type !== "question").map(async (item, index) => {
         const table = tables.find((candidate) => candidate.id === item.table_id);
         const tableChallenge = tableChallenges.find((candidate) => candidate.id === item.table_challenge_id);
         const challenge = tableChallenge ? challengesById.get(tableChallenge.challenge_id) : undefined;
@@ -3677,36 +3734,46 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
               <div>
 	                <h2 className="font-semibold">Contenido subido</h2>
 	                <p className="text-sm text-muted-foreground">
-	                  Todas las evidencias, agrupadas por {contentView === "retos" ? "reto" : "capitán"}.
+	                  Selecciona un {contentView === "retos" ? "reto" : "capitán"} para cargar y ver su contenido.
 	                </p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     <Button type="button" variant={contentView === "retos" ? "default" : "outline"} className="rounded-full" onClick={() => setContentView("retos")}>Ver por retos</Button>
                     <Button type="button" variant={contentView === "capitanes" ? "default" : "outline"} className="rounded-full" onClick={() => setContentView("capitanes")}>Ver por capitanes</Button>
                   </div>
               </div>
-              <Button variant="outline" className="gap-2 rounded-full" onClick={handleDownloadAllContent} disabled={!visibleEvidence.length || isDownloadingAll}>
+              <Button variant="outline" className="gap-2 rounded-full" onClick={handleDownloadAllContent} disabled={!evidenceIndex.length || isDownloadingAll}>
                 {isDownloadingAll ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                 {isDownloadingAll ? "Preparando ZIP..." : "Descargar todo"}
               </Button>
             </div>
-            {visibleEvidence.length === 0 ? (
+            {evidenceIndex.length === 0 ? (
               <EmptyState text="Todavía no se ha subido ninguna evidencia." />
+            ) : contentGroups.length === 0 ? (
+              <EmptyState text="No se han encontrado bloques de contenido asociados." />
             ) : (
-	              <div className="space-y-6">
-	                {Array.from(
-	                  visibleEvidence.reduce<Map<string, CaptainsEvidence[]>>((groups, item) => {
-	                    const table = tables.find((candidate) => candidate.id === item.table_id);
-	                    const tableChallenge = tableChallenges.find((candidate) => candidate.id === item.table_challenge_id);
-	                    const challenge = tableChallenge ? challengesById.get(tableChallenge.challenge_id) : undefined;
-	                    const key = contentView === "retos" ? challenge?.title || "Reto" : table?.table_name || "Capitán";
-	                    groups.set(key, [...(groups.get(key) || []), item]);
-	                    return groups;
-	                  }, new Map()),
-	                ).map(([group, items]) => (
-	                  <div key={group} className="space-y-3">
-	                    <h3 className="text-sm font-semibold uppercase text-muted-foreground">{group}</h3>
-	                    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-	                {items.map((item) => {
+	              <Accordion
+	                type="single"
+	                collapsible
+	                value={openContentGroup}
+	                onValueChange={setOpenContentGroup}
+	                className="space-y-2"
+	              >
+	                {contentGroups.map((group) => (
+	                  <AccordionItem key={group.id} value={group.id} className="rounded-xl border border-border px-4">
+	                    <AccordionTrigger className="text-left text-sm font-semibold hover:no-underline">
+	                      {group.label} ({group.count})
+	                    </AccordionTrigger>
+	                    <AccordionContent>
+	                      {openContentGroup === group.id ? (
+	                        isOpenGroupLoading ? (
+	                          <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+	                            <RefreshCw className="h-4 w-4 animate-spin" /> Cargando contenido...
+	                          </div>
+	                        ) : openGroupEvidence.length === 0 ? (
+	                          <EmptyState text="Este bloque ya no contiene evidencias." />
+	                        ) : (
+	                          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+	                {openGroupEvidence.map((item) => {
 	                  const table = tables.find((candidate) => candidate.id === item.table_id);
 	                  const tableChallenge = tableChallenges.find((candidate) => candidate.id === item.table_challenge_id);
                   const challenge = tableChallenge ? challengesById.get(tableChallenge.challenge_id) : undefined;
@@ -3748,10 +3815,13 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
 	                    </Card>
 	                  );
 	                })}
-	                    </div>
-	                  </div>
+	                          </div>
+	                        )
+	                      ) : null}
+	                    </AccordionContent>
+	                  </AccordionItem>
 	                ))}
-	              </div>
+	              </Accordion>
             )}
           </Card>
         </TabsContent>

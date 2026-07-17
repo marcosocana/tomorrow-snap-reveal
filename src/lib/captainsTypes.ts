@@ -152,6 +152,11 @@ export interface CaptainsEvidence {
   deleted_at: string | null;
 }
 
+export type CaptainsEvidenceIndexItem = Pick<
+  CaptainsEvidence,
+  "id" | "table_id" | "table_challenge_id" | "evidence_type" | "file_url" | "status" | "created_at"
+>;
+
 export interface CaptainsEventDetail {
   event: CaptainsEvent;
   tables: CaptainsTable[];

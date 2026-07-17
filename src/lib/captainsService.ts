@@ -16,6 +16,7 @@ import type {
   CaptainsEventDetail,
   CaptainsEventListItem,
   CaptainsEvidence,
+  CaptainsEvidenceIndexItem,
   CaptainsEvidenceStatus,
   CaptainsRankingItem,
   CaptainsTable,
@@ -816,6 +817,39 @@ export const getCaptainsEvidence = async (eventId: string, status?: CaptainsEvid
     .eq("event_id", eventId)
     .order("created_at", { ascending: false });
   if (status) query = query.eq("status", status);
+
+  const { data, error } = await query;
+  ensureNoError(error);
+  return (data || []) as CaptainsEvidence[];
+};
+
+export const getCaptainsEvidenceIndex = async (eventId: string) => {
+  const { data, error } = await db
+    .from("captains_evidence")
+    .select("id,table_id,table_challenge_id,evidence_type,file_url,status,created_at")
+    .eq("event_id", eventId)
+    .order("created_at", { ascending: false });
+  ensureNoError(error);
+  return (data || []) as CaptainsEvidenceIndexItem[];
+};
+
+export const getCaptainsEvidenceGroup = async (
+  eventId: string,
+  filter: { tableId?: string; tableChallengeIds?: string[] },
+) => {
+  let query = db
+    .from("captains_evidence")
+    .select("*")
+    .eq("event_id", eventId)
+    .order("created_at", { ascending: false });
+
+  if (filter.tableId) {
+    query = query.eq("table_id", filter.tableId);
+  } else if (filter.tableChallengeIds?.length) {
+    query = query.in("table_challenge_id", filter.tableChallengeIds);
+  } else {
+    return [] as CaptainsEvidence[];
+  }
 
   const { data, error } = await query;
   ensureNoError(error);

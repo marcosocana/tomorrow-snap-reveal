@@ -1440,7 +1440,7 @@ export default function CaptainsPublic() {
   useEffect(() => {
     if (!event || !eventEnded) return;
     getCaptainsRanking(event.id).then(setRanking).catch(() => setRanking([]));
-    if (!["ranking", "resumen", "live"].includes(step)) go("ranking");
+    if (!["ranking", "resumen"].includes(step)) go("ranking");
   }, [event?.id, eventEnded, step]);
 
   useEffect(() => {
@@ -1924,6 +1924,13 @@ export default function CaptainsPublic() {
     go("play");
   };
 
+  const openTableSummary = (tableId: string) => {
+    setSummaryMode("tables");
+    setSummarySelectedTableId(tableId);
+    setSummaryEvidenceIndex(0);
+    go("resumen");
+  };
+
   const openPhotoEvidence = async (evidence: CaptainsEvidence) => {
     if (evidence.file_url.startsWith("blob:") || evidence.file_url.startsWith("data:")) {
       setPhotoModalUrl(evidence.file_url);
@@ -2036,7 +2043,9 @@ export default function CaptainsPublic() {
     if (step !== "resumen") return;
     const firstTableId = [...tables].sort((a, b) => a.table_number - b.table_number)[0]?.id || "";
     setSummaryMode("tables");
-    setSummarySelectedTableId(firstTableId);
+    setSummarySelectedTableId((currentTableId) =>
+      tables.some((table) => table.id === currentTableId) ? currentTableId : firstTableId,
+    );
     setSummaryEvidenceIndex(0);
   }, [event?.id, step]);
 
@@ -2073,7 +2082,7 @@ export default function CaptainsPublic() {
     );
   }
   if (!mobile.allowed) return <DesktopBlock eventUrl={publicUrl} />;
-  if (eventEnded && !["ranking", "resumen", "live"].includes(step)) return <LoadingScreen />;
+  if (eventEnded && !["ranking", "resumen"].includes(step)) return <LoadingScreen />;
 
   if (step === "home") {
     return (
@@ -2403,10 +2412,12 @@ export default function CaptainsPublic() {
       <CaptainsShell themeStyle={themeStyle}>
         <div className="space-y-4 pb-5">
           <div className="pt-3">
-            <HeroBadge>Ranking</HeroBadge>
-            <h1 className="mt-4 text-3xl">Ranking</h1>
+            <h1 className="text-3xl">Ranking</h1>
             <p className="mt-2 text-2xl leading-7 text-[#151515]/70">{message}</p>
           </div>
+          {eventEnded ? (
+            <GameButton onClick={() => go("resumen")}>Ver resumen</GameButton>
+          ) : null}
           <div className="space-y-3">
             {ranking.map((item) => {
               const mine = item.id === session?.table_id;
@@ -2424,7 +2435,18 @@ export default function CaptainsPublic() {
                   </div>
                   <PixelCaptainSprite table={item} active={mine} size="sm" />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-2xl font-bold">{item.table_name}</p>
+                    {eventEnded ? (
+                      <button
+                        type="button"
+                        className="block max-w-full truncate text-left text-2xl font-bold underline-offset-4 hover:underline focus-visible:underline focus-visible:outline-none"
+                        onClick={() => openTableSummary(item.id)}
+                        aria-label={`Ver el resumen de ${item.table_name}`}
+                      >
+                        {item.table_name}
+                      </button>
+                    ) : (
+                      <p className="truncate text-2xl font-bold">{item.table_name}</p>
+                    )}
                     <p className="truncate text-lg text-[#151515]/70">{item.active_captain_name || item.captain_name || "Sin capitán"}</p>
                     <p className="text-base text-[#151515]/60">{item.completed_challenges} retos completados</p>
                   </div>
@@ -2436,11 +2458,9 @@ export default function CaptainsPublic() {
               );
             })}
           </div>
-          {eventEnded ? (
-            <GameButton onClick={() => go("resumen")}>Ver resumen</GameButton>
-          ) : (
+          {!eventEnded ? (
             <GameButton onClick={nextAfterRanking}>{allDone ? "Ver resultado final" : "Siguiente reto"}</GameButton>
-          )}
+          ) : null}
         </div>
       </CaptainsShell>
     );
@@ -2498,7 +2518,7 @@ export default function CaptainsPublic() {
                 Se activará cuando todas las mesas terminen o cuando llegue la hora de fin del evento.
               </p>
             </GameCard>
-            <GameButton onClick={() => go("final")}>Volver al final</GameButton>
+            <GameButton onClick={() => go("ranking")}>Volver al ranking</GameButton>
           </div>
         </CaptainsShell>
       );
@@ -2508,8 +2528,7 @@ export default function CaptainsPublic() {
       <CaptainsShell themeStyle={themeStyle}>
         <div className="flex min-h-[var(--app-height,100svh)] flex-col gap-4 pb-5">
           <div className="pt-3">
-            <HeroBadge>Resumen</HeroBadge>
-            <h1 className="mt-4 text-4xl font-black tracking-normal">Resumen de la misión</h1>
+            <h1 className="text-4xl font-black tracking-normal">Resumen de la misión</h1>
             <p className="mt-2 text-sm leading-6 text-[#151515]/70">Explora los recuerdos por mesa o por reto.</p>
           </div>
 
@@ -2644,7 +2663,7 @@ export default function CaptainsPublic() {
             <Share2 className="h-5 w-5" />
             {summaryCopied ? "URL copiada" : "Compartir resumen"}
           </GameButton>
-          <SecondaryButton onClick={() => go("final")}>Volver al final</SecondaryButton>
+          <SecondaryButton onClick={() => go("ranking")}>Volver al ranking</SecondaryButton>
         </div>
       </CaptainsShell>
     );
