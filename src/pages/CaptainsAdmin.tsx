@@ -58,6 +58,7 @@ import {
   getCaptainsTableChallenges,
   rejectCaptainsEvidence,
   replaceCaptainsEventChallenges,
+  resetCaptainsTableLastActivity,
   updateCaptainsEventChallenge,
   updateCaptainsEvidence,
   updateCaptainsEvent,
@@ -2940,6 +2941,7 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
     showLiveGalleryAfterCompletion: true,
   });
   const [editingTable, setEditingTable] = useState<CaptainsTable | null>(null);
+  const [resettingTableActivityId, setResettingTableActivityId] = useState("");
   const [tableDraft, setTableDraft] = useState<CaptainsTable | null>(null);
   const [detailCaptainPhotoCrop, setDetailCaptainPhotoCrop] = useState<CaptainPhotoCropState | null>(null);
   const [isUploadingDetailCaptainPhoto, setIsUploadingDetailCaptainPhoto] = useState(false);
@@ -3173,6 +3175,20 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
     } as CaptainsTable;
     setEditingTable(table);
     setTableDraft(normalized);
+  };
+
+  const resetTableLastActivity = async (table: CaptainsTable) => {
+    try {
+      setResettingTableActivityId(table.id);
+      await resetCaptainsTableLastActivity(table.id);
+      toast({ title: "Actividad reseteada", description: `La última actividad de ${table.table_name} se ha puesto a cero.` });
+      refreshAll();
+    } catch (error) {
+      console.error("Error resetting captains table activity:", error);
+      toast({ title: "Error", description: "No hemos podido resetear la última actividad.", variant: "destructive" });
+    } finally {
+      setResettingTableActivityId("");
+    }
   };
 
 	  const saveTableEditor = async () => {
@@ -3664,7 +3680,14 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
 	        </TabsContent>
 
 	        <TabsContent value="tables" className="mt-0 space-y-6">
-	          <RankingCard ranking={ranking} tableChallengesByTable={tableChallengesByTable} totalChallenges={challenges.length} onEdit={openTableEditor} />
+	          <RankingCard
+	            ranking={ranking}
+	            tableChallengesByTable={tableChallengesByTable}
+	            totalChallenges={challenges.length}
+	            onEdit={openTableEditor}
+	            onResetLastActivity={resetTableLastActivity}
+	            resettingTableId={resettingTableActivityId}
+	          />
 	        </TabsContent>
 
         <TabsContent value="challenges" className="mt-0 space-y-6">
@@ -4095,11 +4118,15 @@ const RankingCard = ({
   tableChallengesByTable,
   totalChallenges,
   onEdit,
+  onResetLastActivity,
+  resettingTableId,
 }: {
   ranking: CaptainsTable[];
   tableChallengesByTable: Map<string, CaptainsTableChallenge[]>;
   totalChallenges: number;
   onEdit: (table: CaptainsTable) => void;
+  onResetLastActivity: (table: CaptainsTable) => void;
+  resettingTableId: string;
 }) => (
   <Card className="rounded-2xl p-5 shadow-sm">
     <h2 className="mb-4 font-semibold">Ranking en tiempo real</h2>
@@ -4139,7 +4166,24 @@ const RankingCard = ({
                 <td className="border-y border-border px-3 py-4">{table.completed_challenges}</td>
                 <td className="border-y border-border px-3 py-4">{table.failed_challenges}</td>
                 <td className="border-y border-border px-3 py-4">{pending}</td>
-                <td className="border-y border-border px-3 py-4">{formatDateTime(table.last_activity_at)}</td>
+                <td className="border-y border-border px-3 py-4">
+                  <div className="flex items-center gap-2">
+                    <span>{formatDateTime(table.last_activity_at)}</span>
+                    {table.last_activity_at ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 gap-1.5 rounded-full"
+                        onClick={() => onResetLastActivity(table)}
+                        disabled={resettingTableId === table.id}
+                      >
+                        <RefreshCw className={`h-3.5 w-3.5 ${resettingTableId === table.id ? "animate-spin" : ""}`} />
+                        Resetear
+                      </Button>
+                    ) : null}
+                  </div>
+                </td>
                 <td className="rounded-r-xl border-y border-r border-border px-3 py-4">
                   <Button variant="outline" size="sm" className="gap-2 rounded-full" onClick={() => onEdit(table)}>
                     <Pencil className="h-4 w-4" />

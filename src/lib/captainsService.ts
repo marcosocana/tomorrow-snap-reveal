@@ -367,6 +367,17 @@ export const updateCaptainsTable = async (
   return data as CaptainsTable;
 };
 
+export const resetCaptainsTableLastActivity = async (tableId: string) => {
+  const { data, error } = await db
+    .from("captains_tables")
+    .update({ last_activity_at: null })
+    .eq("id", tableId)
+    .select("*")
+    .single();
+  ensureNoError(error);
+  return data as CaptainsTable;
+};
+
 export const updateCaptainsEventChallenge = async (challengeId: string, input: CaptainsChallengeInput) => {
   const payload = normalizeChallengeRow(input, Math.max((input.order_index ?? 1) - 1, 0), input.id || "");
   delete (payload as Record<string, unknown>).event_id;
@@ -531,7 +542,11 @@ export const selectCaptainsTableSession = async (tableId: string, captainName: s
   const claimDeviceKey = `captains-claim-device:${tableId}`;
   let deviceId = typeof localStorage === "undefined" ? "" : localStorage.getItem(claimDeviceKey) || "";
   if (!deviceId) {
-    deviceId = crypto.randomUUID();
+    deviceId = typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID()
+      : "10000000-1000-4000-8000-100000000000".replace(/[018]/g, (character) =>
+          (Number(character) ^ (crypto.getRandomValues(new Uint8Array(1))[0] & (15 >> (Number(character) / 4)))).toString(16),
+        );
     if (typeof localStorage !== "undefined") localStorage.setItem(claimDeviceKey, deviceId);
   }
   const userAgent = typeof navigator === "undefined" ? null : navigator.userAgent;
