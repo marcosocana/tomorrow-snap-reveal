@@ -47,10 +47,12 @@ import {
 import { captainsDefaultChallengeCatalog } from "@/lib/captainsDefaultChallengeCatalog";
 import {
   approveCaptainsEvidence,
+  addCatalogChallengesToCaptainsEvent,
+  CAPTAINS_MAX_CHALLENGES,
+  createCustomCaptainsChallenge,
   deleteCaptainsEvent,
   createCaptainsGame,
   deleteCaptainsEvidence,
-  finishCaptainsEvent,
   getCaptainsEvidence,
   getCaptainsEvidenceGroup,
   getCaptainsEvidenceIndex,
@@ -58,6 +60,7 @@ import {
   getCaptainsTableChallenges,
   rejectCaptainsEvidence,
   replaceCaptainsEventChallenges,
+  resetAllCaptainsTables,
   resetCaptainsTableLastActivity,
   updateCaptainsEventChallenge,
   updateCaptainsEvidence,
@@ -72,9 +75,10 @@ import type {
   CaptainsDifficulty,
   CaptainsEvent,
 	  CaptainsEventChallenge,
+	  CaptainsEventDetail,
 	  CaptainsEvidence,
 	  CaptainsEvidenceType,
-	  CaptainsScoringMode,
+	  CaptainsRankingItem,
 	  CaptainsSpriteConfig,
   CaptainsSpriteStyle,
   CaptainsThemeStyle,
@@ -86,7 +90,6 @@ const DEFAULT_DESCRIPTION =
   "Bienvenidos a Capitanes by Revelao.\nCada mesa tendrá un capitán encargado de guiar a su equipo durante el juego.\nTendréis que completar retos, subir pruebas y competir contra el resto de mesas.\nPreparad la cámara, afinad la voz y jugad en equipo.\nQue empiece la misión.";
 const DEFAULT_PRIMARY_COLOR = "#f06a5f";
 const DEFAULT_SECONDARY_COLOR = "#2f292d";
-const CAPTAINS_MAX_CHALLENGES = 25;
 const isHexColor = (value: string) => /^#[0-9a-fA-F]{6}$/.test(value);
 const colorValue = (value: string, fallback: string) => (isHexColor(value) ? value : fallback);
 const readableTextColor = (background: string) => {
@@ -97,6 +100,8 @@ const readableTextColor = (background: string) => {
   return (r * 299 + g * 587 + b * 114) / 1000 > 145 ? "#111827" : "#ffffff";
 };
 const sanitizeCaptainPhotoName = (value: string) => value.toLowerCase().replace(/[^a-z0-9.-]+/g, "-").replace(/^-+|-+$/g, "") || "captain-photo";
+const isCaptainsEventFinished = (event: Pick<CaptainsEvent, "end_time">) =>
+  Boolean(event.end_time && new Date(event.end_time).getTime() <= Date.now());
 
 const captainsThemeOptions: Array<{
   value: CaptainsThemeStyle;
@@ -756,7 +761,7 @@ export const CaptainsAdminList = () => {
   const queryClient = useQueryClient();
   const { data: events = [], isLoading, isError } = useCaptainsEvents();
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | CaptainsEvent["status"]>("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "in_progress" | "finished">("all");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [codeDialogOpen, setCodeDialogOpen] = useState(false);
   const [generatedCode, setGeneratedCode] = useState<string | null>(null);
@@ -781,13 +786,15 @@ export const CaptainsAdminList = () => {
     const cleanSearch = search.trim().toLowerCase();
     return events.filter((event) => {
       const matchesSearch = !cleanSearch || [event.name, event.slug, event.description || ""].some((value) => value.toLowerCase().includes(cleanSearch));
-      const matchesStatus = statusFilter === "all" || event.status === statusFilter;
+      const displayStatus = isCaptainsEventFinished(event) ? "finished" : "in_progress";
+      const matchesStatus = statusFilter === "all" || displayStatus === statusFilter;
       return matchesSearch && matchesStatus;
     });
   }, [events, search, statusFilter]);
   const statusCounts = useMemo(() => {
     return events.reduce<Record<string, number>>((acc, event) => {
-      acc[event.status] = (acc[event.status] || 0) + 1;
+      const displayStatus = isCaptainsEventFinished(event) ? "finished" : "in_progress";
+      acc[displayStatus] = (acc[displayStatus] || 0) + 1;
       return acc;
     }, { all: events.length });
   }, [events]);
@@ -833,7 +840,7 @@ export const CaptainsAdminList = () => {
     >
 	      <Card className="rounded-2xl p-4 shadow-sm">
 	        <div className="flex flex-wrap gap-2">
-	          {(["all", "draft", "scheduled", "active", "finished", "archived"] as Array<"all" | CaptainsEvent["status"]>).map((status) => (
+	          {(["all", "in_progress", "finished"] as const).map((status) => (
 	            <button
 	              key={status}
 	              type="button"
@@ -842,7 +849,7 @@ export const CaptainsAdminList = () => {
 	                statusFilter === status ? "!border-foreground !bg-foreground !text-background shadow-sm" : "border-border bg-background text-foreground hover:bg-muted"
 	              }`}
 	            >
-	              <span>{status === "all" ? "Todos" : statusLabels[status]}</span>
+	              <span>{status === "all" ? "Todos" : status === "in_progress" ? "En curso" : "Terminado"}</span>
 	              <span className={`rounded-full px-2 py-0.5 text-xs ${statusFilter === status ? "bg-background/20 !text-background" : "bg-muted text-muted-foreground"}`}>
 	                {statusCounts[status] || 0}
 	              </span>
@@ -891,7 +898,9 @@ export const CaptainsAdminList = () => {
 	                    </td>
 	                    <td className="py-3 pr-4 font-medium">{event.name}</td>
                     <td className="py-3 pr-4">
-                      <Badge className="rounded-full" variant={event.status === "active" ? "default" : "outline"}>{statusLabels[event.status]}</Badge>
+                      <Badge className="rounded-full" variant={isCaptainsEventFinished(event) ? "outline" : "default"}>
+                        {isCaptainsEventFinished(event) ? "Terminado" : "En curso"}
+                      </Badge>
                     </td>
                     <td className="py-3 pr-4">{formatDateTime(event.created_at)}</td>
                     <td className="py-3 pr-4">{event.table_count}</td>
@@ -942,11 +951,10 @@ export const CaptainsAdminList = () => {
   );
 };
 
-type CaptainsOnboardingStep = "intro" | "style" | "tables" | "challenges" | "contact";
+type CaptainsOnboardingStep = "intro" | "tables" | "challenges" | "contact";
 
 const captainsOnboardingSteps: Array<{ id: CaptainsOnboardingStep; label: string }> = [
   { id: "intro", label: "Evento" },
-  { id: "style", label: "Estilo" },
   { id: "tables", label: "Mesas" },
   { id: "challenges", label: "Retos" },
   { id: "contact", label: "Contacto" },
@@ -987,9 +995,6 @@ export const CaptainsOnboarding = () => {
         setStartHour(start.time);
         setEndDate(end.date);
         setEndHour(end.time);
-        setThemeStyle(data.event.theme_style || "pixel");
-        setPrimaryColor(data.event.primary_color || DEFAULT_PRIMARY_COLOR);
-        setScoringMode(data.event.scoring_mode || "automatic");
         setContactName(data.event.contact_name || "");
         setContactEmail(data.event.contact_email || "");
         setContactPhone(data.event.contact_phone || "");
@@ -1022,8 +1027,7 @@ export const CaptainsOnboarding = () => {
   const [startHour, setStartHour] = useState(defaultDateRange.startTime);
   const [endDate, setEndDate] = useState(defaultDateRange.endDate);
   const [endHour, setEndHour] = useState(defaultDateRange.endTime);
-  const [themeStyle, setThemeStyle] = useState<CaptainsThemeStyle>("pixel");
-  const [primaryColor, setPrimaryColor] = useState(DEFAULT_PRIMARY_COLOR);
+  const primaryColor = DEFAULT_PRIMARY_COLOR;
   const [tableCount, setTableCount] = useState(initialTableCount);
   const [editingTableIndex, setEditingTableIndex] = useState<number | null>(null);
   const [isCreatingChallenge, setIsCreatingChallenge] = useState(false);
@@ -1042,7 +1046,6 @@ export const CaptainsOnboarding = () => {
   const [uploadingOnboardingCaptainPhotoIndex, setUploadingOnboardingCaptainPhotoIndex] = useState<number | null>(null);
   const [selectedChallengeIds, setSelectedChallengeIds] = useState<string[]>([]);
   const [selectedChallenges, setSelectedChallenges] = useState<CaptainsChallengeInput[]>([]);
-  const [scoringMode, setScoringMode] = useState<"automatic" | "manual">("automatic");
   const [contactName, setContactName] = useState("");
   const [contactEmail, setContactEmail] = useState("");
   const [contactPhone, setContactPhone] = useState("");
@@ -1086,7 +1089,7 @@ export const CaptainsOnboarding = () => {
   const validateStep = (step: CaptainsOnboardingStep) => {
     if (step === "intro") {
       if (!name.trim()) return "Pon un nombre para el juego.";
-      const start = new Date(`${startDate}T${startHour}`);
+      const start = editingEventId ? new Date(`${startDate}T${startHour}`) : new Date();
       const end = new Date(`${endDate}T${endHour}`);
       if (!startDate || !startHour || !endDate || !endHour || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return "Revisa las fechas del juego.";
       if (end <= start) return "La fecha de fin debe ser posterior al inicio.";
@@ -1228,7 +1231,7 @@ export const CaptainsOnboarding = () => {
     }
     try {
       setIsSaving(true);
-      const startIso = dateTimePartsToIso(startDate, startHour);
+      const startIso = editingEventId ? dateTimePartsToIso(startDate, startHour) : new Date().toISOString();
       const endIso = dateTimePartsToIso(endDate, endHour);
       const gameInput = {
         event: {
@@ -1236,21 +1239,20 @@ export const CaptainsOnboarding = () => {
           description: description.trim(),
           start_time: startIso,
           end_time: endIso,
-          scoring_mode: scoringMode,
+          scoring_mode: "automatic" as const,
           show_live_gallery_after_completion: true,
-          theme_style: themeStyle,
-          primary_color: primaryColor,
+          theme_style: "pixel" as const,
+          primary_color: DEFAULT_PRIMARY_COLOR,
           secondary_color: DEFAULT_SECONDARY_COLOR,
 	          background_image_url: null,
 	          contact_name: contactName.trim(),
 	          contact_email: contactEmail.trim(),
 	          contact_phone: contactPhone.trim(),
-	          status: startIso && new Date(startIso).getTime() > Date.now() ? "scheduled" : "active",
+	          status: "active" as const,
 	        },
 	        tables,
 	        challenges: selectedChallenges,
 	      };
-      let created;
       const { data, error } = await supabase.functions.invoke("redeem-captains-code", {
         body: { action: editingEventId ? "update" : "create", code: accessCode, ...gameInput },
       });
@@ -1268,7 +1270,7 @@ export const CaptainsOnboarding = () => {
         throw Object.assign(new Error(message), { functionError: responseBody });
       }
       if (!data?.event) throw new Error(data?.detail || data?.error || "PUBLIC_CREATE_FAILED");
-      created = data;
+	      const created = data;
 	      const createdEvent = created?.event;
 	      if (createdEvent && !editingEventId) {
 	        const publicUrl = normalizeCaptainsPublicUrl(createdEvent.public_url, createdEvent.slug);
@@ -1326,20 +1328,10 @@ export const CaptainsOnboarding = () => {
               <span className="text-sm font-medium">Mensaje de bienvenida</span>
               <Textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={5} className="rounded-2xl px-4 py-3" />
             </label>
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-2">
               <div className="grid gap-2 sm:grid-cols-[1fr_110px]">
                 <label className="space-y-2">
-                  <span className="text-sm font-medium">Inicio</span>
-                  <Input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
-                </label>
-                <label className="space-y-2">
-                  <span className="text-sm font-medium">Hora</span>
-                  <Input type="time" value={startHour} onChange={(event) => setStartHour(event.target.value)} />
-                </label>
-              </div>
-              <div className="grid gap-2 sm:grid-cols-[1fr_110px]">
-                <label className="space-y-2">
-                  <span className="text-sm font-medium">Fin</span>
+                  <span className="text-sm font-medium">Fecha de fin</span>
                   <Input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} />
                 </label>
                 <label className="space-y-2">
@@ -1347,53 +1339,10 @@ export const CaptainsOnboarding = () => {
                   <Input type="time" value={endHour} onChange={(event) => setEndHour(event.target.value)} />
                 </label>
               </div>
+              <p className="text-xs text-muted-foreground">
+                A partir de este momento, el ranking y todo el contenido generado se harán públicos para todos los grupos. Ya no se podrán completar más retos.
+              </p>
             </div>
-          </div>
-        );
-      case "style":
-        return (
-          <div className="space-y-5">
-            <div className="grid gap-3 sm:grid-cols-2">
-              {captainsThemeOptions.map((option) => {
-                const selected = themeStyle === option.value;
-                return (
-	                  <button
-	                    key={option.value}
-	                    type="button"
-	                    onClick={() => setThemeStyle(option.value)}
-	                    className={`border p-4 text-left text-foreground transition hover:border-[#f06a5f] hover:bg-[#f06a5f]/5 ${selected ? "" : "rounded-2xl border-border bg-card"}`}
-	                    style={
-	                      selected
-	                        ? {
-	                            borderColor: DEFAULT_PRIMARY_COLOR,
-	                            backgroundColor: "rgba(240, 106, 95, 0.12)",
-	                            borderRadius: "0.375rem",
-	                          }
-	                        : undefined
-	                    }
-	                  >
-                    <div className={`mb-3 p-3 text-lg font-black ${option.previewClass}`}>
-                      <span className={option.headingClass}>{option.label}</span>
-                    </div>
-                    <p className="text-sm text-muted-foreground">{option.description}</p>
-                  </button>
-                );
-              })}
-            </div>
-            <label className="space-y-2">
-              <span className="text-sm font-medium">Color principal</span>
-              <div className="flex gap-2">
-                <Input type="color" value={isHexColor(primaryColor) ? primaryColor : DEFAULT_PRIMARY_COLOR} onChange={(event) => setPrimaryColor(event.target.value)} className="h-12 w-16 rounded-xl p-1" />
-                <Input value={primaryColor} onChange={(event) => setPrimaryColor(event.target.value)} className="h-12 rounded-full px-4" />
-              </div>
-            </label>
-            <label className="space-y-2">
-              <span className="text-sm font-medium">Modo de puntuación</span>
-              <select className="h-12 w-full rounded-full border border-input bg-background px-4 text-base" value={scoringMode} onChange={(event) => setScoringMode(event.target.value as "automatic" | "manual")}>
-                <option value="automatic">Puntuación automática</option>
-                <option value="manual">Revisión manual</option>
-              </select>
-            </label>
           </div>
         );
       case "tables":
@@ -1487,7 +1436,7 @@ export const CaptainsOnboarding = () => {
                 <p className="font-medium text-foreground">{selectedChallenges.length}/{CAPTAINS_MAX_CHALLENGES} retos añadidos al evento</p>
                 <p>Selecciona del catálogo completo, crea retos nuevos y edita el detalle antes de publicar.</p>
               </div>
-              <Button type="button" variant="outline" className="gap-2" onClick={addBlankOnboardingChallenge}>
+              <Button type="button" className="gap-2" onClick={addBlankOnboardingChallenge} disabled={selectedChallenges.length >= CAPTAINS_MAX_CHALLENGES}>
                 <Plus className="h-4 w-4" />
                 Crear reto nuevo
               </Button>
@@ -2209,20 +2158,20 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
 
     try {
       setIsSaving(true);
-      const startIso = dateTimePartsToIso(startDate, startHour);
+      const startIso = edit ? dateTimePartsToIso(startDate, startHour) : new Date().toISOString();
       const endIso = dateTimePartsToIso(endDate, endHour);
       const eventPayload = {
         name: name.trim(),
         description: description.trim(),
         start_time: startIso,
         end_time: endIso,
-        scoring_mode: scoringMode,
-        show_live_gallery_after_completion: showLiveGalleryAfterCompletion,
-        theme_style: themeStyle,
-        primary_color: primaryColor,
-        secondary_color: secondaryColor,
-        background_image_url: backgroundImageUrl.trim() || null,
-        status: startIso && new Date(startIso).getTime() > Date.now() ? "scheduled" as const : "active" as const,
+        scoring_mode: "automatic" as const,
+        show_live_gallery_after_completion: true,
+        theme_style: "pixel" as const,
+        primary_color: DEFAULT_PRIMARY_COLOR,
+        secondary_color: DEFAULT_SECONDARY_COLOR,
+        background_image_url: null,
+        status: "active" as const,
       };
 
       if (edit && eventId) {
@@ -2274,7 +2223,7 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
               <span className="text-sm font-medium">Descripción inicial</span>
               <Textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={6} />
             </label>
-            <div className="grid gap-4 rounded-2xl border border-border bg-muted/20 p-4 md:col-span-2 md:grid-cols-2">
+            {!edit ? <div className="grid gap-4 rounded-2xl border border-border bg-muted/20 p-4 md:col-span-2 md:grid-cols-2">
               <div className="space-y-1 md:col-span-2">
                 <span className="text-sm font-medium">Estilo visual del juego mobile</span>
                 <p className="text-xs text-muted-foreground">
@@ -2349,7 +2298,7 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
                   Hacer foto
                 </div>
               </div>
-            </div>
+            </div> : null}
             <label className="space-y-1">
               <span className="text-sm font-medium">Número de mesas</span>
               <Input
@@ -2364,16 +2313,6 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
             <div className="grid gap-3 md:col-span-2 md:grid-cols-2">
               <div className="grid gap-2 sm:grid-cols-[1fr_120px]">
                 <label className="space-y-1">
-                  <span className="text-sm font-medium">Fecha de inicio</span>
-                  <Input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
-                </label>
-                <label className="space-y-1">
-                  <span className="text-sm font-medium">Hora</span>
-                  <Input type="time" value={startHour} onChange={(event) => setStartHour(event.target.value)} />
-                </label>
-              </div>
-              <div className="grid gap-2 sm:grid-cols-[1fr_120px]">
-                <label className="space-y-1">
                   <span className="text-sm font-medium">Fecha de fin</span>
                   <Input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} />
                 </label>
@@ -2382,9 +2321,9 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
                   <Input type="time" value={endHour} onChange={(event) => setEndHour(event.target.value)} />
                 </label>
               </div>
-              <p className="text-xs text-muted-foreground md:col-span-2">Al llegar esta hora, se podrá ver el resumen con los equipos que hayan participado.</p>
+              <p className="text-xs text-muted-foreground md:col-span-2">A partir de esta fecha y hora ya no se podrán completar retos; el ranking y el contenido generado se harán públicos para todos los grupos.</p>
             </div>
-            <label className="space-y-1">
+            {!edit ? <label className="space-y-1">
               <span className="text-sm font-medium">Modo de puntuación</span>
               <select
                 className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
@@ -2394,8 +2333,8 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
                 <option value="automatic">Puntuación automática</option>
                 <option value="manual">Revisión manual</option>
               </select>
-            </label>
-            <label className="space-y-1 md:col-span-2">
+            </label> : null}
+            {!edit ? <label className="space-y-1 md:col-span-2">
               <span className="text-sm font-medium">Visibilidad del contenido entre mesas</span>
               <select
                 className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
@@ -2408,7 +2347,7 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
               <p className="text-xs text-muted-foreground">
                 Cuando una mesa complete todos sus retos, podrá ver en tiempo real las evidencias subidas por el resto de mesas.
               </p>
-            </label>
+            </label> : null}
           </div>
 
           {captains.length === 0 ? (
@@ -2923,6 +2862,7 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
     return () => { active = false; };
   }, [detailAccessCode, eventId]);
   const { data: detail, isLoading, isError, refetch } = useCaptainsEventDetail(eventId);
+  const { data: challengeCatalog = [] } = useCaptainsChallengeCatalog();
   const { data: ranking = [] } = useCaptainsRanking(eventId);
   const { data: tableChallenges = [] } = useQuery({
     queryKey: ["captains", "table-challenges", eventId],
@@ -2934,28 +2874,26 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
   const [generalDraft, setGeneralDraft] = useState({
     name: "",
     description: "",
-    startDate: "",
-    startHour: "",
     endDate: "",
     endHour: "",
-    scoringMode: "automatic" as CaptainsScoringMode,
-    themeStyle: "pixel" as CaptainsThemeStyle,
-    primaryColor: DEFAULT_PRIMARY_COLOR,
-    secondaryColor: DEFAULT_SECONDARY_COLOR,
-    backgroundImageUrl: "",
     contactName: "",
     contactEmail: "",
     contactPhone: "",
-    status: "active" as CaptainsEvent["status"],
-    showLiveGalleryAfterCompletion: true,
   });
+  const generalDraftRef = useRef(generalDraft);
+  const generalSavedFingerprintRef = useRef("");
+  const [generalSaveStatus, setGeneralSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [editingTable, setEditingTable] = useState<CaptainsTable | null>(null);
   const [resettingTableActivityId, setResettingTableActivityId] = useState("");
+  const [isResettingAllTables, setIsResettingAllTables] = useState(false);
   const [tableDraft, setTableDraft] = useState<CaptainsTable | null>(null);
   const [detailCaptainPhotoCrop, setDetailCaptainPhotoCrop] = useState<CaptainPhotoCropState | null>(null);
   const [isUploadingDetailCaptainPhoto, setIsUploadingDetailCaptainPhoto] = useState(false);
   const [editingChallenge, setEditingChallenge] = useState<CaptainsEventChallenge | null>(null);
   const [challengeDraft, setChallengeDraft] = useState<CaptainsChallengeInput | null>(null);
+  const [addChallengeOpen, setAddChallengeOpen] = useState(false);
+  const [addChallengeMode, setAddChallengeMode] = useState<"catalog" | "manual">("catalog");
+  const [newChallengeDraft, setNewChallengeDraft] = useState<CaptainsChallengeInput>({ ...EMPTY_CHALLENGE });
   const [editingEvidence, setEditingEvidence] = useState<CaptainsEvidence | null>(null);
 	  const [evidenceDraft, setEvidenceDraft] = useState({ status: "uploaded" as CaptainsEvidence["status"], points: 0, comment: "" });
 	  const [contentView, setContentView] = useState<"retos" | "capitanes">("retos");
@@ -2984,27 +2922,24 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
 
   useEffect(() => {
     if (!detail) return;
-    const start = splitDateTimeInput(detail.event.start_time);
     const end = splitDateTimeInput(detail.event.end_time);
-    setGeneralDraft({
+    const nextDraft = {
       name: detail.event.name,
       description: detail.event.description || "",
-      startDate: start.date,
-      startHour: start.time,
       endDate: end.date,
       endHour: end.time,
-      scoringMode: detail.event.scoring_mode,
-      themeStyle: detail.event.theme_style || "pixel",
-      primaryColor: detail.event.primary_color || DEFAULT_PRIMARY_COLOR,
-      secondaryColor: detail.event.secondary_color || DEFAULT_SECONDARY_COLOR,
-      backgroundImageUrl: detail.event.background_image_url || "",
       contactName: detail.event.contact_name || "",
       contactEmail: detail.event.contact_email || "",
       contactPhone: detail.event.contact_phone || "",
-      status: detail.event.status,
-      showLiveGalleryAfterCompletion: detail.event.show_live_gallery_after_completion ?? true,
-    });
+    };
+    generalDraftRef.current = nextDraft;
+    generalSavedFingerprintRef.current = JSON.stringify(nextDraft);
+    setGeneralDraft(nextDraft);
   }, [detail]);
+
+  useEffect(() => {
+    generalDraftRef.current = generalDraft;
+  }, [generalDraft]);
 
   const challengesById = useMemo(() => {
     const map = new Map<string, CaptainsEventChallenge>();
@@ -3121,57 +3056,51 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
 	    }
 	  };
 
-  const handleFinish = async () => {
-    if (!eventId) return;
-    const confirmed = window.confirm("¿Seguro que quieres finalizar este juego de Capitanes?");
-    if (!confirmed) return;
-    await finishCaptainsEvent(eventId);
-    toast({ title: "Juego finalizado", description: "El evento ha pasado a estado finalizado." });
-    refreshAll();
-  };
+  useEffect(() => {
+    if (!detail || !eventId) return;
+    const draft = { ...generalDraftRef.current };
+    const fingerprint = JSON.stringify(draft);
+    if (!generalSavedFingerprintRef.current || fingerprint === generalSavedFingerprintRef.current) return;
 
-  const handleToggleLiveGallery = async () => {
-    if (!detail?.event.id) return;
-    const nextValue = !(detail.event.show_live_gallery_after_completion ?? true);
-    await updateCaptainsEvent(detail.event.id, { show_live_gallery_after_completion: nextValue });
-    toast({
-      title: nextValue ? "Galería live activada" : "Galería live desactivada",
-      description: nextValue
-        ? "Las mesas podrán ver recuerdos al completar todos los retos."
-        : "La ruta pública live mostrará que la galería no está disponible.",
-    });
-    refreshAll();
-  };
+    const timer = window.setTimeout(async () => {
+      const endTime = dateTimePartsToIso(draft.endDate, draft.endHour);
+      if (!draft.name.trim() || !endTime || new Date(endTime).getTime() <= new Date(detail.event.start_time || detail.event.created_at).getTime()) {
+        setGeneralSaveStatus("error");
+        return;
+      }
+      try {
+        setGeneralSaveStatus("saving");
+        const updatedEvent = await updateCaptainsEvent(detail.event.id, {
+          name: draft.name.trim(),
+          description: draft.description.trim(),
+          end_time: endTime,
+          scoring_mode: "automatic",
+          theme_style: "pixel",
+          primary_color: DEFAULT_PRIMARY_COLOR,
+          secondary_color: DEFAULT_SECONDARY_COLOR,
+          background_image_url: null,
+          contact_name: draft.contactName.trim() || null,
+          contact_email: draft.contactEmail.trim().toLowerCase() || null,
+          contact_phone: draft.contactPhone.trim() || null,
+          status: "active",
+          show_live_gallery_after_completion: true,
+        });
+        generalSavedFingerprintRef.current = fingerprint;
+        if (JSON.stringify(generalDraftRef.current) === fingerprint) {
+          queryClient.setQueryData<CaptainsEventDetail | null>(captainsQueryKeys.event(eventId), (current) =>
+            current ? { ...current, event: updatedEvent } : current,
+          );
+          queryClient.invalidateQueries({ queryKey: captainsQueryKeys.events() });
+          setGeneralSaveStatus("saved");
+        }
+      } catch (error) {
+        console.error("Error autosaving captains event:", error);
+        setGeneralSaveStatus("error");
+      }
+    }, 650);
 
-  const saveGeneralEditor = async () => {
-    if (!detail) return;
-    try {
-      setIsDetailSaving(true);
-      await updateCaptainsEvent(detail.event.id, {
-        name: generalDraft.name.trim(),
-        description: generalDraft.description.trim(),
-        start_time: dateTimePartsToIso(generalDraft.startDate, generalDraft.startHour),
-        end_time: dateTimePartsToIso(generalDraft.endDate, generalDraft.endHour),
-        scoring_mode: generalDraft.scoringMode,
-        theme_style: generalDraft.themeStyle,
-        primary_color: generalDraft.primaryColor,
-        secondary_color: generalDraft.secondaryColor,
-        background_image_url: generalDraft.backgroundImageUrl.trim() || null,
-        contact_name: generalDraft.contactName.trim() || null,
-        contact_email: generalDraft.contactEmail.trim().toLowerCase() || null,
-        contact_phone: generalDraft.contactPhone.trim() || null,
-        status: generalDraft.status,
-        show_live_gallery_after_completion: generalDraft.showLiveGalleryAfterCompletion,
-      });
-      toast({ title: "Evento actualizado", description: "Los datos generales se han guardado." });
-      refreshAll();
-    } catch (error) {
-      console.error("Error updating captains event:", error);
-      toast({ title: "Error", description: "No hemos podido actualizar el evento.", variant: "destructive" });
-    } finally {
-      setIsDetailSaving(false);
-    }
-  };
+    return () => window.clearTimeout(timer);
+  }, [detail, eventId, generalDraft, queryClient]);
 
   const openTableEditor = (table: CaptainsTable) => {
     const normalized = {
@@ -3187,16 +3116,35 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
   };
 
   const resetTableLastActivity = async (table: CaptainsTable) => {
+    const confirmed = window.confirm(`¿Resetear ${table.table_name}? Se borrará también todo el contenido que haya subido, tanto de la base de datos como de Storage.`);
+    if (!confirmed) return;
     try {
       setResettingTableActivityId(table.id);
       await resetCaptainsTableLastActivity(table.id);
-      toast({ title: "Partida reiniciada", description: `${table.table_name} volverá a comenzar desde el primer reto.` });
+      toast({ title: "Partida reiniciada", description: `${table.table_name} volverá a comenzar desde el primer reto y su contenido se ha eliminado.` });
       refreshAll();
     } catch (error) {
       console.error("Error resetting captains table activity:", error);
       toast({ title: "Error", description: "No hemos podido reiniciar la partida de la mesa.", variant: "destructive" });
     } finally {
       setResettingTableActivityId("");
+    }
+  };
+
+  const resetAllTables = async () => {
+    if (!eventId) return;
+    const confirmed = window.confirm("¿Resetear todas las mesas? Se eliminarán todas las puntuaciones y todo el contenido subido, también de Storage. Esta acción no se puede deshacer.");
+    if (!confirmed) return;
+    try {
+      setIsResettingAllTables(true);
+      await resetAllCaptainsTables(eventId);
+      toast({ title: "Todas las partidas reiniciadas", description: "Se han eliminado las puntuaciones y todo el contenido subido." });
+      refreshAll();
+    } catch (error) {
+      console.error("Error resetting all captains tables:", error);
+      toast({ title: "Error", description: "No hemos podido resetear todas las mesas.", variant: "destructive" });
+    } finally {
+      setIsResettingAllTables(false);
     }
   };
 
@@ -3303,6 +3251,55 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
     }
   };
 
+  const openAddChallenge = () => {
+    if ((detail?.challenges.length || 0) >= CAPTAINS_MAX_CHALLENGES) {
+      toast({ title: "Límite alcanzado", description: `El máximo general es de ${CAPTAINS_MAX_CHALLENGES} retos.`, variant: "destructive" });
+      return;
+    }
+    setAddChallengeMode("catalog");
+    setNewChallengeDraft({ ...EMPTY_CHALLENGE, order_index: (detail?.challenges.length || 0) + 1 });
+    setAddChallengeOpen(true);
+  };
+
+  const addCatalogChallenge = async (catalogId: string) => {
+    if (!eventId) return;
+    try {
+      setIsDetailSaving(true);
+      await addCatalogChallengesToCaptainsEvent(eventId, [catalogId]);
+      toast({ title: "Reto añadido", description: "El reto del catálogo ya está disponible para todas las mesas." });
+      setAddChallengeOpen(false);
+      refreshAll();
+    } catch (error) {
+      toast({ title: "No se ha podido añadir", description: error instanceof Error ? error.message : "Revisa el reto.", variant: "destructive" });
+    } finally {
+      setIsDetailSaving(false);
+    }
+  };
+
+  const isCatalogChallengeAdded = (catalogItem: CaptainsChallengeCatalogItem) =>
+    Boolean(detail?.challenges.some((challenge) =>
+      challenge.catalog_challenge_id === catalogItem.id
+      || challenge.title.trim().toLocaleLowerCase("es") === catalogItem.title.trim().toLocaleLowerCase("es"),
+    ));
+
+  const addManualChallenge = async () => {
+    if (!eventId || !newChallengeDraft.title.trim() || !newChallengeDraft.description.trim()) {
+      toast({ title: "Revisa el reto", description: "El título y la descripción son obligatorios.", variant: "destructive" });
+      return;
+    }
+    try {
+      setIsDetailSaving(true);
+      await createCustomCaptainsChallenge(eventId, newChallengeDraft);
+      toast({ title: "Reto añadido", description: "El nuevo reto ya está disponible para todas las mesas." });
+      setAddChallengeOpen(false);
+      refreshAll();
+    } catch (error) {
+      toast({ title: "No se ha podido añadir", description: error instanceof Error ? error.message : "Revisa el reto.", variant: "destructive" });
+    } finally {
+      setIsDetailSaving(false);
+    }
+  };
+
   const openEvidenceEditor = (item: CaptainsEvidence) => {
     setEditingEvidence(item);
     setEvidenceDraft({
@@ -3383,6 +3380,8 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
   }
 
 	  const { event, tables, challenges } = detail;
+	  const eventIsFinished = isCaptainsEventFinished(event);
+	  const eventStatusLabel = eventIsFinished ? "Terminado" : "En curso";
 	  const publicUrl = normalizeCaptainsPublicUrl(event.public_url, event.slug);
 	  const qrValue = normalizeCaptainsPublicUrl(event.qr_url || getCaptainsQrValue(event.slug), event.slug);
 	  const liveVisibleEvidence = evidenceIndex.filter((item) => item.file_url && !["deleted", "rejected"].includes(item.status));
@@ -3482,7 +3481,7 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
 	            <div className="min-w-0">
 	              <div className="flex flex-wrap items-center gap-2">
 	                <p className="truncate text-sm font-semibold text-foreground">{event.name}</p>
-	                <Badge variant={event.status === "active" ? "default" : "outline"}>{statusLabels[event.status]}</Badge>
+	                <Badge variant={eventIsFinished ? "outline" : "default"}>{eventStatusLabel}</Badge>
 	              </div>
 	              <div className="flex min-w-0 items-center gap-1">
 	                <a href={publicUrl} target="_blank" rel="noopener noreferrer" className="truncate text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline">{publicUrl}</a>
@@ -3559,10 +3558,7 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
             <div className="grid gap-5 lg:grid-cols-[1fr_220px]">
               <div className="space-y-4">
                 <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="text-xl font-bold">General</h2>
-                    <Badge variant={event.status === "active" ? "default" : "outline"}>{statusLabels[event.status]}</Badge>
-                  </div>
+                  <h2 className="text-xl font-bold">General</h2>
                   <p className="mt-1 text-sm text-muted-foreground">Edita la información base del evento como en la pantalla de creación.</p>
                 </div>
                 <div className="grid gap-4 md:grid-cols-2">
@@ -3588,16 +3584,6 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
 	                      <Input type="tel" value={generalDraft.contactPhone} onChange={(inputEvent) => setGeneralDraft((prev) => ({ ...prev, contactPhone: inputEvent.target.value }))} />
 	                    </label>
 	                  </div>
-	                  <div className="grid gap-2 sm:grid-cols-[1fr_110px]">
-                    <label className="space-y-1">
-                      <span className="text-xs font-medium text-muted-foreground">Inicio</span>
-                      <Input type="date" value={generalDraft.startDate} onChange={(inputEvent) => setGeneralDraft((prev) => ({ ...prev, startDate: inputEvent.target.value }))} />
-                    </label>
-                    <label className="space-y-1">
-                      <span className="text-xs font-medium text-muted-foreground">Hora</span>
-                      <Input type="time" value={generalDraft.startHour} onChange={(inputEvent) => setGeneralDraft((prev) => ({ ...prev, startHour: inputEvent.target.value }))} />
-                    </label>
-                  </div>
                   <div className="grid gap-2 sm:grid-cols-[1fr_110px]">
                     <label className="space-y-1">
                       <span className="text-xs font-medium text-muted-foreground">Fin</span>
@@ -3608,85 +3594,18 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
                       <Input type="time" value={generalDraft.endHour} onChange={(inputEvent) => setGeneralDraft((prev) => ({ ...prev, endHour: inputEvent.target.value }))} />
                     </label>
                   </div>
-                  <label className="space-y-1">
-                    <span className="text-xs font-medium text-muted-foreground">Estado</span>
-                    <select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={generalDraft.status} onChange={(inputEvent) => setGeneralDraft((prev) => ({ ...prev, status: inputEvent.target.value as CaptainsEvent["status"] }))}>
-                      <option value="draft">Borrador</option>
-                      <option value="scheduled">Programado</option>
-                      <option value="active">Activo</option>
-                      <option value="finished">Finalizado</option>
-                      <option value="archived">Archivado</option>
-                    </select>
-                  </label>
-                  <label className="space-y-1">
-                    <span className="text-xs font-medium text-muted-foreground">Modo de puntuación</span>
-                    <select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={generalDraft.scoringMode} onChange={(inputEvent) => setGeneralDraft((prev) => ({ ...prev, scoringMode: inputEvent.target.value as CaptainsScoringMode }))}>
-                      <option value="automatic">Puntuación automática</option>
-                      <option value="manual">Revisión manual</option>
-                    </select>
-                  </label>
+                  <p className="text-xs text-muted-foreground md:col-span-2">
+                    Al llegar la fecha y hora de fin ya no se podrán completar retos; el ranking y el contenido pasarán a ser públicos para todos los grupos.
+                  </p>
                 </div>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {captainsThemeOptions.map((option) => {
-                    const selected = generalDraft.themeStyle === option.value;
-                    return (
-                      <button
-                        key={option.value}
-                        type="button"
-                        onClick={() => setGeneralDraft((prev) => ({ ...prev, themeStyle: option.value }))}
-                        className={`border p-4 text-left text-foreground transition hover:border-[#f06a5f] hover:bg-[#f06a5f]/5 ${selected ? "" : "rounded-2xl border-border bg-card"}`}
-                        style={
-                          selected
-                            ? {
-                                borderColor: DEFAULT_PRIMARY_COLOR,
-                                backgroundColor: "rgba(240, 106, 95, 0.12)",
-                                borderRadius: "0.375rem",
-                              }
-                            : undefined
-                        }
-                      >
-                        <div className={`mb-3 p-3 text-lg font-black ${option.previewClass}`}>
-                          <span className={option.headingClass}>{option.label}</span>
-                        </div>
-                        <p className="text-sm text-muted-foreground">{option.description}</p>
-                      </button>
-                    );
-                  })}
-                </div>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <label className="space-y-1">
-                    <span className="text-xs font-medium text-muted-foreground">Color principal</span>
-                    <div className="flex gap-2">
-                      <Input type="color" value={colorValue(generalDraft.primaryColor, DEFAULT_PRIMARY_COLOR)} onChange={(inputEvent) => setGeneralDraft((prev) => ({ ...prev, primaryColor: inputEvent.target.value }))} className="h-10 w-14 p-1" />
-                      <Input value={generalDraft.primaryColor} onChange={(inputEvent) => setGeneralDraft((prev) => ({ ...prev, primaryColor: inputEvent.target.value }))} />
-                    </div>
-                  </label>
-                  <label className="space-y-1">
-                    <span className="text-xs font-medium text-muted-foreground">Color secundario</span>
-                    <div className="flex gap-2">
-                      <Input type="color" value={colorValue(generalDraft.secondaryColor, DEFAULT_SECONDARY_COLOR)} onChange={(inputEvent) => setGeneralDraft((prev) => ({ ...prev, secondaryColor: inputEvent.target.value }))} className="h-10 w-14 p-1" />
-                      <Input value={generalDraft.secondaryColor} onChange={(inputEvent) => setGeneralDraft((prev) => ({ ...prev, secondaryColor: inputEvent.target.value }))} />
-                    </div>
-                  </label>
-                  <label className="space-y-1 md:col-span-2">
-                    <span className="text-xs font-medium text-muted-foreground">Imagen de fondo</span>
-                    <Input value={generalDraft.backgroundImageUrl} onChange={(inputEvent) => setGeneralDraft((prev) => ({ ...prev, backgroundImageUrl: inputEvent.target.value }))} placeholder="https://..." />
-                  </label>
-                  <label className="flex items-center gap-2 text-sm md:col-span-2">
-                    <input
-                      type="checkbox"
-                      checked={generalDraft.showLiveGalleryAfterCompletion}
-                      onChange={(inputEvent) => setGeneralDraft((prev) => ({ ...prev, showLiveGalleryAfterCompletion: inputEvent.target.checked }))}
-                      className="h-4 w-4 accent-primary"
-                    />
-                    Mostrar galería live al completar los retos
-                  </label>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button className="gap-2 rounded-full" onClick={saveGeneralEditor} disabled={isDetailSaving}>
-                    <Check className="h-4 w-4" />
-                    {isDetailSaving ? "Guardando..." : "Guardar cambios"}
-                  </Button>
+                <div className="flex flex-wrap items-center gap-3">
+                  <p className={`text-xs ${generalSaveStatus === "error" ? "text-destructive" : "text-muted-foreground"}`}>
+                    {generalSaveStatus === "saving"
+                      ? "Guardando cambios..."
+                      : generalSaveStatus === "error"
+                        ? "Revisa los datos: el nombre y una fecha de fin posterior a la creación son obligatorios."
+                        : "Los cambios se guardan automáticamente."}
+                  </p>
                   <Button className="gap-2 rounded-full bg-black text-white hover:bg-black/85" onClick={() => setDeleteEventOpen(true)}>
                     <Trash2 className="h-4 w-4" />
                     Eliminar evento
@@ -3704,17 +3623,22 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
 	            totalChallenges={challenges.length}
 	            onEdit={openTableEditor}
 	            onResetLastActivity={resetTableLastActivity}
+	            onResetAll={resetAllTables}
 	            resettingTableId={resettingTableActivityId}
+	            isResettingAll={isResettingAllTables}
 	          />
 	        </TabsContent>
 
         <TabsContent value="challenges" className="mt-0 space-y-6">
           <Card className="rounded-2xl p-5 shadow-sm">
-	            <div className="mb-4">
+            <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
 	              <div>
 	                <h2 className="font-semibold">Retos del juego</h2>
-	                <p className="text-sm text-muted-foreground">Orden, tipo de evidencia, puntos y reglas de cada reto.</p>
+	                <p className="text-sm text-muted-foreground">Orden, tipo de evidencia, puntos y reglas de cada reto. Máximo {CAPTAINS_MAX_CHALLENGES}.</p>
 	              </div>
+	              <Button type="button" className="gap-2 rounded-full" onClick={openAddChallenge} disabled={challenges.length >= CAPTAINS_MAX_CHALLENGES}>
+	                <Plus className="h-4 w-4" /> Añadir nuevo reto
+	              </Button>
 	            </div>
             <div className="grid gap-3 md:grid-cols-2">
               {challenges.map((challenge, index) => (
@@ -4024,7 +3948,7 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
 		        </DialogContent>
 		      </Dialog>
 
-		      <Dialog open={!!editingChallenge} onOpenChange={(open) => { if (!open) { setEditingChallenge(null); setChallengeDraft(null); } }}>
+	      <Dialog open={!!editingChallenge} onOpenChange={(open) => { if (!open) { setEditingChallenge(null); setChallengeDraft(null); } }}>
 	        <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
 	          <DialogHeader>
 	            <DialogTitle>Editar reto</DialogTitle>
@@ -4041,6 +3965,51 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
 	          ) : null}
 	        </DialogContent>
 	      </Dialog>
+
+        <Dialog open={addChallengeOpen} onOpenChange={setAddChallengeOpen}>
+          <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Añadir nuevo reto</DialogTitle>
+              <DialogDescription>Elige un reto del catálogo o crea uno manualmente. El máximo general es de {CAPTAINS_MAX_CHALLENGES} retos.</DialogDescription>
+            </DialogHeader>
+            <div className="flex gap-2">
+              <Button type="button" variant={addChallengeMode === "catalog" ? "default" : "outline"} className="rounded-full" onClick={() => setAddChallengeMode("catalog")}>Catálogo</Button>
+              <Button type="button" variant={addChallengeMode === "manual" ? "default" : "outline"} className="rounded-full" onClick={() => setAddChallengeMode("manual")}>Creación manual</Button>
+            </div>
+            {addChallengeMode === "catalog" ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {challengeCatalog.map((catalogItem) => (
+                  <div key={catalogItem.id} className="rounded-xl border border-border p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-semibold">{catalogItem.title}</p>
+                        <p className="mt-1 text-sm text-muted-foreground">{catalogItem.description}</p>
+                      </div>
+                      <Badge variant="outline">{catalogItem.default_points} pts</Badge>
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="mt-3 w-full rounded-full"
+                      onClick={() => addCatalogChallenge(catalogItem.id)}
+                      disabled={isDetailSaving || isCatalogChallengeAdded(catalogItem)}
+                    >
+                      {isCatalogChallengeAdded(catalogItem) ? "Ya añadido" : "Añadir este reto"}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <ChallengeEditor challenge={newChallengeDraft} index={detail?.challenges.length || 0} onChange={setNewChallengeDraft} onDelete={() => setAddChallengeOpen(false)} />
+                <div className="flex justify-end gap-2">
+                  <Button type="button" variant="outline" onClick={() => setAddChallengeOpen(false)}>Cancelar</Button>
+                  <Button type="button" onClick={addManualChallenge} disabled={isDetailSaving}>{isDetailSaving ? "Añadiendo..." : "Añadir reto"}</Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
 
 	      <Dialog open={!!editingEvidence} onOpenChange={(open) => { if (!open) setEditingEvidence(null); }}>
 	        <DialogContent className="max-w-lg">
@@ -4137,17 +4106,27 @@ const RankingCard = ({
   totalChallenges,
   onEdit,
   onResetLastActivity,
+  onResetAll,
   resettingTableId,
+  isResettingAll,
 }: {
-  ranking: CaptainsTable[];
+  ranking: CaptainsRankingItem[];
   tableChallengesByTable: Map<string, CaptainsTableChallenge[]>;
   totalChallenges: number;
   onEdit: (table: CaptainsTable) => void;
   onResetLastActivity: (table: CaptainsTable) => void;
+  onResetAll: () => void;
   resettingTableId: string;
+  isResettingAll: boolean;
 }) => (
   <Card className="rounded-2xl p-5 shadow-sm">
-    <h2 className="mb-4 font-semibold">Ranking en tiempo real</h2>
+    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+      <h2 className="font-semibold">Ranking en tiempo real</h2>
+      <Button type="button" variant="outline" className="gap-2 rounded-full" onClick={onResetAll} disabled={isResettingAll || ranking.length === 0}>
+        <RefreshCw className={`h-4 w-4 ${isResettingAll ? "animate-spin" : ""}`} />
+        {isResettingAll ? "Reseteando..." : "Resetear todos"}
+      </Button>
+    </div>
     <div className="overflow-x-auto">
       <table className="w-full min-w-[760px] border-separate border-spacing-y-3 text-sm">
         <thead>
@@ -4165,7 +4144,7 @@ const RankingCard = ({
           </tr>
         </thead>
         <tbody>
-          {ranking.map((table: any, index) => {
+          {ranking.map((table, index) => {
             const rows = tableChallengesByTable.get(table.id) || [];
             const finished = rows.filter((row) => finishedTableChallengeStatuses.has(row.status)).length;
             const pending = Math.max(0, totalChallenges - finished);

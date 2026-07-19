@@ -31,12 +31,28 @@ import type {
 
 const db = supabase as any;
 const CAPTAINS_EVIDENCE_BUCKET = "captains-evidence";
+export const CAPTAINS_MAX_CHALLENGES = 25;
 
 const isUuid = (value: string) =>
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 
 const ensureNoError = (error: unknown) => {
   if (error) throw error;
+};
+
+const ensureCaptainsChallengeLimit = (count: number) => {
+  if (count > CAPTAINS_MAX_CHALLENGES) {
+    throw new Error(`El máximo por evento es de ${CAPTAINS_MAX_CHALLENGES} retos.`);
+  }
+};
+
+const ensureCaptainsEventIsOpen = async (eventId: string) => {
+  const { data, error } = await db.from("captains_events").select("end_time,status").eq("id", eventId).single();
+  ensureNoError(error);
+  const endedByDate = data?.end_time && new Date(data.end_time).getTime() <= Date.now();
+  if (data?.status === "finished" || endedByDate) {
+    throw new Error("El juego ha finalizado y ya no admite nuevos retos completados.");
+  }
 };
 
 const getCaptainsEvidenceStoragePath = (value?: string | null) => {
@@ -210,15 +226,15 @@ export const createCaptainsEvent = async (input: CreateCaptainsEventInput) => {
     name: input.name,
     slug,
     description: input.description ?? null,
-    start_time: input.start_time ?? null,
+    start_time: input.start_time ?? new Date().toISOString(),
     end_time: input.end_time ?? null,
-    scoring_mode: input.scoring_mode ?? "automatic",
-    status: input.status ?? "draft",
-    show_live_gallery_after_completion: input.show_live_gallery_after_completion ?? true,
-    theme_style: input.theme_style ?? "pixel" as CaptainsThemeStyle,
-    primary_color: input.primary_color ?? null,
-    secondary_color: input.secondary_color ?? null,
-    background_image_url: input.background_image_url ?? null,
+    scoring_mode: "automatic",
+    status: "active",
+    show_live_gallery_after_completion: true,
+    theme_style: "pixel" as CaptainsThemeStyle,
+    primary_color: "#f06a5f",
+    secondary_color: "#2f292d",
+    background_image_url: null,
     contact_name: input.contact_name?.trim() || null,
     contact_email: input.contact_email?.trim().toLowerCase() || null,
     contact_phone: input.contact_phone?.trim() || null,
@@ -255,6 +271,7 @@ export const createCaptainsGame = async ({
   }>;
   challenges: CaptainsChallengeInput[];
 }) => {
+  ensureCaptainsChallengeLimit(challenges.length);
   const createdEvent = await createCaptainsEvent(event);
 
   if (tables.length > 0) {
@@ -391,6 +408,26 @@ export const updateCaptainsTable = async (
 };
 
 export const resetCaptainsTableLastActivity = async (tableId: string) => {
+  const { data: evidenceRows, error: evidenceReadError } = await db
+    .from("captains_evidence")
+    .select("id,file_url,thumbnail_url")
+    .eq("table_id", tableId);
+  ensureNoError(evidenceReadError);
+
+  const storagePaths = [...new Set(((evidenceRows || []) as Array<Pick<CaptainsEvidence, "file_url" | "thumbnail_url">>)
+    .flatMap((evidence) => [
+      getCaptainsEvidenceStoragePath(evidence.file_url),
+      getCaptainsEvidenceStoragePath(evidence.thumbnail_url),
+    ])
+    .filter((path): path is string => Boolean(path)))];
+  if (storagePaths.length > 0) {
+    const { error: storageError } = await supabase.storage.from(CAPTAINS_EVIDENCE_BUCKET).remove(storagePaths);
+    ensureNoError(storageError);
+  }
+
+  const { error: evidenceDeleteError } = await db.from("captains_evidence").delete().eq("table_id", tableId);
+  ensureNoError(evidenceDeleteError);
+
   const { data: challengeRows, error: challengeReadError } = await db
     .from("captains_table_challenges")
     .select("id")
@@ -442,6 +479,12 @@ export const resetCaptainsTableLastActivity = async (tableId: string) => {
   return data as CaptainsTable;
 };
 
+export const resetAllCaptainsTables = async (eventId: string) => {
+  const { data, error } = await db.from("captains_tables").select("id").eq("event_id", eventId);
+  ensureNoError(error);
+  await Promise.all(((data || []) as Array<{ id: string }>).map((table) => resetCaptainsTableLastActivity(table.id)));
+};
+
 export const updateCaptainsEventChallenge = async (challengeId: string, input: CaptainsChallengeInput) => {
   const payload = normalizeChallengeRow(input, Math.max((input.order_index ?? 1) - 1, 0), input.id || "");
   delete (payload as Record<string, unknown>).event_id;
@@ -474,6 +517,7 @@ export const deleteCaptainsEvent = async (eventId: string) => {
 };
 
 export const replaceCaptainsEventChallenges = async (eventId: string, challenges: CaptainsChallengeInput[]) => {
+  ensureCaptainsChallengeLimit(challenges.length);
   const { error: deleteError } = await db.from("captains_event_challenges").delete().eq("event_id", eventId);
   ensureNoError(deleteError);
 
@@ -676,26 +720,78 @@ export const getCaptainsChallengeCatalog = async (activeOnly = true) => {
   return catalog.length > 0 ? catalog : captainsDefaultChallengeCatalog;
 };
 
+const appendCaptainsChallengesToTables = async (eventId: string, challenges: CaptainsEventChallenge[]) => {
+  if (challenges.length === 0) return;
+  const [{ data: tables, error: tablesError }, { data: existingRows, error: rowsError }] = await Promise.all([
+    db.from("captains_tables").select("id").eq("event_id", eventId),
+    db.from("captains_table_challenges").select("table_id,randomized_order_index,status").eq("event_id", eventId),
+  ]);
+  ensureNoError(tablesError);
+  ensureNoError(rowsError);
+
+  const rows = ((tables || []) as Array<{ id: string }>).flatMap((table) => {
+    const current = ((existingRows || []) as Array<Pick<CaptainsTableChallenge, "table_id" | "randomized_order_index" | "status">>)
+      .filter((row) => row.table_id === table.id);
+    const startIndex = current.reduce((maximum, row) => Math.max(maximum, row.randomized_order_index), 0);
+    const hasOpenChallenge = current.some((row) => ["pending", "ready", "in_progress", "submitted", "pending_review"].includes(row.status));
+    return challenges.map((challenge, index) => ({
+      event_id: eventId,
+      table_id: table.id,
+      challenge_id: challenge.id,
+      randomized_order_index: startIndex + index + 1,
+      status: !hasOpenChallenge && index === 0 ? "ready" : "pending",
+    }));
+  });
+  if (rows.length === 0) return;
+  const { error } = await db.from("captains_table_challenges").insert(rows);
+  ensureNoError(error);
+};
+
 export const addCatalogChallengesToCaptainsEvent = async (eventId: string, catalogChallengeIds: string[]) => {
   if (catalogChallengeIds.length === 0) return [];
 
-  const [{ data: catalogItems, error: catalogError }, { data: existingChallenges, error: existingError }] =
+  const { count, error: countError } = await db
+    .from("captains_event_challenges")
+    .select("id", { count: "exact", head: true })
+    .eq("event_id", eventId);
+  ensureNoError(countError);
+  ensureCaptainsChallengeLimit((count || 0) + catalogChallengeIds.length);
+
+  const databaseCatalogIds = catalogChallengeIds.filter(isUuid);
+  const [{ data: databaseCatalogItems, error: catalogError }, { data: existingChallenges, error: existingError }] =
     await Promise.all([
-      db.from("captains_challenge_catalog").select("*").in("id", catalogChallengeIds),
+      databaseCatalogIds.length
+        ? db.from("captains_challenge_catalog").select("*").in("id", databaseCatalogIds)
+        : Promise.resolve({ data: [], error: null }),
       db
         .from("captains_event_challenges")
-        .select("order_index")
+        .select("catalog_challenge_id,title")
         .eq("event_id", eventId)
         .order("order_index", { ascending: false })
-        .limit(1),
     ]);
   ensureNoError(catalogError);
   ensureNoError(existingError);
 
-  const startIndex = existingChallenges?.[0]?.order_index ?? 0;
-  const rows = (catalogItems || []).map((item: CaptainsChallengeCatalogItem, index: number) => ({
+  const catalogById = new Map<string, CaptainsChallengeCatalogItem>();
+  ((databaseCatalogItems || []) as CaptainsChallengeCatalogItem[]).forEach((item) => catalogById.set(item.id, item));
+  captainsDefaultChallengeCatalog.forEach((item) => {
+    if (catalogChallengeIds.includes(item.id)) catalogById.set(item.id, item);
+  });
+  const catalogItems = catalogChallengeIds.map((id) => catalogById.get(id)).filter(Boolean) as CaptainsChallengeCatalogItem[];
+  if (catalogItems.length !== catalogChallengeIds.length) {
+    throw new Error("No hemos podido encontrar el reto seleccionado en el catálogo.");
+  }
+
+  const existing = (existingChallenges || []) as Array<{ catalog_challenge_id: string | null; title: string }>;
+  const duplicate = catalogItems.find((item) =>
+    existing.some((challenge) => challenge.catalog_challenge_id === item.id || challenge.title.trim().toLocaleLowerCase("es") === item.title.trim().toLocaleLowerCase("es")),
+  );
+  if (duplicate) throw new Error(`El reto “${duplicate.title}” ya está añadido al evento.`);
+
+  const startIndex = existing.length;
+  const rows = catalogItems.map((item, index) => ({
     event_id: eventId,
-    catalog_challenge_id: item.id,
+    catalog_challenge_id: isUuid(item.id) ? item.id : null,
     title: item.title,
     description: item.description,
     evidence_type: item.evidence_type,
@@ -714,13 +810,23 @@ export const addCatalogChallengesToCaptainsEvent = async (eventId: string, catal
   if (error && isMissingCaptainQuestionColumnError(error)) {
     const fallback = await db.from("captains_event_challenges").insert(rows.map(withoutCaptainQuestionColumns)).select("*");
     ensureNoError(fallback.error);
-    return (fallback.data || []) as CaptainsEventChallenge[];
+    const added = (fallback.data || []) as CaptainsEventChallenge[];
+    await appendCaptainsChallengesToTables(eventId, added);
+    return added;
   }
   ensureNoError(error);
-  return (data || []) as CaptainsEventChallenge[];
+  const added = (data || []) as CaptainsEventChallenge[];
+  await appendCaptainsChallengesToTables(eventId, added);
+  return added;
 };
 
 export const createCustomCaptainsChallenge = async (eventId: string, input: CaptainsChallengeInput) => {
+  const { count, error: countError } = await db
+    .from("captains_event_challenges")
+    .select("id", { count: "exact", head: true })
+    .eq("event_id", eventId);
+  ensureNoError(countError);
+  ensureCaptainsChallengeLimit((count || 0) + 1);
   const payload = normalizeChallengeRow(input, Math.max((input.order_index ?? 1) - 1, 0), eventId);
   const { data, error } = await db
     .from("captains_event_challenges")
@@ -734,10 +840,14 @@ export const createCustomCaptainsChallenge = async (eventId: string, input: Capt
       .select("*")
       .single();
     ensureNoError(fallback.error);
-    return fallback.data as CaptainsEventChallenge;
+    const added = fallback.data as CaptainsEventChallenge;
+    await appendCaptainsChallengesToTables(eventId, [added]);
+    return added;
   }
   ensureNoError(error);
-  return data as CaptainsEventChallenge;
+  const added = data as CaptainsEventChallenge;
+  await appendCaptainsChallengesToTables(eventId, [added]);
+  return added;
 };
 
 export const generateRandomChallengeOrderForTable = async (eventId: string, tableId: string) => {
@@ -795,6 +905,7 @@ export const startCaptainsTableChallenge = async (tableChallengeId: string) => {
     .maybeSingle();
   ensureNoError(readError);
   if (!existing) throw new Error("No hemos podido encontrar el reto seleccionado.");
+  await ensureCaptainsEventIsOpen(existing.event_id);
   const startedAt = new Date().toISOString();
   const { error } = await db
     .from("captains_table_challenges")
@@ -974,6 +1085,7 @@ export const uploadCaptainsEvidence = async ({
   remainingSeconds?: number | null;
   scoringMode?: CaptainsScoringMode;
 }) => {
+  await ensureCaptainsEventIsOpen(eventId);
   const fileId = crypto.randomUUID();
   const fileName = sanitizeCaptainsFileName(file.name || `${evidenceType}-${fileId}`);
   const filePath = `${eventId}/${tableId}/${tableChallengeId}/${fileId}-${fileName}`;
@@ -1076,6 +1188,7 @@ export const completeCaptainsQuestionChallenge = async ({
   elapsedSeconds?: number | null;
   remainingSeconds?: number | null;
 }) => {
+  await ensureCaptainsEventIsOpen(eventId);
   const { data: tableChallenge, error: challengeError } = await db
     .from("captains_table_challenges")
     .select("*, captains_event_challenges(*)")

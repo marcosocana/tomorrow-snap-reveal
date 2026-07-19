@@ -8,6 +8,7 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
 const slugify = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "capitanes";
 const pick = (source: Record<string, unknown>, keys: string[]) => Object.fromEntries(keys.filter((key) => source[key] !== undefined).map((key) => [key, source[key]]));
 const isUuid = (value: unknown) => typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+const MAX_CHALLENGES = 25;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers });
@@ -31,7 +32,18 @@ serve(async (req) => {
     }
     if (body.action === "update" && body.event?.name && Array.isArray(body.tables) && Array.isArray(body.challenges)) {
       if (body.tables.length < 1 || body.tables.length > access.max_tables) return json({ error: "TABLE_LIMIT_EXCEEDED", maxTables: access.max_tables }, 400);
-      const eventChanges = { ...pick(body.event, ["name", "description", "start_time", "end_time", "scoring_mode", "status", "show_live_gallery_after_completion", "theme_style", "primary_color", "secondary_color", "background_image_url", "contact_name", "contact_email", "contact_phone"]), updated_at: new Date().toISOString() };
+      if (body.challenges.length < 1 || body.challenges.length > MAX_CHALLENGES) return json({ error: "CHALLENGE_LIMIT_EXCEEDED", maxChallenges: MAX_CHALLENGES }, 400);
+      const eventChanges = {
+        ...pick(body.event, ["name", "description", "start_time", "end_time", "contact_name", "contact_email", "contact_phone"]),
+        scoring_mode: "automatic",
+        status: "active",
+        show_live_gallery_after_completion: true,
+        theme_style: "pixel",
+        primary_color: "#f06a5f",
+        secondary_color: "#2f292d",
+        background_image_url: null,
+        updated_at: new Date().toISOString(),
+      };
       const { data: updatedEvent, error: updateEventError } = await admin.from("captains_events").update(eventChanges).eq("id", access.event_id).select("*").single();
       if (updateEventError) return json({ error: "UPDATE_EVENT_FAILED", detail: updateEventError.message }, 500);
 
@@ -65,6 +77,7 @@ serve(async (req) => {
   if (body.action === "validate") return json({ valid: true, mode: "create", maxTables: access.max_tables });
   if (body.action !== "create" || !body.event?.name || !Array.isArray(body.tables) || !Array.isArray(body.challenges)) return json({ error: "INVALID_PAYLOAD" }, 400);
   if (body.tables.length < 1 || body.tables.length > access.max_tables) return json({ error: "TABLE_LIMIT_EXCEEDED", maxTables: access.max_tables }, 400);
+  if (body.challenges.length < 1 || body.challenges.length > MAX_CHALLENGES) return json({ error: "CHALLENGE_LIMIT_EXCEEDED", maxChallenges: MAX_CHALLENGES }, 400);
 
   let slug = slugify(body.event.name);
   for (let suffix = 2;; suffix += 1) {
@@ -73,8 +86,20 @@ serve(async (req) => {
     slug = `${slugify(body.event.name)}-${suffix}`;
   }
   const publicUrl = `/capitanes/${slug}`;
-  const eventBase = pick(body.event, ["name", "description", "start_time", "end_time", "scoring_mode", "status", "show_live_gallery_after_completion"]);
-  const eventOptional = pick(body.event, ["theme_style", "primary_color", "secondary_color", "background_image_url", "contact_name", "contact_email", "contact_phone"]);
+  const eventBase = {
+    ...pick(body.event, ["name", "description", "end_time"]),
+    start_time: new Date().toISOString(),
+    scoring_mode: "automatic",
+    status: "active",
+    show_live_gallery_after_completion: true,
+  };
+  const eventOptional = {
+    ...pick(body.event, ["contact_name", "contact_email", "contact_phone"]),
+    theme_style: "pixel",
+    primary_color: "#f06a5f",
+    secondary_color: "#2f292d",
+    background_image_url: null,
+  };
   let eventResult = await admin.from("captains_events").insert({ ...eventBase, ...eventOptional, slug, public_url: publicUrl, qr_url: publicUrl }).select("*").single();
   if (eventResult.error && Object.keys(eventOptional).some((key) => eventResult.error.message.includes(key))) {
     eventResult = await admin.from("captains_events").insert({ ...eventBase, slug, public_url: publicUrl, qr_url: publicUrl }).select("*").single();
