@@ -612,7 +612,7 @@ export const getCaptainsTableChallengesForTable = async (eventId: string, tableI
 };
 
 export const getCaptainsEvidenceSignedUrl = async (filePath: string, thumbnail = false) => {
-  const { data, error } = await supabase.storage.from(CAPTAINS_EVIDENCE_BUCKET).createSignedUrl(
+  const { data, error } = await supabasePublic.storage.from(CAPTAINS_EVIDENCE_BUCKET).createSignedUrl(
     filePath,
     3600,
     thumbnail ? { transform: { width: 720, height: 405, resize: "cover", quality: 72 } } : undefined,
