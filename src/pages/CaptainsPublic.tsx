@@ -1953,13 +1953,30 @@ export default function CaptainsPublic() {
       return { evidence, row, challenge, table };
     })
     .filter((item) => item.table && item.row && item.challenge);
-  const summaryChallengesWithEvidence = challenges.filter((challenge) =>
-    summaryEvidenceWithMeta.some((item) => item.row?.challenge_id === challenge.id),
+  const summaryVisualChallenges = useMemo(
+    () => challenges.filter((challenge) => ["photo", "video"].includes(challenge.evidence_type)),
+    [challenges],
   );
   const summarySelectedTable = tableById.get(summarySelectedTableId);
   const summarySelectedChallenge = challengeById.get(summarySelectedChallengeId);
-  const summaryTableItems = summaryEvidenceWithMeta.filter((item) => item.evidence.table_id === summarySelectedTableId);
-  const summaryChallengeItems = summaryEvidenceWithMeta.filter((item) => item.row?.challenge_id === summarySelectedChallengeId);
+  const summaryTableItems = summarySelectedTable
+    ? summaryVisualChallenges.map((challenge) => {
+        const evidenceItem = summaryEvidenceWithMeta.find(
+          (item) => item.evidence.table_id === summarySelectedTable.id && item.row?.challenge_id === challenge.id,
+        );
+        const row = summaryRows.find((candidate) => candidate.table_id === summarySelectedTable.id && candidate.challenge_id === challenge.id);
+        return evidenceItem || { evidence: undefined, row, challenge, table: summarySelectedTable };
+      })
+    : [];
+  const summaryChallengeItems = summarySelectedChallenge
+    ? tables.map((table) => {
+        const evidenceItem = summaryEvidenceWithMeta.find(
+          (item) => item.evidence.table_id === table.id && item.row?.challenge_id === summarySelectedChallenge.id,
+        );
+        const row = summaryRows.find((candidate) => candidate.table_id === table.id && candidate.challenge_id === summarySelectedChallenge.id);
+        return evidenceItem || { evidence: undefined, row, challenge: summarySelectedChallenge, table };
+      })
+    : [];
   const activeSummaryItems = summaryMode === "tables" ? summaryTableItems : summaryChallengeItems;
   const activeSummaryItem = activeSummaryItems[Math.min(summaryEvidenceIndex, Math.max(activeSummaryItems.length - 1, 0))];
 
@@ -1975,11 +1992,11 @@ export default function CaptainsPublic() {
 
   useEffect(() => {
     if (step !== "resumen") return;
-    const preferredChallengeId = summaryChallengesWithEvidence[0]?.id || challenges[0]?.id || "";
-    if (!summarySelectedChallengeId || !challenges.some((challenge) => challenge.id === summarySelectedChallengeId)) {
+    const preferredChallengeId = summaryVisualChallenges[0]?.id || "";
+    if (!summarySelectedChallengeId || !summaryVisualChallenges.some((challenge) => challenge.id === summarySelectedChallengeId)) {
       setSummarySelectedChallengeId(preferredChallengeId);
     }
-  }, [challenges, step, summaryChallengesWithEvidence, summarySelectedChallengeId]);
+  }, [step, summarySelectedChallengeId, summaryVisualChallenges]);
 
   useEffect(() => {
     setSummaryEvidenceIndex(0);
@@ -2515,7 +2532,7 @@ export default function CaptainsPublic() {
               onChange={(event) => setSummarySelectedChallengeId(event.target.value)}
               className="pixel-button h-14 rounded-none bg-white px-3 text-xl font-bold uppercase text-[#151515] outline-none"
             >
-              {(summaryChallengesWithEvidence.length ? summaryChallengesWithEvidence : challenges).map((challenge, index) => (
+              {summaryVisualChallenges.map((challenge, index) => (
                 <option key={challenge.id} value={challenge.id}>
                   Reto {index + 1}: {challenge.title}
                 </option>
@@ -2524,7 +2541,7 @@ export default function CaptainsPublic() {
           )}
 
           <section className="pixel-panel relative flex min-h-[540px] flex-1 overflow-hidden bg-white">
-            {activeSummaryItem ? (
+            {activeSummaryItem?.evidence ? (
               <>
                 <SummaryFullScreenEvidence evidence={activeSummaryItem.evidence} />
                 <div className="absolute inset-x-0 top-0 bg-gradient-to-b from-black/70 to-transparent p-4 !text-white [&_h2]:!text-white [&_p]:!text-white [&_span]:!text-white">
@@ -2553,15 +2570,22 @@ export default function CaptainsPublic() {
                   </div>
                 </div>
               </>
-            ) : (
-              <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
-                <ImageIcon className="mb-4 h-14 w-14 text-[#151515]/35" />
-                <h2 className="text-2xl font-black tracking-normal">Sin evidencias todavía</h2>
-                <p className="mt-2 text-lg text-[#151515]/65">
-                  {summaryMode === "tables"
-                    ? "Esta mesa no tiene recuerdos visibles en el resumen."
-                    : "Este reto no tiene recuerdos visibles en el resumen."}
+            ) : activeSummaryItem ? (
+              <div className="flex flex-1 flex-col items-center justify-center bg-[#eeeeee] px-6 text-center text-[#151515]">
+                <XCircle className="mb-4 h-14 w-14 text-[#151515]" />
+                <p className="text-base font-bold uppercase text-[#151515]">
+                  {summaryMode === "tables" ? summarySelectedTable?.table_name || "Mesa" : activeSummaryItem.table?.table_name || "Mesa"}
                 </p>
+                <h2 className="mt-2 text-3xl font-black tracking-normal text-[#151515]">Reto no conseguido</h2>
+                <p className="mt-3 text-lg font-medium text-[#151515]">{activeSummaryItem.challenge?.title || "Prueba sin evidencia"}</p>
+                <span className="pixel-button mt-5 bg-white px-2 py-1 text-base font-bold text-[#151515]">
+                  {activeSummaryItems.length ? summaryEvidenceIndex + 1 : 0}/{activeSummaryItems.length}
+                </span>
+              </div>
+            ) : (
+              <div className="flex flex-1 flex-col items-center justify-center bg-[#eeeeee] px-6 text-center text-[#151515]">
+                <ImageIcon className="mb-4 h-14 w-14 text-[#151515]" />
+                <h2 className="text-2xl font-black tracking-normal text-[#151515]">No hay retos visuales en este evento</h2>
               </div>
             )}
           </section>
