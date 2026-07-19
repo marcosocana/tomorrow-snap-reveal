@@ -267,13 +267,31 @@ serve(async (req) => {
     const planMeta = getPlanMetaByPlanId(event.plan_id, event.max_photos ?? null);
     const resolvedCustomImageUrl =
       event.custom_image_url?.trim() || (planMeta.type === "demo" ? DEMO_LOGO_URL : null);
+    let managementPassword = event.admin_password;
+
+    if (planMeta.type === "demo") {
+      const { data: firstDemo, error: firstDemoError } = await supabaseAdmin
+        .from("events")
+        .select("id, admin_password, created_at")
+        .eq("owner_id", ownerId)
+        .eq("type", "demo")
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (firstDemoError) {
+        return json({ error: "READ_MANAGEMENT_PASSWORD_FAILED", detail: firstDemoError.message }, 500);
+      }
+
+      managementPassword = firstDemo?.admin_password?.trim() || event.admin_password;
+    }
 
     const { data: createdEvent, error: eventError } = await supabaseAdmin
       .from("events")
       .insert({
         name: event.name,
         password_hash: event.password_hash,
-        admin_password: event.admin_password,
+        admin_password: managementPassword,
         upload_start_time: uploadStartTime,
         upload_end_time: uploadEndTime,
         reveal_time: revealTime,

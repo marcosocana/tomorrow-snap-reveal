@@ -185,6 +185,25 @@ serve(async (req) => {
       }
     }
 
+    // The first demo establishes the user's management password. Every later
+    // demo must reuse it so the credentials shown in summaries and emails keep
+    // matching the account that owns all of the events.
+    const { data: firstDemo, error: firstDemoError } = await supabaseAdmin
+      .from("events")
+      .select("id, admin_password, created_at")
+      .eq("owner_id", userId)
+      .eq("type", "demo")
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (firstDemoError) {
+      return json({ error: "READ_MANAGEMENT_PASSWORD_FAILED", detail: firstDemoError.message }, 500);
+    }
+
+    const managementPassword = firstDemo?.admin_password?.trim()
+      || (useAuthenticatedUser ? event.admin_password : password);
+
     const { error: profileError } = await supabaseAdmin
       .from("user_profiles")
       .upsert({
@@ -209,7 +228,7 @@ serve(async (req) => {
       .insert({
         name: event.name,
         password_hash: event.password_hash,
-        admin_password: event.admin_password,
+        admin_password: managementPassword,
         upload_start_time: event.upload_start_time,
         upload_end_time: event.upload_end_time,
         reveal_time: event.reveal_time,
