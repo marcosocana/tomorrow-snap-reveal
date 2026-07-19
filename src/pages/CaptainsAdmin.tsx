@@ -2866,7 +2866,7 @@ const EvidencePreview = ({ evidence }: { evidence: CaptainsEvidence }) => {
   }
 
   if (evidence.evidence_type === "photo") {
-    return <img src={url} alt="" className="aspect-video w-full rounded-md object-cover" />;
+    return <img src={url} alt="" className="max-h-[75vh] w-full rounded-md bg-black object-contain" />;
   }
   if (evidence.evidence_type === "video") {
     return <video src={url} poster={videoPoster || undefined} controls playsInline preload="metadata" className="aspect-video w-full rounded-md bg-black object-contain" />;

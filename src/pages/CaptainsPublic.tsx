@@ -1088,16 +1088,16 @@ const SignedEvidenceMedia = ({
   if (evidence.evidence_type === "photo") {
     return (
       <button type="button" className="block w-full" onClick={() => onPhotoOpen?.(url)}>
-        <img src={url} alt="" loading="lazy" className="aspect-[4/3] w-full rounded-[8px] object-cover" />
+        <img src={url} alt="" loading="lazy" className="aspect-[4/3] w-full rounded-[8px] bg-black object-contain" />
       </button>
     );
   }
 
   if (evidence.evidence_type === "video") {
     if (url.startsWith("data:image")) {
-      return <img src={url} alt="" loading="lazy" className="aspect-[4/3] w-full rounded-[8px] object-cover" />;
+      return <img src={url} alt="" loading="lazy" className="aspect-[4/3] w-full rounded-[8px] bg-black object-contain" />;
     }
-    return <video src={url} poster={videoPoster || undefined} controls playsInline preload="auto" className="aspect-[4/3] w-full rounded-[8px] bg-black object-cover" />;
+    return <video src={url} poster={videoPoster || undefined} controls playsInline preload="auto" className="aspect-[4/3] w-full rounded-[8px] bg-black object-contain" />;
   }
 
   return null;
@@ -1140,10 +1140,10 @@ const SummaryFullScreenEvidence = ({ evidence }: { evidence?: CaptainsEvidence }
   }
 
   if (evidence.evidence_type === "video" && !url.startsWith("data:image")) {
-    return <video src={url} poster={videoPoster || undefined} controls playsInline preload="auto" className="absolute inset-0 h-full w-full bg-black object-cover" />;
+    return <video src={url} poster={videoPoster || undefined} controls playsInline preload="auto" className="absolute inset-0 h-full w-full bg-black object-contain" />;
   }
 
-  return <img src={url} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />;
+  return <img src={url} alt="" loading="lazy" className="absolute inset-0 h-full w-full bg-black object-contain" />;
 };
 
 export default function CaptainsPublic() {
@@ -2253,7 +2253,7 @@ export default function CaptainsPublic() {
                   />
                   {evidencePreview && (
                     <div className="pixel-panel mt-4 overflow-hidden bg-white p-2">
-                      {currentChallenge.evidence_type === "photo" && <img src={evidencePreview} alt="" className="aspect-[4/3] w-full object-cover" />}
+                      {currentChallenge.evidence_type === "photo" && <img src={evidencePreview} alt="" className="max-h-[70svh] w-full bg-black object-contain" />}
                       {currentChallenge.evidence_type === "video" && (
                         <video
                           src={evidencePreview}
@@ -2261,7 +2261,7 @@ export default function CaptainsPublic() {
                           controls
                           playsInline
                           preload="auto"
-                          className="aspect-[4/3] w-full bg-black object-cover"
+                          className="max-h-[70svh] w-full bg-black object-contain"
                         />
                       )}
                     </div>
