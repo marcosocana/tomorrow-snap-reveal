@@ -27,7 +27,8 @@ import type {
   CaptainsThemeStyle,
 } from "@/lib/captainsTypes";
 import { useCaptainsEventDetail } from "@/hooks/useCaptains";
-import { supabase } from "@/integrations/supabase/client";
+// Public Captains screen: all Supabase calls go through captainsService, which
+// uses the anonymous supabasePublic client — never the admin auth client.
 import { calculateCaptainsAutomaticScore, getCaptainsPublicUrl, normalizeCaptainsPublicUrl, shuffleCaptainsItems } from "@/lib/captainsUtils";
 import { cn } from "@/lib/utils";
 import {
