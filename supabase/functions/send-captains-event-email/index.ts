@@ -17,8 +17,13 @@ const escape = (value: unknown) =>
 
 const getQrImageUrl = (value: string, providedQrImageUrl?: unknown) => {
   const provided = String(providedQrImageUrl || "").trim();
-  if (provided) return provided;
-  return `https://quickchart.io/qr?size=360&margin=1&ecLevel=H&text=${encodeURIComponent(value)}`;
+  if (
+    provided.startsWith("https://quickchart.io/qr?")
+    || /\.(?:png|jpe?g|webp|gif|svg)(?:\?|$)/i.test(provided)
+  ) {
+    return provided;
+  }
+  return `https://quickchart.io/qr?size=1024&margin=1&ecLevel=H&text=${encodeURIComponent(value)}`;
 };
 
 const formatDate = (value?: string | null) => {
@@ -68,7 +73,7 @@ Deno.serve(async (req) => {
 
   const publicUrl = String(body?.publicUrl || event?.public_url || `${APP_ORIGIN}/capitanes/${event?.slug || ""}`);
   const adminUrl = String(body?.adminUrl || `${APP_ORIGIN}/admin/capitanes/${event.id}`);
-  const qrImageUrl = getQrImageUrl(publicUrl, body?.qrImageUrl);
+  const qrImageUrl = getQrImageUrl(publicUrl, body?.qrImageUrl || event?.qr_url);
   const tableCount = Number(body?.tableCount || 0);
   const challengeCount = Number(body?.challengeCount || 0);
   const contactName = String(contactInfo?.name || event?.contact_name || "").trim();

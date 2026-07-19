@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { QRCodeSVG } from "qrcode.react";
 import JSZip from "jszip";
 import {
   ArrowLeft,
@@ -68,7 +67,7 @@ import {
   updateCaptainsTable,
   updateCaptainsTables,
 } from "@/lib/captainsService";
-import { getCaptainsQrValue, normalizeCaptainsPublicUrl } from "@/lib/captainsUtils";
+import { normalizeCaptainsPublicUrl, resolveCaptainsQrImageUrl } from "@/lib/captainsUtils";
 import type {
   CaptainsChallengeInput,
   CaptainsChallengeCatalogItem,
@@ -1370,6 +1369,7 @@ export const CaptainsOnboarding = () => {
 	      const createdEvent = created?.event;
 	      if (createdEvent && !editingEventId) {
 	        const publicUrl = normalizeCaptainsPublicUrl(createdEvent.public_url, createdEvent.slug);
+	        const qrImageUrl = resolveCaptainsQrImageUrl(createdEvent.qr_url, publicUrl);
 	        const adminUrl = `${window.location.origin}/admin/capitanes/${createdEvent.id}?code=${encodeURIComponent(accessCode)}`;
 	        const contactInfo = {
 	          name: contactName.trim(),
@@ -1382,6 +1382,7 @@ export const CaptainsOnboarding = () => {
 	              event: createdEvent,
 	              contactInfo,
 	              publicUrl,
+	              qrImageUrl,
 	              adminUrl,
 	              tableCount: tables.length,
 	              challengeCount: selectedChallenges.length,
@@ -3130,38 +3131,17 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
   };
 
 	  const handleDownloadQr = async () => {
-	    const svg = document.getElementById("captains-admin-qr");
-	    if (!svg) return;
 	    try {
-	      const svgText = new XMLSerializer().serializeToString(svg);
-	      const svgBlob = new Blob([svgText], { type: "image/svg+xml;charset=utf-8" });
-	      const svgUrl = URL.createObjectURL(svgBlob);
-	      const image = new Image();
-	      image.decoding = "async";
-	      await new Promise<void>((resolve, reject) => {
-	        image.onload = () => resolve();
-	        image.onerror = reject;
-	        image.src = svgUrl;
-	      });
-	      const canvas = document.createElement("canvas");
-	      canvas.width = 1024;
-	      canvas.height = 1024;
-	      const context = canvas.getContext("2d");
-	      if (!context) throw new Error("CANVAS_CONTEXT_NOT_FOUND");
-	      context.fillStyle = "#ffffff";
-	      context.fillRect(0, 0, canvas.width, canvas.height);
-	      context.drawImage(image, 0, 0, canvas.width, canvas.height);
-	      URL.revokeObjectURL(svgUrl);
-	      const pngBlob = await new Promise<Blob>((resolve, reject) => {
-	        canvas.toBlob((result) => (result ? resolve(result) : reject(new Error("PNG_EXPORT_FAILED"))), "image/png");
-	      });
-	      const pngUrl = URL.createObjectURL(pngBlob);
+	      const response = await fetch(qrImageUrl);
+	      if (!response.ok) throw new Error("QR_DOWNLOAD_FAILED");
+	      const qrBlob = await response.blob();
+	      const downloadUrl = URL.createObjectURL(qrBlob);
 	      const a = document.createElement("a");
-	      a.href = pngUrl;
+	      a.href = downloadUrl;
 	      a.download = `${detail?.event.slug || "capitanes"}-qr.png`;
 	      document.body.appendChild(a);
 	      a.click();
-	      URL.revokeObjectURL(pngUrl);
+	      URL.revokeObjectURL(downloadUrl);
 	      document.body.removeChild(a);
 	    } catch (error) {
 	      console.error("Captains QR download error:", error);
@@ -3546,7 +3526,7 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
 	  const eventIsFinished = isCaptainsEventFinished(event);
 	  const eventStatusLabel = eventIsFinished ? "Terminado" : "En curso";
 	  const publicUrl = normalizeCaptainsPublicUrl(event.public_url, event.slug);
-	  const qrValue = normalizeCaptainsPublicUrl(event.qr_url || getCaptainsQrValue(event.slug), event.slug);
+	  const qrImageUrl = resolveCaptainsQrImageUrl(event.qr_url, publicUrl);
 	  const liveVisibleEvidence = evidenceIndex.filter((item) => item.file_url && !["deleted", "rejected"].includes(item.status));
 	  const photoCount = liveVisibleEvidence.filter((item) => item.evidence_type === "photo").length;
 	  const videoCount = liveVisibleEvidence.filter((item) => item.evidence_type === "video").length;
@@ -3656,7 +3636,7 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
 		              aria-label="Ver QR"
 		              title="Ver QR"
 		            >
-		              <QRCodeSVG id="captains-admin-qr" value={qrValue} size={80} includeMargin />
+	              <img id="captains-admin-qr" src={qrImageUrl} alt={`QR de ${event.name}`} className="h-20 w-20" />
 	            </button>
 	            <div className="min-w-0">
 	              <div className="flex flex-wrap items-center gap-2">
@@ -4293,7 +4273,7 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
 	            onClick={(event) => event.stopPropagation()}
 	          >
 	            <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden">
-	              <QRCodeSVG value={qrValue} size={640} level="H" includeMargin className="h-auto max-h-[75vh] w-full" />
+	              <img src={qrImageUrl} alt={`QR de ${event.name}`} className="h-auto max-h-[75vh] w-full object-contain" />
 	            </div>
 	            <Button className="w-full gap-2" onClick={handleDownloadQr}><Download className="h-4 w-4" />Descargar QR</Button>
 	          </div>

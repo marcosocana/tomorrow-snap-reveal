@@ -9,6 +9,9 @@ const slugify = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036
 const pick = (source: Record<string, unknown>, keys: string[]) => Object.fromEntries(keys.filter((key) => source[key] !== undefined).map((key) => [key, source[key]]));
 const isUuid = (value: unknown) => typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 const MAX_CHALLENGES = 25;
+const CAPTAINS_PUBLIC_ORIGIN = "https://acceso.revelao.cam";
+const getQrImageUrl = (publicUrl: string) =>
+  `https://quickchart.io/qr?size=1024&margin=1&ecLevel=H&text=${encodeURIComponent(publicUrl)}`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers });
@@ -85,7 +88,8 @@ serve(async (req) => {
     if (!data) break;
     slug = `${slugify(body.event.name)}-${suffix}`;
   }
-  const publicUrl = `/capitanes/${slug}`;
+  const publicUrl = `${CAPTAINS_PUBLIC_ORIGIN}/capitanes/${slug}`;
+  const qrImageUrl = getQrImageUrl(publicUrl);
   const eventBase = {
     ...pick(body.event, ["name", "description", "end_time"]),
     start_time: new Date().toISOString(),
@@ -100,9 +104,9 @@ serve(async (req) => {
     secondary_color: "#2f292d",
     background_image_url: null,
   };
-  let eventResult = await admin.from("captains_events").insert({ ...eventBase, ...eventOptional, slug, public_url: publicUrl, qr_url: publicUrl }).select("*").single();
+  let eventResult = await admin.from("captains_events").insert({ ...eventBase, ...eventOptional, slug, public_url: publicUrl, qr_url: qrImageUrl }).select("*").single();
   if (eventResult.error && Object.keys(eventOptional).some((key) => eventResult.error.message.includes(key))) {
-    eventResult = await admin.from("captains_events").insert({ ...eventBase, slug, public_url: publicUrl, qr_url: publicUrl }).select("*").single();
+    eventResult = await admin.from("captains_events").insert({ ...eventBase, slug, public_url: publicUrl, qr_url: qrImageUrl }).select("*").single();
   }
   const { data: event, error: eventError } = eventResult;
   if (eventError || !event) {

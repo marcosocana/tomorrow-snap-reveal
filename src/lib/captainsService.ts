@@ -4,7 +4,7 @@ import { captainsDefaultChallengeCatalog } from "@/lib/captainsDefaultChallengeC
 import {
   calculateCaptainsAutomaticScore,
   getCaptainsPublicUrl,
-  getCaptainsQrValue,
+  getCaptainsQrImageUrl,
   sanitizeCaptainsFileName,
   shuffleCaptainsItems,
   slugifyCaptainsValue,
@@ -244,7 +244,7 @@ export const createCaptainsEvent = async (input: CreateCaptainsEventInput) => {
     contact_email: input.contact_email?.trim().toLowerCase() || null,
     contact_phone: input.contact_phone?.trim() || null,
     public_url: publicUrl,
-    qr_url: getCaptainsQrValue(slug),
+    qr_url: getCaptainsQrImageUrl(publicUrl),
   };
 
   const { data, error } = await db.from("captains_events").insert(payload).select("*").single();
@@ -324,7 +324,7 @@ export const updateCaptainsEvent = async (
     const slug = await generateUniqueCaptainsSlug(input.slug, eventId);
     payload.slug = slug;
     payload.public_url = input.public_url || getCaptainsPublicUrl(slug);
-    payload.qr_url = input.qr_url || getCaptainsQrValue(slug);
+    payload.qr_url = input.qr_url || getCaptainsQrImageUrl(String(payload.public_url));
   }
 
   const { data, error } = await db.from("captains_events").update(payload).eq("id", eventId).select("*").single();

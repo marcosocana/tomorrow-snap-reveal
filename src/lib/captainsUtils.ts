@@ -16,6 +16,23 @@ export const getCaptainsPublicUrl = (slug: string, origin = CAPTAINS_PUBLIC_ORIG
 export const getCaptainsQrValue = (slug: string, origin = CAPTAINS_PUBLIC_ORIGIN) =>
   getCaptainsPublicUrl(slug, origin);
 
+export const getCaptainsQrImageUrl = (publicUrl: string) =>
+  `https://quickchart.io/qr?size=1024&margin=1&ecLevel=H&text=${encodeURIComponent(publicUrl)}`;
+
+export const resolveCaptainsQrImageUrl = (
+  qrUrl: string | null | undefined,
+  publicUrl: string,
+) => {
+  const candidate = qrUrl?.trim() || "";
+  if (
+    candidate.startsWith("https://quickchart.io/qr?")
+    || /\.(?:png|jpe?g|webp|gif|svg)(?:\?|$)/i.test(candidate)
+  ) {
+    return candidate;
+  }
+  return getCaptainsQrImageUrl(publicUrl);
+};
+
 export const normalizeCaptainsPublicUrl = (value: string | null | undefined, slug: string) => {
   if (!value) return getCaptainsPublicUrl(slug);
   if (value.startsWith(CAPTAINS_PUBLIC_PATH)) return `${CAPTAINS_PUBLIC_ORIGIN}${value}`;
