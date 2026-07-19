@@ -12,6 +12,77 @@ const MAX_CHALLENGES = 25;
 const CAPTAINS_PUBLIC_ORIGIN = "https://acceso.revelao.cam";
 const getQrImageUrl = (publicUrl: string) =>
   `https://quickchart.io/qr?size=1024&margin=1&ecLevel=H&text=${encodeURIComponent(publicUrl)}`;
+const isEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+const generateManagementPassword = (length = 10) => {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+  const random = new Uint8Array(length);
+  crypto.getRandomValues(random);
+  return Array.from(random, (value) => alphabet[value % alphabet.length]).join("");
+};
+const findAuthUserByEmail = async (admin: ReturnType<typeof createClient>, email: string) => {
+  const normalizedEmail = email.trim().toLowerCase();
+  for (let page = 1; page <= 10; page += 1) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
+    if (error) throw error;
+    const match = (data?.users || []).find((user) => user.email?.toLowerCase() === normalizedEmail);
+    if (match) return match;
+    if ((data?.users || []).length < 1000) break;
+  }
+  return null;
+};
+const resolveManagementAccount = async (
+  admin: ReturnType<typeof createClient>,
+  email: string,
+  phone?: string | null,
+) => {
+  const existingUser = await findAuthUserByEmail(admin, email);
+  let ownerId = existingUser?.id || null;
+  let managementPassword = "";
+
+  if (ownerId) {
+    const { data: firstOwnedEvent, error: firstOwnedEventError } = await admin
+      .from("events")
+      .select("admin_password")
+      .eq("owner_id", ownerId)
+      .not("admin_password", "is", null)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (firstOwnedEventError) throw firstOwnedEventError;
+
+    const storedPassword = existingUser.user_metadata?.management_password;
+    managementPassword = String(firstOwnedEvent?.admin_password || storedPassword || "").trim()
+      || generateManagementPassword();
+
+    const { error: updateUserError } = await admin.auth.admin.updateUserById(ownerId, {
+      password: managementPassword,
+      user_metadata: {
+        ...(existingUser.user_metadata || {}),
+        management_password: managementPassword,
+      },
+    });
+    if (updateUserError) throw updateUserError;
+  } else {
+    managementPassword = generateManagementPassword();
+    const { data: createdUser, error: createUserError } = await admin.auth.admin.createUser({
+      email,
+      password: managementPassword,
+      email_confirm: true,
+      user_metadata: { management_password: managementPassword },
+    });
+    if (createUserError || !createdUser?.user?.id) {
+      throw createUserError || new Error("CREATE_USER_FAILED");
+    }
+    ownerId = createdUser.user.id;
+  }
+
+  const { error: profileError } = await admin
+    .from("user_profiles")
+    .upsert({ id: ownerId, phone: phone?.trim() || null }, { onConflict: "id" });
+  if (profileError) throw profileError;
+
+  return { ownerId, managementPassword };
+};
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers });
@@ -82,6 +153,14 @@ serve(async (req) => {
   if (body.tables.length < 1 || body.tables.length > access.max_tables) return json({ error: "TABLE_LIMIT_EXCEEDED", maxTables: access.max_tables }, 400);
   if (body.challenges.length < 1 || body.challenges.length > MAX_CHALLENGES) return json({ error: "CHALLENGE_LIMIT_EXCEEDED", maxChallenges: MAX_CHALLENGES }, 400);
 
+  const contactEmail = String(body.event.contact_email || "").trim().toLowerCase();
+  if (!isEmail(contactEmail)) return json({ error: "INVALID_EMAIL" }, 400);
+  const { ownerId, managementPassword } = await resolveManagementAccount(
+    admin,
+    contactEmail,
+    String(body.event.contact_phone || "").trim() || null,
+  );
+
   let slug = slugify(body.event.name);
   for (let suffix = 2;; suffix += 1) {
     const { data } = await admin.from("captains_events").select("id").eq("slug", slug).maybeSingle();
@@ -96,6 +175,7 @@ serve(async (req) => {
     scoring_mode: "automatic",
     status: "active",
     show_live_gallery_after_completion: true,
+    owner_id: ownerId,
   };
   const eventOptional = {
     ...pick(body.event, ["contact_name", "contact_email", "contact_phone"]),
@@ -168,7 +248,13 @@ serve(async (req) => {
     await admin.from("captains_events").delete().eq("id", event.id);
     return json({ error: "CODE_ALREADY_USED" }, 409);
   }
-  return json({ event });
+  return json({
+    event,
+    credentials: {
+      email: contactEmail,
+      password: managementPassword,
+    },
+  });
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
     console.error("redeem-captains-code unexpected error:", error);

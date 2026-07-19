@@ -140,9 +140,9 @@ const PLAN_LIMITS: Record<
   demo: {
     maxPhotos: "10",
     allowVideoRecording: true,
-    maxVideos: "3",
+    maxVideos: "1",
     allowAudioRecording: true,
-    maxAudios: "6",
+    maxAudios: "1",
   },
   small: {
     maxPhotos: "200",
@@ -533,6 +533,13 @@ const EventForm = () => {
       const expiryDate = event.expiry_date ? toZonedTime(new Date(event.expiry_date), eventTz) : null;
       
       const qrPasswordSettings = getEventQrPasswordSettings(event.limits_json);
+      const resolvedPlanType =
+        event.plan_id === "demo" || event.max_photos === 10 ? "demo" :
+        event.plan_id === "small" || event.max_photos === 200 ? "small" :
+        event.plan_id === "medium" || event.plan_id === "large" || event.max_photos === 1200 ? "medium" :
+        event.plan_id === "xxl" ? "xxl" :
+        event.max_photos == null ? "xxl" :
+        "custom";
 
       const loadedFormData = {
         name: event.name,
@@ -573,10 +580,10 @@ const EventForm = () => {
         galleryViewMode: ((event as any).gallery_view_mode || "normal") as "normal" | "grid",
         likeCountingEnabled: (event as any).like_counting_enabled === true,
         allowVideoRecording: (event as any).allow_video_recording === true,
-        maxVideos: event.max_videos ? String(event.max_videos) : "",
+        maxVideos: resolvedPlanType === "demo" ? "1" : event.max_videos ? String(event.max_videos) : "",
         maxVideoDuration: event.max_video_duration ? String(event.max_video_duration) : "15",
         allowAudioRecording: (event as any).allow_audio_recording === true,
-        maxAudios: event.max_audios ? String(event.max_audios) : "",
+        maxAudios: resolvedPlanType === "demo" ? "1" : event.max_audios ? String(event.max_audios) : "",
         maxAudioDuration: event.max_audio_duration ? String(event.max_audio_duration) : "30",
         allowImageAttachment:
           (event as any).allow_image_attachment === true ||
@@ -588,13 +595,6 @@ const EventForm = () => {
       };
       await loadEventMediaCounts(event.id);
 
-      const resolvedPlanType =
-        event.plan_id === "demo" || event.max_photos === 10 ? "demo" :
-        event.plan_id === "small" || event.max_photos === 200 ? "small" :
-        event.plan_id === "medium" || event.plan_id === "large" || event.max_photos === 1200 ? "medium" :
-        event.plan_id === "xxl" ? "xxl" :
-        event.max_photos == null ? "xxl" :
-        "custom";
       setFormData(loadedFormData);
       setPlanType(resolvedPlanType);
       setSavedEditSnapshot(getEditSnapshot(loadedFormData, resolvedPlanType));
@@ -844,8 +844,8 @@ const EventForm = () => {
       const resolvedMaxPhotos = formData.maxPhotos;
       const effectiveAllowVideoRecording = formData.allowVideoRecording;
       const effectiveAllowAudioRecording = formData.allowAudioRecording;
-      const effectiveMaxVideos = formData.maxVideos;
-      const effectiveMaxAudios = formData.maxAudios;
+      const effectiveMaxVideos = isDemoEvent ? "1" : formData.maxVideos;
+      const effectiveMaxAudios = isDemoEvent ? "1" : formData.maxAudios;
       const parseOptionalPositiveInt = (value: string) => {
         const parsed = Number.parseInt(value, 10);
         return Number.isNaN(parsed) || parsed <= 0 ? null : parsed;
@@ -2301,7 +2301,8 @@ const EventForm = () => {
                           onChange={(e) =>
                             setFormData({ ...formData, maxVideos: e.target.value })
                           }
-                          disabled={!formData.allowVideoRecording}
+                          disabled={!formData.allowVideoRecording || isDemoEvent}
+                          className={isDemoEvent ? "cursor-not-allowed bg-muted" : ""}
                         />
                       </div>
                       <div className="space-y-2">
@@ -2349,7 +2350,8 @@ const EventForm = () => {
                           onChange={(e) =>
                             setFormData({ ...formData, maxAudios: e.target.value })
                           }
-                          disabled={!formData.allowAudioRecording}
+                          disabled={!formData.allowAudioRecording || isDemoEvent}
+                          className={isDemoEvent ? "cursor-not-allowed bg-muted" : ""}
                         />
                       </div>
                       <div className="space-y-2">

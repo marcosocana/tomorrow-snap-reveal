@@ -35,6 +35,7 @@ export type CaptainsEvidenceStatus = "uploaded" | "pending_review" | "approved" 
 
 export interface CaptainsEvent {
   id: string;
+  owner_id?: string | null;
   name: string;
   slug: string;
   description: string | null;

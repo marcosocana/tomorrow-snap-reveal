@@ -13,7 +13,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, Plus, Edit, Copy, Download, Eye, LogOut, ArrowLeft, User, Lock, Camera, Video, Mic, MoveRight, ChevronDown, MessageSquareText, KeyRound } from "lucide-react";
+import { Calendar, Plus, Edit, Copy, Download, Eye, LogOut, ArrowLeft, User, Lock, Camera, Video, Mic, MoveRight, ChevronDown, MessageSquareText, KeyRound, Gamepad2 } from "lucide-react";
 import { format } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 import { getCountryByCode } from "@/lib/countries";
@@ -67,6 +67,22 @@ interface Event {
   max_audios?: number | null;
   max_audio_duration?: number | null;
   limits_json?: any;
+}
+
+interface CaptainsManagedEvent {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  start_time: string | null;
+  end_time: string | null;
+  status: string;
+  public_url: string | null;
+  qr_url: string | null;
+  created_at: string;
+  table_count: number;
+  challenge_count: number;
+  owner_email?: string | null;
 }
 
 type AdminEventTab = "new" | "upcoming" | "past" | "tests" | "others";
@@ -193,6 +209,7 @@ const MediaUsageTag = ({
 
 const EventManagement = () => {
   const [events, setEvents] = useState<Event[]>([]);
+  const [captainsEvents, setCaptainsEvents] = useState<CaptainsManagedEvent[]>([]);
   const [folders, setFolders] = useState<EventFolder[]>([]);
   const [eventPhotoCounts, setEventPhotoCounts] = useState<Record<string, number>>({});
   const [eventMediaCounts, setEventMediaCounts] = useState<
@@ -413,6 +430,7 @@ const EventManagement = () => {
 
         setFolders([]);
         setEvents(eventData ? [eventData as Event] : []);
+        setCaptainsEvents([]);
 
         if (eventData) {
           await loadMediaCounts([eventData as Event]);
@@ -437,7 +455,9 @@ const EventManagement = () => {
         if (eventsError) throw eventsError;
 
         const fetchedEvents = (eventsPayload?.events || []) as Event[];
+        const fetchedCaptainsEvents = (eventsPayload?.captainsEvents || []) as CaptainsManagedEvent[];
         setEvents(fetchedEvents);
+        setCaptainsEvents(fetchedCaptainsEvents);
 
         if (isAdminUser) {
           setFolders([]);
@@ -1278,6 +1298,65 @@ const EventManagement = () => {
     );
   };
 
+  const renderCaptainsEventCard = (event: CaptainsManagedEvent) => {
+    const hasFinished = Boolean(event.end_time && new Date(event.end_time).getTime() <= Date.now());
+    const publicUrl = event.public_url || `${window.location.origin}/capitanes/${event.slug}`;
+    const detailUrl = `/admin/capitanes/${event.id}`;
+    const openDetail = () => navigate(detailUrl, { state: { fromEventManagement: true } });
+
+    return (
+      <Card key={`captains-${event.id}`} className="p-4 md:p-6">
+        <div className="space-y-4">
+          <button type="button" onClick={openDetail} className="w-full text-left">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-lg md:text-xl font-semibold text-foreground">{event.name}</h3>
+              <span className="rounded-full border border-[#f06a5f]/30 bg-[#f06a5f]/10 px-2 py-1 text-xs font-semibold uppercase tracking-wide text-[#f06a5f]">
+                Capitanes
+              </span>
+            </div>
+          </button>
+
+          <div className={`w-full rounded-md px-3 py-2 text-center text-sm font-medium ${hasFinished ? "bg-muted text-muted-foreground" : "bg-emerald-50 text-emerald-700"}`}>
+            {hasFinished ? "Finalizado" : "En curso"}
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-[160px_1fr] md:gap-6">
+            <div className="flex flex-col items-center gap-3 md:items-start">
+              {event.qr_url ? (
+                <button type="button" onClick={() => window.open(publicUrl, "_blank", "noopener,noreferrer")} className="rounded-xl border border-border bg-white p-3">
+                  <img src={event.qr_url} alt={`QR de ${event.name}`} className="h-[120px] w-[120px]" />
+                </button>
+              ) : (
+                <button type="button" onClick={() => window.open(publicUrl, "_blank", "noopener,noreferrer")} className="flex h-[146px] w-[146px] items-center justify-center rounded-xl border border-border bg-muted/30">
+                  <Gamepad2 className="h-10 w-10 text-muted-foreground" />
+                </button>
+              )}
+              <Button variant="outline" size="sm" className="w-full gap-2" onClick={() => window.open(publicUrl, "_blank", "noopener,noreferrer")}>
+                <Eye className="h-4 w-4" />
+                Ver juego
+              </Button>
+            </div>
+
+            <div className="space-y-4 text-sm text-muted-foreground">
+              <p><span className="font-medium text-foreground">Creación:</span> {format(new Date(event.created_at), "dd/MM/yyyy HH:mm", { locale: dateLocale })}</p>
+              {event.start_time ? <p><span className="font-medium text-foreground">Inicio:</span> {format(new Date(event.start_time), "dd/MM/yyyy HH:mm", { locale: dateLocale })}</p> : null}
+              {event.end_time ? <p><span className="font-medium text-foreground">Fin:</span> {format(new Date(event.end_time), "dd/MM/yyyy HH:mm", { locale: dateLocale })}</p> : null}
+              <div className="flex flex-wrap gap-2">
+                <span className="rounded-full border border-border px-3 py-1 text-xs font-medium text-foreground">{event.table_count} mesas</span>
+                <span className="rounded-full border border-border px-3 py-1 text-xs font-medium text-foreground">{event.challenge_count} retos</span>
+              </div>
+              {event.description ? <p className="whitespace-pre-line">{event.description}</p> : null}
+              <Button className="gap-2" onClick={openDetail}>
+                <Edit className="h-4 w-4" />
+                Ver y editar detalle
+              </Button>
+            </div>
+          </div>
+        </div>
+      </Card>
+    );
+  };
+
   const renderEventTable = (tableEvents: Event[]) => (
     <div className="w-full">
       <table className="w-full border-separate border-spacing-y-3">
@@ -1291,6 +1370,11 @@ const EventManagement = () => {
       </table>
     </div>
   );
+
+  const mixedUnfiledEvents = [
+    ...eventsByFolder.unfiled.map((event) => ({ kind: "revelao" as const, event, createdAt: event.created_at })),
+    ...captainsEvents.map((event) => ({ kind: "captains" as const, event, createdAt: event.created_at })),
+  ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   if (isLoading) {
     return (
@@ -1660,7 +1744,7 @@ const EventManagement = () => {
               </div>
             </div>
           </Card>
-        ) : events.length === 0 && folders.length === 0 ? (
+        ) : events.length === 0 && captainsEvents.length === 0 && folders.length === 0 ? (
           <Card className="p-12 text-center">
             <Calendar className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
             <p className="text-muted-foreground">
@@ -1702,14 +1786,18 @@ const EventManagement = () => {
             ))}
 
             {/* Unfiled events */}
-            {eventsByFolder.unfiled.length > 0 && (
+            {mixedUnfiledEvents.length > 0 && (
               <div className="space-y-4">
                 {folders.length > 0 && (
                   <h2 className="text-lg font-medium text-muted-foreground mt-6 mb-2">
                     {t("events.unfiled")}
                   </h2>
                 )}
-                {renderEventTable(eventsByFolder.unfiled)}
+                {mixedUnfiledEvents.map((item) =>
+                  item.kind === "revelao"
+                    ? renderEventCard(item.event)
+                    : renderCaptainsEventCard(item.event)
+                )}
               </div>
             )}
           </div>

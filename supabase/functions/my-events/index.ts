@@ -90,7 +90,38 @@ serve(async (req) => {
       photo_count: photoCounts[event.id] ?? 0,
     }));
 
-    return json({ events: enriched });
+    const { data: captainsEvents, error: captainsError } = await supabaseAdmin
+      .from("captains_events")
+      .select("*")
+      .eq("owner_id", userData.user.id)
+      .order("created_at", { ascending: false });
+    if (captainsError) {
+      return json({ error: "LOAD_CAPTAINS_FAILED", detail: captainsError.message }, 500);
+    }
+
+    const captainsIds = (captainsEvents || []).map((event) => event.id);
+    const tableCounts: Record<string, number> = {};
+    const challengeCounts: Record<string, number> = {};
+    if (captainsIds.length > 0) {
+      const [tablesResult, challengesResult] = await Promise.all([
+        supabaseAdmin.from("captains_tables").select("event_id").in("event_id", captainsIds),
+        supabaseAdmin.from("captains_event_challenges").select("event_id").in("event_id", captainsIds),
+      ]);
+      for (const row of tablesResult.data || []) {
+        tableCounts[row.event_id] = (tableCounts[row.event_id] || 0) + 1;
+      }
+      for (const row of challengesResult.data || []) {
+        challengeCounts[row.event_id] = (challengeCounts[row.event_id] || 0) + 1;
+      }
+    }
+
+    const enrichedCaptains = (captainsEvents || []).map((event) => ({
+      ...event,
+      table_count: tableCounts[event.id] || 0,
+      challenge_count: challengeCounts[event.id] || 0,
+    }));
+
+    return json({ events: enriched, captainsEvents: enrichedCaptains });
   } catch (error) {
     console.error("my-events error:", error);
     return json({ error: "UNKNOWN_ERROR", detail: `${error}` }, 500);

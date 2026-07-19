@@ -72,11 +72,13 @@ Deno.serve(async (req) => {
   }
 
   const publicUrl = String(body?.publicUrl || event?.public_url || `${APP_ORIGIN}/capitanes/${event?.slug || ""}`);
-  const adminUrl = String(body?.adminUrl || `${APP_ORIGIN}/admin/capitanes/${event.id}`);
   const qrImageUrl = getQrImageUrl(publicUrl, body?.qrImageUrl || event?.qr_url);
   const tableCount = Number(body?.tableCount || 0);
   const challengeCount = Number(body?.challengeCount || 0);
   const contactName = String(contactInfo?.name || event?.contact_name || "").trim();
+  const credentialEmail = String(body?.credentials?.email || to).trim().toLowerCase();
+  const credentialPassword = String(body?.credentials?.password || "").trim();
+  const managementUrl = `${APP_ORIGIN}/event-management`;
 
   const html = `<!doctype html>
   <html lang="es">
@@ -111,10 +113,20 @@ Deno.serve(async (req) => {
 	                  </div>
 	                </td>
 	              </tr>
+	              ${credentialPassword ? `
 	              <tr>
 	                <td style="padding-top:20px;">
-	                  <a href="${escape(adminUrl)}" style="display:inline-block;background:#151515;color:#fff;text-decoration:none;padding:12px 18px;border-radius:999px;font-weight:700;">
-                    Editar mi juego
+	                  <div style="background:#f6f6f6;border-radius:14px;padding:16px;line-height:1.7;">
+	                    <div style="font-size:14px;font-weight:800;margin-bottom:6px;">Datos para gestionar tus eventos</div>
+	                    <div><strong>Usuario:</strong> ${escape(credentialEmail)}</div>
+	                    <div><strong>Contraseña:</strong> <span style="font-family:monospace;font-size:17px;font-weight:800;letter-spacing:1px;">${escape(credentialPassword)}</span></div>
+	                  </div>
+	                </td>
+	              </tr>` : ""}
+	              <tr>
+	                <td style="padding-top:20px;">
+	                  <a href="${escape(managementUrl)}" style="display:inline-block;background:#151515;color:#fff;text-decoration:none;padding:12px 18px;border-radius:999px;font-weight:700;">
+                    Gestionar mis eventos
                   </a>
                 </td>
               </tr>

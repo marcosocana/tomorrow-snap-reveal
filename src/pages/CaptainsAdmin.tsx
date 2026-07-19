@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import JSZip from "jszip";
 import {
@@ -1386,6 +1386,7 @@ export const CaptainsOnboarding = () => {
 	              adminUrl,
 	              tableCount: tables.length,
 	              challengeCount: selectedChallenges.length,
+	              credentials: created.credentials,
 	            },
 	          }),
 	          supabase.functions.invoke("notify-admin-new-event", {
@@ -2938,6 +2939,7 @@ const EvidenceActions = ({
 
 export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "review" | "ranking" }) => {
   const { eventId } = useParams();
+  const location = useLocation();
   const [detailSearchParams] = useSearchParams();
   const detailAccessCode = (detailSearchParams.get("code") || "").trim().toUpperCase();
   useRequireAdmin(Boolean(detailAccessCode));
@@ -3616,7 +3618,7 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
   return (
 	    <AdminFrame
 	      title={event.name}
-	      backAction={() => navigate("/admin/capitanes")}
+	      backAction={() => navigate((location.state as { fromEventManagement?: boolean } | null)?.fromEventManagement ? "/event-management" : "/admin/capitanes")}
 	      hideUtilityActions
 	      actions={(
 	        <Button variant="outline" className="gap-2 rounded-full" onClick={refreshAll}>
