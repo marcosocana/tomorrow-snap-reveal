@@ -993,8 +993,7 @@ const EventManagement = () => {
     }
   };
 
-  const handleCopyUrl = async (password: string) => {
-    const eventUrl = `https://acceso.revelao.cam/events/${password}`;
+  const handleCopyValue = async (eventUrl: string) => {
     try {
       await navigator.clipboard.writeText(eventUrl);
       toast({
@@ -1005,6 +1004,9 @@ const EventManagement = () => {
       console.error("Error copying URL:", error);
     }
   };
+
+  const handleCopyUrl = (password: string) =>
+    handleCopyValue(`https://acceso.revelao.cam/events/${password}`);
 
   const getEventQrUrl = (event: Event) => {
     const storedQrUrl = getStoredQrImageUrl(event) || localStorage.getItem(`event-qr-url-${event.id}`);
@@ -1320,35 +1322,60 @@ const EventManagement = () => {
             {hasFinished ? "Finalizado" : "En curso"}
           </div>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-[160px_1fr] md:gap-6">
-            <div className="flex flex-col items-center gap-3 md:items-start">
-              {event.qr_url ? (
-                <button type="button" onClick={() => window.open(publicUrl, "_blank", "noopener,noreferrer")} className="rounded-xl border border-border bg-white p-3">
-                  <img src={event.qr_url} alt={`QR de ${event.name}`} className="h-[120px] w-[120px]" />
-                </button>
-              ) : (
-                <button type="button" onClick={() => window.open(publicUrl, "_blank", "noopener,noreferrer")} className="flex h-[146px] w-[146px] items-center justify-center rounded-xl border border-border bg-muted/30">
-                  <Gamepad2 className="h-10 w-10 text-muted-foreground" />
-                </button>
-              )}
-              <Button variant="outline" size="sm" className="w-full gap-2" onClick={() => window.open(publicUrl, "_blank", "noopener,noreferrer")}>
-                <Eye className="h-4 w-4" />
-                Ver juego
+          <div className="grid grid-cols-1 lg:grid-cols-[160px_1fr] gap-4 md:gap-6 items-start">
+            <div className="space-y-3 flex flex-col items-center lg:items-start">
+              <div
+                className="bg-white p-3 rounded-xl border border-border w-fit cursor-pointer"
+                onClick={() => setQrPreview({ src: event.qr_url || undefined, value: publicUrl })}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(keyboardEvent) => {
+                  if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
+                    setQrPreview({ src: event.qr_url || undefined, value: publicUrl });
+                  }
+                }}
+              >
+                {event.qr_url ? (
+                  <img src={event.qr_url} alt={`QR de ${event.name}`} className="w-[120px] h-[120px]" />
+                ) : (
+                  <QRCodeSVG value={publicUrl} size={120} />
+                )}
+              </div>
+              <Button variant="outline" size="sm" className="w-full gap-2" onClick={() => downloadQrFromValue(publicUrl, event.name)}>
+                <Download className="w-4 h-4" />
+                {t("events.downloadQrAction")}
               </Button>
+              <div className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-border px-3 py-1 text-xs font-medium text-foreground">
+                <Gamepad2 className="h-3.5 w-3.5" />
+                {event.table_count} mesas · {event.challenge_count} retos
+              </div>
+              <div className="space-y-2 pt-1 w-full sm:hidden">
+                <div className="flex items-center gap-2">
+                  <input type="text" value={publicUrl} readOnly className="flex-1 px-3 py-2 text-sm bg-muted rounded-md border border-border min-w-0" />
+                  <Button size="icon" variant="outline" onClick={() => handleCopyValue(publicUrl)}><Copy className="w-4 h-4" /></Button>
+                  <Button size="icon" variant="outline" onClick={() => window.open(publicUrl, "_blank", "noopener,noreferrer")}><Eye className="w-4 h-4" /></Button>
+                </div>
+              </div>
             </div>
 
-            <div className="space-y-4 text-sm text-muted-foreground">
-              <p><span className="font-medium text-foreground">Creación:</span> {format(new Date(event.created_at), "dd/MM/yyyy HH:mm", { locale: dateLocale })}</p>
-              {event.start_time ? <p><span className="font-medium text-foreground">Inicio:</span> {format(new Date(event.start_time), "dd/MM/yyyy HH:mm", { locale: dateLocale })}</p> : null}
-              {event.end_time ? <p><span className="font-medium text-foreground">Fin:</span> {format(new Date(event.end_time), "dd/MM/yyyy HH:mm", { locale: dateLocale })}</p> : null}
-              <div className="flex flex-wrap gap-2">
-                <span className="rounded-full border border-border px-3 py-1 text-xs font-medium text-foreground">{event.table_count} mesas</span>
-                <span className="rounded-full border border-border px-3 py-1 text-xs font-medium text-foreground">{event.challenge_count} retos</span>
+            <div className="flex-1 space-y-4 w-full text-sm text-muted-foreground">
+              <p><span className="font-medium">{t("events.createdLabel")}:</span> {format(new Date(event.created_at), "dd/MM/yyyy HH:mm", { locale: dateLocale })}</p>
+              <div className="space-y-1">
+                <p className="font-medium text-foreground">{t("events.durationLabel")}:</p>
+                {event.start_time ? <p><span className="font-medium">{t("events.startLabel")}:</span> {format(new Date(event.start_time), "dd/MM/yyyy HH:mm", { locale: dateLocale })}</p> : null}
+                {event.end_time ? <p><span className="font-medium">{t("events.endLabel")}:</span> {format(new Date(event.end_time), "dd/MM/yyyy HH:mm", { locale: dateLocale })}</p> : null}
+              </div>
+              <div className="space-y-2 pt-1 hidden sm:block">
+                <div className="flex items-center gap-2">
+                  <input type="text" value={publicUrl} readOnly className="flex-1 px-3 py-2 text-sm bg-muted rounded-md border border-border min-w-0" />
+                  <Button size="icon" variant="outline" onClick={() => handleCopyValue(publicUrl)}><Copy className="w-4 h-4" /></Button>
+                  <Button size="icon" variant="outline" onClick={() => window.open(publicUrl, "_blank", "noopener,noreferrer")}><Eye className="w-4 h-4" /></Button>
+                </div>
               </div>
               {event.description ? <p className="whitespace-pre-line">{event.description}</p> : null}
-              <Button className="gap-2" onClick={openDetail}>
-                <Edit className="h-4 w-4" />
-                Ver y editar detalle
+              <Button variant="outline" size="sm" className="gap-1 w-full sm:w-auto" onClick={openDetail}>
+                <Edit className="w-4 h-4" />
+                <span>{t("events.edit")}</span>
               </Button>
             </div>
           </div>

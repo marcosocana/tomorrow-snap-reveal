@@ -49,6 +49,7 @@ import {
   addCatalogChallengesToCaptainsEvent,
   CAPTAINS_MAX_CHALLENGES,
   createCustomCaptainsChallenge,
+  deleteCaptainsEventChallenge,
   deleteCaptainsEvent,
   createCaptainsGame,
   deleteCaptainsEvidence,
@@ -3396,6 +3397,30 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
     }
   };
 
+  const deleteChallengeEditor = async () => {
+    if (!editingChallenge) return;
+    const confirmed = window.confirm(`¿Eliminar el reto "${editingChallenge.title}"? También se eliminarán su progreso y el contenido asociado.`);
+    if (!confirmed) return;
+    try {
+      setIsDetailSaving(true);
+      await deleteCaptainsEventChallenge(editingChallenge.id);
+      queryClient.setQueryData<CaptainsEventDetail | null>(captainsQueryKeys.event(eventId), (current) =>
+        current
+          ? { ...current, challenges: current.challenges.filter((challenge) => challenge.id !== editingChallenge.id) }
+          : current,
+      );
+      setEditingChallenge(null);
+      setChallengeDraft(null);
+      refreshAll();
+      toast({ title: "Reto eliminado", description: "El reto se ha eliminado de todas las mesas del evento." });
+    } catch (error) {
+      console.error("Error deleting captains challenge:", error);
+      toast({ title: "Error", description: "No hemos podido eliminar el reto.", variant: "destructive" });
+    } finally {
+      setIsDetailSaving(false);
+    }
+  };
+
   const openAddChallenge = () => {
     if ((detail?.challenges.length || 0) >= CAPTAINS_MAX_CHALLENGES) {
       toast({ title: "Límite alcanzado", description: `El máximo general es de ${CAPTAINS_MAX_CHALLENGES} retos.`, variant: "destructive" });
@@ -4148,10 +4173,13 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
 	          </DialogHeader>
 	          {challengeDraft ? (
 	            <div className="space-y-4">
-	              <ChallengeEditor challenge={challengeDraft} index={(challengeDraft.order_index || 1) - 1} onChange={setChallengeDraft} onDelete={() => { setEditingChallenge(null); setChallengeDraft(null); }} />
-	              <div className="flex justify-end gap-2">
+	              <ChallengeEditor challenge={challengeDraft} index={(challengeDraft.order_index || 1) - 1} onChange={setChallengeDraft} onDelete={deleteChallengeEditor} />
+	              <div className="flex flex-wrap justify-between gap-2">
+	                <Button variant="destructive" onClick={deleteChallengeEditor} disabled={isDetailSaving}><Trash2 className="mr-2 h-4 w-4" />Eliminar reto</Button>
+	                <div className="flex gap-2">
 	                <Button variant="outline" onClick={() => { setEditingChallenge(null); setChallengeDraft(null); }}>Cancelar</Button>
 	                <Button onClick={saveChallengeEditor} disabled={isDetailSaving}>{isDetailSaving ? "Guardando..." : "Guardar reto"}</Button>
+	                </div>
 	              </div>
 	            </div>
 	          ) : null}

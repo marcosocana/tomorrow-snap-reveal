@@ -448,6 +448,54 @@ export const updateCaptainsEventChallenge = async (challengeId: string, input: C
   return data as CaptainsEventChallenge;
 };
 
+export const deleteCaptainsEventChallenge = async (challengeId: string) => {
+  const { data: challenge, error: challengeError } = await db
+    .from("captains_event_challenges")
+    .select("id,event_id")
+    .eq("id", challengeId)
+    .single();
+  ensureNoError(challengeError);
+
+  const { data: tableChallenges, error: tableChallengesError } = await db
+    .from("captains_table_challenges")
+    .select("id")
+    .eq("challenge_id", challengeId);
+  ensureNoError(tableChallengesError);
+
+  const tableChallengeIds = (tableChallenges || []).map((row: { id: string }) => row.id);
+  if (tableChallengeIds.length > 0) {
+    const { data: evidence, error: evidenceError } = await db
+      .from("captains_evidence")
+      .select("id,file_url,thumbnail_url")
+      .in("table_challenge_id", tableChallengeIds);
+    ensureNoError(evidenceError);
+
+    const storagePaths = Array.from(new Set(
+      (evidence || [])
+        .flatMap((item: { file_url?: string | null; thumbnail_url?: string | null }) => [
+          getCaptainsEvidenceStoragePath(item.file_url),
+          getCaptainsEvidenceStoragePath(item.thumbnail_url),
+        ])
+        .filter(Boolean) as string[],
+    ));
+    if (storagePaths.length > 0) {
+      const { error: storageError } = await supabase.storage.from(CAPTAINS_EVIDENCE_BUCKET).remove(storagePaths);
+      ensureNoError(storageError);
+    }
+
+    const evidenceIds = (evidence || []).map((item: { id: string }) => item.id);
+    if (evidenceIds.length > 0) {
+      const { error: deleteEvidenceError } = await db.from("captains_evidence").delete().in("id", evidenceIds);
+      ensureNoError(deleteEvidenceError);
+    }
+  }
+
+  const { error: deleteError } = await db.from("captains_event_challenges").delete().eq("id", challengeId);
+  ensureNoError(deleteError);
+  await recalculateCaptainsRanking(challenge.event_id);
+  return challenge.event_id as string;
+};
+
 export const deleteCaptainsEvent = async (eventId: string) => {
   const evidence = await db.from("captains_evidence").delete().eq("event_id", eventId);
   ensureNoError(evidence.error);
