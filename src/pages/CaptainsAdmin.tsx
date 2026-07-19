@@ -90,7 +90,6 @@ const DEFAULT_DESCRIPTION =
   "Bienvenidos a Capitanes by Revelao.\nCada mesa tendrá un capitán encargado de guiar a su equipo durante el juego.\nTendréis que completar retos, subir pruebas y competir contra el resto de mesas.\nPreparad la cámara, afinad la voz y jugad en equipo.\nQue empiece la misión.";
 const DEFAULT_PRIMARY_COLOR = "#f06a5f";
 const DEFAULT_SECONDARY_COLOR = "#2f292d";
-const CAPTAINS_DEMO_EVENT_ID = "de000000-0000-4000-8000-000000000001";
 const CAPTAINS_DEMO_SLUG = "demo-capitanes";
 const isHexColor = (value: string) => /^#[0-9a-fA-F]{6}$/.test(value);
 const colorValue = (value: string, fallback: string) => (isHexColor(value) ? value : fallback);
@@ -824,6 +823,7 @@ export const CaptainsAdminList = () => {
     }, { all: regularEvents.length });
   }, [events]);
   const demoEvent = events.find((event) => event.slug === CAPTAINS_DEMO_SLUG);
+  const demoAdminIdentifier = demoEvent?.id || CAPTAINS_DEMO_SLUG;
   const toggleSelection = (eventId: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -973,9 +973,9 @@ export const CaptainsAdminList = () => {
 	          role="link"
 	          tabIndex={0}
 	          className="cursor-pointer rounded-2xl p-5 shadow-sm transition-colors hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-	          onClick={() => navigate(`/admin/capitanes/${CAPTAINS_DEMO_EVENT_ID}`)}
+	          onClick={() => navigate(`/admin/capitanes/${demoAdminIdentifier}`)}
 	          onKeyDown={(keyboardEvent) => {
-	            if (keyboardEvent.key === "Enter") navigate(`/admin/capitanes/${CAPTAINS_DEMO_EVENT_ID}`);
+	            if (keyboardEvent.key === "Enter") navigate(`/admin/capitanes/${demoAdminIdentifier}`);
 	          }}
 	        >
 	          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -1000,7 +1000,7 @@ export const CaptainsAdminList = () => {
 	                <p className="text-xs text-muted-foreground">El evento quedará disponible al sincronizar las migraciones de Supabase.</p>
 	              )}
 	            </div>
-	            <Button type="button" onClick={(clickEvent) => { clickEvent.stopPropagation(); navigate(`/admin/capitanes/${CAPTAINS_DEMO_EVENT_ID}`); }}>
+	            <Button type="button" onClick={(clickEvent) => { clickEvent.stopPropagation(); navigate(`/admin/capitanes/${demoAdminIdentifier}`); }}>
 	              Editar demo
 	            </Button>
 	          </div>
@@ -3731,7 +3731,7 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
                         ? "Revisa los datos: el nombre y una fecha de fin posterior a la creación son obligatorios."
                         : "Los cambios se guardan automáticamente."}
                   </p>
-                  <Button className="gap-2 rounded-full bg-black text-white hover:bg-black/85" onClick={() => setDeleteEventOpen(true)}>
+                  <Button variant="outline" className="gap-2 rounded-full" onClick={() => setDeleteEventOpen(true)}>
                     <Trash2 className="h-4 w-4" />
                     Eliminar evento
                   </Button>

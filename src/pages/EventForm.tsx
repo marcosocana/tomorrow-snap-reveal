@@ -1392,7 +1392,7 @@ const EventForm = () => {
             className="text-2xl sm:text-3xl font-bold text-foreground"
             data-scroll-anchor
           >
-            {isEditing ? t("form.title.edit") : t("form.title.new")}
+            {isEditing ? (formData.name || t("form.title.edit")) : t("form.title.new")}
           </h1>
           {isEditing && isDemoEvent && (
             <span className="text-xs font-semibold uppercase tracking-wide bg-[#f06a5f]/10 text-[#f06a5f] px-2 py-1 rounded-full">

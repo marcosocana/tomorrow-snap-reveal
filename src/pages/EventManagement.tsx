@@ -13,7 +13,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, Plus, Edit, Copy, Download, Eye, LogOut, ArrowLeft, User, Lock, Camera, Video, Mic, MoveRight, ChevronDown, MessageSquareText } from "lucide-react";
+import { Calendar, Plus, Edit, Copy, Download, Eye, LogOut, ArrowLeft, User, Lock, Camera, Video, Mic, MoveRight, ChevronDown, MessageSquareText, KeyRound } from "lucide-react";
 import { format } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 import { getCountryByCode } from "@/lib/countries";
@@ -1328,7 +1328,7 @@ const EventManagement = () => {
                       className="gap-2"
                       onClick={() => setRedeemGeneratorOpen(true)}
                     >
-                      <Plus className="w-4 h-4" />
+                      <KeyRound className="w-4 h-4" />
                       Generar código
                     </Button>
                   </>
@@ -1859,7 +1859,7 @@ const EventManagement = () => {
       <Dialog open={redeemGeneratorOpen} onOpenChange={setRedeemGeneratorOpen}>
         <DialogContent className="admin-demo2-shell max-w-md w-[92vw] sm:w-full">
           <DialogHeader>
-            <DialogTitle>Generar código de canje</DialogTitle>
+            <DialogTitle>Generar código de Revelao</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
