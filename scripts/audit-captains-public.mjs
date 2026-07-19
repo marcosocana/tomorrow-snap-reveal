@@ -42,6 +42,14 @@ check("Captains public operations use the isolated client", () => {
   assert.match(serviceSource, /getCaptainsEvidence[\s\S]*let query = pdb/);
 });
 
+check("admin challenge assignment is authenticated and retry-safe", () => {
+  assert.match(
+    serviceSource,
+    /appendCaptainsChallengesToTables[\s\S]*db[\s\S]*\.from\("captains_table_challenges"\)[\s\S]*\.upsert\(rows, \{ onConflict: "table_id,challenge_id", ignoreDuplicates: true \}\)/,
+  );
+  assert.match(serviceSource, /if \(alreadyAdded\.length > 0\)[\s\S]*appendCaptainsChallengesToTables\(eventId, alreadyAdded\)/);
+});
+
 check("Captains public uploads use the isolated storage client", () => {
   assert.match(serviceSource, /supabasePublic\.storage[\s\S]*upload\(filePath, file\)/);
   assert.match(serviceSource, /supabasePublic\.storage[\s\S]*createSignedUrl/);

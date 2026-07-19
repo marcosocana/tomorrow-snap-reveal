@@ -3403,7 +3403,7 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
     if (!confirmed) return;
     try {
       setIsDetailSaving(true);
-      await deleteCaptainsEventChallenge(editingChallenge.id);
+      await deleteCaptainsEventChallenge(editingChallenge.id, eventId);
       queryClient.setQueryData<CaptainsEventDetail | null>(captainsQueryKeys.event(eventId), (current) =>
         current
           ? { ...current, challenges: current.challenges.filter((challenge) => challenge.id !== editingChallenge.id) }

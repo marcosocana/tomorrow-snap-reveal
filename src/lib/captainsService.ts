@@ -448,13 +448,20 @@ export const updateCaptainsEventChallenge = async (challengeId: string, input: C
   return data as CaptainsEventChallenge;
 };
 
-export const deleteCaptainsEventChallenge = async (challengeId: string) => {
+export const deleteCaptainsEventChallenge = async (challengeId: string, fallbackEventId?: string) => {
   const { data: challenge, error: challengeError } = await db
     .from("captains_event_challenges")
     .select("id,event_id")
     .eq("id", challengeId)
-    .single();
+    .maybeSingle();
   ensureNoError(challengeError);
+
+  // Deleting a challenge is intentionally idempotent. A previous request may
+  // already have removed it while the browser still has the stale row cached.
+  if (!challenge) {
+    if (!fallbackEventId) throw new Error("El reto ya no existe.");
+    return fallbackEventId;
+  }
 
   const { data: tableChallenges, error: tableChallengesError } = await db
     .from("captains_table_challenges")
@@ -732,7 +739,12 @@ const appendCaptainsChallengesToTables = async (eventId: string, challenges: Cap
     }));
   });
   if (rows.length === 0) return;
-  const { error } = await pdb.from("captains_table_challenges").insert(rows);
+  // This is an admin operation. Using the anonymous gameplay client here made
+  // the challenge row succeed but its table assignments fail with RLS (401),
+  // leaving a partially-added challenge behind.
+  const { error } = await db
+    .from("captains_table_challenges")
+    .upsert(rows, { onConflict: "table_id,challenge_id", ignoreDuplicates: true });
   ensureNoError(error);
 };
 
@@ -744,7 +756,6 @@ export const addCatalogChallengesToCaptainsEvent = async (eventId: string, catal
     .select("id", { count: "exact", head: true })
     .eq("event_id", eventId);
   ensureNoError(countError);
-  ensureCaptainsChallengeLimit((count || 0) + catalogChallengeIds.length);
 
   const databaseCatalogIds = catalogChallengeIds.filter(isUuid);
   const [{ data: databaseCatalogItems, error: catalogError }, { data: existingChallenges, error: existingError }] =
@@ -754,7 +765,7 @@ export const addCatalogChallengesToCaptainsEvent = async (eventId: string, catal
         : Promise.resolve({ data: [], error: null }),
       db
         .from("captains_event_challenges")
-        .select("catalog_challenge_id,title")
+        .select("*")
         .eq("event_id", eventId)
         .order("order_index", { ascending: false })
     ]);
@@ -771,14 +782,31 @@ export const addCatalogChallengesToCaptainsEvent = async (eventId: string, catal
     throw new Error("No hemos podido encontrar el reto seleccionado en el catálogo.");
   }
 
-  const existing = (existingChallenges || []) as Array<{ catalog_challenge_id: string | null; title: string }>;
-  const duplicate = catalogItems.find((item) =>
-    existing.some((challenge) => challenge.catalog_challenge_id === item.id || challenge.title.trim().toLocaleLowerCase("es") === item.title.trim().toLocaleLowerCase("es")),
-  );
-  if (duplicate) throw new Error(`El reto “${duplicate.title}” ya está añadido al evento.`);
+  const existing = (existingChallenges || []) as CaptainsEventChallenge[];
+  const existingByCatalogItem = new Map<string, CaptainsEventChallenge>();
+  for (const item of catalogItems) {
+    const match = existing.find((challenge) =>
+      challenge.catalog_challenge_id === item.id
+      || challenge.title.trim().toLocaleLowerCase("es") === item.title.trim().toLocaleLowerCase("es")
+    );
+    if (match) existingByCatalogItem.set(item.id, match as CaptainsEventChallenge);
+  }
+
+  // Repair challenges left half-created by an earlier failed assignment. This
+  // also makes retries safe when only some tables received the challenge.
+  const alreadyAdded = catalogItems
+    .map((item) => existingByCatalogItem.get(item.id))
+    .filter(Boolean) as CaptainsEventChallenge[];
+  if (alreadyAdded.length > 0) {
+    await appendCaptainsChallengesToTables(eventId, alreadyAdded);
+  }
+
+  const newCatalogItems = catalogItems.filter((item) => !existingByCatalogItem.has(item.id));
+  if (newCatalogItems.length === 0) return alreadyAdded;
+  ensureCaptainsChallengeLimit((count || existing.length) + newCatalogItems.length);
 
   const startIndex = existing.length;
-  const rows = catalogItems.map((item, index) => ({
+  const rows = newCatalogItems.map((item, index) => ({
     event_id: eventId,
     catalog_challenge_id: isUuid(item.id) ? item.id : null,
     title: item.title,
@@ -801,12 +829,12 @@ export const addCatalogChallengesToCaptainsEvent = async (eventId: string, catal
     ensureNoError(fallback.error);
     const added = (fallback.data || []) as CaptainsEventChallenge[];
     await appendCaptainsChallengesToTables(eventId, added);
-    return added;
+    return [...alreadyAdded, ...added];
   }
   ensureNoError(error);
   const added = (data || []) as CaptainsEventChallenge[];
   await appendCaptainsChallengesToTables(eventId, added);
-  return added;
+  return [...alreadyAdded, ...added];
 };
 
 export const createCustomCaptainsChallenge = async (eventId: string, input: CaptainsChallengeInput) => {
