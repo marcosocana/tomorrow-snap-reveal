@@ -412,82 +412,22 @@ export const updateCaptainsTable = async (
   return data as CaptainsTable;
 };
 
-export const resetCaptainsTableLastActivity = async (tableId: string) => {
-  const { data: evidenceRows, error: evidenceReadError } = await db
-    .from("captains_evidence")
-    // Production does not expose thumbnail_url in captains_evidence. The
-    // original upload is the canonical Storage object that must be removed.
-    .select("id,file_url")
-    .eq("table_id", tableId);
-  ensureNoError(evidenceReadError);
-
-  const storagePaths = [...new Set(((evidenceRows || []) as Array<Pick<CaptainsEvidence, "file_url">>)
-    .map((evidence) => getCaptainsEvidenceStoragePath(evidence.file_url))
-    .filter((path): path is string => Boolean(path)))];
-  if (storagePaths.length > 0) {
-    const { error: storageError } = await supabase.storage.from(CAPTAINS_EVIDENCE_BUCKET).remove(storagePaths);
-    ensureNoError(storageError);
-  }
-
-  const { error: evidenceDeleteError } = await db.from("captains_evidence").delete().eq("table_id", tableId);
-  ensureNoError(evidenceDeleteError);
-
-  const { data: challengeRows, error: challengeReadError } = await db
-    .from("captains_table_challenges")
-    .select("id")
-    .eq("table_id", tableId)
-    .order("randomized_order_index", { ascending: true });
-  ensureNoError(challengeReadError);
-
-  const challengeIds = ((challengeRows || []) as Array<{ id: string }>).map((row) => row.id);
-  if (challengeIds.length > 0) {
-    const { error: resetChallengesError } = await db
-      .from("captains_table_challenges")
-      .update({
-        status: "pending",
-        points_awarded: 0,
-        started_at: null,
-        submitted_at: null,
-        elapsed_seconds: null,
-        remaining_seconds: null,
-        question_answer: null,
-        is_time_expired: false,
-        automatic_score_calculated: false,
-        reviewed_at: null,
-      })
-      .in("id", challengeIds);
-    ensureNoError(resetChallengesError);
-
-    const { error: firstChallengeError } = await db
-      .from("captains_table_challenges")
-      .update({ status: "ready" })
-      .eq("id", challengeIds[0]);
-    ensureNoError(firstChallengeError);
-  }
-
-  const { data, error } = await db
-    .from("captains_tables")
-    .update({
-      total_points: 0,
-      completed_challenges: 0,
-      failed_challenges: 0,
-      current_challenge_id: null,
-      completed_at: null,
-      last_activity_at: null,
-      claimed_at: null,
-      claim_device_hash: null,
-    })
-    .eq("id", tableId)
-    .select("*")
-    .single();
-  ensureNoError(error);
-  return data as CaptainsTable;
+export const resetCaptainsTableLastActivity = async (tableId: string, accessCode?: string) => {
+  const functionClient = accessCode ? supabasePublic : supabase;
+  const { data, error } = await functionClient.functions.invoke("reset-captains-tables", {
+    body: { action: "table", tableId, accessCode: accessCode || null },
+  });
+  ensureNoError(error || data?.error);
+  return data;
 };
 
-export const resetAllCaptainsTables = async (eventId: string) => {
-  const { data, error } = await db.from("captains_tables").select("id").eq("event_id", eventId);
-  ensureNoError(error);
-  await Promise.all(((data || []) as Array<{ id: string }>).map((table) => resetCaptainsTableLastActivity(table.id)));
+export const resetAllCaptainsTables = async (eventId: string, accessCode?: string) => {
+  const functionClient = accessCode ? supabasePublic : supabase;
+  const { data, error } = await functionClient.functions.invoke("reset-captains-tables", {
+    body: { action: "all", eventId, accessCode: accessCode || null },
+  });
+  ensureNoError(error || data?.error);
+  return data;
 };
 
 export const updateCaptainsEventChallenge = async (challengeId: string, input: CaptainsChallengeInput) => {

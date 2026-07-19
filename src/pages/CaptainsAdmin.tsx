@@ -3222,7 +3222,7 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
     if (!confirmed) return;
     try {
       setResettingTableActivityId(table.id);
-      await resetCaptainsTableLastActivity(table.id);
+      await resetCaptainsTableLastActivity(table.id, detailAccessCode);
       toast({ title: "Partida reiniciada", description: `${table.table_name} volverá a comenzar desde el primer reto y su contenido se ha eliminado.` });
       refreshAll();
     } catch (error) {
@@ -3239,7 +3239,7 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
     if (!confirmed) return;
     try {
       setIsResettingAllTables(true);
-      await resetAllCaptainsTables(eventId);
+      await resetAllCaptainsTables(eventId, detailAccessCode);
       toast({ title: "Todas las partidas reiniciadas", description: "Se han eliminado las puntuaciones y todo el contenido subido." });
       refreshAll();
     } catch (error) {
