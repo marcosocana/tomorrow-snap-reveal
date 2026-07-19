@@ -113,6 +113,32 @@ const PublicDemoEventWizard = () => {
     });
   }, []);
 
+  useEffect(() => {
+    let mounted = true;
+
+    const syncAuthenticatedUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!mounted) return;
+      const email = user?.email?.trim().toLowerCase() || "";
+      if (email) {
+        setFormData((previous) => previous.contactEmail ? previous : { ...previous, contactEmail: email });
+      }
+    };
+
+    void syncAuthenticatedUser();
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      const email = session?.user.email?.trim().toLowerCase() || "";
+      if (email) {
+        setFormData((previous) => previous.contactEmail ? previous : { ...previous, contactEmail: email });
+      }
+    });
+
+    return () => {
+      mounted = false;
+      authListener.subscription.unsubscribe();
+    };
+  }, []);
+
   const update = <K extends keyof typeof formData>(key: K, value: (typeof formData)[K]) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
   };
@@ -314,14 +340,21 @@ const PublicDemoEventWizard = () => {
       const revealDateTime = fromZonedTime(`${formData.revealDate}T${formData.revealTime}:00`, eventTz);
       const customImageUrl = DEFAULT_LOGO_URL;
       const backgroundImageUrl = formData.backgroundImage ? await handleImageUpload(formData.backgroundImage) : "";
+      const normalizedContactEmail = formData.contactEmail.trim().toLowerCase();
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      const currentUserEmail = currentUser?.email?.trim().toLowerCase() || "";
+      const useAuthenticatedUser = Boolean(
+        currentUserEmail && currentUserEmail === normalizedContactEmail,
+      );
 
       const { data: createResult, error: createError } = await supabase.functions.invoke("create-demo-event", {
         body: {
           contactName: formData.contactName.trim(),
-          contactEmail: formData.contactEmail.trim().toLowerCase(),
+          contactEmail: normalizedContactEmail,
           password: generatedPasswords.adminPassword,
           phone: formData.contactPhone.trim(),
           marketingConsent: true,
+          useAuthenticatedUser,
           event: {
             name: formData.name.trim(),
             password_hash: generatedPasswords.password,
@@ -403,9 +436,7 @@ const PublicDemoEventWizard = () => {
         description:
           errorCode === "EMAIL_EXISTS"
             ? "Este email ya tiene una cuenta. Inicia sesión para gestionar tus eventos."
-            : errorCode === "DEMO_ALREADY_EXISTS"
-              ? "Este usuario ya tiene un evento demo. Inicia sesión para gestionarlo."
-              : "No se pudo crear el evento.",
+            : "No se pudo crear el evento.",
         variant: "destructive",
       });
     } finally {

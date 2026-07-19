@@ -185,18 +185,6 @@ serve(async (req) => {
       }
     }
 
-    // Ensure only one demo event per user
-    const { data: existingDemo } = await supabaseAdmin
-      .from("events")
-      .select("id")
-      .eq("owner_id", userId)
-      .eq("type", "demo")
-      .maybeSingle();
-
-    if (existingDemo?.id) {
-      return json({ error: "DEMO_ALREADY_EXISTS" }, 409);
-    }
-
     const { error: profileError } = await supabaseAdmin
       .from("user_profiles")
       .upsert({
