@@ -1093,7 +1093,7 @@ export const uploadCaptainsEvidence = async ({
   const fileName = sanitizeCaptainsFileName(file.name || `${evidenceType}-${fileId}`);
   const filePath = `${eventId}/${tableId}/${tableChallengeId}/${fileId}-${fileName}`;
 
-  const { error: uploadError } = await supabase.storage.from(CAPTAINS_EVIDENCE_BUCKET).upload(filePath, file);
+  const { error: uploadError } = await supabasePublic.storage.from(CAPTAINS_EVIDENCE_BUCKET).upload(filePath, file);
   ensureNoError(uploadError);
 
   const { data: tableChallenge, error: challengeError } = await db
