@@ -1,4 +1,23 @@
 
+CREATE OR REPLACE FUNCTION public.captains_event_status(
+  p_start_time timestamptz,
+  p_end_time timestamptz
+)
+RETURNS text
+LANGUAGE sql
+STABLE
+SET search_path = public
+AS $$
+  SELECT CASE
+    WHEN p_end_time IS NOT NULL AND now() >= p_end_time THEN 'finished'
+    WHEN p_start_time IS NOT NULL AND now() < p_start_time THEN 'scheduled'
+    ELSE 'active'
+  END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.captains_event_status(timestamptz, timestamptz)
+  TO anon, authenticated, service_role;
+
 -- Drop in dependency order (all tables are empty)
 DROP TABLE IF EXISTS public.captains_evidence CASCADE;
 DROP TABLE IF EXISTS public.captains_table_challenges CASCADE;

@@ -1206,6 +1206,7 @@ export default function CaptainsPublic() {
   const [summaryEvidenceIndex, setSummaryEvidenceIndex] = useState(0);
   const [summaryCopied, setSummaryCopied] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const expiringChallengeRef = useRef("");
 
   useEffect(() => {
     if (!isDemo || step !== "home" || !eventSlug) return;
@@ -1436,6 +1437,8 @@ export default function CaptainsPublic() {
       const next = Math.max(0, total - elapsed);
       setRemaining(next);
       if (next <= 0) {
+        if (expiringChallengeRef.current === currentRow.id) return;
+        expiringChallengeRef.current = currentRow.id;
         setPhase("expired");
         setLastResultType(currentChallenge.evidence_type);
         setLastResultPoints(0);
@@ -1459,8 +1462,16 @@ export default function CaptainsPublic() {
           setRanking(getDemoRanking(session.table_id, readyRows));
           return;
         }
-        await expireCaptainsTableChallenge(currentRow.id);
-        await refreshGame();
+        try {
+          await expireCaptainsTableChallenge(currentRow.id);
+          await refreshGame();
+        } catch (error) {
+          // A temporary network failure must not leave the challenge frozen in
+          // the expired UI. Release the guard so the next tick can reconcile it.
+          console.error("Error expiring captains challenge:", error);
+          expiringChallengeRef.current = "";
+          setPhase("progress");
+        }
       }
     };
     tick();
@@ -1476,6 +1487,10 @@ export default function CaptainsPublic() {
       document.removeEventListener("visibilitychange", syncAfterCamera);
     };
   }, [step, phase, currentRow?.id, currentRow?.started_at, currentChallenge?.id]);
+
+  useEffect(() => {
+    expiringChallengeRef.current = "";
+  }, [currentRow?.id]);
 
   useEffect(() => {
     if (!evidenceFile) {

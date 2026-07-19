@@ -8,6 +8,8 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
+    "test:captains": "node scripts/audit-captains-public.mjs",
+    "test:captains:remote": "node scripts/audit-captains-public.mjs --remote",
     "preview": "vite preview"
   },
   "dependencies": {

@@ -30,7 +30,10 @@ import type {
   CaptainsSpriteStyle,
 } from "@/lib/captainsTypes";
 
+// Several deployed Captains columns predate the generated Supabase types.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const pdb = supabasePublic as any;
 const CAPTAINS_EVIDENCE_BUCKET = "captains-evidence";
 export const CAPTAINS_MAX_CHALLENGES = 25;
@@ -890,6 +893,8 @@ export const generateRandomChallengeOrderForTable = async (eventId: string, tabl
 
 const markNextCaptainsChallengeReady = async (eventId: string, tableId: string) => {
   const rows = await getCaptainsTableChallengesForTable(eventId, tableId);
+  const alreadyOpen = rows.find((row) => ["ready", "in_progress", "submitted", "pending_review"].includes(row.status));
+  if (alreadyOpen) return alreadyOpen;
   const next = rows.find((row) => row.status === "pending");
   if (!next) return null;
   const { error } = await pdb

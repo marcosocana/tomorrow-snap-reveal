@@ -34,7 +34,6 @@ GRANT UPDATE (
   reviewed_at,
   elapsed_seconds,
   remaining_seconds,
-  question_answer,
   is_time_expired,
   automatic_score_calculated,
   updated_at
