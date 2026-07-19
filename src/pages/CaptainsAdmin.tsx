@@ -2823,7 +2823,7 @@ const EvidencePreview = ({ evidence }: { evidence: CaptainsEvidence }) => {
 
   useEffect(() => {
     let active = true;
-    getCaptainsEvidenceSignedUrl(evidence.file_url, evidence.evidence_type === "photo")
+    getCaptainsEvidenceSignedUrl(evidence.file_url)
       .then((signedUrl) => {
         if (active) setUrl(signedUrl);
       })
@@ -2869,7 +2869,7 @@ const EvidencePreview = ({ evidence }: { evidence: CaptainsEvidence }) => {
     return <img src={url} alt="" className="max-h-[75vh] w-full rounded-md bg-black object-contain" />;
   }
   if (evidence.evidence_type === "video") {
-    return <video src={url} poster={videoPoster || undefined} controls playsInline preload="metadata" className="aspect-video w-full rounded-md bg-black object-contain" />;
+    return <video src={url} poster={videoPoster || undefined} controls playsInline preload="metadata" className="max-h-[75vh] w-full rounded-md bg-black object-contain" />;
   }
   return <div className="flex aspect-video items-center justify-center rounded-md bg-muted text-xs text-muted-foreground">Sin preview</div>;
 };
