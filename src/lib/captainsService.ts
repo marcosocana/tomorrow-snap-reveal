@@ -415,15 +415,14 @@ export const updateCaptainsTable = async (
 export const resetCaptainsTableLastActivity = async (tableId: string) => {
   const { data: evidenceRows, error: evidenceReadError } = await db
     .from("captains_evidence")
-    .select("id,file_url,thumbnail_url")
+    // Production does not expose thumbnail_url in captains_evidence. The
+    // original upload is the canonical Storage object that must be removed.
+    .select("id,file_url")
     .eq("table_id", tableId);
   ensureNoError(evidenceReadError);
 
-  const storagePaths = [...new Set(((evidenceRows || []) as Array<Pick<CaptainsEvidence, "file_url" | "thumbnail_url">>)
-    .flatMap((evidence) => [
-      getCaptainsEvidenceStoragePath(evidence.file_url),
-      getCaptainsEvidenceStoragePath(evidence.thumbnail_url),
-    ])
+  const storagePaths = [...new Set(((evidenceRows || []) as Array<Pick<CaptainsEvidence, "file_url">>)
+    .map((evidence) => getCaptainsEvidenceStoragePath(evidence.file_url))
     .filter((path): path is string => Boolean(path)))];
   if (storagePaths.length > 0) {
     const { error: storageError } = await supabase.storage.from(CAPTAINS_EVIDENCE_BUCKET).remove(storagePaths);
