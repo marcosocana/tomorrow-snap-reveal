@@ -1024,7 +1024,7 @@ export const getCaptainsRanking = async (eventId: string) => {
 };
 
 export const getCaptainsEvidence = async (eventId: string, status?: CaptainsEvidenceStatus) => {
-  let query = db
+  let query = pdb
     .from("captains_evidence")
     .select("*")
     .eq("event_id", eventId)

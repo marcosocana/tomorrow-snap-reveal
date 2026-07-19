@@ -8,10 +8,47 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-  auth: {
-    storage: localStorage,
-    persistSession: true,
-    autoRefreshToken: true,
-  }
+export const isCaptainsGameplayPath = (pathname: string) => {
+  const segments = pathname.split("/").filter(Boolean);
+  return segments[0] === "capitanes" && Boolean(segments[1]) && segments[1] !== "onboarding";
+};
+
+const createSupabaseClient = () => {
+  const isPublicCaptainsGameplay =
+    typeof window !== "undefined" && isCaptainsGameplayPath(window.location.pathname);
+
+  return createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+    auth: isPublicCaptainsGameplay
+      ? {
+          // Defence in depth: even an accidental use of the authenticated
+          // client inside the public game cannot read or refresh admin state.
+          persistSession: false,
+          autoRefreshToken: false,
+          detectSessionInUrl: false,
+          storageKey: "sb-captains-auth-disabled",
+        }
+      : {
+          storage: localStorage,
+          persistSession: true,
+          autoRefreshToken: true,
+        },
+  });
+};
+
+type RevelaoSupabaseClient = ReturnType<typeof createSupabaseClient>;
+let authenticatedClient: RevelaoSupabaseClient | null = null;
+
+const getAuthenticatedClient = () => {
+  authenticatedClient ??= createSupabaseClient();
+  return authenticatedClient;
+};
+
+// Route modules are bundled eagerly today. Keeping this client lazy prevents
+// imports for public pages from starting auth recovery as a side effect.
+export const supabase = new Proxy({} as RevelaoSupabaseClient, {
+  get: (_target, property) => {
+    const client = getAuthenticatedClient();
+    const value = Reflect.get(client, property, client);
+    return typeof value === "function" ? value.bind(client) : value;
+  },
 });

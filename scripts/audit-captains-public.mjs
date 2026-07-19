@@ -12,6 +12,7 @@ const check = (name, assertion) => {
 };
 
 const publicClientSource = read("src/integrations/supabase/publicClient.ts");
+const authenticatedClientSource = read("src/integrations/supabase/client.ts");
 const serviceSource = read("src/lib/captainsService.ts");
 const publicPageSource = read("src/pages/CaptainsPublic.tsx");
 const permissionMigration = read("supabase/migrations/20260719073226_57a4c692-9363-46f0-a44d-aec3bf26ae3d.sql");
@@ -24,11 +25,21 @@ check("public client does not persist sessions", () => {
   assert.match(publicClientSource, /supabasePublic[\s\S]*detectSessionInUrl:\s*false/);
 });
 
+check("authenticated client is lazy and disabled inside public gameplay", () => {
+  assert.match(authenticatedClientSource, /export const isCaptainsGameplayPath/);
+  assert.match(authenticatedClientSource, /segments\[1\] !== "onboarding"/);
+  assert.match(authenticatedClientSource, /isPublicCaptainsGameplay[\s\S]*persistSession:\s*false/);
+  assert.match(authenticatedClientSource, /isPublicCaptainsGameplay[\s\S]*autoRefreshToken:\s*false/);
+  assert.match(authenticatedClientSource, /export const supabase = new Proxy/);
+  assert.doesNotMatch(authenticatedClientSource, /export const supabase = createClient/);
+});
+
 check("Captains public operations use the isolated client", () => {
   assert.match(serviceSource, /integrations\/supabase\/publicClient/);
   assert.match(serviceSource, /const pdb = supabasePublic/);
   assert.match(serviceSource, /pdb\.from\("captains_table_accesses"\)\.insert/);
   assert.match(serviceSource, /pdb[\s\S]*from\("captains_table_challenges"\)/);
+  assert.match(serviceSource, /getCaptainsEvidence[\s\S]*let query = pdb/);
 });
 
 check("Captains public uploads use the isolated storage client", () => {
