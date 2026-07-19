@@ -591,7 +591,7 @@ export const createCaptainsTables = async (
 };
 
 export const getCaptainsTableChallenges = async (eventId: string) => {
-  const { data, error } = await db
+  const { data, error } = await pdb
     .from("captains_table_challenges")
     .select("*")
     .eq("event_id", eventId)
@@ -601,7 +601,7 @@ export const getCaptainsTableChallenges = async (eventId: string) => {
 };
 
 export const getCaptainsTableChallengesForTable = async (eventId: string, tableId: string) => {
-  const { data, error } = await db
+  const { data, error } = await pdb
     .from("captains_table_challenges")
     .select("*")
     .eq("event_id", eventId)
@@ -623,7 +623,7 @@ export const getCaptainsEvidenceSignedUrl = async (filePath: string, thumbnail =
 
 export const saveCaptainForTable = async (tableId: string, captainName: string) => {
   const cleanName = captainName.trim();
-  const { data: existingTable, error: readError } = await db
+  const { data: existingTable, error: readError } = await pdb
     .from("captains_tables")
     .select("*")
     .eq("id", tableId)
@@ -631,7 +631,7 @@ export const saveCaptainForTable = async (tableId: string, captainName: string) 
   ensureNoError(readError);
   if (!existingTable) throw new Error("No hemos podido encontrar la mesa seleccionada.");
   const lastActivityAt = new Date().toISOString();
-  const { error } = await db
+  const { error } = await pdb
     .from("captains_tables")
     .update({
       captain_name: cleanName,
@@ -651,7 +651,7 @@ export const saveCaptainForTable = async (tableId: string, captainName: string) 
 export const selectCaptainsTableSession = async (tableId: string, captainName: string) => {
   const cleanName = captainName.trim();
   const selectedAt = new Date().toISOString();
-  const { data: existingTable, error: readError } = await db
+  const { data: existingTable, error: readError } = await pdb
     .from("captains_tables")
     .select("*")
     .eq("id", tableId)
@@ -659,7 +659,7 @@ export const selectCaptainsTableSession = async (tableId: string, captainName: s
   ensureNoError(readError);
   if (!existingTable) throw new Error("No hemos podido encontrar la mesa seleccionada.");
 
-  const { error } = await db
+  const { error } = await pdb
     .from("captains_tables")
     .update({
       captain_name: cleanName,
@@ -707,7 +707,7 @@ export const selectCaptainsTableSession = async (tableId: string, captainName: s
 };
 
 export const getCaptainsChallengeCatalog = async (activeOnly = true) => {
-  let query = db
+  let query = pdb
     .from("captains_challenge_catalog")
     .select("*")
     .order("category", { ascending: true })
@@ -854,7 +854,7 @@ export const createCustomCaptainsChallenge = async (eventId: string, input: Capt
 };
 
 export const generateRandomChallengeOrderForTable = async (eventId: string, tableId: string) => {
-  const { data: existing, error: existingError } = await db
+  const { data: existing, error: existingError } = await pdb
     .from("captains_table_challenges")
     .select("*")
     .eq("event_id", eventId)
@@ -863,7 +863,7 @@ export const generateRandomChallengeOrderForTable = async (eventId: string, tabl
   ensureNoError(existingError);
   if ((existing || []).length > 0) return existing as CaptainsTableChallenge[];
 
-  const { data: challenges, error: challengesError } = await db
+  const { data: challenges, error: challengesError } = await pdb
     .from("captains_event_challenges")
     .select("*")
     .eq("event_id", eventId);
@@ -879,7 +879,7 @@ export const generateRandomChallengeOrderForTable = async (eventId: string, tabl
 
   if (rows.length === 0) return [];
 
-  const { data, error } = await db
+  const { data, error } = await pdb
     .from("captains_table_challenges")
     .upsert(rows, { onConflict: "table_id,challenge_id" })
     .select("*")
@@ -892,7 +892,7 @@ const markNextCaptainsChallengeReady = async (eventId: string, tableId: string) 
   const rows = await getCaptainsTableChallengesForTable(eventId, tableId);
   const next = rows.find((row) => row.status === "pending");
   if (!next) return null;
-  const { error } = await db
+  const { error } = await pdb
     .from("captains_table_challenges")
     .update({ status: "ready" })
     .eq("id", next.id);
@@ -901,7 +901,7 @@ const markNextCaptainsChallengeReady = async (eventId: string, tableId: string) 
 };
 
 export const startCaptainsTableChallenge = async (tableChallengeId: string) => {
-  const { data: existing, error: readError } = await db
+  const { data: existing, error: readError } = await pdb
     .from("captains_table_challenges")
     .select("*")
     .eq("id", tableChallengeId)
@@ -910,7 +910,7 @@ export const startCaptainsTableChallenge = async (tableChallengeId: string) => {
   if (!existing) throw new Error("No hemos podido encontrar el reto seleccionado.");
   await ensureCaptainsEventIsOpen(existing.event_id);
   const startedAt = new Date().toISOString();
-  const { error } = await db
+  const { error } = await pdb
     .from("captains_table_challenges")
     .update({
       status: "in_progress",
@@ -929,7 +929,7 @@ export const startCaptainsTableChallenge = async (tableChallengeId: string) => {
 };
 
 export const failCaptainsTableChallenge = async (tableChallengeId: string) => {
-  const { data: existing, error: readError } = await db
+  const { data: existing, error: readError } = await pdb
     .from("captains_table_challenges")
     .select("*")
     .eq("id", tableChallengeId)
@@ -937,7 +937,7 @@ export const failCaptainsTableChallenge = async (tableChallengeId: string) => {
   ensureNoError(readError);
   if (!existing) throw new Error("No hemos podido encontrar el reto seleccionado.");
   const reviewedAt = new Date().toISOString();
-  const { error } = await db
+  const { error } = await pdb
     .from("captains_table_challenges")
     .update({
       status: "failed",
@@ -959,7 +959,7 @@ export const failCaptainsTableChallenge = async (tableChallengeId: string) => {
 };
 
 export const expireCaptainsTableChallenge = async (tableChallengeId: string) => {
-  const { data: existing, error: readError } = await db
+  const { data: existing, error: readError } = await pdb
     .from("captains_table_challenges")
     .select("*")
     .eq("id", tableChallengeId)
@@ -967,7 +967,7 @@ export const expireCaptainsTableChallenge = async (tableChallengeId: string) => 
   ensureNoError(readError);
   if (!existing) throw new Error("No hemos podido encontrar el reto seleccionado.");
   const reviewedAt = new Date().toISOString();
-  const { error } = await db
+  const { error } = await pdb
     .from("captains_table_challenges")
     .update({
       status: "time_expired",
@@ -1003,7 +1003,7 @@ export const generateRandomChallengeOrderForEvent = async (eventId: string) => {
 };
 
 export const getCaptainsRanking = async (eventId: string) => {
-  const { data, error } = await db
+  const { data, error } = await pdb
     .from("captains_tables")
     .select("*")
     .eq("event_id", eventId)
@@ -1096,7 +1096,7 @@ export const uploadCaptainsEvidence = async ({
   const { error: uploadError } = await supabasePublic.storage.from(CAPTAINS_EVIDENCE_BUCKET).upload(filePath, file);
   ensureNoError(uploadError);
 
-  const { data: tableChallenge, error: challengeError } = await db
+  const { data: tableChallenge, error: challengeError } = await pdb
     .from("captains_table_challenges")
     .select("*, captains_event_challenges(*)")
     .eq("id", tableChallengeId)
@@ -1120,7 +1120,7 @@ export const uploadCaptainsEvidence = async ({
 
   const evidenceId = crypto.randomUUID();
   const createdAt = new Date().toISOString();
-  const { error } = await db
+  const { error } = await pdb
     .from("captains_evidence")
     .insert({
       id: evidenceId,
@@ -1139,7 +1139,7 @@ export const uploadCaptainsEvidence = async ({
     });
   ensureNoError(error);
 
-  const { error: updateChallengeError } = await db
+  const { error: updateChallengeError } = await pdb
     .from("captains_table_challenges")
     .update({
       status: challengeStatus,
@@ -1192,7 +1192,7 @@ export const completeCaptainsQuestionChallenge = async ({
   remainingSeconds?: number | null;
 }) => {
   await ensureCaptainsEventIsOpen(eventId);
-  const { data: tableChallenge, error: challengeError } = await db
+  const { data: tableChallenge, error: challengeError } = await pdb
     .from("captains_table_challenges")
     .select("*, captains_event_challenges(*)")
     .eq("id", tableChallengeId)
@@ -1211,7 +1211,7 @@ export const completeCaptainsQuestionChallenge = async ({
       })
     : 0;
   const reviewedAt = new Date().toISOString();
-  const { error } = await db
+  const { error } = await pdb
     .from("captains_table_challenges")
     .update({
       status: correct ? "completed" : "failed",
@@ -1248,7 +1248,7 @@ export const completeCaptainsQuestionChallenge = async ({
 };
 
 export const recalculateCaptainsTableScore = async (tableId: string) => {
-  const { data: challenges, error } = await db
+  const { data: challenges, error } = await pdb
     .from("captains_table_challenges")
     .select("status, points_awarded")
     .eq("table_id", tableId)
@@ -1263,7 +1263,7 @@ export const recalculateCaptainsTableScore = async (tableId: string) => {
   ).length;
 
   const lastActivityAt = new Date().toISOString();
-  const { error: updateError } = await db
+  const { error: updateError } = await pdb
     .from("captains_tables")
     .update({
       total_points: totalPoints,
