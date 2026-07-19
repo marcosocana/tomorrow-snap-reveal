@@ -466,16 +466,13 @@ export const deleteCaptainsEventChallenge = async (challengeId: string) => {
   if (tableChallengeIds.length > 0) {
     const { data: evidence, error: evidenceError } = await db
       .from("captains_evidence")
-      .select("id,file_url,thumbnail_url")
+      .select("id,file_url")
       .in("table_challenge_id", tableChallengeIds);
     ensureNoError(evidenceError);
 
     const storagePaths = Array.from(new Set(
       (evidence || [])
-        .flatMap((item: { file_url?: string | null; thumbnail_url?: string | null }) => [
-          getCaptainsEvidenceStoragePath(item.file_url),
-          getCaptainsEvidenceStoragePath(item.thumbnail_url),
-        ])
+        .map((item: { file_url?: string | null }) => getCaptainsEvidenceStoragePath(item.file_url))
         .filter(Boolean) as string[],
     ));
     if (storagePaths.length > 0) {
