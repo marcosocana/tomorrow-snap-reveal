@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { supabasePublic } from "@/integrations/supabase/publicClient";
 import { captainsDefaultChallengeCatalog } from "@/lib/captainsDefaultChallengeCatalog";
 import {
   calculateCaptainsAutomaticScore,
@@ -30,6 +31,7 @@ import type {
 } from "@/lib/captainsTypes";
 
 const db = supabase as any;
+const pdb = supabasePublic as any;
 const CAPTAINS_EVIDENCE_BUCKET = "captains-evidence";
 export const CAPTAINS_MAX_CHALLENGES = 25;
 
