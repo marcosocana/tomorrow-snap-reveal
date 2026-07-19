@@ -545,7 +545,7 @@ export const finishCaptainsEvent = async (eventId: string) =>
   updateCaptainsEvent(eventId, { status: "finished" });
 
 export const getCaptainsEventDetail = async (identifier: string): Promise<CaptainsEventDetail | null> => {
-  const eventQuery = db.from("captains_events").select("*").limit(1);
+  const eventQuery = pdb.from("captains_events").select("*").limit(1);
   const { data: event, error: eventError } = isUuid(identifier)
     ? await eventQuery.eq("id", identifier).maybeSingle()
     : await eventQuery.eq("slug", identifier).maybeSingle();
@@ -553,8 +553,8 @@ export const getCaptainsEventDetail = async (identifier: string): Promise<Captai
   if (!event) return null;
 
   const [tablesRes, challengesRes] = await Promise.all([
-    db.from("captains_tables").select("*").eq("event_id", event.id).order("table_number", { ascending: true }),
-    db.from("captains_event_challenges").select("*").eq("event_id", event.id).order("order_index", { ascending: true }),
+    pdb.from("captains_tables").select("*").eq("event_id", event.id).order("table_number", { ascending: true }),
+    pdb.from("captains_event_challenges").select("*").eq("event_id", event.id).order("order_index", { ascending: true }),
   ]);
   ensureNoError(tablesRes.error);
   ensureNoError(challengesRes.error);
@@ -686,7 +686,7 @@ export const selectCaptainsTableSession = async (tableId: string, captainName: s
           language: navigator.language,
         };
 
-  const { error: accessError } = await db.from("captains_table_accesses").insert({
+  const { error: accessError } = await pdb.from("captains_table_accesses").insert({
     event_id: table.event_id,
     table_id: tableId,
     table_name: table.table_name,
@@ -726,8 +726,8 @@ export const getCaptainsChallengeCatalog = async (activeOnly = true) => {
 const appendCaptainsChallengesToTables = async (eventId: string, challenges: CaptainsEventChallenge[]) => {
   if (challenges.length === 0) return;
   const [{ data: tables, error: tablesError }, { data: existingRows, error: rowsError }] = await Promise.all([
-    db.from("captains_tables").select("id").eq("event_id", eventId),
-    db.from("captains_table_challenges").select("table_id,randomized_order_index,status").eq("event_id", eventId),
+    pdb.from("captains_tables").select("id").eq("event_id", eventId),
+    pdb.from("captains_table_challenges").select("table_id,randomized_order_index,status").eq("event_id", eventId),
   ]);
   ensureNoError(tablesError);
   ensureNoError(rowsError);
@@ -746,7 +746,7 @@ const appendCaptainsChallengesToTables = async (eventId: string, challenges: Cap
     }));
   });
   if (rows.length === 0) return;
-  const { error } = await db.from("captains_table_challenges").insert(rows);
+  const { error } = await pdb.from("captains_table_challenges").insert(rows);
   ensureNoError(error);
 };
 
