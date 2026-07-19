@@ -527,7 +527,6 @@ export type Database = {
           id: string
           is_time_expired: boolean
           points_awarded: number
-          question_answer: string | null
           randomized_order_index: number
           remaining_seconds: number | null
           reviewed_at: string | null
@@ -546,7 +545,6 @@ export type Database = {
           id?: string
           is_time_expired?: boolean
           points_awarded?: number
-          question_answer?: string | null
           randomized_order_index?: number
           remaining_seconds?: number | null
           reviewed_at?: string | null
@@ -565,7 +563,6 @@ export type Database = {
           id?: string
           is_time_expired?: boolean
           points_awarded?: number
-          question_answer?: string | null
           randomized_order_index?: number
           remaining_seconds?: number | null
           reviewed_at?: string | null
