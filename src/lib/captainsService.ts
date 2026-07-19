@@ -49,7 +49,7 @@ const ensureCaptainsChallengeLimit = (count: number) => {
 };
 
 const ensureCaptainsEventIsOpen = async (eventId: string) => {
-  const { data, error } = await db.from("captains_events").select("end_time,status").eq("id", eventId).single();
+  const { data, error } = await pdb.from("captains_events").select("end_time,status").eq("id", eventId).single();
   ensureNoError(error);
   const endedByDate = data?.end_time && new Date(data.end_time).getTime() <= Date.now();
   if (data?.status === "finished" || endedByDate) {
