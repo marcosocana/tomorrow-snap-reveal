@@ -39,6 +39,7 @@ const notifyAdminNewEvent = async (event: unknown) => {
 };
 
 type DemoEventPayload = {
+  contactName?: string | null;
   contactEmail: string;
   password: string;
   phone?: string | null;
@@ -52,6 +53,12 @@ type DemoEventPayload = {
     upload_end_time: string;
     reveal_time: string;
     max_photos: number;
+    allow_video_recording?: boolean;
+    max_videos?: number | null;
+    max_video_duration?: number | null;
+    allow_audio_recording?: boolean;
+    max_audios?: number | null;
+    max_audio_duration?: number | null;
     custom_image_url?: string | null;
     background_image_url?: string | null;
     filter_type?: string | null;
@@ -72,6 +79,21 @@ const isUserExistsError = (message: string) =>
   message.toLowerCase().includes("user already registered") ||
   message.toLowerCase().includes("email already") ||
   message.toLowerCase().includes("already exists");
+
+const findAuthUserByEmail = async (
+  supabaseAdmin: ReturnType<typeof createClient>,
+  email: string,
+) => {
+  const normalizedEmail = email.trim().toLowerCase();
+  for (let page = 1; page <= 100; page += 1) {
+    const { data, error } = await supabaseAdmin.auth.admin.listUsers({ page, perPage: 1000 });
+    if (error) throw error;
+    const user = (data?.users || []).find((candidate) => candidate.email?.toLowerCase() === normalizedEmail);
+    if (user) return user;
+    if ((data?.users || []).length < 1000) return null;
+  }
+  return null;
+};
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -98,6 +120,7 @@ serve(async (req) => {
   try {
     const payload = (await req.json()) as DemoEventPayload;
     const requestedEmail = payload?.contactEmail?.trim().toLowerCase() ?? "";
+    const contactName = payload?.contactName?.trim() || null;
     const password = payload?.password ?? "";
     const phone = payload?.phone?.trim() || null;
     const marketingConsent = payload?.marketingConsent ?? true;
@@ -123,16 +146,12 @@ serve(async (req) => {
       return json({ error: "INVALID_EVENT" }, 400);
     }
 
-    // Try to locate existing user first
-    const { data: existingAuthUser, error: existingUserError } = await supabaseAdmin
-      .schema("auth")
-      .from("users")
-      .select("id")
-      .eq("email", email)
-      .maybeSingle();
+    const existingAuthUser = await findAuthUserByEmail(supabaseAdmin, email);
 
-    if (existingUserError) {
-      console.error("create-demo-event user lookup error:", existingUserError.message);
+    // Never replace an existing account password with a generated demo
+    // password. Existing users must manage their events with their own login.
+    if (!useAuthenticatedUser && existingAuthUser?.id) {
+      return json({ error: "EMAIL_EXISTS" }, 409);
     }
 
     let userId = useAuthenticatedUser ? authenticatedUser?.id ?? null : existingAuthUser?.id || null;
@@ -149,16 +168,7 @@ serve(async (req) => {
         const message = createUserError?.message ?? "unknown_error";
         console.error("create-demo-event createUserError:", message);
         if (isUserExistsError(message)) {
-          const { data: fallbackUser, error: fallbackError } = await supabaseAdmin
-            .schema("auth")
-            .from("users")
-            .select("id")
-            .eq("email", email)
-            .maybeSingle();
-
-          if (fallbackError) {
-            console.error("create-demo-event fallback user lookup error:", fallbackError.message);
-          }
+          const fallbackUser = await findAuthUserByEmail(supabaseAdmin, email);
 
           if (fallbackUser?.id) {
             userId = fallbackUser.id;
@@ -224,7 +234,18 @@ serve(async (req) => {
         is_demo: true,
         type: "demo",
         plan_id: "demo",
-        limits_json: { max_photos: event.max_photos ?? 10, max_videos: 3, max_audios: 6 },
+        limits_json: {
+          max_photos: event.max_photos ?? 10,
+          max_videos: event.max_videos ?? 3,
+          max_audios: event.max_audios ?? 6,
+          created_from: "nuevoeventodemo2",
+          admin_event_tab: "new",
+          demo_contact: {
+            name: contactName,
+            email,
+            phone,
+          },
+        },
         country_code: event.country_code ?? "ES",
         timezone: event.timezone ?? "Europe/Madrid",
         language: event.language ?? "es",
@@ -232,13 +253,13 @@ serve(async (req) => {
         expiry_date: expiryDate.toISOString(),
         expiry_redirect_url: null,
         allow_photo_deletion: true,
-        allow_video_recording: true,
-        max_videos: 3,
-        max_video_duration: 15,
-        allow_audio_recording: true,
-        max_audios: 6,
-        max_audio_duration: 30,
-        show_legal_text: true,
+        allow_video_recording: event.allow_video_recording ?? true,
+        max_videos: event.max_videos ?? 3,
+        max_video_duration: event.max_video_duration ?? 15,
+        allow_audio_recording: event.allow_audio_recording ?? true,
+        max_audios: event.max_audios ?? 6,
+        max_audio_duration: event.max_audio_duration ?? 30,
+        show_legal_text: false,
         owner_id: userId,
       })
       .select()

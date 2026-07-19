@@ -42,18 +42,17 @@ const DemoEventSummary = () => {
     | { email?: string; phone?: string }
     | undefined;
 
-  // Redirect if no event data
-  if (!event) {
-    return <Navigate to={`${pathPrefix}/nuevoeventodemo`} replace />;
-  }
-
-  const eventUrl = `https://acceso.revelao.cam/events/${event.password_hash}`;
-  const adminUrl = `https://acceso.revelao.cam${pathPrefix}/admin-login`;
-  const eventTz = event.timezone || "Europe/Madrid";
-  const shouldShowPricing = /^\d{8}$/.test(event.password_hash);
-  const demoPhotos = event.max_photos ?? 10;
-  const demoVideos = event.max_videos ?? 3;
-  const demoAudios = event.max_audios ?? 6;
+  const eventUrl = event ? `https://acceso.revelao.cam/events/${event.password_hash}` : "";
+  const credentialEmail = contactInfo?.email?.trim().toLowerCase() || "";
+  const adminUrlBase = `https://acceso.revelao.cam${pathPrefix}/admin-login`;
+  const adminUrl = credentialEmail
+    ? `${adminUrlBase}?email=${encodeURIComponent(credentialEmail)}`
+    : adminUrlBase;
+  const eventTz = event?.timezone || "Europe/Madrid";
+  const shouldShowPricing = /^\d{8}$/.test(event?.password_hash || "");
+  const demoPhotos = event?.max_photos ?? 10;
+  const demoVideos = event?.max_videos ?? 3;
+  const demoAudios = event?.max_audios ?? 6;
   const fallbackQrUrl = `https://quickchart.io/qr?size=220&margin=1&ecLevel=H&text=${encodeURIComponent(
     eventUrl
   )}`;
@@ -137,7 +136,12 @@ const DemoEventSummary = () => {
     }, 1500);
 
     return () => window.clearTimeout(timer);
-  }, [event, contactInfo, qrImageUrl, isSendingEmail]);
+  }, [event, contactInfo, qrImageUrl, isSendingEmail, lang]);
+
+  // Keep all hooks unconditional before redirecting when navigation state is missing.
+  if (!event) {
+    return <Navigate to={`${pathPrefix}/nuevoeventodemo`} replace />;
+  }
 
 
   const formatEventDate = (dateString: string) => {
@@ -276,6 +280,30 @@ const DemoEventSummary = () => {
         {/* Admin Access Instructions */}
         <Card className="p-5 sm:p-6 border-[#f06a5f]/30 bg-[#f06a5f]/5 rounded-lg">
           <div className="space-y-4 text-sm">
+            <div className="space-y-3 rounded-lg border-2 border-[#f06a5f]/40 bg-background p-4 shadow-sm">
+              <h3 className="text-base font-bold text-foreground">Datos para gestionar tu evento</h3>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Usuario</p>
+                    <p className="break-all font-mono text-sm font-bold text-foreground">{credentialEmail}</p>
+                  </div>
+                  <Button variant="outline" size="icon" className="shrink-0 rounded-full" onClick={() => copyToClipboard(credentialEmail, "admin-email")} aria-label="Copiar usuario">
+                    {copiedField === "admin-email" ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                  </Button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Contraseña</p>
+                    <p className="font-mono text-lg font-black tracking-widest text-foreground">{event.admin_password}</p>
+                  </div>
+                  <Button variant="outline" size="icon" className="shrink-0 rounded-full" onClick={() => copyToClipboard(event.admin_password, "admin-password")} aria-label="Copiar contraseña">
+                    {copiedField === "admin-password" ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">Guarda estos datos. Los necesitarás para acceder a la gestión del evento.</p>
+            </div>
             <p className="text-muted-foreground">
               Entra en{" "}
               <a

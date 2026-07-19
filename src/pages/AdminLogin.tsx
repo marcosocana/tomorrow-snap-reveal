@@ -30,6 +30,9 @@ const AdminLogin = () => {
       }
     };
     checkUser();
+    if (prefEmail) {
+      setEmail(prefEmail);
+    }
     if (checkoutStatus === "success") {
       toast({
         title: t("login.checkoutSuccessTitle"),
@@ -42,18 +45,12 @@ const AdminLogin = () => {
         description: "Inicia sesión para ver tus eventos.",
         variant: "destructive",
       });
-      if (prefEmail) {
-        setEmail(prefEmail);
-      }
     }
     if (reason === "registered") {
       toast({
         title: "Registro completado",
         description: "Tu cuenta ya está lista. Inicia sesión para entrar al área privada.",
       });
-      if (prefEmail) {
-        setEmail(prefEmail);
-      }
     }
   }, [navigate, pathPrefix, redirectTo, reason, prefEmail, checkoutStatus, toast, t]);
 
@@ -76,7 +73,7 @@ const AdminLogin = () => {
         description: t("login.successDesc"),
       });
       navigate(redirectTo || `${pathPrefix}/event-management`);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error logging in:", error);
       toast({
         title: t("login.errorTitle"),

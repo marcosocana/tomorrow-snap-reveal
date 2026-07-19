@@ -10,6 +10,7 @@
     "lint": "eslint .",
     "test:captains": "node scripts/audit-captains-public.mjs",
     "test:captains:remote": "node scripts/audit-captains-public.mjs --remote",
+    "test:demo-credentials": "node scripts/audit-demo-event-credentials.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

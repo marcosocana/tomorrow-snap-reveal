@@ -36,6 +36,14 @@ const json = (body: unknown, status = 200) =>
     headers: { "Content-Type": "application/json", ...corsHeaders },
   });
 
+const escapeHtml = (value: string) =>
+  value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -65,7 +73,8 @@ serve(async (req) => {
   const emailLang: EmailLang = lang === "en" || lang === "it" ? lang : "es";
   const pathPrefix = emailLang === "es" ? "" : `/${emailLang}`;
   const eventUrl = `https://acceso.revelao.cam/events/${event.password_hash}`;
-  const adminUrl = `https://acceso.revelao.cam${pathPrefix}/admin-login`;
+  const credentialEmail = contactInfo.email.trim().toLowerCase();
+  const adminUrl = `https://acceso.revelao.cam${pathPrefix}/admin-login?email=${encodeURIComponent(credentialEmail)}`;
   const planUrl = "https://www.revelao.cam";
   const eventTz = event.timezone || "Europe/Madrid";
   const resolvedQrUrl =
@@ -121,6 +130,10 @@ serve(async (req) => {
       manageText:
         "Para poder editar todos los detalles de tu evento, puedes acceder a {adminUrl} o haciendo click en el siguiente botón.",
       manageButton: "Gestionar mi evento",
+      credentialsTitle: "Datos para gestionar tu evento",
+      userLabel: "Usuario",
+      passwordLabel: "Contraseña",
+      credentialsHint: "Guarda estos datos. Los necesitarás para entrar en la gestión del evento.",
       demoNote: "Gracias por contar con Revelao.",
       paidTitle: "Evento de pago",
       paidText: "Gracias por contar con Revelao.",
@@ -149,6 +162,10 @@ serve(async (req) => {
       manageText:
         "To edit all the details of your event, you can access {adminUrl} or click the button below.",
       manageButton: "Manage my event",
+      credentialsTitle: "Your event management credentials",
+      userLabel: "User",
+      passwordLabel: "Password",
+      credentialsHint: "Save these details. You will need them to manage your event.",
       demoNote: "Thanks for choosing Revelao.",
       paidTitle: "Paid event",
       paidText: "Thanks for choosing Revelao.",
@@ -177,6 +194,10 @@ serve(async (req) => {
       manageText:
         "Per modificare tutti i dettagli del tuo evento, puoi accedere a {adminUrl} oppure fare clic sul pulsante qui sotto.",
       manageButton: "Gestisci il mio evento",
+      credentialsTitle: "Credenziali per gestire il tuo evento",
+      userLabel: "Utente",
+      passwordLabel: "Password",
+      credentialsHint: "Conserva questi dati. Ti serviranno per gestire l’evento.",
       demoNote: "Grazie per aver scelto Revelao.",
       paidTitle: "Evento a pagamento",
       paidText: "Grazie per aver scelto Revelao.",
@@ -216,6 +237,16 @@ serve(async (req) => {
         <p style="margin: 6px 0 0;">${t.timezone}: ${eventTz}</p>
       </div>
       <div style="margin: 16px 0 20px; padding: 16px; background: #fef9c3; border: 1px solid #fde68a; border-radius: 12px;">
+        ${
+          isDemo
+            ? `<div style="margin: 0 0 16px; padding: 16px; background: #ffffff; border: 2px solid #f06a5f; border-radius: 10px;">
+                <p style="font-size: 16px; font-weight: 700; margin: 0 0 12px;">${t.credentialsTitle}</p>
+                <p style="margin: 6px 0;"><strong>${t.userLabel}:</strong> <span style="font-family: monospace;">${escapeHtml(credentialEmail)}</span></p>
+                <p style="margin: 6px 0;"><strong>${t.passwordLabel}:</strong> <span style="font-family: monospace; font-size: 18px; font-weight: 800; letter-spacing: 2px;">${escapeHtml(event.admin_password)}</span></p>
+                <p style="font-size: 12px; color: #666; margin: 10px 0 0;">${t.credentialsHint}</p>
+              </div>`
+            : ""
+        }
         <p style="margin: 0 0 10px; font-size: 13px; color: #333;">
           ${t.manageText.replace("{adminUrl}", `<a href="${adminUrl}">${adminUrl}</a>`)}
         </p>

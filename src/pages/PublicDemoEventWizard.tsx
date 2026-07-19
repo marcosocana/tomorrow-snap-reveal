@@ -16,7 +16,6 @@ import EventPreview from "@/components/EventPreview";
 import { Language } from "@/lib/translations";
 import { EventFontFamily, FONT_OPTIONS, getFontById, loadGoogleFont } from "@/lib/eventFonts";
 import { FilterType, FILTER_LABELS, FILTER_ORDER, getFilterClass } from "@/lib/photoFilters";
-import { notifyAdminNewEvent } from "@/lib/adminEventNotification";
 import weddingPreview from "@/assets/testimonial-wedding.jpg";
 
 type StepId = "name" | "place" | "upload" | "reveal" | "style" | "contact";
@@ -44,6 +43,27 @@ const RequiredMark = () => (
 const generateHash = (): string =>
   Math.random().toString(36).substring(2, 10) + Math.random().toString(36).substring(2, 4);
 
+const generateAlphanumericPassword = (length = 8): string => {
+  const letters = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+  const digits = "23456789";
+  const alphabet = `${letters}${digits}`;
+  const randomIndex = (maximum: number) => {
+    const values = new Uint32Array(1);
+    crypto.getRandomValues(values);
+    return values[0] % maximum;
+  };
+  const characters = [
+    letters[randomIndex(letters.length)],
+    digits[randomIndex(digits.length)],
+    ...Array.from({ length: Math.max(0, length - 2) }, () => alphabet[randomIndex(alphabet.length)]),
+  ];
+  for (let index = characters.length - 1; index > 0; index -= 1) {
+    const swapIndex = randomIndex(index + 1);
+    [characters[index], characters[swapIndex]] = [characters[swapIndex], characters[index]];
+  }
+  return characters.join("");
+};
+
 const today = new Date();
 
 const PublicDemoEventWizard = () => {
@@ -52,7 +72,7 @@ const PublicDemoEventWizard = () => {
   const generatedPasswords = useMemo(
     () => ({
       password: generateHash(),
-      adminPassword: generateHash(),
+      adminPassword: generateAlphanumericPassword(8),
     }),
     [],
   );
@@ -295,51 +315,54 @@ const PublicDemoEventWizard = () => {
       const customImageUrl = DEFAULT_LOGO_URL;
       const backgroundImageUrl = formData.backgroundImage ? await handleImageUpload(formData.backgroundImage) : "";
 
-      const { data: newEvent, error } = await supabase
-        .from("events")
-        .insert({
-          name: formData.name.trim(),
-          password_hash: generatedPasswords.password,
-          admin_password: generatedPasswords.adminPassword,
-          upload_start_time: uploadStartDateTime.toISOString(),
-          upload_end_time: uploadEndDateTime.toISOString(),
-          reveal_time: revealDateTime.toISOString(),
-          max_photos: 10,
-          allow_video_recording: true,
-          max_videos: 1,
-          max_video_duration: 15,
-          allow_audio_recording: true,
-          max_audios: 3,
-          max_audio_duration: 30,
-          custom_image_url: customImageUrl,
-          background_image_url: backgroundImageUrl || null,
-          filter_type: formData.filterType,
-          font_family: formData.fontFamily,
-          font_size: "text-3xl",
-          is_demo: true,
-          country_code: formData.countryCode,
-          timezone: formData.timezone,
-          language: formData.language,
-          description: formData.description.trim() || null,
-          expiry_date: null,
-          expiry_redirect_url: null,
-          allow_photo_deletion: true,
-          show_legal_text: false,
-          limits_json: {
-            created_from: "nuevoeventodemo2",
-            admin_event_tab: "new",
-            demo_contact: {
-              name: formData.contactName.trim(),
-              email: formData.contactEmail.trim(),
-              phone: formData.contactPhone.trim(),
-            },
+      const { data: createResult, error: createError } = await supabase.functions.invoke("create-demo-event", {
+        body: {
+          contactName: formData.contactName.trim(),
+          contactEmail: formData.contactEmail.trim().toLowerCase(),
+          password: generatedPasswords.adminPassword,
+          phone: formData.contactPhone.trim(),
+          marketingConsent: true,
+          event: {
+            name: formData.name.trim(),
+            password_hash: generatedPasswords.password,
+            admin_password: generatedPasswords.adminPassword,
+            upload_start_time: uploadStartDateTime.toISOString(),
+            upload_end_time: uploadEndDateTime.toISOString(),
+            reveal_time: revealDateTime.toISOString(),
+            max_photos: 10,
+            allow_video_recording: true,
+            max_videos: 1,
+            max_video_duration: 15,
+            allow_audio_recording: true,
+            max_audios: 3,
+            max_audio_duration: 30,
+            custom_image_url: customImageUrl,
+            background_image_url: backgroundImageUrl || null,
+            filter_type: formData.filterType,
+            font_family: formData.fontFamily,
+            font_size: "text-3xl",
+            country_code: formData.countryCode,
+            timezone: formData.timezone,
+            language: formData.language,
+            description: formData.description.trim() || null,
           },
-        } as any)
-        .select()
-        .single();
+        },
+      });
 
-      if (error) throw error;
-      await notifyAdminNewEvent(newEvent, "Demo");
+      if (createError || createResult?.error || !createResult?.event) {
+        let errorCode = createResult?.error || "";
+        const errorContext = (createError as { context?: Response } | null)?.context;
+        if (!errorCode && errorContext) {
+          try {
+            const errorBody = await errorContext.clone().json() as { error?: string };
+            errorCode = errorBody.error || "";
+          } catch {
+            // Fall back to the SDK error message below.
+          }
+        }
+        throw new Error(errorCode || createError?.message || "CREATE_EVENT_FAILED");
+      }
+      const newEvent = createResult.event;
 
       const eventUrl = `https://acceso.revelao.cam/events/${newEvent.password_hash}`;
       const qrUrl = await uploadQrImage(eventUrl, newEvent.id);
@@ -357,7 +380,7 @@ const PublicDemoEventWizard = () => {
         localStorage.setItem(`event-qr-url-${newEvent.id}`, qrUrl);
         await supabase
           .from("events")
-          .update({ limits_json: eventForSummary.limits_json } as any)
+          .update({ limits_json: eventForSummary.limits_json })
           .eq("id", newEvent.id);
       }
 
@@ -374,9 +397,15 @@ const PublicDemoEventWizard = () => {
       });
     } catch (error) {
       console.error("Error creating demo event:", error);
+      const errorCode = error instanceof Error ? error.message : "";
       toast({
         title: "Error",
-        description: "No se pudo crear el evento.",
+        description:
+          errorCode === "EMAIL_EXISTS"
+            ? "Este email ya tiene una cuenta. Inicia sesión para gestionar tus eventos."
+            : errorCode === "DEMO_ALREADY_EXISTS"
+              ? "Este usuario ya tiene un evento demo. Inicia sesión para gestionarlo."
+              : "No se pudo crear el evento.",
         variant: "destructive",
       });
     } finally {
@@ -417,7 +446,7 @@ const PublicDemoEventWizard = () => {
                 id="description"
                 value={formData.description}
                 onChange={(event) => update("description", event.target.value)}
-                placeholder="Opcional, por ejemplo: fotos espontáneas durante la fiesta."
+                placeholder={'Por ejemplo: "¡Bienvenidos a nuestra boda!"'}
                 rows={4}
                 className="min-h-28 rounded-2xl px-4 py-3 text-base leading-relaxed"
               />
@@ -461,7 +490,7 @@ const PublicDemoEventWizard = () => {
         return (
           <div className="space-y-5">
             <div className="space-y-2">
-              <div className="grid grid-cols-[minmax(0,1fr)_78px] gap-1.5 sm:grid-cols-[minmax(0,1fr)_112px] sm:gap-3">
+              <div className="grid grid-cols-2 gap-1.5 sm:gap-3">
                 <Label htmlFor="uploadStartDate" className="flex items-center gap-1.5">
                   Empieza
                   <RequiredMark />
@@ -471,13 +500,13 @@ const PublicDemoEventWizard = () => {
                   <RequiredMark />
                 </Label>
               </div>
-              <div className="grid grid-cols-[minmax(0,1fr)_78px] gap-1.5 sm:grid-cols-[minmax(0,1fr)_112px] sm:gap-3">
+              <div className="grid grid-cols-2 gap-1.5 sm:gap-3">
                 <Input id="uploadStartDate" type="date" value={formData.uploadStartDate} onChange={(event) => update("uploadStartDate", event.target.value)} className={dateInputClass} />
                 <Input id="uploadStartTime" type="time" value={formData.uploadStartTime} onChange={(event) => update("uploadStartTime", event.target.value)} className={timeInputClass} />
               </div>
             </div>
             <div className="space-y-2">
-              <div className="grid grid-cols-[minmax(0,1fr)_78px] gap-1.5 sm:grid-cols-[minmax(0,1fr)_112px] sm:gap-3">
+              <div className="grid grid-cols-2 gap-1.5 sm:gap-3">
                 <Label htmlFor="uploadEndDate" className="flex items-center gap-1.5">
                   Termina
                   <RequiredMark />
@@ -487,7 +516,7 @@ const PublicDemoEventWizard = () => {
                   <RequiredMark />
                 </Label>
               </div>
-              <div className="grid grid-cols-[minmax(0,1fr)_78px] gap-1.5 sm:grid-cols-[minmax(0,1fr)_112px] sm:gap-3">
+              <div className="grid grid-cols-2 gap-1.5 sm:gap-3">
                 <Input id="uploadEndDate" type="date" value={formData.uploadEndDate} onChange={(event) => update("uploadEndDate", event.target.value)} className={dateInputClass} />
                 <Input id="uploadEndTime" type="time" value={formData.uploadEndTime} onChange={(event) => update("uploadEndTime", event.target.value)} className={timeInputClass} />
               </div>
@@ -671,7 +700,8 @@ const PublicDemoEventWizard = () => {
             className="flex flex-1 flex-col pb-24 sm:pb-0"
             onSubmit={(event) => {
               event.preventDefault();
-              currentStep.id === "contact" ? handleSubmit() : goNext();
+              if (currentStep.id === "contact") handleSubmit();
+              else goNext();
             }}
           >
             <div className="flex-1 rounded-lg border border-border bg-card p-4 shadow-sm sm:p-6">
