@@ -604,6 +604,7 @@ const AdminFrame = ({
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
   const [marketingOptIn, setMarketingOptIn] = useState(true);
   const [marketingSaving, setMarketingSaving] = useState(false);
+  const canSwitchProduct = currentUserEmail?.trim().toLowerCase() === "revelao.cam@gmail.com";
 
   useEffect(() => {
     const loadUserEmail = async () => {
@@ -695,16 +696,18 @@ const AdminFrame = ({
               {actions}
               {!hideUtilityActions ? (
                 <>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => navigate("/event-management")}
-                    aria-label="Eventos Revelao"
-                    title="Eventos Revelao"
-                    className="rounded-full font-bold"
-                  >
-                    <span className="text-sm leading-none">R</span>
-                  </Button>
+                  {canSwitchProduct ? (
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => navigate("/event-management")}
+                      aria-label="Eventos Revelao"
+                      title="Eventos Revelao"
+                      className="rounded-full font-bold"
+                    >
+                      <span className="text-sm leading-none">R</span>
+                    </Button>
+                  ) : null}
                   <Button
                     variant="outline"
                     size="icon"

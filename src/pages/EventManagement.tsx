@@ -1333,16 +1333,18 @@ const EventManagement = () => {
                     </Button>
                   </>
                 ) : null}
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => navigate("/admin/capitanes")}
-                  aria-label="Capitanes"
-                  title="Capitanes"
-                  className="rounded-full font-bold"
-                >
-                  <span className="text-sm leading-none">C</span>
-                </Button>
+                {isSuperAdmin ? (
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => navigate("/admin/capitanes")}
+                    aria-label="Capitanes"
+                    title="Capitanes"
+                    className="rounded-full font-bold"
+                  >
+                    <span className="text-sm leading-none">C</span>
+                  </Button>
+                ) : null}
                 <Button
                   variant="outline"
                   size="icon"
