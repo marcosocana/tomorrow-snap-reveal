@@ -1514,11 +1514,11 @@ const EventManagement = () => {
                     </th>
                     <th className="py-3 pr-4 font-medium">{t("events.statusLabel")}</th>
                     <th className="py-3 pr-4 font-medium">Contenido</th>
-                    <th className="py-3 font-medium">{t("events.table.more")}</th>
+                    <th className="py-3 font-medium">Notas</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {paginatedAdminEvents.map((event, index) => {
+                  {paginatedAdminEvents.map((event) => {
                     const { photos: photoCount, videos: videoCount, audios: audioCount } = getMediaCounts(event);
                     const { photos: photoLimit, videos: videoLimit, audios: audioLimit } = getMediaLimits(event);
                     const statusInfo = getEventStatus(
@@ -1528,12 +1528,23 @@ const EventManagement = () => {
                       event.expiry_date
                     );
                     return (
-                      <tr key={event.id} className="border-b last:border-b-0">
+                      <tr
+                        key={event.id}
+                        role="link"
+                        tabIndex={0}
+                        className="cursor-pointer border-b transition-colors hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none last:border-b-0"
+                        onClick={() => navigate(`${pathPrefix}/event-form/${event.id}`)}
+                        onKeyDown={(keyboardEvent) => {
+                          if (keyboardEvent.key === "Enter") navigate(`${pathPrefix}/event-form/${event.id}`);
+                        }}
+                      >
                         <td className="py-3 pr-3">
                           <input
                             type="checkbox"
                             checked={selectedEventIds.has(event.id)}
                             onChange={() => toggleEventSelection(event.id)}
+                            onClick={(clickEvent) => clickEvent.stopPropagation()}
+                            onKeyDown={(keyboardEvent) => keyboardEvent.stopPropagation()}
                             className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
                           />
                         </td>
@@ -1581,25 +1592,20 @@ const EventManagement = () => {
                             videoLimit={videoLimit}
                             audioCount={audioCount}
                             audioLimit={audioLimit}
-                            onClick={() => setPreviewEvent(event)}
                           />
                         </td>
                         <td className="py-3">
                           <div className="flex items-center gap-2">
                             <Button
-                              variant="outline"
-                              size="sm"
-                              className="gap-1"
-                              onClick={() => navigate(`${pathPrefix}/event-form/${event.id}`)}
-                            >
-                              <span>{t("events.more")}</span>
-                            </Button>
-                            <Button
                               variant={getAdminEventNote(event) ? "default" : "outline"}
                               size="icon"
                               className="h-8 w-8"
                               aria-label="Notas del evento"
-                              onClick={() => openAdminNote(event)}
+                              onKeyDown={(keyboardEvent) => keyboardEvent.stopPropagation()}
+                              onClick={(clickEvent) => {
+                                clickEvent.stopPropagation();
+                                openAdminNote(event);
+                              }}
                             >
                               <MessageSquareText className="w-4 h-4" />
                             </Button>

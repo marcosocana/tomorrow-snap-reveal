@@ -10,7 +10,6 @@ import {
   Copy,
   Download,
   ExternalLink,
-  Eye,
   Flag,
   Gamepad2,
   LogOut,
@@ -26,6 +25,7 @@ import {
   User,
   Image as ImageIcon,
   KeyRound,
+  MessageSquareText,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
@@ -90,6 +90,8 @@ const DEFAULT_DESCRIPTION =
   "Bienvenidos a Capitanes by Revelao.\nCada mesa tendrá un capitán encargado de guiar a su equipo durante el juego.\nTendréis que completar retos, subir pruebas y competir contra el resto de mesas.\nPreparad la cámara, afinad la voz y jugad en equipo.\nQue empiece la misión.";
 const DEFAULT_PRIMARY_COLOR = "#f06a5f";
 const DEFAULT_SECONDARY_COLOR = "#2f292d";
+const CAPTAINS_DEMO_EVENT_ID = "de000000-0000-4000-8000-000000000001";
+const CAPTAINS_DEMO_SLUG = "demo-capitanes";
 const isHexColor = (value: string) => /^#[0-9a-fA-F]{6}$/.test(value);
 const colorValue = (value: string, fallback: string) => (isHexColor(value) ? value : fallback);
 const readableTextColor = (background: string) => {
@@ -585,11 +587,15 @@ const AdminFrame = ({
   title,
   subtitle,
   actions,
+  backAction,
+  hideUtilityActions = false,
   children,
 }: {
   title: string;
   subtitle?: string;
   actions?: React.ReactNode;
+  backAction?: () => void;
+  hideUtilityActions?: boolean;
   children: React.ReactNode;
 }) => {
   const navigate = useNavigate();
@@ -669,31 +675,48 @@ const AdminFrame = ({
           <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
+                {backAction ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={backAction}
+                    aria-label="Volver"
+                    title="Volver"
+                    className="shrink-0 rounded-full"
+                  >
+                    <ArrowLeft className="h-5 w-5" />
+                  </Button>
+                ) : null}
                 <h1 className="truncate text-2xl font-bold text-foreground sm:text-3xl" data-scroll-anchor>{title}</h1>
               </div>
               {subtitle ? <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p> : null}
             </div>
             <div className="flex flex-wrap items-center gap-2 sm:justify-end">
               {actions}
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => navigate("/event-management")}
-                aria-label="Eventos Revelao"
-                title="Eventos Revelao"
-                className="rounded-full font-bold"
-              >
-                <span className="text-sm leading-none">R</span>
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setAccountOpen(true)}
-                aria-label="Cuenta"
-                className="rounded-full"
-              >
-                <User className="h-4 w-4" />
-              </Button>
+              {!hideUtilityActions ? (
+                <>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => navigate("/event-management")}
+                    aria-label="Eventos Revelao"
+                    title="Eventos Revelao"
+                    className="rounded-full font-bold"
+                  >
+                    <span className="text-sm leading-none">R</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setAccountOpen(true)}
+                    aria-label="Cuenta"
+                    className="rounded-full"
+                  >
+                    <User className="h-4 w-4" />
+                  </Button>
+                </>
+              ) : null}
             </div>
           </div>
         </div>
@@ -760,6 +783,7 @@ export const CaptainsAdminList = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: events = [], isLoading, isError } = useCaptainsEvents();
+  const [listTab, setListTab] = useState<"events" | "demo">("events");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "in_progress" | "finished">("all");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -784,7 +808,7 @@ export const CaptainsAdminList = () => {
   };
   const filteredEvents = useMemo(() => {
     const cleanSearch = search.trim().toLowerCase();
-    return events.filter((event) => {
+    return events.filter((event) => event.slug !== CAPTAINS_DEMO_SLUG).filter((event) => {
       const matchesSearch = !cleanSearch || [event.name, event.slug, event.description || ""].some((value) => value.toLowerCase().includes(cleanSearch));
       const displayStatus = isCaptainsEventFinished(event) ? "finished" : "in_progress";
       const matchesStatus = statusFilter === "all" || displayStatus === statusFilter;
@@ -792,12 +816,14 @@ export const CaptainsAdminList = () => {
     });
   }, [events, search, statusFilter]);
   const statusCounts = useMemo(() => {
-    return events.reduce<Record<string, number>>((acc, event) => {
+    const regularEvents = events.filter((event) => event.slug !== CAPTAINS_DEMO_SLUG);
+    return regularEvents.reduce<Record<string, number>>((acc, event) => {
       const displayStatus = isCaptainsEventFinished(event) ? "finished" : "in_progress";
       acc[displayStatus] = (acc[displayStatus] || 0) + 1;
       return acc;
-    }, { all: events.length });
+    }, { all: regularEvents.length });
   }, [events]);
+  const demoEvent = events.find((event) => event.slug === CAPTAINS_DEMO_SLUG);
   const toggleSelection = (eventId: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -838,6 +864,17 @@ export const CaptainsAdminList = () => {
         </div>
       }
     >
+	    <Tabs value={listTab} onValueChange={(value) => setListTab(value as "events" | "demo")} className="space-y-5">
+	      <TabsList className="grid h-auto w-full grid-cols-2 !rounded-none bg-muted/50 p-1 sm:w-[320px]">
+	        <TabsTrigger value="events" className="!rounded-none data-[state=active]:!bg-foreground data-[state=active]:!text-background">
+	          Eventos
+	        </TabsTrigger>
+	        <TabsTrigger value="demo" className="!rounded-none data-[state=active]:!bg-foreground data-[state=active]:!text-background">
+	          Demo
+	        </TabsTrigger>
+	      </TabsList>
+
+	      <TabsContent value="events" className="mt-0 space-y-5">
 	      <Card className="rounded-2xl p-4 shadow-sm">
 	        <div className="flex flex-wrap gap-2">
 	          {(["all", "in_progress", "finished"] as const).map((status) => (
@@ -887,14 +924,29 @@ export const CaptainsAdminList = () => {
                   <th className="py-3 pr-4 font-medium">Retos</th>
                   <th className="py-3 pr-4 font-medium">Puntuación</th>
                   <th className="py-3 pr-4 font-medium">Inicio</th>
-                  <th className="py-3 font-medium">Acciones</th>
                 </tr>
               </thead>
               <tbody>
 	                {filteredEvents.map((event) => (
-	                  <tr key={event.id} className="border-b last:border-b-0">
+	                  <tr
+	                    key={event.id}
+	                    role="link"
+	                    tabIndex={0}
+	                    className="cursor-pointer border-b transition-colors hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none last:border-b-0"
+	                    onClick={() => navigate(`/admin/capitanes/${event.id}`)}
+	                    onKeyDown={(keyboardEvent) => {
+	                      if (keyboardEvent.key === "Enter") navigate(`/admin/capitanes/${event.id}`);
+	                    }}
+	                  >
 	                    <td className="py-3 pr-3">
-	                      <input type="checkbox" checked={selectedIds.has(event.id)} onChange={() => toggleSelection(event.id)} className="h-4 w-4 accent-primary" />
+	                      <input
+	                        type="checkbox"
+	                        checked={selectedIds.has(event.id)}
+	                        onChange={() => toggleSelection(event.id)}
+	                        onClick={(clickEvent) => clickEvent.stopPropagation()}
+	                        onKeyDown={(keyboardEvent) => keyboardEvent.stopPropagation()}
+	                        className="h-4 w-4 accent-primary"
+	                      />
 	                    </td>
 	                    <td className="py-3 pr-4 font-medium">{event.name}</td>
                     <td className="py-3 pr-4">
@@ -907,12 +959,6 @@ export const CaptainsAdminList = () => {
                     <td className="py-3 pr-4">{event.challenge_count}</td>
                     <td className="py-3 pr-4">{event.scoring_mode === "automatic" ? "Automática" : "Manual"}</td>
                     <td className="py-3 pr-4">{formatDateTime(event.start_time)}</td>
-                    <td className="py-3">
-                      <Button variant="outline" size="sm" className="gap-1" onClick={() => navigate(`/admin/capitanes/${event.id}`)}>
-                        <Eye className="h-4 w-4" />
-                        Abrir
-                      </Button>
-                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -920,6 +966,47 @@ export const CaptainsAdminList = () => {
           </div>
         )}
       </Card>
+	      </TabsContent>
+
+	      <TabsContent value="demo" className="mt-0">
+	        <Card
+	          role="link"
+	          tabIndex={0}
+	          className="cursor-pointer rounded-2xl p-5 shadow-sm transition-colors hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+	          onClick={() => navigate(`/admin/capitanes/${CAPTAINS_DEMO_EVENT_ID}`)}
+	          onKeyDown={(keyboardEvent) => {
+	            if (keyboardEvent.key === "Enter") navigate(`/admin/capitanes/${CAPTAINS_DEMO_EVENT_ID}`);
+	          }}
+	        >
+	          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+	            <div className="space-y-2">
+	              <div className="flex flex-wrap items-center gap-2">
+	                <h2 className="text-lg font-semibold">{demoEvent?.name || "Demo Capitanes by Revelao"}</h2>
+	                <Badge variant="outline">Demo</Badge>
+	                {demoEvent ? (
+	                  <Badge variant={isCaptainsEventFinished(demoEvent) ? "outline" : "default"}>
+	                    {isCaptainsEventFinished(demoEvent) ? "Terminado" : "En curso"}
+	                  </Badge>
+	                ) : null}
+	              </div>
+	              <p className="text-sm text-muted-foreground">
+	                Edita las mesas, retos y configuración del evento público /capitanes/demo-capitanes.
+	              </p>
+	              {demoEvent ? (
+	                <p className="text-xs text-muted-foreground">
+	                  {demoEvent.table_count} mesas · {demoEvent.challenge_count} retos · Puntuación automática
+	                </p>
+	              ) : (
+	                <p className="text-xs text-muted-foreground">El evento quedará disponible al sincronizar las migraciones de Supabase.</p>
+	              )}
+	            </div>
+	            <Button type="button" onClick={(clickEvent) => { clickEvent.stopPropagation(); navigate(`/admin/capitanes/${CAPTAINS_DEMO_EVENT_ID}`); }}>
+	              Editar demo
+	            </Button>
+	          </div>
+	        </Card>
+	      </TabsContent>
+	    </Tabs>
       <Dialog open={codeDialogOpen} onOpenChange={setCodeDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -942,6 +1029,12 @@ export const CaptainsAdminList = () => {
                 toast({ title: "Enlace copiado", description: "Ya puedes compartirlo con el cliente." });
               }}>
                 <Copy className="mr-2 h-4 w-4" /> Copiar enlace público
+              </Button>
+              <Button
+                className="w-full"
+                onClick={() => navigate(`/admin/capitanes/onboarding?code=${encodeURIComponent(generatedCode)}&tableCount=${codeTableCount}`)}
+              >
+                <Plus className="mr-2 h-4 w-4" /> Empezar a crear
               </Button>
             </div>
           ) : null}
@@ -2956,6 +3049,11 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
   }, [tableChallenges]);
 
   const contentGroups = useMemo(() => {
+    const answeredRows = tableChallenges.filter((row) => {
+      const challenge = challengesById.get(row.challenge_id);
+      return challenge?.evidence_type === "question" && Boolean(row.question_answer?.trim());
+    });
+
     if (contentView === "retos") {
       const countByTableChallenge = new Map<string, number>();
       evidenceIndex.forEach((item) => {
@@ -2966,7 +3064,8 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
           const tableChallengeIds = tableChallenges
             .filter((row) => row.challenge_id === challenge.id)
             .map((row) => row.id);
-          const count = tableChallengeIds.reduce((total, id) => total + (countByTableChallenge.get(id) || 0), 0);
+          const answerCount = answeredRows.filter((row) => row.challenge_id === challenge.id).length;
+          const count = tableChallengeIds.reduce((total, id) => total + (countByTableChallenge.get(id) || 0), 0) + answerCount;
           return { id: `challenge:${challenge.id}`, label: challenge.title, count, tableChallengeIds, tableId: undefined as string | undefined };
         })
         .filter((group) => group.count > 0);
@@ -2982,7 +3081,7 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
         return {
           id: `table:${table.id}`,
           label: captainName ? `${table.table_name} - ${captainName}` : table.table_name,
-          count: countByTable.get(table.id) || 0,
+          count: (countByTable.get(table.id) || 0) + answeredRows.filter((row) => row.table_id === table.id).length,
           tableId: table.id,
           tableChallengeIds: undefined as string[] | undefined,
         };
@@ -2991,6 +3090,15 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
   }, [contentView, detail?.challenges, detail?.tables, evidenceIndex, tableChallenges]);
 
   const activeContentGroup = contentGroups.find((group) => group.id === openContentGroup);
+  const activeQuestionAnswers = useMemo(() => {
+    if (!activeContentGroup) return [];
+    return tableChallenges.filter((row) => {
+      const challenge = challengesById.get(row.challenge_id);
+      if (challenge?.evidence_type !== "question" || !row.question_answer?.trim()) return false;
+      if (activeContentGroup.tableId) return row.table_id === activeContentGroup.tableId;
+      return activeContentGroup.tableChallengeIds?.includes(row.id) ?? false;
+    });
+  }, [activeContentGroup, challengesById, tableChallenges]);
   const { data: openGroupEvidence = [], isLoading: isOpenGroupLoading } = useQuery({
     queryKey: ["captains", "evidence-group", eventId, contentView, openContentGroup],
     queryFn: () =>
@@ -3390,12 +3498,12 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
 	  const questionCount = challenges.filter((item) => item.evidence_type === "question").length;
 	  const answeredQuestionCount = tableChallenges.filter((row) => {
       const challenge = challengesById.get(row.challenge_id);
-      return challenge?.evidence_type === "question" && ["completed", "failed", "pending_review"].includes(row.status);
+      return challenge?.evidence_type === "question" && Boolean(row.question_answer?.trim());
     }).length;
-	  const lastLiveEvidence = liveVisibleEvidence[0];
+  const lastLiveEvidence = liveVisibleEvidence[0];
 
   const handleDownloadAllContent = async () => {
-    if (!evidenceIndex.length) return;
+    if (!evidenceIndex.length && answeredQuestionCount === 0) return;
     try {
       setIsDownloadingAll(true);
       const allEvidence = await getCaptainsEvidence(event.id);
@@ -3415,6 +3523,31 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
         const folder = zip.folder(sanitize(challenge?.title || "Reto"));
         folder?.file(`${sanitize(table?.table_name || "Mesa")}_${time}_${index + 1}.${extension}`, blob);
       }));
+      const questionAnswers = tableChallenges.filter((row) => {
+        const challenge = challengesById.get(row.challenge_id);
+        return challenge?.evidence_type === "question" && Boolean(row.question_answer?.trim());
+      });
+      if (questionAnswers.length > 0) {
+        const csvCell = (value: unknown) => `"${String(value ?? "").replace(/"/g, '""')}"`;
+        const rows = questionAnswers.map((row) => {
+          const table = tables.find((candidate) => candidate.id === row.table_id);
+          const challenge = challengesById.get(row.challenge_id);
+          return [
+            table?.table_name || "Mesa",
+            table?.active_captain_name || table?.captain_name || "",
+            challenge?.title || "Pregunta",
+            row.question_answer || "",
+            challenge?.question_correct_option || "",
+            row.status === "completed" ? "Correcta" : "Incorrecta",
+            row.points_awarded,
+            row.submitted_at ? formatDateTime(row.submitted_at) : "",
+          ].map(csvCell).join(";");
+        });
+        zip.file("respuestas-preguntas.csv", [
+          ["Mesa", "Capitán", "Pregunta", "Respuesta", "Respuesta correcta", "Resultado", "Puntos", "Fecha"].map(csvCell).join(";"),
+          ...rows,
+        ].join("\n"));
+      }
       const content = await zip.generateAsync({ type: "blob" });
       const url = URL.createObjectURL(content);
       const anchor = document.createElement("a");
@@ -3446,25 +3579,17 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
   }
 
   return (
-	    <AdminFrame title={event.name}>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <Button variant="outline" className="gap-2 rounded-full" onClick={() => navigate("/admin/capitanes")}>
-          <ArrowLeft className="h-4 w-4" />
-          Volver
-        </Button>
-        <div className="flex flex-wrap gap-2">
-          {detailAccessCode ? (
-            <Button className="gap-2 rounded-full" onClick={() => navigate(`/admin/capitanes/onboarding?code=${encodeURIComponent(detailAccessCode)}`)}>
-              <Pencil className="h-4 w-4" />
-              Editar evento
-            </Button>
-          ) : null}
-          <Button variant="outline" className="gap-2 rounded-full" onClick={refreshAll}>
-            <RefreshCw className="h-4 w-4" />
-            Actualizar
-	          </Button>
-		        </div>
-		      </div>
+	    <AdminFrame
+	      title={event.name}
+	      backAction={() => navigate("/admin/capitanes")}
+	      hideUtilityActions
+	      actions={(
+	        <Button variant="outline" className="gap-2 rounded-full" onClick={refreshAll}>
+	          <RefreshCw className="h-4 w-4" />
+	          Actualizar
+	        </Button>
+	      )}
+	    >
 
 	      <Card className="rounded-2xl p-4 shadow-sm">
 	        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -3538,17 +3663,17 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
 	      </Card>
 
 	      <Tabs value={activeDetailTab} onValueChange={(value) => setActiveDetailTab(value as CaptainsDetailTab)} className="space-y-6">
-        <TabsList className="grid h-auto w-full grid-cols-2 rounded-full bg-muted/50 p-1 sm:grid-cols-4">
-          <TabsTrigger value="general" className="rounded-full data-[state=active]:!bg-foreground data-[state=active]:!text-background data-[state=active]:shadow-sm">
+        <TabsList className="grid h-auto w-full grid-cols-2 !rounded-none bg-muted/50 p-1 sm:grid-cols-4">
+          <TabsTrigger value="general" className="!rounded-none data-[state=active]:!bg-foreground data-[state=active]:!text-background data-[state=active]:shadow-sm">
             General
           </TabsTrigger>
-          <TabsTrigger value="tables" className="rounded-full data-[state=active]:!bg-foreground data-[state=active]:!text-background data-[state=active]:shadow-sm">
+          <TabsTrigger value="tables" className="!rounded-none data-[state=active]:!bg-foreground data-[state=active]:!text-background data-[state=active]:shadow-sm">
 	            Capitanes
           </TabsTrigger>
-          <TabsTrigger value="challenges" className="rounded-full data-[state=active]:!bg-foreground data-[state=active]:!text-background data-[state=active]:shadow-sm">
+          <TabsTrigger value="challenges" className="!rounded-none data-[state=active]:!bg-foreground data-[state=active]:!text-background data-[state=active]:shadow-sm">
             Retos
           </TabsTrigger>
-          <TabsTrigger value="content" className="rounded-full data-[state=active]:!bg-foreground data-[state=active]:!text-background data-[state=active]:shadow-sm">
+          <TabsTrigger value="content" className="!rounded-none data-[state=active]:!bg-foreground data-[state=active]:!text-background data-[state=active]:shadow-sm">
             Contenido
           </TabsTrigger>
         </TabsList>
@@ -3689,7 +3814,7 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
               <Info label="Visibles" value={String(liveVisibleEvidence.length)} />
               <Info label="Fotos" value={String(photoCount)} />
               <Info label="Vídeos" value={String(videoCount)} />
-              <Info label="Preguntas" value={String(questionCount)} />
+              <Info label="Respuestas" value={`${answeredQuestionCount}/${questionCount * tables.length}`} />
               <Info label="Última subida" value={lastLiveEvidence ? formatDateTime(lastLiveEvidence.created_at) : "-"} />
             </div>
           </Card>
@@ -3699,22 +3824,20 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
               <div>
 	                <h2 className="font-semibold">Contenido subido</h2>
 	                <p className="text-sm text-muted-foreground">
-	                  Selecciona un {contentView === "retos" ? "reto" : "capitán"} para cargar y ver su contenido.
+	                  Selecciona un {contentView === "retos" ? "reto" : "capitán"} para ver sus archivos y respuestas.
 	                </p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     <Button type="button" variant={contentView === "retos" ? "default" : "outline"} className="rounded-full" onClick={() => setContentView("retos")}>Ver por retos</Button>
                     <Button type="button" variant={contentView === "capitanes" ? "default" : "outline"} className="rounded-full" onClick={() => setContentView("capitanes")}>Ver por capitanes</Button>
                   </div>
               </div>
-              <Button variant="outline" className="gap-2 rounded-full" onClick={handleDownloadAllContent} disabled={!evidenceIndex.length || isDownloadingAll}>
+              <Button variant="outline" className="gap-2 rounded-full" onClick={handleDownloadAllContent} disabled={(!evidenceIndex.length && answeredQuestionCount === 0) || isDownloadingAll}>
                 {isDownloadingAll ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                 {isDownloadingAll ? "Preparando ZIP..." : "Descargar todo"}
               </Button>
             </div>
-            {evidenceIndex.length === 0 ? (
-              <EmptyState text="Todavía no se ha subido ninguna evidencia." />
-            ) : contentGroups.length === 0 ? (
-              <EmptyState text="No se han encontrado bloques de contenido asociados." />
+            {contentGroups.length === 0 ? (
+              <EmptyState text="Todavía no se han subido archivos ni guardado respuestas." />
             ) : (
 	              <Accordion
 	                type="single"
@@ -3734,10 +3857,37 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
 	                          <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
 	                            <RefreshCw className="h-4 w-4 animate-spin" /> Cargando contenido...
 	                          </div>
-	                        ) : openGroupEvidence.length === 0 ? (
-	                          <EmptyState text="Este bloque ya no contiene evidencias." />
+	                        ) : openGroupEvidence.length === 0 && activeQuestionAnswers.length === 0 ? (
+                          <EmptyState text="Este bloque ya no contiene archivos ni respuestas." />
 	                        ) : (
 	                          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+	                {activeQuestionAnswers.map((row) => {
+	                  const table = tables.find((candidate) => candidate.id === row.table_id);
+	                  const challenge = challengesById.get(row.challenge_id);
+	                  const isCorrect = row.status === "completed";
+	                  return (
+	                    <Card key={`answer:${row.id}`} className="space-y-3 rounded-2xl p-4 shadow-sm">
+	                      <div className="flex items-start justify-between gap-3">
+	                        <div className="flex items-center gap-2">
+	                          <MessageSquareText className="h-5 w-5 text-primary" />
+	                          <p className="font-medium">{challenge?.title || "Pregunta"}</p>
+	                        </div>
+	                        <Badge variant={isCorrect ? "default" : "outline"}>{isCorrect ? "Correcta" : "Incorrecta"}</Badge>
+	                      </div>
+	                      <div className="space-y-1 text-sm">
+	                        <p className="font-medium">{table?.table_name || "Mesa"}</p>
+	                        <p className="text-muted-foreground">{table?.active_captain_name || table?.captain_name || "Sin capitán"}</p>
+	                        <div className="rounded-lg bg-muted/40 p-3">
+	                          <p className="text-xs font-medium text-muted-foreground">Respuesta</p>
+	                          <p className="mt-1 font-medium">{row.question_answer}</p>
+	                        </div>
+	                        <p className="text-xs text-muted-foreground">Respuesta correcta: {challenge?.question_correct_option || "-"}</p>
+	                        <p className="text-xs text-muted-foreground">Tiempo: {row.elapsed_seconds ?? "-"}s · Puntos: {row.points_awarded}</p>
+	                        <p className="text-xs text-muted-foreground">{row.submitted_at ? formatDateTime(row.submitted_at) : ""}</p>
+	                      </div>
+	                    </Card>
+	                  );
+	                })}
 	                {openGroupEvidence.map((item) => {
 	                  const table = tables.find((candidate) => candidate.id === item.table_id);
 	                  const tableChallenge = tableChallenges.find((candidate) => candidate.id === item.table_challenge_id);

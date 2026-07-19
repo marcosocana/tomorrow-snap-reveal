@@ -85,6 +85,21 @@ interface CaptainSession {
 
 const terminalStatuses = new Set(["completed", "failed", "time_expired", "pending_review", "rejected", "deleted"]);
 const DEMO_SLUG = "demo-capitanes";
+const DEMO_EVENT_ID = "de000000-0000-4000-8000-000000000001";
+const DEMO_TABLE_IDS = [
+  "db000000-0000-4000-8000-000000000001",
+  "db000000-0000-4000-8000-000000000002",
+  "db000000-0000-4000-8000-000000000003",
+  "db000000-0000-4000-8000-000000000004",
+  "db000000-0000-4000-8000-000000000005",
+] as const;
+const DEMO_CHALLENGE_IDS = [
+  "dc000000-0000-4000-8000-000000000001",
+  "dc000000-0000-4000-8000-000000000002",
+  "dc000000-0000-4000-8000-000000000003",
+  "dc000000-0000-4000-8000-000000000004",
+  "dc000000-0000-4000-8000-000000000005",
+] as const;
 
 const sessionKey = (slug: string) => `captains-session:${slug}`;
 const demoRowsKey = (slug: string, tableId: string) => `captains-demo-rows:${slug}:${tableId}`;
@@ -106,7 +121,7 @@ const nowIso = () => new Date().toISOString();
 
 const demoEventDetail: CaptainsEventDetail = {
   event: {
-    id: "demo-event-capitanes",
+    id: DEMO_EVENT_ID,
     name: "Demo Capitanes by Revelao",
     slug: DEMO_SLUG,
     description:
@@ -130,8 +145,8 @@ const demoEventDetail: CaptainsEventDetail = {
   },
   tables: [
     {
-      id: "demo-table-1",
-      event_id: "demo-event-capitanes",
+      id: DEMO_TABLE_IDS[0],
+      event_id: DEMO_EVENT_ID,
       table_number: 1,
       table_name: "Mesa 1",
       captain_name: "Jorge",
@@ -158,8 +173,8 @@ const demoEventDetail: CaptainsEventDetail = {
       updated_at: nowIso(),
     },
     {
-      id: "demo-table-2",
-      event_id: "demo-event-capitanes",
+      id: DEMO_TABLE_IDS[1],
+      event_id: DEMO_EVENT_ID,
       table_number: 2,
       table_name: "Mesa 2",
       captain_name: "Marta",
@@ -186,8 +201,8 @@ const demoEventDetail: CaptainsEventDetail = {
       updated_at: nowIso(),
     },
     {
-      id: "demo-table-3",
-      event_id: "demo-event-capitanes",
+      id: DEMO_TABLE_IDS[2],
+      event_id: DEMO_EVENT_ID,
       table_number: 3,
       table_name: "Mesa 3",
       captain_name: "Laura",
@@ -214,8 +229,8 @@ const demoEventDetail: CaptainsEventDetail = {
       updated_at: nowIso(),
     },
     {
-      id: "demo-table-4",
-      event_id: "demo-event-capitanes",
+      id: DEMO_TABLE_IDS[3],
+      event_id: DEMO_EVENT_ID,
       table_number: 4,
       table_name: "Mesa 4",
       captain_name: "Dani",
@@ -242,8 +257,8 @@ const demoEventDetail: CaptainsEventDetail = {
       updated_at: nowIso(),
     },
     {
-      id: "demo-table-5",
-      event_id: "demo-event-capitanes",
+      id: DEMO_TABLE_IDS[4],
+      event_id: DEMO_EVENT_ID,
       table_number: 5,
       table_name: "Mesa 5",
       captain_name: null,
@@ -272,8 +287,8 @@ const demoEventDetail: CaptainsEventDetail = {
   ],
   challenges: [
     {
-      id: "demo-challenge-1",
-      event_id: "demo-event-capitanes",
+      id: DEMO_CHALLENGE_IDS[0],
+      event_id: DEMO_EVENT_ID,
       catalog_challenge_id: null,
       title: "Brindis de mesa",
       description: "Haced una foto de toda la mesa brindando por los novios.",
@@ -291,8 +306,8 @@ const demoEventDetail: CaptainsEventDetail = {
       updated_at: nowIso(),
     },
     {
-      id: "demo-challenge-2",
-      event_id: "demo-event-capitanes",
+      id: DEMO_CHALLENGE_IDS[1],
+      event_id: DEMO_EVENT_ID,
       catalog_challenge_id: null,
       title: "Pregunta de pareja",
       description: "¿Dónde fue la primera cita de la pareja?",
@@ -310,8 +325,8 @@ const demoEventDetail: CaptainsEventDetail = {
       updated_at: nowIso(),
     },
     {
-      id: "demo-challenge-3",
-      event_id: "demo-event-capitanes",
+      id: DEMO_CHALLENGE_IDS[2],
+      event_id: DEMO_EVENT_ID,
       catalog_challenge_id: null,
       title: "Mensaje secreto",
       description: "Grabad un vídeo corto dedicando un mensaje sorpresa a los novios.",
@@ -329,8 +344,8 @@ const demoEventDetail: CaptainsEventDetail = {
       updated_at: nowIso(),
     },
     {
-      id: "demo-challenge-4",
-      event_id: "demo-event-capitanes",
+      id: DEMO_CHALLENGE_IDS[3],
+      event_id: DEMO_EVENT_ID,
       catalog_challenge_id: null,
       title: "Aliados de otra mesa",
       description: "Haced una foto con alguien de otra mesa.",
@@ -348,8 +363,8 @@ const demoEventDetail: CaptainsEventDetail = {
       updated_at: nowIso(),
     },
     {
-      id: "demo-challenge-5",
-      event_id: "demo-event-capitanes",
+      id: DEMO_CHALLENGE_IDS[4],
+      event_id: DEMO_EVENT_ID,
       catalog_challenge_id: null,
       title: "Coreografía exprés",
       description: "Grabad un vídeo corto con toda la mesa haciendo vuestra mejor coreografía.",
@@ -377,8 +392,8 @@ const makeDemoSvg = (title: string, subtitle: string, color = "#2dd4bf") =>
 const demoSummaryEvidence = (): CaptainsEvidence[] => [
   {
     id: "demo-sample-evidence-1",
-    event_id: "demo-event-capitanes",
-    table_id: "demo-table-1",
+    event_id: DEMO_EVENT_ID,
+    table_id: DEMO_TABLE_IDS[0],
     table_challenge_id: "demo-sample-row-1",
     captain_name: "Jorge",
     evidence_type: "photo",
@@ -395,8 +410,8 @@ const demoSummaryEvidence = (): CaptainsEvidence[] => [
   },
   {
     id: "demo-sample-evidence-2",
-    event_id: "demo-event-capitanes",
-    table_id: "demo-table-2",
+    event_id: DEMO_EVENT_ID,
+    table_id: DEMO_TABLE_IDS[1],
     table_challenge_id: "demo-sample-row-2",
     captain_name: "Marta",
     evidence_type: "photo",
@@ -413,8 +428,8 @@ const demoSummaryEvidence = (): CaptainsEvidence[] => [
   },
   {
     id: "demo-sample-evidence-3",
-    event_id: "demo-event-capitanes",
-    table_id: "demo-table-3",
+    event_id: DEMO_EVENT_ID,
+    table_id: DEMO_TABLE_IDS[2],
     table_challenge_id: "demo-sample-row-3",
     captain_name: "Laura",
     evidence_type: "photo",
@@ -431,8 +446,8 @@ const demoSummaryEvidence = (): CaptainsEvidence[] => [
   },
   {
     id: "demo-sample-evidence-4",
-    event_id: "demo-event-capitanes",
-    table_id: "demo-table-1",
+    event_id: DEMO_EVENT_ID,
+    table_id: DEMO_TABLE_IDS[0],
     table_challenge_id: "demo-sample-row-4",
     captain_name: "Jorge",
     evidence_type: "video",
@@ -450,13 +465,13 @@ const demoSummaryEvidence = (): CaptainsEvidence[] => [
 ];
 
 const demoSampleRows = (): CaptainsTableChallenge[] => [
-  ["demo-sample-row-1", "demo-table-1", "demo-challenge-1", 1],
-  ["demo-sample-row-2", "demo-table-2", "demo-challenge-1", 1],
-  ["demo-sample-row-3", "demo-table-3", "demo-challenge-4", 4],
-  ["demo-sample-row-4", "demo-table-1", "demo-challenge-3", 3],
+  ["demo-sample-row-1", DEMO_TABLE_IDS[0], DEMO_CHALLENGE_IDS[0], 1],
+  ["demo-sample-row-2", DEMO_TABLE_IDS[1], DEMO_CHALLENGE_IDS[0], 1],
+  ["demo-sample-row-3", DEMO_TABLE_IDS[2], DEMO_CHALLENGE_IDS[3], 4],
+  ["demo-sample-row-4", DEMO_TABLE_IDS[0], DEMO_CHALLENGE_IDS[2], 3],
 ].map(([id, tableId, challengeId, order]) => ({
   id: String(id),
-  event_id: "demo-event-capitanes",
+  event_id: DEMO_EVENT_ID,
   table_id: String(tableId),
   challenge_id: String(challengeId),
   randomized_order_index: Number(order),
@@ -1136,9 +1151,17 @@ export default function CaptainsPublic() {
   const step = getPublicStep(window.location.pathname);
   const mobile = useIsMobileCaptainDevice();
   const isDemo = eventSlug === DEMO_SLUG;
-  const eventQuery = useCaptainsEventDetail(isDemo ? null : eventSlug);
+  const eventQuery = useCaptainsEventDetail(eventSlug);
   const refetchEvent = eventQuery.refetch;
-  const detail = isDemo ? demoEventDetail : eventQuery.data;
+  const detail = isDemo
+    ? eventQuery.data
+      ? {
+          event: eventQuery.data.event,
+          tables: eventQuery.data.tables.length ? eventQuery.data.tables : demoEventDetail.tables,
+          challenges: eventQuery.data.challenges.length ? eventQuery.data.challenges : demoEventDetail.challenges,
+        }
+      : demoEventDetail
+    : eventQuery.data;
   const event = detail?.event;
   const eventEnded = Boolean(
     event && (
@@ -1740,6 +1763,7 @@ export default function CaptainsPublic() {
           submitted_at: nowIso(),
           elapsed_seconds: elapsed,
           remaining_seconds: currentChallenge.has_time_limit ? liveRemaining : null,
+          question_answer: selectedQuestionOption,
           reviewed_at: nowIso(),
           automatic_score_calculated: true,
           updated_at: nowIso(),

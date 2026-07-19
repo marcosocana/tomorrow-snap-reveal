@@ -126,6 +126,7 @@ export interface CaptainsTableChallenge {
   submitted_at: string | null;
   elapsed_seconds: number | null;
   remaining_seconds: number | null;
+  question_answer?: string | null;
   is_time_expired: boolean;
   automatic_score_calculated: boolean;
   reviewed_at: string | null;

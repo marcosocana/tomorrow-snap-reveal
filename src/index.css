@@ -274,6 +274,10 @@ All colors MUST be HSL.
     background-color: #22c55e;
   }
 
+  .revelao-event-detail [role="switch"][data-state="checked"] {
+    background-color: hsl(var(--input)) !important;
+  }
+
   .admin-demo2-shell input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="color"]),
   .admin-demo2-shell select {
     min-height: 3rem;

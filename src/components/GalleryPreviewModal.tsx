@@ -801,32 +801,31 @@ export const GalleryPreviewModal = ({
                     </DropdownMenuContent>
                   </DropdownMenu>
                 )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={handleDownloadAll}
+                  disabled={!hasAnyMedia || isDownloadingAll}
+                  aria-label={isDownloadingAll ? downloadingAllText : downloadAllText}
+                  title={isDownloadingAll ? downloadingAllText : downloadAllText}
+                >
+                  <Download className={`h-4 w-4 ${isDownloadingAll ? "animate-pulse" : ""}`} />
+                </Button>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="icon"
+                  onClick={handleDeleteAll}
+                  disabled={!canDeleteAll || isDeletingAll}
+                  aria-label={isDeletingAll ? deletingAllText : bulkDeleteText}
+                  title={isDeletingAll ? deletingAllText : bulkDeleteText}
+                >
+                  <Trash2 className={`h-4 w-4 ${isDeletingAll ? "animate-pulse" : ""}`} />
+                </Button>
               </div>
             </DialogTitle>
           </DialogHeader>
-
-          <div className="mb-3 grid gap-2 rounded-md border border-border bg-muted/40 p-3 sm:grid-cols-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleDownloadAll}
-              disabled={!hasAnyMedia || isDownloadingAll}
-              className="w-full gap-2"
-            >
-              <Download className="w-4 h-4" />
-              <span>{isDownloadingAll ? downloadingAllText : downloadAllText}</span>
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={handleDeleteAll}
-              disabled={!canDeleteAll || isDeletingAll}
-              className="w-full gap-2"
-            >
-              <Trash2 className="w-4 h-4" />
-              <span>{isDeletingAll ? deletingAllText : bulkDeleteText}</span>
-            </Button>
-          </div>
 
           <div className="mb-2 grid grid-cols-3 gap-2">
             <Button

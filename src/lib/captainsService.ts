@@ -446,6 +446,7 @@ export const resetCaptainsTableLastActivity = async (tableId: string) => {
         submitted_at: null,
         elapsed_seconds: null,
         remaining_seconds: null,
+        question_answer: null,
         is_time_expired: false,
         automatic_score_calculated: false,
         reviewed_at: null,
@@ -1216,6 +1217,7 @@ export const completeCaptainsQuestionChallenge = async ({
       submitted_at: reviewedAt,
       elapsed_seconds: elapsedSeconds ?? null,
       remaining_seconds: remainingSeconds ?? null,
+      question_answer: answer,
       reviewed_at: reviewedAt,
       automatic_score_calculated: true,
     })
@@ -1233,6 +1235,7 @@ export const completeCaptainsQuestionChallenge = async ({
       submitted_at: reviewedAt,
       elapsed_seconds: elapsedSeconds ?? null,
       remaining_seconds: remainingSeconds ?? null,
+      question_answer: answer,
       reviewed_at: reviewedAt,
       automatic_score_calculated: true,
       updated_at: reviewedAt,

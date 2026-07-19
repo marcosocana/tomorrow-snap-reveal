@@ -11,7 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, ArrowRight, Download, ExternalLink, Globe, Trash2, Camera, Video, Mic } from "lucide-react";
+import { ArrowLeft, ArrowRight, Download, Globe, Trash2, Camera, Video, Mic } from "lucide-react";
 import { addDays, format } from "date-fns";
 import { toZonedTime, fromZonedTime, formatInTimeZone } from "date-fns-tz";
 import CountrySelect from "@/components/CountrySelect";
@@ -1347,20 +1347,11 @@ const EventForm = () => {
             )}
           </div>
         </div>
-        <div className="grid grid-cols-[44px_1fr_44px] gap-2 md:min-w-[360px]">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={handleDownloadQR}
-            aria-label={t("events.downloadQrAction")}
-            title={t("events.downloadQrAction")}
-          >
-            <Download className="h-4 w-4" />
-          </Button>
+        <div className="md:min-w-[260px]">
           <Button
             variant="outline"
             size="sm"
-            className="h-auto px-3 py-2 text-xs font-medium text-foreground gap-3 justify-center flex-nowrap"
+            className="h-auto w-full px-3 py-2 text-xs font-medium text-foreground gap-3 justify-center flex-nowrap"
             onClick={() => setGalleryPreviewOpen(true)}
           >
             <span className="inline-flex items-center gap-1 whitespace-nowrap">
@@ -1376,15 +1367,6 @@ const EventForm = () => {
               {mediaCounts.audios}/{mediaLimits.audios}
             </span>
           </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => window.open(eventUrl, "_blank")}
-            aria-label={t("events.accessLink")}
-            title={t("events.accessLink")}
-          >
-            <ExternalLink className="h-4 w-4" />
-          </Button>
         </div>
       </div>
     </Card>
@@ -1392,7 +1374,7 @@ const EventForm = () => {
 
   return (
     <div
-      className="admin-demo2-shell min-h-screen bg-background p-4 md:p-6 overflow-x-hidden"
+      className="admin-demo2-shell revelao-event-detail min-h-screen bg-background p-4 md:p-6 overflow-x-hidden"
       data-scroll-container
     >
       <div className="max-w-6xl mx-auto space-y-4 md:space-y-6">
@@ -1425,14 +1407,14 @@ const EventForm = () => {
           <Card className="p-6">
             <form onSubmit={handleSubmit} className="space-y-6">
             <Tabs value={activeFormStep} onValueChange={handleFormStepChange} className="space-y-6">
-              <TabsList className="grid h-auto w-full grid-cols-2 rounded-full bg-muted/50 p-1 sm:grid-cols-4">
+              <TabsList className="grid h-auto w-full grid-cols-2 !rounded-none bg-muted/50 p-1 sm:grid-cols-4">
                 {EVENT_FORM_STEPS.map((step, index) => (
                   <TabsTrigger
                     type="button"
                     key={step.value}
                     value={step.value}
                     disabled={!isEditing && index > maxUnlockedFormStep}
-                    className="rounded-full data-[state=active]:!bg-foreground data-[state=active]:!text-background data-[state=active]:shadow-sm disabled:cursor-not-allowed disabled:opacity-45"
+                    className="!rounded-none data-[state=active]:!bg-foreground data-[state=active]:!text-background data-[state=active]:shadow-sm disabled:cursor-not-allowed disabled:opacity-45"
                   >
                     {step.label}
                   </TabsTrigger>
@@ -2666,22 +2648,17 @@ const EventForm = () => {
           >
             ×
           </button>
-          <div
-            className="bg-white rounded-xl p-3"
-            style={{ width: "min(90vw, 90vh)", height: "min(90vw, 90vh)" }}
-            onClick={(event) => event.stopPropagation()}
-          >
-            {qrPreview.src ? (
-              <img
-                src={qrPreview.src}
-                alt="QR"
-                className="w-full h-full object-contain"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center">
-                <QRCodeSVG value={qrPreview.value} size={1024} level="H" includeMargin />
-              </div>
-            )}
+          <div className="flex max-h-[92vh] w-[min(90vw,720px)] flex-col gap-3 bg-white p-4" onClick={(event) => event.stopPropagation()}>
+            <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden">
+              {qrPreview.src ? (
+                <img src={qrPreview.src} alt="QR" className="h-auto max-h-[75vh] w-full object-contain" />
+              ) : (
+                <QRCodeSVG value={qrPreview.value} size={1024} level="H" includeMargin className="h-auto max-h-[75vh] w-full" />
+              )}
+            </div>
+            <Button type="button" className="w-full gap-2" onClick={handleDownloadQR}>
+              <Download className="h-4 w-4" /> {t("events.downloadQrAction")}
+            </Button>
           </div>
         </div>
       )}
