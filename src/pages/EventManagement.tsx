@@ -13,7 +13,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, Plus, Edit, Copy, Download, Eye, LogOut, ArrowLeft, User, Lock, Camera, Video, Mic, MoveRight, ChevronDown, MessageSquareText, KeyRound, Gamepad2 } from "lucide-react";
+import { Calendar, CalendarDays, List, Plus, Edit, Copy, Download, Eye, LogOut, ArrowLeft, User, Lock, Camera, Video, Mic, MoveRight, ChevronDown, MessageSquareText, KeyRound, Gamepad2 } from "lucide-react";
 import { format } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 import { getCountryByCode } from "@/lib/countries";
@@ -27,6 +27,7 @@ import SortableEventList from "@/components/SortableEventList";
 import { useAdminI18n } from "@/lib/adminI18n";
 import { PricingPreview } from "@/components/PricingPreview";
 import { deleteRevelaoEventsCompletely } from "@/lib/deleteRevelaoEvents";
+import { AdminEventsCalendar } from "@/components/AdminEventsCalendar";
 
 interface Event {
   id: string;
@@ -83,6 +84,7 @@ interface CaptainsManagedEvent {
   table_count: number;
   challenge_count: number;
   owner_email?: string | null;
+  owner_phone?: string | null;
 }
 
 type AdminEventTab = "new" | "upcoming" | "past" | "tests" | "others";
@@ -238,7 +240,7 @@ const EventManagement = () => {
     planLabel: string;
   } | null>(null);
   const [adminSearch, setAdminSearch] = useState("");
-  const [adminTypeFilter, setAdminTypeFilter] = useState<"all" | "Demo" | "Start" | "Plus" | "Pro">("all");
+  const [adminTypeFilter, setAdminTypeFilter] = useState<"all" | "Demo" | "Start" | "Plus" | "Pro" | "Capitanes">("all");
   const [adminPhoneFilter, setAdminPhoneFilter] = useState<"all" | "yes" | "no">("all");
   const [adminActiveTab, setAdminActiveTab] = useState<AdminEventTab>("upcoming");
   const [adminSort, setAdminSort] = useState<{ key: "name" | "type" | "start" | "creation" | "email" | "photos"; direction: "asc" | "desc" }>({
@@ -248,6 +250,7 @@ const EventManagement = () => {
   const [qrPreview, setQrPreview] = useState<{ src?: string; value: string } | null>(null);
   const [adminPage, setAdminPage] = useState(1);
   const [adminPageSize, setAdminPageSize] = useState<number | "all">(30);
+  const [adminView, setAdminView] = useState<"list" | "calendar">("list");
   // pageSize computed after superAdminEvents below
   const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(new Set());
   const [redeemGeneratorOpen, setRedeemGeneratorOpen] = useState(false);
@@ -690,9 +693,10 @@ const EventManagement = () => {
         counts.others += 1;
       }
     });
+    counts.others += captainsEvents.length;
 
     return counts;
-  }, [events]);
+  }, [events, captainsEvents]);
 
   useEffect(() => {
     if (!isLoading && adminActiveTab === "new" && adminTabCounts.new === 0) {
@@ -1403,6 +1407,57 @@ const EventManagement = () => {
     ...captainsEvents.map((event) => ({ kind: "captains" as const, event, createdAt: event.created_at })),
   ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
+  const filteredCalendarEvents = useMemo(() => {
+    const search = adminSearch.trim().toLowerCase();
+    const revelaoEntries = events
+      .filter((event) => {
+        const manualTab = getManualAdminEventTab(event);
+        const matchesTab = adminActiveTab === "others" ? !manualTab : manualTab === adminActiveTab;
+        const matchesSearch = !search
+          || event.name.toLowerCase().includes(search)
+          || (getAdminOwnerEmail(event) || "").toLowerCase().includes(search);
+        const matchesType = adminTypeFilter === "all" || getPlanType(event.max_photos).label === adminTypeFilter;
+        const hasPhone = Boolean(getAdminOwnerPhone(event));
+        const matchesPhone = adminPhoneFilter === "all"
+          || (adminPhoneFilter === "yes" && hasPhone)
+          || (adminPhoneFilter === "no" && !hasPhone);
+        return matchesTab && matchesSearch && matchesType && matchesPhone;
+      })
+      .map((event) => ({
+        id: event.id,
+        name: event.name,
+        kind: "revelao" as const,
+        createdAt: event.created_at,
+        startsAt: event.upload_start_time,
+        endsAt: event.reveal_time || event.upload_end_time,
+      }));
+
+    const captainsEntries = adminActiveTab === "others"
+      ? captainsEvents
+        .filter((event) => {
+          const matchesSearch = !search
+            || event.name.toLowerCase().includes(search)
+            || (event.owner_email || "").toLowerCase().includes(search);
+          const matchesType = adminTypeFilter === "all" || adminTypeFilter === "Capitanes";
+          const hasPhone = Boolean(event.owner_phone);
+          const matchesPhone = adminPhoneFilter === "all"
+            || (adminPhoneFilter === "yes" && hasPhone)
+            || (adminPhoneFilter === "no" && !hasPhone);
+          return matchesSearch && matchesType && matchesPhone;
+        })
+        .map((event) => ({
+          id: event.id,
+          name: event.name,
+          kind: "captains" as const,
+          createdAt: event.created_at,
+          startsAt: event.start_time,
+          endsAt: event.end_time,
+        }))
+      : [];
+
+    return [...revelaoEntries, ...captainsEntries];
+  }, [events, captainsEvents, adminSearch, adminTypeFilter, adminPhoneFilter, adminActiveTab]);
+
   if (isLoading) {
     return (
       <div className="admin-demo2-shell min-h-screen flex items-center justify-center bg-background">
@@ -1499,6 +1554,105 @@ const EventManagement = () => {
 
         {isSuperAdmin ? (
           <Card className="p-4 space-y-4">
+            <div className="flex items-center justify-between gap-3 border-b border-border pb-3">
+              <p className="text-sm font-semibold text-foreground">Vista de eventos</p>
+              <div className="inline-flex rounded-lg border border-border bg-muted/30 p-1">
+                <Button
+                  type="button"
+                  variant={adminView === "list" ? "default" : "ghost"}
+                  size="sm"
+                  className="h-8 gap-1.5"
+                  onClick={() => setAdminView("list")}
+                >
+                  <List className="h-4 w-4" />
+                  Listado
+                </Button>
+                <Button
+                  type="button"
+                  variant={adminView === "calendar" ? "default" : "ghost"}
+                  size="sm"
+                  className="h-8 gap-1.5"
+                  onClick={() => setAdminView("calendar")}
+                >
+                  <CalendarDays className="h-4 w-4" />
+                  Calendario
+                </Button>
+              </div>
+            </div>
+            {adminView === "calendar" ? (
+              <div className="space-y-4">
+                <div className="flex flex-wrap gap-2">
+                  {ADMIN_EVENT_TABS.filter((tab) => tab.value !== "new" || adminTabCounts.new > 0).map((tab) => {
+                    const isActive = adminActiveTab === tab.value;
+                    return (
+                      <button
+                        key={tab.value}
+                        type="button"
+                        onClick={() => setAdminActiveTab(tab.value)}
+                        className={`inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm font-medium transition-colors ${
+                          isActive
+                            ? "!border-foreground !bg-foreground !text-background shadow-sm"
+                            : "border-border bg-background text-foreground hover:bg-muted"
+                        }`}
+                      >
+                        <span>{tab.label}</span>
+                        <span className={`rounded-full px-2 py-0.5 text-xs ${isActive ? "bg-background/20 !text-background" : "bg-muted text-muted-foreground"}`}>
+                          {adminTabCounts[tab.value]}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+                  <div className="flex-1">
+                    <Input
+                      value={adminSearch}
+                      onChange={(event) => setAdminSearch(event.target.value)}
+                      placeholder="Buscar por nombre o email"
+                    />
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <select
+                      value={adminTypeFilter}
+                      onChange={(event) => setAdminTypeFilter(event.target.value as typeof adminTypeFilter)}
+                      className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                      aria-label="Filtrar por tipo"
+                    >
+                      <option value="all">Todos los tipos</option>
+                      <option value="Demo">Demo</option>
+                      <option value="Start">Start</option>
+                      <option value="Plus">Plus</option>
+                      <option value="Pro">Pro</option>
+                      <option value="Capitanes">Capitanes</option>
+                    </select>
+                    <select
+                      value={adminPhoneFilter}
+                      onChange={(event) => setAdminPhoneFilter(event.target.value as typeof adminPhoneFilter)}
+                      className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                      aria-label="Filtrar por teléfono"
+                    >
+                      <option value="all">Con y sin teléfono</option>
+                      <option value="yes">Con teléfono</option>
+                      <option value="no">Sin teléfono</option>
+                    </select>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Mostrando {filteredCalendarEvents.length} eventos con los filtros seleccionados.
+                </p>
+                <AdminEventsCalendar
+                  events={filteredCalendarEvents}
+                  onOpen={(event) => {
+                    if (event.kind === "captains") {
+                      navigate(`/admin/capitanes/${event.id}`, { state: { fromEventManagement: true } });
+                    } else {
+                      navigate(`${pathPrefix}/event-form/${event.id}`);
+                    }
+                  }}
+                />
+              </div>
+            ) : (
+              <>
             <div className="flex flex-wrap gap-2">
               {ADMIN_EVENT_TABS.filter((tab) => tab.value !== "new" || adminTabCounts.new > 0).map((tab) => {
                 const isActive = adminActiveTab === tab.value;
@@ -1546,6 +1700,7 @@ const EventManagement = () => {
                   <option value="Start">Start</option>
                   <option value="Plus">Plus</option>
                   <option value="Pro">Pro</option>
+                  <option value="Capitanes">Capitanes</option>
                 </select>
                 <select
                   value={adminPhoneFilter}
@@ -1770,6 +1925,8 @@ const EventManagement = () => {
                 </Button>
               </div>
             </div>
+              </>
+            )}
           </Card>
         ) : events.length === 0 && captainsEvents.length === 0 && folders.length === 0 ? (
           <Card className="p-12 text-center">
