@@ -1,6 +1,9 @@
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
+import { installSupabaseAuthGuard } from "@/lib/supabaseAuthGuard";
+
+installSupabaseAuthGuard();
 
 // Disable any previously registered service workers to avoid stale cached assets
 if ("serviceWorker" in navigator) {
