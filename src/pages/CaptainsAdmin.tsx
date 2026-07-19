@@ -2977,6 +2977,8 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
   const generalSavedFingerprintRef = useRef("");
   const [generalSaveStatus, setGeneralSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [editingTable, setEditingTable] = useState<CaptainsTable | null>(null);
+  const [tableSaveStatus, setTableSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const tableSavedFingerprintRef = useRef("");
   const [resettingTableActivityId, setResettingTableActivityId] = useState("");
   const [isResettingAllTables, setIsResettingAllTables] = useState(false);
   const [tableDraft, setTableDraft] = useState<CaptainsTable | null>(null);
@@ -3219,6 +3221,15 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
       captain_sprite: table.captain_sprite || getDefaultCaptainSprite(table.table_number - 1),
       captain_sprite_config: normalizeCaptainSpriteConfig(table.captain_sprite_config, table.table_number - 1),
     } as CaptainsTable;
+    tableSavedFingerprintRef.current = JSON.stringify({
+      table_name: normalized.table_name,
+      captain_name: normalized.captain_name,
+      active_captain_name: normalized.captain_name,
+      captain_photo_url: normalized.captain_photo_url,
+      captain_sprite: normalized.captain_sprite,
+      captain_sprite_config: normalized.captain_sprite_config,
+    });
+    setTableSaveStatus("idle");
     setEditingTable(table);
     setTableDraft(normalized);
   };
@@ -3256,29 +3267,70 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
     }
   };
 
-	  const saveTableEditor = async () => {
-    if (!editingTable || !tableDraft) return;
-    try {
-      setIsDetailSaving(true);
-      await updateCaptainsTable(editingTable.id, {
+  useEffect(() => {
+    if (!editingTable || !tableDraft || !eventId) return;
+    const payload = {
+      table_name: tableDraft.table_name,
+      captain_name: tableDraft.captain_name,
+      active_captain_name: tableDraft.captain_name,
+      captain_photo_url: tableDraft.captain_photo_url,
+      captain_sprite: tableDraft.captain_sprite,
+      captain_sprite_config: tableDraft.captain_sprite_config,
+    };
+    const fingerprint = JSON.stringify(payload);
+    if (fingerprint === tableSavedFingerprintRef.current) return;
+
+    const timer = window.setTimeout(async () => {
+      try {
+        setTableSaveStatus("saving");
+        const updatedTable = await updateCaptainsTable(editingTable.id, payload);
+        tableSavedFingerprintRef.current = fingerprint;
+        queryClient.setQueryData<CaptainsEventDetail | null>(captainsQueryKeys.event(eventId), (current) =>
+          current
+            ? { ...current, tables: current.tables.map((table) => (table.id === updatedTable.id ? updatedTable : table)) }
+            : current,
+        );
+        queryClient.invalidateQueries({ queryKey: captainsQueryKeys.ranking(eventId) });
+        setTableSaveStatus("saved");
+      } catch (error) {
+        console.error("Error autosaving captains table:", error);
+        setTableSaveStatus("error");
+      }
+    }, 650);
+
+    return () => window.clearTimeout(timer);
+  }, [editingTable, eventId, queryClient, tableDraft]);
+
+  const closeTableEditor = async () => {
+    closeDetailCaptainPhotoCrop();
+    if (editingTable && tableDraft) {
+      const payload = {
         table_name: tableDraft.table_name,
         captain_name: tableDraft.captain_name,
-        active_captain_name: tableDraft.active_captain_name || tableDraft.captain_name,
+        active_captain_name: tableDraft.captain_name,
         captain_photo_url: tableDraft.captain_photo_url,
         captain_sprite: tableDraft.captain_sprite,
         captain_sprite_config: tableDraft.captain_sprite_config,
-      });
-      toast({ title: "Capitán actualizado", description: "Los cambios se han guardado." });
-      setEditingTable(null);
-      setTableDraft(null);
-      refreshAll();
-    } catch (error) {
-      console.error("Error updating captains table:", error);
-      toast({ title: "Error", description: "No hemos podido actualizar el capitán.", variant: "destructive" });
-    } finally {
-      setIsDetailSaving(false);
+      };
+      const fingerprint = JSON.stringify(payload);
+      if (fingerprint !== tableSavedFingerprintRef.current) {
+        try {
+          setTableSaveStatus("saving");
+          await updateCaptainsTable(editingTable.id, payload);
+          tableSavedFingerprintRef.current = fingerprint;
+          refreshAll();
+        } catch (error) {
+          console.error("Error saving captains table on close:", error);
+          setTableSaveStatus("error");
+          toast({ title: "Error", description: "No hemos podido guardar los cambios del capitán.", variant: "destructive" });
+          return;
+        }
+      }
     }
-	  };
+    setEditingTable(null);
+    setTableDraft(null);
+    setTableSaveStatus("idle");
+  };
 
   const updateTableDraftSpriteConfig = (patch: Partial<CaptainsSpriteConfig>) => {
     setTableDraft((prev) =>
@@ -3942,7 +3994,7 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
         </TabsContent>
       </Tabs>
 
-		      <Dialog open={!!editingTable} onOpenChange={(open) => { if (!open) { setEditingTable(null); setTableDraft(null); closeDetailCaptainPhotoCrop(); } }}>
+		      <Dialog open={!!editingTable} onOpenChange={(open) => { if (!open) void closeTableEditor(); }}>
 		        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
 		          <DialogHeader>
 		            <DialogTitle>Editar capitán</DialogTitle>
@@ -4046,10 +4098,15 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
 		                  <Input type="color" value={colorValue(tableDraft.captain_sprite_config?.tie_color || "", "#f06a5f")} onChange={(event) => updateTableDraftSpriteConfig({ tie_color: event.target.value })} className="h-10" disabled={tableDraft.captain_sprite_config?.outfit_type !== "suit"} />
 		                </label>
 		              </div>
-		              <div className="flex justify-end gap-2">
-		                <Button variant="outline" onClick={() => { setEditingTable(null); setTableDraft(null); }}>Cancelar</Button>
-		                <Button onClick={saveTableEditor} disabled={isDetailSaving}>{isDetailSaving ? "Guardando..." : "Guardar"}</Button>
-	              </div>
+		              <p className={`text-right text-xs ${tableSaveStatus === "error" ? "text-destructive" : "text-muted-foreground"}`}>
+		                {tableSaveStatus === "saving"
+		                  ? "Guardando cambios..."
+		                  : tableSaveStatus === "error"
+		                    ? "No se han podido guardar los cambios."
+		                    : tableSaveStatus === "saved"
+		                      ? "Cambios guardados automáticamente."
+		                      : "Los cambios se guardan automáticamente."}
+		              </p>
 	            </div>
 	          ) : null}
 		        </DialogContent>
@@ -4278,7 +4335,7 @@ const RankingCard = ({
       </Button>
     </div>
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[760px] border-separate border-spacing-y-3 text-sm">
+      <table className="w-full min-w-[700px] border-separate border-spacing-y-3 text-sm">
         <thead>
           <tr className="text-left text-xs uppercase text-muted-foreground">
             <th className="px-3 py-2 font-medium">Posición</th>
@@ -4290,7 +4347,6 @@ const RankingCard = ({
             <th className="px-3 py-2 font-medium">Fallidos</th>
             <th className="px-3 py-2 font-medium">Pendientes</th>
             <th className="px-3 py-2 font-medium">Última actividad</th>
-            <th className="px-3 py-2 font-medium">Acciones</th>
           </tr>
         </thead>
         <tbody>
@@ -4299,22 +4355,34 @@ const RankingCard = ({
             const finished = rows.filter((row) => finishedTableChallengeStatuses.has(row.status)).length;
             const pending = Math.max(0, totalChallenges - finished);
             return (
-              <tr key={table.id} className="bg-card shadow-sm">
-                <td className="rounded-l-xl border-y border-l border-border px-3 py-4 font-semibold">#{table.rank || index + 1}</td>
-                <td className="border-y border-border px-3 py-4">{table.table_name}</td>
-                <td className="border-y border-border px-3 py-4">
+              <tr
+                key={table.id}
+                role="button"
+                tabIndex={0}
+                className="cursor-pointer bg-card shadow-sm transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                onClick={() => onEdit(table)}
+                onKeyDown={(keyboardEvent) => {
+                  if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
+                    keyboardEvent.preventDefault();
+                    onEdit(table);
+                  }
+                }}
+              >
+                <td className="px-3 py-4 font-semibold">#{table.rank || index + 1}</td>
+                <td className="px-3 py-4">{table.table_name}</td>
+                <td className="px-3 py-4">
                   <div className="flex items-center gap-2">
                     <CaptainPhotoPreview table={table} size="sm" />
                     <CaptainSpritePreview value={table.captain_sprite} config={table.captain_sprite_config} size="sm" />
                     {table.captain_sprite_config?.outfit_type === "dress" ? "Vestido" : "Traje"}
                   </div>
                 </td>
-                <td className="border-y border-border px-3 py-4">{table.active_captain_name || table.captain_name || "-"}</td>
-                <td className="border-y border-border px-3 py-4">{table.total_points}</td>
-                <td className="border-y border-border px-3 py-4">{table.completed_challenges}</td>
-                <td className="border-y border-border px-3 py-4">{table.failed_challenges}</td>
-                <td className="border-y border-border px-3 py-4">{pending}</td>
-                <td className="border-y border-border px-3 py-4">
+                <td className="px-3 py-4">{table.active_captain_name || table.captain_name || "-"}</td>
+                <td className="px-3 py-4">{table.total_points}</td>
+                <td className="px-3 py-4">{table.completed_challenges}</td>
+                <td className="px-3 py-4">{table.failed_challenges}</td>
+                <td className="px-3 py-4">{pending}</td>
+                <td className="px-3 py-4">
                   <div className="flex items-center gap-2">
                     <span>{formatDateTime(table.last_activity_at)}</span>
                     {table.last_activity_at ? (
@@ -4323,7 +4391,11 @@ const RankingCard = ({
                         variant="outline"
                         size="sm"
                         className="h-8 gap-1.5 rounded-full"
-                        onClick={() => onResetLastActivity(table)}
+                        onClick={(clickEvent) => {
+                          clickEvent.stopPropagation();
+                          onResetLastActivity(table);
+                        }}
+                        onKeyDown={(keyboardEvent) => keyboardEvent.stopPropagation()}
                         disabled={resettingTableId === table.id}
                       >
                         <RefreshCw className={`h-3.5 w-3.5 ${resettingTableId === table.id ? "animate-spin" : ""}`} />
@@ -4331,12 +4403,6 @@ const RankingCard = ({
                       </Button>
                     ) : null}
                   </div>
-                </td>
-                <td className="rounded-r-xl border-y border-r border-border px-3 py-4">
-                  <Button variant="outline" size="sm" className="gap-2 rounded-full" onClick={() => onEdit(table)}>
-                    <Pencil className="h-4 w-4" />
-                    Editar
-                  </Button>
                 </td>
               </tr>
             );
