@@ -148,12 +148,6 @@ serve(async (req) => {
 
     const existingAuthUser = await findAuthUserByEmail(supabaseAdmin, email);
 
-    // Never replace an existing account password with a generated demo
-    // password. Existing users must manage their events with their own login.
-    if (!useAuthenticatedUser && existingAuthUser?.id) {
-      return json({ error: "EMAIL_EXISTS" }, 409);
-    }
-
     let userId = useAuthenticatedUser ? authenticatedUser?.id ?? null : existingAuthUser?.id || null;
 
     if (!userId) {
@@ -185,9 +179,9 @@ serve(async (req) => {
       }
     }
 
-    // The first demo establishes the user's management password. Every later
-    // demo must reuse it so the credentials shown in summaries and emails keep
-    // matching the account that owns all of the events.
+    // The first demo establishes the user's management password. If the email
+    // already exists, reuse that password instead of replacing the account
+    // password with the newly generated one.
     const { data: firstDemo, error: firstDemoError } = await supabaseAdmin
       .from("events")
       .select("id, admin_password, created_at")

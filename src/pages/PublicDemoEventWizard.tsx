@@ -430,13 +430,9 @@ const PublicDemoEventWizard = () => {
       });
     } catch (error) {
       console.error("Error creating demo event:", error);
-      const errorCode = error instanceof Error ? error.message : "";
       toast({
         title: "Error",
-        description:
-          errorCode === "EMAIL_EXISTS"
-            ? "Este email ya tiene una cuenta. Inicia sesión para gestionar tus eventos."
-            : "No se pudo crear el evento.",
+        description: "No se pudo crear el evento.",
         variant: "destructive",
       });
     } finally {
