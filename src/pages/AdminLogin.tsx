@@ -59,15 +59,15 @@ const AdminLogin = () => {
     setIsLoading(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke("auth-login", {
-        body: { email, password },
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
+        password,
       });
 
       if (error || !data?.session) {
         throw error || new Error("INVALID_CREDENTIALS");
       }
 
-      await supabase.auth.setSession(data.session);
       toast({
         title: t("login.successTitle"),
         description: t("login.successDesc"),
