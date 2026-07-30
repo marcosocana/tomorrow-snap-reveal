@@ -43,6 +43,8 @@ const DemoEventSummary = () => {
     | undefined;
 
   const eventUrl = event ? `https://acceso.revelao.cam/events/${event.password_hash}` : "";
+  const slideshowUrl = event ? `${window.location.origin}/slideshow/${event.id}` : "";
+  const slideshowLabel = lang === "en" ? "Live slideshow" : lang === "it" ? "Slideshow in diretta" : "Slideshow en directo";
   const credentialEmail = contactInfo?.email?.trim().toLowerCase() || "";
   const adminUrlBase = `https://acceso.revelao.cam${pathPrefix}/admin-login`;
   const adminUrl = credentialEmail
@@ -254,6 +256,23 @@ const DemoEventSummary = () => {
                   onClick={() => copyToClipboard(eventUrl, 'url')}
                 >
                   {copiedField === 'url' ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-muted-foreground">{slideshowLabel}</label>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 bg-muted px-3 py-2 rounded-md text-sm break-all">
+                  {slideshowUrl}
+                </code>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="rounded-full"
+                  onClick={() => copyToClipboard(slideshowUrl, "slideshow-url")}
+                >
+                  {copiedField === "slideshow-url" ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                 </Button>
               </div>
             </div>

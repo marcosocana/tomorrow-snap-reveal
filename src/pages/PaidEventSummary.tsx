@@ -39,6 +39,7 @@ const PaidEventSummary = () => {
   }
 
   const eventUrl = `https://acceso.revelao.cam/events/${event.password_hash}`;
+  const slideshowUrl = `${window.location.origin}/slideshow/${event.id}`;
   const adminUrl = "https://acceso.revelao.cam";
   const eventTz = event.timezone || "Europe/Madrid";
   const storedQrUrl = event
@@ -172,6 +173,22 @@ const PaidEventSummary = () => {
                   onClick={() => copyToClipboard(eventUrl, 'url')}
                 >
                   {copiedField === 'url' ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-muted-foreground">Slideshow en directo</label>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 bg-muted px-3 py-2 rounded text-sm break-all">
+                  {slideshowUrl}
+                </code>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => copyToClipboard(slideshowUrl, "slideshow-url")}
+                >
+                  {copiedField === "slideshow-url" ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                 </Button>
               </div>
             </div>

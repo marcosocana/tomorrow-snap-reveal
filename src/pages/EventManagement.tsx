@@ -1122,6 +1122,7 @@ const EventManagement = () => {
     const { photos: photoCount, videos: videoCount, audios: audioCount } = getMediaCounts(event);
     const { photos: photoLimit, videos: videoLimit, audios: audioLimit } = getMediaLimits(event);
     const eventUrl = `https://acceso.revelao.cam/events/${event.password_hash}`;
+    const slideshowUrl = `${window.location.origin}/slideshow/${event.id}`;
     const statusInfo = getEventStatus(
       event.upload_start_time,
       event.upload_end_time,
@@ -1221,6 +1222,31 @@ const EventManagement = () => {
                     <Eye className="w-4 h-4" />
                   </Button>
                 </div>
+                <p className="pt-2 text-xs font-medium text-foreground">{t("events.slideshowLabel")}</p>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={slideshowUrl}
+                    readOnly
+                    className="flex-1 px-3 py-2 text-sm bg-muted rounded-md border border-border min-w-0"
+                  />
+                  <Button
+                    size="icon"
+                    variant="outline"
+                    onClick={() => handleCopyValue(slideshowUrl)}
+                    aria-label={`${t("events.copyUrl")}: ${t("events.slideshowLabel")}`}
+                  >
+                    <Copy className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="outline"
+                    onClick={() => window.open(slideshowUrl, "_blank", "noopener,noreferrer")}
+                    aria-label={t("events.slideshowLabel")}
+                  >
+                    <Eye className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
             </div>
 
@@ -1270,6 +1296,31 @@ const EventManagement = () => {
                     size="icon"
                     variant="outline"
                     onClick={() => window.open(eventUrl, "_blank", "noopener,noreferrer")}
+                  >
+                    <Eye className="w-4 h-4" />
+                  </Button>
+                </div>
+                <p className="pt-2 text-xs font-medium text-foreground">{t("events.slideshowLabel")}</p>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={slideshowUrl}
+                    readOnly
+                    className="flex-1 px-3 py-2 text-sm bg-muted rounded-md border border-border min-w-0"
+                  />
+                  <Button
+                    size="icon"
+                    variant="outline"
+                    onClick={() => handleCopyValue(slideshowUrl)}
+                    aria-label={`${t("events.copyUrl")}: ${t("events.slideshowLabel")}`}
+                  >
+                    <Copy className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="outline"
+                    onClick={() => window.open(slideshowUrl, "_blank", "noopener,noreferrer")}
+                    aria-label={t("events.slideshowLabel")}
                   >
                     <Eye className="w-4 h-4" />
                   </Button>

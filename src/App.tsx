@@ -27,6 +27,7 @@ import PaidEventSummary from "./pages/PaidEventSummary";
 import Register from "./pages/Register";
 import { CaptainsAdminDetail, CaptainsAdminForm, CaptainsAdminList, CaptainsOnboarding } from "./pages/CaptainsAdmin";
 import CaptainsPublic from "./pages/CaptainsPublic";
+import LiveSlideshow from "./pages/LiveSlideshow";
 
 const queryClient = new QueryClient();
 
@@ -176,6 +177,7 @@ const App = () => {
               <Route path="/bulk-upload" element={<BulkUpload />} />
               <Route path="/event/:password" element={<EventAccess />} />
               <Route path="/events/:password" element={<EventAccess />} />
+              <Route path="/slideshow/:eventId" element={<LiveSlideshow />} />
               <Route path="/redeem/:token" element={<RedeemEvent />} />
               <Route path="/terms" element={<TermsAndConditions />} />
               <Route path="/privacy" element={<PrivacyPolicy />} />

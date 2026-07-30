@@ -79,6 +79,7 @@ export const PricingPreview = ({
       t("pricing.plan.demo.feature.brand"),
       t("pricing.plan.demo.feature.qr"),
       t("pricing.plan.demo.feature.panel"),
+      t("pricing.feature.slideshow"),
     ],
     small: [
       t("pricing.plan.small.feature.photos"),
@@ -88,6 +89,7 @@ export const PricingPreview = ({
       t("pricing.plan.small.feature.access"),
       t("pricing.plan.small.feature.qr"),
       t("pricing.plan.small.feature.panel"),
+      t("pricing.feature.slideshow"),
       t("pricing.plan.small.feature.ideal"),
     ],
     medium: [
@@ -99,6 +101,7 @@ export const PricingPreview = ({
       t("pricing.plan.medium.feature.support"),
       t("pricing.plan.medium.feature.qr"),
       t("pricing.plan.medium.feature.panel"),
+      t("pricing.feature.slideshow"),
       t("pricing.plan.medium.feature.ideal"),
     ],
     xxl: [
@@ -110,6 +113,7 @@ export const PricingPreview = ({
       t("pricing.plan.xl.feature.backup"),
       t("pricing.plan.xl.feature.qr"),
       t("pricing.plan.xl.feature.panel"),
+      t("pricing.feature.slideshow"),
       t("pricing.plan.xl.feature.ideal"),
     ],
   };

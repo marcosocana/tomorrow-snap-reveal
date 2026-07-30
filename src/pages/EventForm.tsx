@@ -276,6 +276,7 @@ const EventForm = () => {
   const { t, dateLocale, pathPrefix } = useAdminI18n();
   const isDemoEvent = planType === "demo";
   const eventUrl = eventId ? `https://acceso.revelao.cam/events/${formData.password}` : "";
+  const slideshowUrl = eventId ? `${window.location.origin}/slideshow/${eventId}` : "";
   const mediaLimits = {
     photos: formData.maxPhotos?.trim() ? formData.maxPhotos : "∞",
     videos: formData.allowVideoRecording
@@ -1294,6 +1295,15 @@ const EventForm = () => {
               className="block truncate text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
             >
               {eventUrl}
+            </a>
+            <p className="mt-2 text-xs font-medium text-foreground">{t("events.slideshowLabel")}</p>
+            <a
+              href={slideshowUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block truncate text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+            >
+              {slideshowUrl}
             </a>
             {isSuperAdmin && (eventNumber || ownerEmail || ownerPhone || eventCreatedAt) && (
               <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
