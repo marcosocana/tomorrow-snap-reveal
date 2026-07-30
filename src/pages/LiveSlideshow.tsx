@@ -320,7 +320,9 @@ const LiveSlideshow = () => {
         </div>
       )}
 
-      <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between bg-gradient-to-b from-black/80 to-transparent p-4 pb-12 md:p-6 md:pb-16">
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/75 via-black/10 to-black/85" />
+
+      <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between p-4 pb-12 md:p-6 md:pb-16">
         <div className="min-w-0">
           <h1 className="truncate text-base font-semibold md:text-xl">{event.name}</h1>
           <p className="mt-1 inline-flex items-center gap-2 text-xs text-white/75 md:text-sm">
@@ -358,7 +360,7 @@ const LiveSlideshow = () => {
         </>
       ) : null}
 
-      <div className="absolute inset-x-0 bottom-40 flex items-center justify-center gap-2 bg-gradient-to-t from-black/85 to-transparent p-4 pt-12 md:bottom-0 md:p-6 md:pt-16">
+      <div className="absolute inset-x-0 bottom-40 flex items-center justify-center gap-2 p-4 pt-12 md:bottom-0 md:p-6 md:pt-16">
         <Button
           type="button"
           size="icon"
