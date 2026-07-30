@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
+import { QRCodeSVG } from "qrcode.react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -20,6 +21,7 @@ type SlideshowEvent = {
   name: string;
   owner_id: string | null;
   language: string | null;
+  password_hash: string;
 };
 
 type SlideshowPhoto = {
@@ -135,7 +137,7 @@ const LiveSlideshow = () => {
       try {
         const { data, error } = await supabasePublic
           .from("events")
-          .select("id,name,owner_id,language")
+          .select("id,name,owner_id,language,password_hash")
           .eq("id", eventId)
           .maybeSingle();
         if (error) throw error;
@@ -204,6 +206,7 @@ const LiveSlideshow = () => {
     [currentPhotoId, photos],
   );
   const currentPhoto = photos[currentIndex] ?? null;
+  const eventUrl = `https://acceso.revelao.cam/events/${event?.password_hash ?? ""}`;
 
   const showPhotoAt = useCallback(
     (index: number) => {
@@ -330,7 +333,7 @@ const LiveSlideshow = () => {
         </>
       ) : null}
 
-      <div className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-2 bg-gradient-to-t from-black/85 to-transparent p-4 pt-12 md:p-6 md:pt-16">
+      <div className="absolute inset-x-0 bottom-0 flex items-center justify-start gap-2 bg-gradient-to-t from-black/85 to-transparent p-4 pr-32 pt-12 md:justify-center md:p-6 md:pt-16">
         <Button
           type="button"
           size="icon"
@@ -368,6 +371,20 @@ const LiveSlideshow = () => {
             <Trash2 className="h-5 w-5" />
           </Button>
         ) : null}
+      </div>
+
+      <div className="absolute bottom-3 right-3 z-20 rounded-2xl bg-white p-2.5 text-center text-gray-950 shadow-2xl md:bottom-5 md:right-5 md:rounded-3xl md:p-4">
+        <p className="mb-2 text-xs font-bold md:mb-3 md:text-base">¡Haz una foto!</p>
+        <div className="rounded-xl bg-white p-1 md:rounded-2xl md:p-2">
+          <QRCodeSVG
+            value={eventUrl}
+            size={128}
+            level="H"
+            includeMargin={false}
+            className="h-20 w-20 sm:h-24 sm:w-24 md:h-32 md:w-32"
+            aria-label={`QR de ${event.name}`}
+          />
+        </div>
       </div>
     </main>
   );
