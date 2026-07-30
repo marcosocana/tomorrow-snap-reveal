@@ -22,6 +22,7 @@ type SlideshowEvent = {
   owner_id: string | null;
   language: string | null;
   password_hash: string;
+  limits_json: unknown;
 };
 
 type SlideshowPhoto = {
@@ -93,6 +94,12 @@ const getPhotoUrl = (value: string) => {
   return supabasePublic.storage.from("event-photos").getPublicUrl(value).data.publicUrl;
 };
 
+const getQrImageUrlFromLimits = (raw: unknown) => {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const value = (raw as Record<string, unknown>).qr_image_url;
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+};
+
 const LiveSlideshow = () => {
   const { eventId } = useParams<{ eventId: string }>();
   const { toast } = useToast();
@@ -104,6 +111,7 @@ const LiveSlideshow = () => {
   const [isFullscreen, setIsFullscreen] = useState(Boolean(document.fullscreenElement));
   const [canDelete, setCanDelete] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [qrUrlIndex, setQrUrlIndex] = useState(0);
 
   const language = event?.language === "en" || event?.language === "it" ? event.language : "es";
   const text = copy[language];
@@ -137,7 +145,7 @@ const LiveSlideshow = () => {
       try {
         const { data, error } = await supabasePublic
           .from("events")
-          .select("id,name,owner_id,language,password_hash")
+          .select("id,name,owner_id,language,password_hash,limits_json")
           .eq("id", eventId)
           .maybeSingle();
         if (error) throw error;
@@ -207,6 +215,23 @@ const LiveSlideshow = () => {
   );
   const currentPhoto = photos[currentIndex] ?? null;
   const eventUrl = `https://acceso.revelao.cam/events/${event?.password_hash ?? ""}`;
+  const qrUrlCandidates = useMemo(
+    () =>
+      [
+        getQrImageUrlFromLimits(event?.limits_json),
+        eventId
+          ? supabasePublic.storage
+              .from("event-photos")
+              .getPublicUrl(`event-qr/qr-${eventId}.png`).data.publicUrl
+          : null,
+      ].filter((value): value is string => Boolean(value)),
+    [event?.limits_json, eventId],
+  );
+  const qrImageUrl = qrUrlCandidates[qrUrlIndex] || "";
+
+  useEffect(() => {
+    setQrUrlIndex(0);
+  }, [eventId, event?.limits_json]);
 
   const showPhotoAt = useCallback(
     (index: number) => {
@@ -333,7 +358,7 @@ const LiveSlideshow = () => {
         </>
       ) : null}
 
-      <div className="absolute inset-x-0 bottom-0 flex items-center justify-start gap-2 bg-gradient-to-t from-black/85 to-transparent p-4 pr-32 pt-12 md:justify-center md:p-6 md:pt-16">
+      <div className="absolute inset-x-0 bottom-40 flex items-center justify-center gap-2 bg-gradient-to-t from-black/85 to-transparent p-4 pt-12 md:bottom-0 md:p-6 md:pt-16">
         <Button
           type="button"
           size="icon"
@@ -373,18 +398,35 @@ const LiveSlideshow = () => {
         ) : null}
       </div>
 
-      <div className="absolute bottom-3 right-3 z-20 rounded-2xl bg-white p-2.5 text-center text-gray-950 shadow-2xl md:bottom-5 md:right-5 md:rounded-3xl md:p-4">
-        <p className="mb-2 text-xs font-bold md:mb-3 md:text-base">¡Haz una foto!</p>
-        <div className="rounded-xl bg-white p-1 md:rounded-2xl md:p-2">
-          <QRCodeSVG
-            value={eventUrl}
-            size={128}
-            level="H"
-            includeMargin={false}
-            className="h-20 w-20 sm:h-24 sm:w-24 md:h-32 md:w-32"
-            aria-label={`QR de ${event.name}`}
-          />
+      <div className="absolute bottom-3 right-3 z-20 rounded-[20px] bg-white p-3 text-center text-gray-950 shadow-2xl md:bottom-5 md:right-5 md:rounded-[30px] md:p-5">
+        <p className="mb-2 text-sm font-bold md:mb-4 md:text-xl">¡Haz una foto!</p>
+        <div className="rounded-2xl bg-white p-1 md:rounded-[20px] md:p-2">
+          {qrImageUrl ? (
+            <img
+              src={qrImageUrl}
+              alt={`QR de ${event.name}`}
+              className="h-24 w-24 object-contain sm:h-28 sm:w-28 md:h-[154px] md:w-[154px]"
+              onError={() => setQrUrlIndex((current) => current + 1)}
+            />
+          ) : (
+            <QRCodeSVG
+              value={eventUrl}
+              size={154}
+              level="H"
+              includeMargin
+              className="h-24 w-24 sm:h-28 sm:w-28 md:h-[154px] md:w-[154px]"
+              aria-label={`QR de ${event.name}`}
+            />
+          )}
         </div>
+      </div>
+
+      <div className="absolute bottom-3 left-3 z-20 rounded-[20px] bg-white p-3 shadow-2xl md:bottom-5 md:left-5 md:rounded-[30px] md:p-4">
+        <img
+          src="/LogoTransparent.png"
+          alt="Revelao"
+          className="h-auto w-20 object-contain sm:w-24 md:w-32"
+        />
       </div>
     </main>
   );
