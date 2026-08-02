@@ -734,7 +734,6 @@ export type Database = {
           font_size: string
           gallery_view_mode: string
           header_style: string
-          hide_reveal_date: boolean
           id: string
           is_demo: boolean
           language: string
@@ -782,7 +781,6 @@ export type Database = {
           font_size?: string
           gallery_view_mode?: string
           header_style?: string
-          hide_reveal_date?: boolean
           id?: string
           is_demo?: boolean
           language?: string
@@ -830,7 +828,6 @@ export type Database = {
           font_size?: string
           gallery_view_mode?: string
           header_style?: string
-          hide_reveal_date?: boolean
           id?: string
           is_demo?: boolean
           language?: string
