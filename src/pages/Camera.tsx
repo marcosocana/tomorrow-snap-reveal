@@ -331,6 +331,21 @@ const Camera = () => {
   }, [eventId, isDemoEnvironmentFromQuery, loadEventData, navigate]);
 
   useEffect(() => {
+    const refreshVisibleEventConfig = () => {
+      if (document.visibilityState === "visible") {
+        loadEventData();
+      }
+    };
+
+    window.addEventListener("focus", refreshVisibleEventConfig);
+    document.addEventListener("visibilitychange", refreshVisibleEventConfig);
+    return () => {
+      window.removeEventListener("focus", refreshVisibleEventConfig);
+      document.removeEventListener("visibilitychange", refreshVisibleEventConfig);
+    };
+  }, [loadEventData]);
+
+  useEffect(() => {
     if (!eventId) return;
     const interval = window.setInterval(() => {
       loadEventData();

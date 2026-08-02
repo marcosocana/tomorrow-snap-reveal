@@ -196,6 +196,7 @@ const EventForm = () => {
   const [activeFormStep, setActiveFormStep] = useState<EventFormStep>("general");
   const [maxUnlockedFormStep, setMaxUnlockedFormStep] = useState(0);
   const [savedEditSnapshot, setSavedEditSnapshot] = useState<string | null>(null);
+  const [isSavingHideRevealDate, setIsSavingHideRevealDate] = useState(false);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
   const [pendingLeaveAction, setPendingLeaveAction] = useState<(() => void) | null>(null);
   const allowNavigationRef = useRef(false);
@@ -320,6 +321,53 @@ const EventForm = () => {
     setPendingLeaveAction(null);
     allowNavigationRef.current = true;
     action?.();
+  };
+
+  const handleHideRevealDateChange = async (checked: boolean) => {
+    if (!eventId || isSavingHideRevealDate) return;
+    const previousValue = formData.hideRevealDate;
+    setFormData((current) => ({ ...current, hideRevealDate: checked }));
+    setIsSavingHideRevealDate(true);
+
+    try {
+      const { data, error } = await supabase
+        .from("events")
+        .update({ hide_reveal_date: checked })
+        .eq("id", eventId)
+        .select("id, hide_reveal_date")
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!data || data.hide_reveal_date !== checked) {
+        throw new Error("No se pudo guardar la opción de ocultar la fecha de revelado");
+      }
+
+      setSavedEditSnapshot((currentSnapshot) => {
+        if (!currentSnapshot) return currentSnapshot;
+        try {
+          const snapshot = JSON.parse(currentSnapshot) as {
+            formData: Record<string, unknown>;
+            planType: PlanType;
+          };
+          return JSON.stringify({
+            ...snapshot,
+            formData: { ...snapshot.formData, hideRevealDate: checked },
+          });
+        } catch {
+          return currentSnapshot;
+        }
+      });
+    } catch (error) {
+      console.error("Error saving reveal date visibility:", error);
+      setFormData((current) => ({ ...current, hideRevealDate: previousValue }));
+      toast({
+        title: t("form.errorTitle"),
+        description: "No se pudo guardar la opción de ocultar la fecha de revelado.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingHideRevealDate(false);
+    }
   };
   useBeforeUnload(
     (event) => {
@@ -939,7 +987,7 @@ const EventForm = () => {
       const expiryDateTime = parsedExpiry ? parsedExpiry.toISOString() : null;
 
       if (isEditing && eventId) {
-        const { error } = await supabase
+        const { data: updatedEvent, error } = await supabase
           .from("events")
           .update({
             name: formData.name,
@@ -981,9 +1029,14 @@ const EventForm = () => {
             allow_video_attachment: formData.allowImageAttachment,
             header_style: formData.headerStyle,
           } as any)
-          .eq("id", eventId);
+          .eq("id", eventId)
+          .select("id, hide_reveal_date")
+          .maybeSingle();
 
         if (error) throw error;
+        if (!updatedEvent || updatedEvent.hide_reveal_date !== formData.hideRevealDate) {
+          throw new Error("No se pudo guardar la opción de ocultar la fecha de revelado");
+        }
 
         toast({
           title: t("form.updateTitle"),
@@ -1949,9 +2002,8 @@ const EventForm = () => {
                   <Checkbox
                     id="hideRevealDate"
                     checked={formData.hideRevealDate}
-                    onCheckedChange={(checked) =>
-                      setFormData({ ...formData, hideRevealDate: checked === true })
-                    }
+                    disabled={isSavingHideRevealDate}
+                    onCheckedChange={(checked) => handleHideRevealDateChange(checked === true)}
                   />
                   <Label htmlFor="hideRevealDate" className="cursor-pointer font-normal">
                     {t("form.hideRevealDateLabel")}
@@ -2514,7 +2566,7 @@ const EventForm = () => {
                   <ArrowRight className="w-4 h-4 ml-2" />
                 </Button>
               ) : (
-                <Button type="submit" className="w-full sm:flex-1" disabled={isSubmitting || uploadingImage}>
+                <Button type="submit" className="w-full sm:flex-1" disabled={isSubmitting || uploadingImage || isSavingHideRevealDate}>
                   {uploadingImage
                     ? t("form.uploadingImage")
                     : isSubmitting
