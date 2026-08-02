@@ -114,6 +114,7 @@ const Camera = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [isUploadingMedia, setIsUploadingMedia] = useState(false);
   const [revealTime, setRevealTime] = useState<string>("");
+  const [hideRevealDate, setHideRevealDate] = useState(false);
   const [uploadStartTime, setUploadStartTime] = useState<string>("");
   const [uploadEndTime, setUploadEndTime] = useState<string>("");
   const [customImageUrl, setCustomImageUrl] = useState<string>("");
@@ -266,7 +267,7 @@ const Camera = () => {
     try {
       const { data, error } = await supabase
         .from("events")
-        .select("name, reveal_time, upload_start_time, upload_end_time, password_hash, max_photos, custom_image_url, background_image_url, description, font_family, font_size, show_legal_text, legal_text_type, allow_video_recording, max_videos, max_video_duration, allow_audio_recording, max_audios, max_audio_duration, allow_image_attachment, allow_video_attachment, header_style, is_demo, limits_json")
+        .select("name, reveal_time, hide_reveal_date, upload_start_time, upload_end_time, password_hash, max_photos, custom_image_url, background_image_url, description, font_family, font_size, show_legal_text, legal_text_type, allow_video_recording, max_videos, max_video_duration, allow_audio_recording, max_audios, max_audio_duration, allow_image_attachment, allow_video_attachment, header_style, is_demo, limits_json")
         .eq("id", eventId)
         .single();
       if (data && !error) {
@@ -278,6 +279,7 @@ const Camera = () => {
         setEventName(data.name || "");
         localStorage.setItem("eventName", data.name || "");
         setRevealTime(data.reveal_time);
+        setHideRevealDate(data.hide_reveal_date === true);
         setUploadStartTime(data.upload_start_time || "");
         setUploadEndTime(data.upload_end_time || "");
         setMaxPhotos(data.max_photos ?? null);
@@ -1325,17 +1327,32 @@ const Camera = () => {
       </DialogContent>
     </Dialog>
   );
-  const mediaCountsHeaderText = isPhotoOnlyConfigured
-    ? language === "en"
-    ? `📷 ${photoCount} photos`
-    : language === "it"
-    ? `📷 ${photoCount} foto`
-      : `📷 ${photoCount} fotos`
-    : language === "en"
-    ? `📷 ${photoCount} photos / 📹 ${videoCount} videos / 🔈 ${audioCount} audios`
-    : language === "it"
-    ? `📷 ${photoCount} foto / 📹 ${videoCount} video / 🔈 ${audioCount} audio`
-    : `📷 ${photoCount} fotos / 📹 ${videoCount} vídeos / 🔈 ${audioCount} audios`;
+  const mediaCountParts = [
+    language === "en"
+      ? `📷 ${photoCount} photos`
+      : language === "it"
+      ? `📷 ${photoCount} foto`
+      : `📷 ${photoCount} fotos`,
+  ];
+  if (allowVideoRecording) {
+    mediaCountParts.push(
+      language === "en"
+        ? `📹 ${videoCount} videos`
+        : language === "it"
+        ? `📹 ${videoCount} video`
+        : `📹 ${videoCount} vídeos`
+    );
+  }
+  if (allowAudioRecording) {
+    mediaCountParts.push(
+      language === "en"
+        ? `🔈 ${audioCount} audios`
+        : language === "it"
+        ? `🔈 ${audioCount} audio`
+        : `🔈 ${audioCount} audios`
+    );
+  }
+  const mediaCountsHeaderText = mediaCountParts.join(" / ");
 
   const customEventLogo = customImageUrl ? (
     <div className="flex justify-center py-2">
@@ -1942,9 +1959,9 @@ const Camera = () => {
           <p className="text-primary font-semibold text-sm">{countdown}</p>
         </div>
       )}
-      <p className="text-muted-foreground leading-relaxed">
-        {revealTime && revealInfoText}
-      </p>
+      {!hideRevealDate && revealTime && (
+        <p className="text-muted-foreground leading-relaxed">{revealInfoText}</p>
+      )}
     </div>
   );
   const renderCameraBody = (

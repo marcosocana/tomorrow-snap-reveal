@@ -50,6 +50,7 @@ type AdminEventPayload = {
     upload_start_time: string;
     upload_end_time: string;
     reveal_time: string;
+    hide_reveal_date?: boolean;
     max_photos: number | null;
     custom_image_url?: string | null;
     background_image_url?: string | null;
@@ -325,6 +326,7 @@ serve(async (req) => {
         allow_audio_recording: event.allow_audio_recording ?? false,
         max_audios: event.max_audios ?? null,
         max_audio_duration: event.max_audio_duration ?? 30,
+        hide_reveal_date: event.hide_reveal_date ?? false,
         header_style: event.header_style ?? "modern",
         owner_id: ownerId,
       })

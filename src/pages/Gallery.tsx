@@ -418,6 +418,11 @@ const Gallery = () => {
 
   const loadAudios = useCallback(async () => {
     if (!eventId) return;
+    if (!allowAudioRecording) {
+      setAudios([]);
+      setTotalAudios(0);
+      return;
+    }
     try {
       const { data, error } = await supabase
         .from("audios")
@@ -457,7 +462,7 @@ const Gallery = () => {
     } catch (error) {
       console.error("Error loading audio notes:", error);
     }
-  }, [eventId]);
+  }, [allowAudioRecording, eventId]);
 
   const mixedMedia = useMemo(() => {
     const items: MixedMediaItem[] = [];
@@ -1238,7 +1243,8 @@ const Gallery = () => {
 
       if (photosError) throw photosError;
       if (videosError) throw videosError;
-      if (audiosError) throw audiosError;
+      if (allowAudioRecording && audiosError) throw audiosError;
+      const visibleAudios = allowAudioRecording ? (allAudios || []) : [];
 
       const photoIds = (allPhotos || []).map(p => p.id);
       const { data: likesData } = await supabase
@@ -1266,7 +1272,7 @@ const Gallery = () => {
         return acc;
       }, {});
 
-      const audioIds = (allAudios || []).map((a) => a.id);
+      const audioIds = visibleAudios.map((a) => a.id);
       const { data: audioLikesData } = await supabase
         .from("audio_likes" as any)
         .select("audio_id")
@@ -1308,7 +1314,7 @@ const Gallery = () => {
       );
 
       const audiosWithUrls = await Promise.all(
-        (allAudios || []).map(async (audio) => {
+        visibleAudios.map(async (audio) => {
           const { data: signedData } = await supabase.storage
             .from("event-audios")
             .createSignedUrl(audio.audio_url, 3600);
@@ -1539,7 +1545,8 @@ const Gallery = () => {
 
       if (photosError) throw photosError;
       if (videosError) throw videosError;
-      if (audiosError) throw audiosError;
+      if (allowAudioRecording && audiosError) throw audiosError;
+      const visibleAudios = allowAudioRecording ? (allAudios || []) : [];
 
       const zip = new JSZip();
       let exportedCount = 0;
@@ -1584,8 +1591,8 @@ const Gallery = () => {
         }
       }
 
-      for (let i = 0; i < (allAudios || []).length; i++) {
-        const audio = allAudios![i];
+      for (let i = 0; i < visibleAudios.length; i++) {
+        const audio = visibleAudios[i];
         const { data: signedUrlData } = await supabase.storage
           .from("event-audios")
           .createSignedUrl(audio.audio_url, 3600);

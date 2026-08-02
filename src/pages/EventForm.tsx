@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
@@ -50,6 +51,7 @@ interface Event {
   password_hash: string;
   admin_password: string | null;
   reveal_time: string;
+  hide_reveal_date?: boolean;
   upload_start_time: string | null;
   upload_end_time: string | null;
   max_photos: number | null;
@@ -237,6 +239,7 @@ const EventForm = () => {
       uploadEndTime: initialUploadEndTime,
       revealDate: initialRevealDate,
       revealTime: initialRevealTime,
+      hideRevealDate: false,
       maxPhotos: isDemoMode ? "30" : "",
       customImage: null as File | null,
       customImageUrl: isDemoMode ? defaultDemoLogo : "",
@@ -557,6 +560,7 @@ const EventForm = () => {
         uploadEndTime: format(uploadEndDate, "HH:mm"),
         revealDate: format(revealDate, "yyyy-MM-dd"),
         revealTime: format(revealDate, "HH:mm"),
+        hideRevealDate: event.hide_reveal_date === true,
         maxPhotos: event.max_photos ? event.max_photos.toString() : "",
         customImage: null,
         customImageUrl: event.custom_image_url || "",
@@ -945,6 +949,7 @@ const EventForm = () => {
             upload_start_time: uploadStartDateTime.toISOString(),
             upload_end_time: uploadEndDateTime.toISOString(),
             reveal_time: revealDateTime.toISOString(),
+            hide_reveal_date: formData.hideRevealDate,
             max_photos: isRestrictedAdmin ? 10 : (resolvedMaxPhotos ? parseInt(resolvedMaxPhotos) : null),
             ...(isSuperAdmin ? getPlanPersistence(planType) : {}),
             custom_image_url: customImageUrl,
@@ -996,6 +1001,7 @@ const EventForm = () => {
             upload_start_time: uploadStartDateTime.toISOString(),
             upload_end_time: uploadEndDateTime.toISOString(),
             reveal_time: revealDateTime.toISOString(),
+            hide_reveal_date: formData.hideRevealDate,
             max_photos: resolvedMaxPhotos ? parseInt(resolvedMaxPhotos) : null,
             custom_image_url: customImageUrl,
             background_image_url: backgroundImageUrl,
@@ -1082,6 +1088,7 @@ const EventForm = () => {
           upload_start_time: uploadStartDateTime.toISOString(),
           upload_end_time: uploadEndDateTime.toISOString(),
           reveal_time: revealDateTime.toISOString(),
+          hide_reveal_date: formData.hideRevealDate,
           max_photos: resolvedMaxPhotos ? parseInt(resolvedMaxPhotos) : (isDemoMode ? 30 : null),
           custom_image_url: customImageUrl,
           background_image_url: backgroundImageUrl,
@@ -1936,6 +1943,20 @@ const EventForm = () => {
                     return formatInTimeZone(revealUtc, spainTz, "dd/MM/yyyy HH:mm");
                   })()}
                 </p>
+              )}
+              {isEditing && (
+                <div className="flex items-center gap-2 pt-1">
+                  <Checkbox
+                    id="hideRevealDate"
+                    checked={formData.hideRevealDate}
+                    onCheckedChange={(checked) =>
+                      setFormData({ ...formData, hideRevealDate: checked === true })
+                    }
+                  />
+                  <Label htmlFor="hideRevealDate" className="cursor-pointer font-normal">
+                    {t("form.hideRevealDateLabel")}
+                  </Label>
+                </div>
               )}
             </div>
 
