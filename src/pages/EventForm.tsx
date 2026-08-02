@@ -8,7 +8,6 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
@@ -1952,15 +1951,17 @@ const EventForm = () => {
               )}
               {isEditing && (
                 <div className="flex items-center gap-2 pt-1">
-                  <Checkbox
+                  <input
                     id="hideRevealDate"
+                    type="checkbox"
                     checked={formData.hideRevealDate}
-                    onCheckedChange={(checked) =>
+                    onChange={(event) =>
                       setFormData((current) => ({
                         ...current,
-                        hideRevealDate: checked === true,
+                        hideRevealDate: event.target.checked,
                       }))
                     }
+                    className="h-5 w-5 cursor-pointer rounded border border-input accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                   />
                   <Label htmlFor="hideRevealDate" className="cursor-pointer font-normal">
                     {t("form.hideRevealDateLabel")}
