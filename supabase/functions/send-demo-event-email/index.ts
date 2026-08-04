@@ -57,13 +57,14 @@ serve(async (req) => {
     return json({ error: "Missing RESEND_API_KEY or FROM_EMAIL" }, 500);
   }
 
-  const { event, contactInfo, qrUrl, eventType, planLabel, lang } = (await req.json()) as {
+  const { event, contactInfo, qrUrl, eventType, planLabel, lang, authMethod } = (await req.json()) as {
     event?: DemoEvent;
     contactInfo?: ContactInfo;
     qrUrl?: string | null;
     eventType?: "demo" | "paid";
     planLabel?: string | null;
     lang?: EmailLang;
+    authMethod?: "google" | "password";
   };
 
   if (!event || !contactInfo?.email) {
@@ -106,6 +107,7 @@ serve(async (req) => {
   };
 
   const isDemo = eventType !== "paid";
+  const usesGoogle = authMethod === "google";
   const t = {
     es: {
       subjectDemo: "Tu evento de prueba en Revelao",
@@ -134,6 +136,7 @@ serve(async (req) => {
       userLabel: "Usuario",
       passwordLabel: "Contraseña",
       credentialsHint: "Guarda estos datos. Los necesitarás para entrar en la gestión del evento.",
+      googleCredentialsHint: "Esta demo está vinculada a tu cuenta de Google. Entra usando el botón Continuar con Google.",
       demoNote: "Gracias por contar con Revelao.",
       paidTitle: "Evento de pago",
       paidText: "Gracias por contar con Revelao.",
@@ -166,6 +169,7 @@ serve(async (req) => {
       userLabel: "User",
       passwordLabel: "Password",
       credentialsHint: "Save these details. You will need them to manage your event.",
+      googleCredentialsHint: "This demo is linked to your Google account. Sign in using the Continue with Google button.",
       demoNote: "Thanks for choosing Revelao.",
       paidTitle: "Paid event",
       paidText: "Thanks for choosing Revelao.",
@@ -198,6 +202,7 @@ serve(async (req) => {
       userLabel: "Utente",
       passwordLabel: "Password",
       credentialsHint: "Conserva questi dati. Ti serviranno per gestire l’evento.",
+      googleCredentialsHint: "Questa demo è collegata al tuo account Google. Accedi con il pulsante Continua con Google.",
       demoNote: "Grazie per aver scelto Revelao.",
       paidTitle: "Evento a pagamento",
       paidText: "Grazie per aver scelto Revelao.",
@@ -242,8 +247,8 @@ serve(async (req) => {
             ? `<div style="margin: 0 0 16px; padding: 16px; background: #ffffff; border: 2px solid #f06a5f; border-radius: 10px;">
                 <p style="font-size: 16px; font-weight: 700; margin: 0 0 12px;">${t.credentialsTitle}</p>
                 <p style="margin: 6px 0;"><strong>${t.userLabel}:</strong> <span style="font-family: monospace;">${escapeHtml(credentialEmail)}</span></p>
-                <p style="margin: 6px 0;"><strong>${t.passwordLabel}:</strong> <span style="font-family: monospace; font-size: 18px; font-weight: 800; letter-spacing: 2px;">${escapeHtml(event.admin_password)}</span></p>
-                <p style="font-size: 12px; color: #666; margin: 10px 0 0;">${t.credentialsHint}</p>
+                ${usesGoogle ? "" : `<p style="margin: 6px 0;"><strong>${t.passwordLabel}:</strong> <span style="font-family: monospace; font-size: 18px; font-weight: 800; letter-spacing: 2px;">${escapeHtml(event.admin_password)}</span></p>`}
+                <p style="font-size: 12px; color: #666; margin: 10px 0 0;">${usesGoogle ? t.googleCredentialsHint : t.credentialsHint}</p>
               </div>`
             : ""
         }

@@ -17,6 +17,8 @@ import { Language } from "@/lib/translations";
 import { EventFontFamily, FONT_OPTIONS, getFontById, loadGoogleFont } from "@/lib/eventFonts";
 import { FilterType, FILTER_LABELS, FILTER_ORDER, getFilterClass } from "@/lib/photoFilters";
 import weddingPreview from "@/assets/testimonial-wedding.jpg";
+import GoogleSignInButton from "@/components/GoogleSignInButton";
+import { signInWithGooglePopup } from "@/lib/googleOAuth";
 
 type StepId = "name" | "place" | "upload" | "reveal" | "style" | "contact";
 
@@ -79,6 +81,8 @@ const PublicDemoEventWizard = () => {
   const [stepIndex, setStepIndex] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [googleAuthenticatedEmail, setGoogleAuthenticatedEmail] = useState("");
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -98,6 +102,8 @@ const PublicDemoEventWizard = () => {
     contactName: "",
     contactEmail: "",
     contactPhone: "",
+    password: "",
+    passwordConfirm: "",
   });
 
   const currentStep = steps[stepIndex];
@@ -116,21 +122,30 @@ const PublicDemoEventWizard = () => {
   useEffect(() => {
     let mounted = true;
 
-    const syncAuthenticatedUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+    const applyAuthenticatedUser = (session: Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"]) => {
+      const user = session?.user;
       if (!mounted) return;
       const email = user?.email?.trim().toLowerCase() || "";
+      const isGoogle = user?.app_metadata?.provider === "google";
       if (email) {
-        setFormData((previous) => previous.contactEmail ? previous : { ...previous, contactEmail: email });
+        const name = String(user?.user_metadata?.full_name || user?.user_metadata?.name || "").trim();
+        setFormData((previous) => ({
+          ...previous,
+          contactEmail: isGoogle ? email : previous.contactEmail || email,
+          contactName: previous.contactName || name,
+        }));
       }
+      setGoogleAuthenticatedEmail(isGoogle ? email : "");
+    };
+
+    const syncAuthenticatedUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      applyAuthenticatedUser(session);
     };
 
     void syncAuthenticatedUser();
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      const email = session?.user.email?.trim().toLowerCase() || "";
-      if (email) {
-        setFormData((previous) => previous.contactEmail ? previous : { ...previous, contactEmail: email });
-      }
+      applyAuthenticatedUser(session);
     });
 
     return () => {
@@ -149,6 +164,35 @@ const PublicDemoEventWizard = () => {
       description,
       variant: "destructive",
     });
+  };
+
+  const isGoogleConnected = Boolean(
+    googleAuthenticatedEmail &&
+    googleAuthenticatedEmail === formData.contactEmail.trim().toLowerCase(),
+  );
+
+  const handleGoogleLogin = async () => {
+    setIsGoogleLoading(true);
+    try {
+      const profile = await signInWithGooglePopup(window.location.pathname);
+      setGoogleAuthenticatedEmail(profile.email);
+      setFormData((previous) => ({
+        ...previous,
+        contactEmail: profile.email,
+        contactName: previous.contactName || profile.name,
+        password: "",
+        passwordConfirm: "",
+      }));
+    } catch (error) {
+      console.error("Error connecting Google account:", error);
+      toast({
+        title: "No se pudo acceder con Google",
+        description: "Comprueba que las ventanas emergentes estén permitidas e inténtalo de nuevo.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGoogleLoading(false);
+    }
   };
 
   const validateStep = (step: StepId) => {
@@ -189,6 +233,14 @@ const PublicDemoEventWizard = () => {
         showError("Introduce un email válido.");
         return false;
       }
+      if (!isGoogleConnected && formData.password.length < 8) {
+        showError("La contraseña debe tener al menos 8 caracteres.");
+        return false;
+      }
+      if (!isGoogleConnected && formData.password !== formData.passwordConfirm) {
+        showError("Las contraseñas no coinciden.");
+        return false;
+      }
     }
     if (step === "style" && !formData.backgroundImage) {
       showError("Sube una imagen de fondo para continuar.");
@@ -213,7 +265,8 @@ const PublicDemoEventWizard = () => {
       return (
         !!formData.contactName.trim() &&
         /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.contactEmail.trim()) &&
-        !!formData.contactPhone.trim()
+        !!formData.contactPhone.trim() &&
+        (isGoogleConnected || (formData.password.length >= 8 && formData.password === formData.passwordConfirm))
       );
     }
     return false;
@@ -341,24 +394,27 @@ const PublicDemoEventWizard = () => {
       const customImageUrl = DEFAULT_LOGO_URL;
       const backgroundImageUrl = formData.backgroundImage ? await handleImageUpload(formData.backgroundImage) : "";
       const normalizedContactEmail = formData.contactEmail.trim().toLowerCase();
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
-      const currentUserEmail = currentUser?.email?.trim().toLowerCase() || "";
+      const { data: { session } } = await supabase.auth.getSession();
+      const currentUserEmail = session?.user.email?.trim().toLowerCase() || "";
       const useAuthenticatedUser = Boolean(
-        currentUserEmail && currentUserEmail === normalizedContactEmail,
+        isGoogleConnected && currentUserEmail && currentUserEmail === normalizedContactEmail,
       );
+      const managementPassword = useAuthenticatedUser
+        ? generatedPasswords.adminPassword
+        : formData.password;
 
       const { data: createResult, error: createError } = await supabase.functions.invoke("create-demo-event", {
         body: {
           contactName: formData.contactName.trim(),
           contactEmail: normalizedContactEmail,
-          password: generatedPasswords.adminPassword,
+          password: managementPassword,
           phone: formData.contactPhone.trim(),
           marketingConsent: true,
           useAuthenticatedUser,
           event: {
             name: formData.name.trim(),
             password_hash: generatedPasswords.password,
-            admin_password: generatedPasswords.adminPassword,
+            admin_password: managementPassword,
             upload_start_time: uploadStartDateTime.toISOString(),
             upload_end_time: uploadEndDateTime.toISOString(),
             reveal_time: revealDateTime.toISOString(),
@@ -426,13 +482,20 @@ const PublicDemoEventWizard = () => {
             email: formData.contactEmail.trim(),
             phone: formData.contactPhone.trim(),
           },
+          authMethod: useAuthenticatedUser ? "google" : "password",
         },
       });
     } catch (error) {
       console.error("Error creating demo event:", error);
+      const errorCode = error instanceof Error ? error.message : "";
+      const description = errorCode.includes("INVALID_CREDENTIALS")
+        ? "Ese email ya tiene una cuenta. Introduce su contraseña correcta o continúa con Google."
+        : errorCode.includes("UNAUTHORIZED")
+          ? "La sesión de Google ha caducado. Vuelve a acceder con Google."
+          : "No se pudo crear el evento.";
       toast({
         title: "Error",
-        description: "No se pudo crear el evento.",
+        description,
         variant: "destructive",
       });
     } finally {
@@ -676,6 +739,19 @@ const PublicDemoEventWizard = () => {
       case "contact":
         return (
           <div className="space-y-5">
+            <div className="space-y-4">
+              <GoogleSignInButton
+                onClick={handleGoogleLogin}
+                loading={isGoogleLoading}
+                disabled={isSubmitting}
+                label={isGoogleConnected ? `Conectado: ${googleAuthenticatedEmail}` : "Continuar con Google"}
+              />
+              <div className="flex items-center gap-3 text-xs uppercase tracking-wider text-muted-foreground">
+                <div className="h-px flex-1 bg-border" />
+                <span>{isGoogleConnected ? "Cuenta de Google conectada" : "o crea tu acceso con email"}</span>
+                <div className="h-px flex-1 bg-border" />
+              </div>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="contactName" className="flex items-center gap-1.5">
                 Tu nombre
@@ -688,7 +764,7 @@ const PublicDemoEventWizard = () => {
                 Email
                 <RequiredMark />
               </Label>
-              <Input id="contactEmail" type="email" value={formData.contactEmail} onChange={(event) => update("contactEmail", event.target.value)} placeholder="tu@email.com" className="h-12 rounded-full px-4 text-base" />
+              <Input id="contactEmail" type="email" value={formData.contactEmail} onChange={(event) => update("contactEmail", event.target.value)} placeholder="tu@email.com" className="h-12 rounded-full px-4 text-base" readOnly={isGoogleConnected} autoComplete="email" />
             </div>
             <div className="space-y-2">
               <Label htmlFor="contactPhone" className="flex items-center gap-1.5">
@@ -697,6 +773,42 @@ const PublicDemoEventWizard = () => {
               </Label>
               <Input id="contactPhone" type="tel" value={formData.contactPhone} onChange={(event) => update("contactPhone", event.target.value)} placeholder="+34 600 000 000" className="h-12 rounded-full px-4 text-base" />
             </div>
+            {!isGoogleConnected ? (
+              <div className="grid gap-5 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="password" className="flex items-center gap-1.5">
+                    Contraseña
+                    <RequiredMark />
+                  </Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={formData.password}
+                    onChange={(event) => update("password", event.target.value)}
+                    placeholder="Mínimo 8 caracteres"
+                    className="h-12 rounded-full px-4 text-base"
+                    autoComplete="new-password"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="passwordConfirm" className="flex items-center gap-1.5">
+                    Repetir contraseña
+                    <RequiredMark />
+                  </Label>
+                  <Input
+                    id="passwordConfirm"
+                    type="password"
+                    value={formData.passwordConfirm}
+                    onChange={(event) => update("passwordConfirm", event.target.value)}
+                    placeholder="Repite la contraseña"
+                    className="h-12 rounded-full px-4 text-base"
+                    autoComplete="new-password"
+                    required
+                  />
+                </div>
+              </div>
+            ) : null}
             <p className="text-sm text-muted-foreground">
               Al crear la demo te llevaremos al resumen del evento con el enlace de acceso.
             </p>

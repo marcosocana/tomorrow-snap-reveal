@@ -149,6 +149,7 @@ serve(async (req) => {
     const existingAuthUser = await findAuthUserByEmail(supabaseAdmin, email);
 
     let userId = useAuthenticatedUser ? authenticatedUser?.id ?? null : existingAuthUser?.id || null;
+    let createdNewUser = false;
 
     if (!userId) {
       const { data: newUser, error: createUserError } =
@@ -176,6 +177,21 @@ serve(async (req) => {
 
       if (!userId) {
         userId = newUser!.user!.id;
+        createdNewUser = true;
+      }
+    }
+
+    // An existing email/password account must prove ownership before a demo
+    // can be attached to it. This runs after user creation so it also covers
+    // the race where createUser reports that the address already exists.
+    if (!useAuthenticatedUser && !createdNewUser) {
+      const credentialClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      const { data: credentialData, error: credentialError } = await credentialClient.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (credentialError || credentialData.user?.id !== userId) {
+        return json({ error: "INVALID_CREDENTIALS" }, 401);
       }
     }
 
@@ -195,8 +211,12 @@ serve(async (req) => {
       return json({ error: "READ_MANAGEMENT_PASSWORD_FAILED", detail: firstDemoError.message }, 500);
     }
 
-    const managementPassword = firstDemo?.admin_password?.trim()
-      || (useAuthenticatedUser ? event.admin_password : password);
+    // For email/password access, the password chosen in the form is the real
+    // Supabase Auth password and therefore the credential shown in the email.
+    // Google users do not receive password credentials.
+    const managementPassword = useAuthenticatedUser
+      ? firstDemo?.admin_password?.trim() || event.admin_password
+      : password;
 
     const { error: profileError } = await supabaseAdmin
       .from("user_profiles")
@@ -277,6 +297,8 @@ serve(async (req) => {
     return json({
       userId,
       event: createdEvent,
+      authMethod: useAuthenticatedUser ? "google" : "password",
+      createdNewUser,
     });
   } catch (error) {
     console.error("create-demo-event error:", error);

@@ -28,6 +28,7 @@ import Register from "./pages/Register";
 import { CaptainsAdminDetail, CaptainsAdminForm, CaptainsAdminList, CaptainsOnboarding } from "./pages/CaptainsAdmin";
 import CaptainsPublic from "./pages/CaptainsPublic";
 import LiveSlideshow from "./pages/LiveSlideshow";
+import OAuthCallback from "./pages/OAuthCallback";
 
 const queryClient = new QueryClient();
 
@@ -171,6 +172,7 @@ const App = () => {
               <Route path="/admin-login" element={<AdminLogin />} />
               <Route path="/register" element={<Register />} />
               <Route path="/reset-password" element={<AdminResetPassword />} />
+              <Route path="/auth/callback" element={<OAuthCallback />} />
               <Route path="/event-management" element={<EventManagement />} />
               <Route path="/event-form" element={<EventForm />} />
               <Route path="/event-form/:eventId" element={<EventForm />} />

@@ -7,6 +7,8 @@ const summary = read("src/pages/DemoEventSummary.tsx");
 const login = read("src/pages/AdminLogin.tsx");
 const createFunction = read("supabase/functions/create-demo-event/index.ts");
 const emailFunction = read("supabase/functions/send-demo-event-email/index.ts");
+const googleOAuth = read("src/lib/googleOAuth.ts");
+const oauthCallback = read("src/pages/OAuthCallback.tsx");
 
 assert.match(wizard, /adminPassword: generateAlphanumericPassword\(8\)/);
 assert.match(wizard, /functions\.invoke\("create-demo-event"/);
@@ -20,5 +22,13 @@ assert.match(createFunction, /firstDemo\?\.admin_password\?\.trim\(\)/);
 assert.match(summary, /Datos para gestionar tu evento[\s\S]*Usuario[\s\S]*credentialEmail[\s\S]*Contraseña[\s\S]*event\.admin_password[\s\S]*Gestionar evento/);
 assert.match(emailFunction, /isDemo[\s\S]*credentialsTitle[\s\S]*credentialEmail[\s\S]*event\.admin_password[\s\S]*manageButton/);
 assert.match(login, /if \(prefEmail\)[\s\S]*setEmail\(prefEmail\)/);
+assert.match(wizard, /passwordConfirm/);
+assert.match(wizard, /formData\.password\.length >= 8[\s\S]*formData\.password === formData\.passwordConfirm/);
+assert.match(wizard, /GoogleSignInButton/);
+assert.match(login, /GoogleSignInButton/);
+assert.match(createFunction, /signInWithPassword\([\s\S]*INVALID_CREDENTIALS/);
+assert.match(emailFunction, /authMethod[\s\S]*usesGoogle/);
+assert.match(googleOAuth, /provider: "google"[\s\S]*skipBrowserRedirect: true/);
+assert.match(oauthCallback, /GOOGLE_OAUTH_MESSAGE[\s\S]*window\.opener\.postMessage/);
 
-console.log("Demo event credentials audit passed (12 checks).");
+console.log("Demo event credentials audit passed (20 checks).");

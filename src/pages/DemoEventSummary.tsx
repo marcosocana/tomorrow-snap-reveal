@@ -41,6 +41,7 @@ const DemoEventSummary = () => {
   const contactInfo = location.state?.contactInfo as
     | { email?: string; phone?: string }
     | undefined;
+  const authMethod = location.state?.authMethod === "google" ? "google" : "password";
 
   const eventUrl = event ? `https://acceso.revelao.cam/events/${event.password_hash}` : "";
   const slideshowUrl = event ? `${window.location.origin}/slideshow/${event.id}` : "";
@@ -127,6 +128,7 @@ const DemoEventSummary = () => {
             eventType: "demo",
             planLabel: "Demo",
             lang,
+            authMethod,
           },
         });
         localStorage.setItem(sentKey, "1");
@@ -138,7 +140,7 @@ const DemoEventSummary = () => {
     }, 1500);
 
     return () => window.clearTimeout(timer);
-  }, [event, contactInfo, qrImageUrl, isSendingEmail, lang]);
+  }, [event, contactInfo, qrImageUrl, isSendingEmail, lang, authMethod]);
 
   // Keep all hooks unconditional before redirecting when navigation state is missing.
   if (!event) {
@@ -311,17 +313,25 @@ const DemoEventSummary = () => {
                     {copiedField === "admin-email" ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                   </Button>
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Contraseña</p>
-                    <p className="font-mono text-lg font-black tracking-widest text-foreground">{event.admin_password}</p>
+                {authMethod === "password" ? (
+                  <div className="flex items-center gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Contraseña</p>
+                      <p className="font-mono text-lg font-black tracking-widest text-foreground">{event.admin_password}</p>
+                    </div>
+                    <Button variant="outline" size="icon" className="shrink-0 rounded-full" onClick={() => copyToClipboard(event.admin_password, "admin-password")} aria-label="Copiar contraseña">
+                      {copiedField === "admin-password" ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                    </Button>
                   </div>
-                  <Button variant="outline" size="icon" className="shrink-0 rounded-full" onClick={() => copyToClipboard(event.admin_password, "admin-password")} aria-label="Copiar contraseña">
-                    {copiedField === "admin-password" ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                  </Button>
-                </div>
+                ) : (
+                  <p className="text-sm font-medium text-foreground">Accede utilizando el botón “Continuar con Google”.</p>
+                )}
               </div>
-              <p className="text-xs text-muted-foreground">Guarda estos datos. Los necesitarás para acceder a la gestión del evento.</p>
+              <p className="text-xs text-muted-foreground">
+                {authMethod === "google"
+                  ? "Esta demo está vinculada a tu cuenta de Google."
+                  : "Guarda estos datos. Los necesitarás para acceder a la gestión del evento."}
+              </p>
             </div>
             <p className="text-muted-foreground">
               Entra en{" "}
