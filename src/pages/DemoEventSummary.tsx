@@ -222,6 +222,10 @@ const DemoEventSummary = () => {
 
           {/* QR Code */}
           <div className="flex flex-col items-center gap-4 py-4">
+            <div className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-amber-300 bg-amber-50 p-4 text-center text-base font-bold text-amber-950 sm:text-lg">
+              <Smartphone className="h-5 w-5 shrink-0 text-amber-700" />
+              <p>{t("summary.qrTryNow")}</p>
+            </div>
             <div ref={qrRef} className="bg-white p-4 rounded-lg shadow-sm">
               {qrFromState ? (
                 <img
@@ -247,22 +251,20 @@ const DemoEventSummary = () => {
               <Download className="w-4 h-4" />
               {t("summary.qrDownload")}
             </Button>
-            <div className="w-full space-y-3 rounded-2xl border-2 border-[#f06a5f]/35 bg-[#f06a5f]/10 p-4 text-center">
-              <div className="flex items-center justify-center gap-2 text-base font-bold text-foreground sm:text-lg">
-                <Smartphone className="h-5 w-5 shrink-0 text-[#f06a5f]" />
-                <p>{t("summary.qrTryNow")}</p>
-              </div>
-              <div className="flex items-center justify-center gap-2 text-sm font-semibold text-[#b7433a] sm:text-base">
-                <Timer className="h-5 w-5 shrink-0" />
-                <p>
-                  {remainingMinutes > 0
+            <div className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-amber-300 bg-amber-50 p-4 text-center text-sm font-semibold text-amber-900 sm:text-base">
+              <Timer className="h-5 w-5 shrink-0 text-amber-700" />
+              <p>
+                {remainingMinutes > 0
+                  ? remainingHours > 0
                     ? t("summary.revealCountdown", {
                         hours: remainingHours,
                         minutes: remainingMinuteRemainder,
                       })
-                    : t("summary.revealedNow")}
-                </p>
-              </div>
+                    : t("summary.revealCountdownMinutes", {
+                        minutes: remainingMinuteRemainder,
+                      })
+                  : t("summary.revealedNow")}
+              </p>
             </div>
           </div>
 
