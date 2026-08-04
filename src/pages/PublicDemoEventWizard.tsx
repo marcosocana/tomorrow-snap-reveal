@@ -12,7 +12,6 @@ import { addDays, format } from "date-fns";
 import { fromZonedTime, formatInTimeZone } from "date-fns-tz";
 import CountrySelect from "@/components/CountrySelect";
 import LanguageSelect from "@/components/LanguageSelect";
-import EventPreview from "@/components/EventPreview";
 import { Language } from "@/lib/translations";
 import { EventFontFamily, FONT_OPTIONS, getFontById, loadGoogleFont } from "@/lib/eventFonts";
 import { FilterType, FILTER_LABELS, FILTER_ORDER, getFilterClass } from "@/lib/photoFilters";
@@ -725,7 +724,7 @@ const PublicDemoEventWizard = () => {
 
   return (
     <main className="min-h-screen bg-background">
-      <div className="mx-auto flex min-h-screen w-full max-w-5xl flex-col px-4 py-5 sm:px-6 lg:grid lg:grid-cols-[1fr_320px] lg:gap-8 lg:py-8">
+      <div className="mx-auto flex min-h-screen w-full max-w-5xl flex-col px-4 py-5 sm:px-6 lg:py-8">
         <section className="flex flex-1 flex-col">
           <div className="mb-5 space-y-3">
             <div className="flex justify-center sm:justify-start">
@@ -794,20 +793,6 @@ const PublicDemoEventWizard = () => {
           </form>
         </section>
 
-        <aside className="mt-6 hidden lg:block">
-          <div className="sticky top-6 rounded-lg border border-border bg-card p-4">
-            <EventPreview
-              eventName={formData.name}
-              description={formData.description}
-              fontFamily={formData.fontFamily}
-              fontSize="text-3xl"
-              backgroundImageUrl={backgroundPreview}
-              customImageUrl={DEFAULT_LOGO_URL}
-              filterType={formData.filterType}
-              language={formData.language}
-            />
-          </div>
-        </aside>
       </div>
     </main>
   );
