@@ -6,9 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, ArrowRight, Asterisk, Check, ImagePlus, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Asterisk, CalendarClock, Check, ImagePlus, Trash2, Zap } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
-import { addDays, format } from "date-fns";
+import { addDays, addMinutes, format, subMinutes } from "date-fns";
 import { fromZonedTime, formatInTimeZone } from "date-fns-tz";
 import CountrySelect from "@/components/CountrySelect";
 import LanguageSelect from "@/components/LanguageSelect";
@@ -18,6 +18,7 @@ import { FilterType, FILTER_LABELS, FILTER_ORDER, getFilterClass } from "@/lib/p
 import weddingPreview from "@/assets/testimonial-wedding.jpg";
 
 type StepId = "name" | "place" | "upload" | "reveal" | "style" | "contact";
+type DemoTiming = "now" | "scheduled";
 
 const steps: Array<{ id: StepId; label: string }> = [
   { id: "name", label: "Evento" },
@@ -49,6 +50,7 @@ const PublicDemoEventWizard = () => {
   const { toast } = useToast();
   const generatedEventPassword = useMemo(generateHash, []);
   const [stepIndex, setStepIndex] = useState(0);
+  const [demoTiming, setDemoTiming] = useState<DemoTiming | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [formData, setFormData] = useState({
@@ -78,6 +80,25 @@ const PublicDemoEventWizard = () => {
   const progress = Math.round(((stepIndex + 1) / steps.length) * 100);
   const backgroundPreview = formData.backgroundImage ? URL.createObjectURL(formData.backgroundImage) : undefined;
   const selectedFont = getFontById(formData.fontFamily);
+  const revealStepIndex = steps.findIndex((step) => step.id === "reveal");
+
+  const selectTryNow = () => {
+    const now = new Date();
+    const suggestedReveal = addMinutes(now, 31);
+    suggestedReveal.setSeconds(0, 0);
+    const suggestedUploadEnd = subMinutes(suggestedReveal, 1);
+    setFormData((previous) => ({
+      ...previous,
+      uploadStartDate: formatInTimeZone(now, previous.timezone, "yyyy-MM-dd"),
+      uploadStartTime: formatInTimeZone(now, previous.timezone, "HH:mm"),
+      uploadEndDate: formatInTimeZone(suggestedUploadEnd, previous.timezone, "yyyy-MM-dd"),
+      uploadEndTime: formatInTimeZone(suggestedUploadEnd, previous.timezone, "HH:mm"),
+      revealDate: formatInTimeZone(suggestedReveal, previous.timezone, "yyyy-MM-dd"),
+      revealTime: formatInTimeZone(suggestedReveal, previous.timezone, "HH:mm"),
+    }));
+    setDemoTiming("now");
+    setStepIndex(revealStepIndex);
+  };
 
   useEffect(() => {
     FONT_OPTIONS.forEach((font) => {
@@ -131,12 +152,17 @@ const PublicDemoEventWizard = () => {
       return false;
     }
     if (step === "upload") {
+      if (!demoTiming) {
+        showError("Elige si quieres probar la demo ahora o programarla.");
+        return false;
+      }
+      if (demoTiming === "now") return true;
       if (!formData.uploadStartDate || !formData.uploadStartTime || !formData.uploadEndDate || !formData.uploadEndTime) {
         showError("Indica cuándo se podrán subir fotos.");
         return false;
       }
-      const start = new Date(`${formData.uploadStartDate}T${formData.uploadStartTime}`);
-      const end = new Date(`${formData.uploadEndDate}T${formData.uploadEndTime}`);
+      const start = fromZonedTime(`${formData.uploadStartDate}T${formData.uploadStartTime}:00`, formData.timezone);
+      const end = fromZonedTime(`${formData.uploadEndDate}T${formData.uploadEndTime}:00`, formData.timezone);
       if (end <= start) {
         showError("La fecha final debe ser posterior a la fecha de inicio.");
         return false;
@@ -147,8 +173,15 @@ const PublicDemoEventWizard = () => {
         showError("Indica cuándo se revelarán las fotos.");
         return false;
       }
-      const uploadEnd = new Date(`${formData.uploadEndDate}T${formData.uploadEndTime}`);
-      const reveal = new Date(`${formData.revealDate}T${formData.revealTime}`);
+      const reveal = fromZonedTime(`${formData.revealDate}T${formData.revealTime}:00`, formData.timezone);
+      if (demoTiming === "now") {
+        if (reveal <= addMinutes(new Date(), 1)) {
+          showError("Elige un revelado con al menos unos minutos de margen para poder probar la subida de contenido.");
+          return false;
+        }
+        return true;
+      }
+      const uploadEnd = fromZonedTime(`${formData.uploadEndDate}T${formData.uploadEndTime}:00`, formData.timezone);
       if (reveal < uploadEnd) {
         showError("El revelado debe ser después del periodo de subida.");
         return false;
@@ -183,12 +216,18 @@ const PublicDemoEventWizard = () => {
     if (step === "name") return !!formData.name.trim();
     if (step === "place") return !!formData.countryCode && !!formData.language;
     if (step === "upload") {
+      if (demoTiming === "now") return true;
+      if (demoTiming !== "scheduled") return false;
       if (!formData.uploadStartDate || !formData.uploadStartTime || !formData.uploadEndDate || !formData.uploadEndTime) return false;
-      return new Date(`${formData.uploadEndDate}T${formData.uploadEndTime}`) > new Date(`${formData.uploadStartDate}T${formData.uploadStartTime}`);
+      return fromZonedTime(`${formData.uploadEndDate}T${formData.uploadEndTime}:00`, formData.timezone) >
+        fromZonedTime(`${formData.uploadStartDate}T${formData.uploadStartTime}:00`, formData.timezone);
     }
     if (step === "reveal") {
       if (!formData.revealDate || !formData.revealTime) return false;
-      return new Date(`${formData.revealDate}T${formData.revealTime}`) >= new Date(`${formData.uploadEndDate}T${formData.uploadEndTime}`);
+      const reveal = fromZonedTime(`${formData.revealDate}T${formData.revealTime}:00`, formData.timezone);
+      if (demoTiming === "now") return reveal > addMinutes(new Date(), 1);
+      const uploadEnd = fromZonedTime(`${formData.uploadEndDate}T${formData.uploadEndTime}:00`, formData.timezone);
+      return reveal >= uploadEnd;
     }
     if (step === "style") return !!formData.fontFamily && !!formData.filterType && !!formData.backgroundImage;
     if (step === "contact") {
@@ -315,13 +354,21 @@ const PublicDemoEventWizard = () => {
   };
 
   const handleSubmit = async () => {
+    if (!validateStep("reveal")) {
+      setStepIndex(revealStepIndex);
+      return;
+    }
     if (!validateStep("contact")) return;
     setIsSubmitting(true);
     try {
       const eventTz = formData.timezone;
-      const uploadStartDateTime = fromZonedTime(`${formData.uploadStartDate}T${formData.uploadStartTime}:00`, eventTz);
-      const uploadEndDateTime = fromZonedTime(`${formData.uploadEndDate}T${formData.uploadEndTime}:00`, eventTz);
       const revealDateTime = fromZonedTime(`${formData.revealDate}T${formData.revealTime}:00`, eventTz);
+      const uploadStartDateTime = demoTiming === "now"
+        ? new Date()
+        : fromZonedTime(`${formData.uploadStartDate}T${formData.uploadStartTime}:00`, eventTz);
+      const uploadEndDateTime = demoTiming === "now"
+        ? subMinutes(revealDateTime, 1)
+        : fromZonedTime(`${formData.uploadEndDate}T${formData.uploadEndTime}:00`, eventTz);
       const customImageUrl = DEFAULT_LOGO_URL;
       const backgroundImageUrl = formData.backgroundImage ? await handleImageUpload(formData.backgroundImage) : "";
       const normalizedContactEmail = formData.contactEmail.trim().toLowerCase();
@@ -512,6 +559,48 @@ const PublicDemoEventWizard = () => {
       case "upload":
         return (
           <div className="space-y-5">
+            <div className="space-y-3">
+              <div>
+                <p className="font-medium text-foreground">¿Cómo quieres probar la demo?</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Puedes empezar ahora mismo o dejarla programada para más adelante.
+                </p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={selectTryNow}
+                  className={`rounded-xl border p-4 text-left transition-colors ${
+                    demoTiming === "now"
+                      ? "border-[#f06a5f] bg-[#f06a5f]/10"
+                      : "border-border bg-background hover:border-[#f06a5f]/60"
+                  }`}
+                >
+                  <Zap className="mb-3 h-5 w-5 text-[#f06a5f]" />
+                  <span className="block font-semibold">Probar ahora</span>
+                  <span className="mt-1 block text-sm text-muted-foreground">
+                    Empieza al crear la demo y sube contenido hasta un minuto antes del revelado.
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDemoTiming("scheduled")}
+                  className={`rounded-xl border p-4 text-left transition-colors ${
+                    demoTiming === "scheduled"
+                      ? "border-[#f06a5f] bg-[#f06a5f]/10"
+                      : "border-border bg-background hover:border-[#f06a5f]/60"
+                  }`}
+                >
+                  <CalendarClock className="mb-3 h-5 w-5 text-[#f06a5f]" />
+                  <span className="block font-semibold">Programar la demo</span>
+                  <span className="mt-1 block text-sm text-muted-foreground">
+                    Elige las fechas y horas de inicio y fin de la subida.
+                  </span>
+                </button>
+              </div>
+            </div>
+            {demoTiming === "scheduled" ? (
+              <>
             <div className="space-y-2">
               <div className="grid grid-cols-2 gap-1.5 sm:gap-3">
                 <Label htmlFor="uploadStartDate" className="flex items-center gap-1.5">
@@ -549,6 +638,8 @@ const PublicDemoEventWizard = () => {
                 En España: {spainTime(formData.uploadStartDate, formData.uploadStartTime)} - {spainTime(formData.uploadEndDate, formData.uploadEndTime)}
               </p>
             ) : null}
+              </>
+            ) : null}
           </div>
         );
       case "reveal":
@@ -573,6 +664,14 @@ const PublicDemoEventWizard = () => {
             <p className="text-sm text-muted-foreground">
               En este momento se revelarán las fotos y quedarán visibles para todos desde el mismo código QR.
             </p>
+            {demoTiming === "now" ? (
+              <div className="rounded-lg border border-[#f06a5f]/30 bg-[#f06a5f]/10 p-4 text-sm text-foreground">
+                <p className="font-semibold">Te recomendamos elegir una hora próxima.</p>
+                <p className="mt-1 text-muted-foreground">
+                  Así podrás probar primero a hacer fotos, vídeos y audios y ver el resultado al poco rato, sin esperar demasiado. Podrás subir contenido hasta un minuto antes del revelado.
+                </p>
+              </div>
+            ) : null}
             {formData.countryCode !== "ES" ? (
               <p className="text-xs text-muted-foreground">En España: {spainTime(formData.revealDate, formData.revealTime)}</p>
             ) : null}
@@ -792,7 +891,7 @@ const PublicDemoEventWizard = () => {
                   {stepIndex === steps.length - 1 ? (
                     <>
                       <Check className="mr-2 h-4 w-4" />
-                      {uploadingImage ? "Subiendo..." : isSubmitting ? "Creando..." : "Crear demo"}
+                      {uploadingImage || isSubmitting ? "Creando..." : "Crear demo"}
                     </>
                   ) : (
                     <>

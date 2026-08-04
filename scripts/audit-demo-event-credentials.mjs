@@ -26,10 +26,16 @@ assert.match(wizard, /stepIndex === steps\.length - 1[\s\S]*handleSubmit\(\)/);
 assert.match(createFunction, /signInWithPassword\([\s\S]*INVALID_CREDENTIALS/);
 assert.match(wizard, /Este usuario ya existe y tiene otra contraseña/);
 assert.match(wizard, /https:\/\/acceso\.revelao\.cam\/reset-password/);
+assert.match(wizard, /type DemoTiming = "now" \| "scheduled"/);
+assert.match(wizard, /Probar ahora[\s\S]*Programar la demo/);
+assert.match(wizard, /selectTryNow[\s\S]*setStepIndex\(revealStepIndex\)/);
+assert.match(wizard, /demoTiming === "now"[\s\S]*subMinutes\(revealDateTime, 1\)/);
+assert.match(wizard, /fotos, vídeos y audios[\s\S]*un minuto antes del revelado/);
+assert.match(wizard, /uploadingImage \|\| isSubmitting \? "Creando\.\.\."/);
 assert.doesNotMatch(wizard, /GoogleSignInButton|signInWithGoogle/);
 assert.doesNotMatch(login, /GoogleSignInButton|signInWithGoogle/);
 assert.doesNotMatch(createFunction, /useAuthenticatedUser/);
 assert.doesNotMatch(emailFunction, /authMethod|usesGoogle/);
 assert.doesNotMatch(app, /OAuthCallback|\/auth\/callback/);
 
-console.log("Demo event credentials audit passed (22 checks).");
+console.log("Demo event credentials audit passed (28 checks).");
