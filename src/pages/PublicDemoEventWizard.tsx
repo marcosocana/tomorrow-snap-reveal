@@ -80,8 +80,6 @@ const PublicDemoEventWizard = () => {
   const progress = Math.round(((stepIndex + 1) / steps.length) * 100);
   const backgroundPreview = formData.backgroundImage ? URL.createObjectURL(formData.backgroundImage) : undefined;
   const selectedFont = getFontById(formData.fontFamily);
-  const revealStepIndex = steps.findIndex((step) => step.id === "reveal");
-
   const selectTryNow = () => {
     const now = new Date();
     const suggestedReveal = addMinutes(now, 31);
@@ -97,7 +95,6 @@ const PublicDemoEventWizard = () => {
       revealTime: formatInTimeZone(suggestedReveal, previous.timezone, "HH:mm"),
     }));
     setDemoTiming("now");
-    setStepIndex(revealStepIndex);
   };
 
   useEffect(() => {

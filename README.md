@@ -48,4 +48,11 @@ stripe listen --forward-to https://<your-project-ref>.supabase.co/functions/v1/s
 - Demo flow uses `create-demo-event` Edge Function to create user + demo event.
 - Paid flow uses Stripe checkout + redeem link (`/redeem/:token`) to create paid events.
 - Email confirmations are sent via `send-demo-event-email`.
+- Demo reveal and 24-hour conversion emails are queued by the
+  `20260804153000_add_demo_lifecycle_emails.sql` migration and processed every
+  five minutes by `process-demo-lifecycle-emails`. Before applying the
+  migration, store `project_url` and the project's public API key as
+  `publishable_key` in Supabase Vault. If they are added after the migration,
+  run `select public.schedule_demo_lifecycle_email_cron();` once in the SQL
+  editor.
 - Admin area is protected by Supabase Auth.

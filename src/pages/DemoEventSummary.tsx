@@ -1,7 +1,7 @@
 import { useLocation, useNavigate, Navigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Check, Copy, ExternalLink, Download } from "lucide-react";
+import { Check, Copy, ExternalLink, Download, Smartphone, Timer } from "lucide-react";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -33,6 +33,7 @@ const DemoEventSummary = () => {
   const { toast } = useToast();
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [countdownNow, setCountdownNow] = useState(() => Date.now());
   const qrRef = useRef<HTMLDivElement>(null);
   const { lang, t, pathPrefix } = useDemoI18n();
 
@@ -59,6 +60,11 @@ const DemoEventSummary = () => {
     eventUrl
   )}`;
   const qrImageUrl = qrFromState || fallbackQrUrl;
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setCountdownNow(Date.now()), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const downloadQR = useCallback(async () => {
     if (!event) return;
@@ -180,6 +186,12 @@ const DemoEventSummary = () => {
   };
 
   const primaryButtonClass = "rounded-full bg-[#f06a5f] text-white hover:bg-[#f06a5f]/90";
+  const remainingMinutes = Math.max(
+    0,
+    Math.ceil((new Date(event.reveal_time).getTime() - countdownNow) / 60_000),
+  );
+  const remainingHours = Math.floor(remainingMinutes / 60);
+  const remainingMinuteRemainder = remainingMinutes % 60;
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-6">
@@ -235,9 +247,23 @@ const DemoEventSummary = () => {
               <Download className="w-4 h-4" />
               {t("summary.qrDownload")}
             </Button>
-            <p className="text-sm text-muted-foreground text-center">
-              {t("summary.qrHint")}
-            </p>
+            <div className="w-full space-y-3 rounded-2xl border-2 border-[#f06a5f]/35 bg-[#f06a5f]/10 p-4 text-center">
+              <div className="flex items-center justify-center gap-2 text-base font-bold text-foreground sm:text-lg">
+                <Smartphone className="h-5 w-5 shrink-0 text-[#f06a5f]" />
+                <p>{t("summary.qrTryNow")}</p>
+              </div>
+              <div className="flex items-center justify-center gap-2 text-sm font-semibold text-[#b7433a] sm:text-base">
+                <Timer className="h-5 w-5 shrink-0" />
+                <p>
+                  {remainingMinutes > 0
+                    ? t("summary.revealCountdown", {
+                        hours: remainingHours,
+                        minutes: remainingMinuteRemainder,
+                      })
+                    : t("summary.revealedNow")}
+                </p>
+              </div>
+            </div>
           </div>
 
           {/* Event Info */}
