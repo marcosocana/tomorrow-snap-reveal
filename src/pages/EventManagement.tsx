@@ -5,16 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -303,6 +293,7 @@ const EventManagement = () => {
   const [giftExistingConfirmationOpen, setGiftExistingConfirmationOpen] = useState(false);
   const [giftForm, setGiftForm] = useState(emptyGiftForm);
   const [isSendingGift, setIsSendingGift] = useState(false);
+  const [giftError, setGiftError] = useState<string | null>(null);
   const [createdSummary, setCreatedSummary] = useState<{
     id: string;
     name: string;
@@ -666,6 +657,7 @@ const EventManagement = () => {
     setGiftDialogOpen(open);
     if (!open && !isSendingGift) {
       setGiftExistingConfirmationOpen(false);
+      setGiftError(null);
       setGiftForm(emptyGiftForm());
     }
   };
@@ -674,6 +666,7 @@ const EventManagement = () => {
     const recipientName = giftForm.recipientName.trim();
     const email = giftForm.email.trim().toLowerCase();
     if (!recipientName || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || giftForm.password.length < 8) {
+      setGiftError("Completa el nombre, un email válido y una contraseña de al menos 8 caracteres.");
       toast({
         title: "Revisa los datos",
         description: "Completa el nombre, un email válido y una contraseña de al menos 8 caracteres.",
@@ -683,16 +676,20 @@ const EventManagement = () => {
     }
 
     setIsSendingGift(true);
+    setGiftError(null);
     try {
-      const { data, error } = await supabase.functions.invoke("admin-gift-revelao", {
-        body: {
-          planId: giftForm.planId,
-          recipientName,
-          email,
-          password: giftForm.password,
-          confirmExisting,
-        },
-      });
+      const { data, error } = await withInitialLoadTimeout(
+        supabase.functions.invoke("admin-gift-revelao", {
+          body: {
+            planId: giftForm.planId,
+            recipientName,
+            email,
+            password: giftForm.password,
+            confirmExisting,
+          },
+        }),
+        "Sending Revelao gift",
+      );
       if (error || data?.error) throw error || new Error(data.error);
       if (data?.requiresConfirmation) {
         setGiftExistingConfirmationOpen(true);
@@ -711,9 +708,13 @@ const EventManagement = () => {
       });
     } catch (error) {
       console.error("Error sending Revelao gift:", error);
+      const message = error instanceof Error && error.message.includes("timed out")
+        ? "El servidor está tardando demasiado. Comprueba el despliegue de la función e inténtalo de nuevo."
+        : "No se ha podido crear ni enviar el regalo. Comprueba la configuración de email de Supabase e inténtalo de nuevo.";
+      setGiftError(message);
       toast({
         title: "No se pudo enviar el regalo",
-        description: "No se ha creado el regalo. Inténtalo de nuevo.",
+        description: message,
         variant: "destructive",
       });
     } finally {
@@ -2377,6 +2378,37 @@ const EventManagement = () => {
           <DialogHeader>
             <DialogTitle>Regalar Revelao</DialogTitle>
           </DialogHeader>
+          {giftExistingConfirmationOpen ? (
+            <div className="space-y-5">
+              <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
+                <p className="font-semibold">Esta cuenta ya existe</p>
+                <p className="mt-2">
+                  Esta cuenta ya existe. Utilizará la contraseña anterior que ya tiene, no la que tú le has generado.
+                </p>
+              </div>
+              {giftError ? <p className="text-sm text-destructive">{giftError}</p> : null}
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setGiftExistingConfirmationOpen(false);
+                    setGiftError(null);
+                  }}
+                  disabled={isSendingGift}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => void handleSendGift(true)}
+                  disabled={isSendingGift}
+                >
+                  {isSendingGift ? "Enviando..." : "Continuar"}
+                </Button>
+              </div>
+            </div>
+          ) : (
           <div className="space-y-4">
             <div className="space-y-2">
               <label htmlFor="giftPlan" className="text-sm font-medium text-foreground">Plan</label>
@@ -2441,7 +2473,9 @@ const EventManagement = () => {
               </div>
               <p className="text-xs text-muted-foreground">“Generar” crea una contraseña alfanumérica de 8 caracteres.</p>
             </div>
+            {giftError ? <p className="text-sm text-destructive">{giftError}</p> : null}
             <Button
+              type="button"
               className="w-full gap-2"
               onClick={() => void handleSendGift(false)}
               disabled={isSendingGift}
@@ -2450,28 +2484,9 @@ const EventManagement = () => {
               {isSendingGift ? "Enviando..." : "Enviar"}
             </Button>
           </div>
+          )}
         </DialogContent>
       </Dialog>
-
-      <AlertDialog open={giftExistingConfirmationOpen} onOpenChange={setGiftExistingConfirmationOpen}>
-        <AlertDialogContent className="admin-demo2-shell w-[92vw] max-w-md">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Esta cuenta ya existe</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta cuenta ya existe. Utilizará la contraseña anterior que ya tiene, no la que tú le has generado.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isSendingGift}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => void handleSendGift(true)}
-              disabled={isSendingGift}
-            >
-              {isSendingGift ? "Enviando..." : "Continuar"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       <Dialog
         open={!!noteEvent}

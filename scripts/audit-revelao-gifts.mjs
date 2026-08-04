@@ -12,7 +12,8 @@ const config = read("supabase/config.toml");
 
 assert.match(management, /Regalar Revelao/);
 assert.match(management, /generateGiftPassword[\s\S]*Uint8Array\(8\)/);
-assert.match(management, /Esta cuenta ya existe[\s\S]*contraseña anterior[\s\S]*Continuar[\s\S]*Cancelar/);
+assert.match(management, /Esta cuenta ya existe[\s\S]*contraseña anterior/);
+assert.match(management, /Cancelar[\s\S]*Continuar/);
 assert.match(management, /functions\.invoke\("admin-gift-revelao"/);
 assert.match(giftFunction, /ADMIN_EMAIL = "revelao\.cam@gmail\.com"/);
 assert.match(giftFunction, /requiresConfirmation: true, existingAccount: true/);
@@ -27,4 +28,4 @@ assert.match(redeemCreate, /GIFT_ACCOUNT_MISMATCH/);
 assert.match(redeemCreate, /GIFT_LOGIN_REQUIRED/);
 assert.match(redeemCreate, /owner_id: ownerId/);
 
-console.log("Revelao gift audit passed (16 checks).");
+console.log("Revelao gift audit passed (17 checks).");
