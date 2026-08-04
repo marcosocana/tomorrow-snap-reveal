@@ -676,6 +676,66 @@ export type Database = {
           },
         ]
       }
+      demo_lifecycle_email_jobs: {
+        Row: {
+          attempts: number
+          created_at: string
+          dedupe_key: string
+          due_at: string
+          email_type: string
+          event_id: string
+          id: string
+          last_error: string | null
+          sent_at: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          dedupe_key: string
+          due_at: string
+          email_type: string
+          event_id: string
+          id?: string
+          last_error?: string | null
+          sent_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          dedupe_key?: string
+          due_at?: string
+          email_type?: string
+          event_id?: string
+          id?: string
+          last_error?: string | null
+          sent_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "demo_lifecycle_email_jobs_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "demo_lifecycle_email_jobs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_folders: {
         Row: {
           background_image_url: string | null
@@ -1139,6 +1199,7 @@ export type Database = {
         }
         Returns: Json
       }
+      schedule_demo_lifecycle_email_cron: { Args: never; Returns: undefined }
     }
     Enums: {
       [_ in never]: never
