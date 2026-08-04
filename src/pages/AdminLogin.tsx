@@ -162,15 +162,8 @@ const AdminLogin = () => {
 
         <p className="text-center text-sm text-muted-foreground">
           {t("login.signupPrefix")}{" "}
-          <a href={`${pathPrefix}/nuevoeventodemo`} className="text-primary hover:underline font-semibold">
+          <a href={`${pathPrefix}/nuevoeventodemo2`} className="text-primary hover:underline font-semibold">
             {t("login.signupLink")}
-          </a>
-          .
-        </p>
-        <p className="text-center text-sm text-muted-foreground">
-          ¿Aún no tienes cuenta?{" "}
-          <a href={`${pathPrefix}/register`} className="text-primary hover:underline font-semibold">
-            Regístrate aquí
           </a>
           .
         </p>
