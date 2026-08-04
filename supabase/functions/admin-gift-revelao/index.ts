@@ -67,14 +67,14 @@ const sendGiftEmail = async ({
   email,
   password,
   planLabel,
-  redeemUrl,
+  loginUrl,
   existingAccount,
 }: {
   recipientName: string;
   email: string;
   password: string;
   planLabel: string;
-  redeemUrl: string;
+  loginUrl: string;
   existingAccount: boolean;
 }) => {
   if (!RESEND_API_KEY || !FROM_EMAIL) throw new Error("MISSING_EMAIL_ENV");
@@ -82,7 +82,7 @@ const sendGiftEmail = async ({
   const safeName = escapeHtml(recipientName);
   const safeEmail = escapeHtml(email);
   const safePlan = escapeHtml(planLabel);
-  const safeUrl = escapeHtml(redeemUrl);
+  const safeUrl = escapeHtml(loginUrl);
   const credentials = existingAccount
     ? `<p style="margin:0;color:#555;">Tu cuenta ya existía, así que debes utilizar la contraseña que ya tenías. Si no la recuerdas, puedes recuperarla desde la pantalla de acceso.</p>`
     : `<div style="background:#f5f5f5;border-radius:12px;padding:16px;margin:20px 0;">
@@ -101,7 +101,7 @@ const sendGiftEmail = async ({
           Crear mi evento
         </a>
       </p>
-      <p style="font-size:12px;color:#777;text-align:center;">Primero tendrás que acceder con tu usuario y contraseña. Después podrás configurar el evento y editarlo siempre desde acceso.revelao.cam.</p>
+      <p style="font-size:12px;color:#777;text-align:center;">Accede con tu usuario y contraseña. En tu panel verás el plan pendiente de canjear y desde ahí podrás crear y configurar el evento.</p>
     </div>
   `;
 
@@ -216,13 +216,13 @@ serve(async (req) => {
     if (purchaseError || !purchase) throw new Error(purchaseError?.message || "CREATE_GIFT_FAILED");
     purchaseId = purchase.id;
 
-    const redeemUrl = `${APP_ORIGIN}/redeem/${purchase.redeem_token}`;
+    const loginUrl = `${APP_ORIGIN}/admin-login?email=${encodeURIComponent(email)}&gift=1`;
     await sendGiftEmail({
       recipientName,
       email,
       password,
       planLabel: plan.label,
-      redeemUrl,
+      loginUrl,
       existingAccount: !createdNewUser,
     });
 

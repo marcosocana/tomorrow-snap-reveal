@@ -19,6 +19,7 @@ const AdminLogin = () => {
   const redirectTo = searchParams.get("redirect");
   const reason = searchParams.get("reason");
   const prefEmail = searchParams.get("email");
+  const isGiftLogin = searchParams.get("gift") === "1";
   const checkoutStatus = searchParams.get("checkout");
 
   useEffect(() => {
@@ -26,6 +27,12 @@ const AdminLogin = () => {
     const checkUser = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
+        const sessionEmail = session.user.email?.trim().toLowerCase() || "";
+        const requestedEmail = prefEmail?.trim().toLowerCase() || "";
+        if (isGiftLogin && requestedEmail && sessionEmail !== requestedEmail) {
+          await supabase.auth.signOut();
+          return;
+        }
         navigate(redirectTo || `${pathPrefix}/event-management`);
       }
     };
@@ -52,7 +59,7 @@ const AdminLogin = () => {
         description: "Tu cuenta ya está lista. Inicia sesión para entrar al área privada.",
       });
     }
-  }, [navigate, pathPrefix, redirectTo, reason, prefEmail, checkoutStatus, toast, t]);
+  }, [navigate, pathPrefix, redirectTo, reason, prefEmail, isGiftLogin, checkoutStatus, toast, t]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
