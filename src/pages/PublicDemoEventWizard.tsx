@@ -23,12 +23,12 @@ import { signInWithGooglePopup } from "@/lib/googleOAuth";
 type StepId = "name" | "place" | "upload" | "reveal" | "style" | "contact";
 
 const steps: Array<{ id: StepId; label: string }> = [
+  { id: "contact", label: "Acceso" },
   { id: "name", label: "Evento" },
   { id: "place", label: "Lugar" },
   { id: "upload", label: "Fotos" },
   { id: "reveal", label: "Revelado" },
   { id: "style", label: "Estilo" },
-  { id: "contact", label: "Contacto" },
 ];
 
 const REVELAO_RED = "#f06a5f";
@@ -132,7 +132,7 @@ const PublicDemoEventWizard = () => {
         setFormData((previous) => ({
           ...previous,
           contactEmail: isGoogle ? email : previous.contactEmail || email,
-          contactName: previous.contactName || name,
+          contactName: previous.contactName || name || (isGoogle ? email.split("@")[0] : ""),
         }));
       }
       setGoogleAuthenticatedEmail(isGoogle ? email : "");
@@ -172,6 +172,10 @@ const PublicDemoEventWizard = () => {
   );
 
   const handleGoogleLogin = async () => {
+    if (isGoogleConnected) {
+      setStepIndex(1);
+      return;
+    }
     setIsGoogleLoading(true);
     try {
       const profile = await signInWithGooglePopup(window.location.pathname);
@@ -179,10 +183,11 @@ const PublicDemoEventWizard = () => {
       setFormData((previous) => ({
         ...previous,
         contactEmail: profile.email,
-        contactName: previous.contactName || profile.name,
+        contactName: previous.contactName || profile.name || profile.email.split("@")[0],
         password: "",
         passwordConfirm: "",
       }));
+      setStepIndex(1);
     } catch (error) {
       console.error("Error connecting Google account:", error);
       toast({
@@ -225,8 +230,8 @@ const PublicDemoEventWizard = () => {
       }
     }
     if (step === "contact") {
-      if (!formData.contactName.trim() || !formData.contactEmail.trim() || !formData.contactPhone.trim()) {
-        showError("Completa nombre, email y teléfono.");
+      if (!formData.contactName.trim() || !formData.contactEmail.trim() || (!isGoogleConnected && !formData.contactPhone.trim())) {
+        showError(isGoogleConnected ? "Completa tu nombre y email." : "Completa nombre, email y teléfono.");
         return false;
       }
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.contactEmail.trim())) {
@@ -265,7 +270,7 @@ const PublicDemoEventWizard = () => {
       return (
         !!formData.contactName.trim() &&
         /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.contactEmail.trim()) &&
-        !!formData.contactPhone.trim() &&
+        (isGoogleConnected || !!formData.contactPhone.trim()) &&
         (isGoogleConnected || (formData.password.length >= 8 && formData.password === formData.passwordConfirm))
       );
     }
@@ -744,7 +749,7 @@ const PublicDemoEventWizard = () => {
                 onClick={handleGoogleLogin}
                 loading={isGoogleLoading}
                 disabled={isSubmitting}
-                label={isGoogleConnected ? `Conectado: ${googleAuthenticatedEmail}` : "Continuar con Google"}
+                label={isGoogleConnected ? `Continuar como ${googleAuthenticatedEmail}` : "Continuar con Google"}
               />
               <div className="flex items-center gap-3 text-xs uppercase tracking-wider text-muted-foreground">
                 <div className="h-px flex-1 bg-border" />
@@ -769,7 +774,7 @@ const PublicDemoEventWizard = () => {
             <div className="space-y-2">
               <Label htmlFor="contactPhone" className="flex items-center gap-1.5">
                 Teléfono
-                <RequiredMark />
+                {!isGoogleConnected ? <RequiredMark /> : <span className="text-xs font-normal text-muted-foreground">(opcional)</span>}
               </Label>
               <Input id="contactPhone" type="tel" value={formData.contactPhone} onChange={(event) => update("contactPhone", event.target.value)} placeholder="+34 600 000 000" className="h-12 rounded-full px-4 text-base" />
             </div>
@@ -839,7 +844,7 @@ const PublicDemoEventWizard = () => {
             className="flex flex-1 flex-col pb-24 sm:pb-0"
             onSubmit={(event) => {
               event.preventDefault();
-              if (currentStep.id === "contact") handleSubmit();
+              if (stepIndex === steps.length - 1) handleSubmit();
               else goNext();
             }}
           >
@@ -871,7 +876,7 @@ const PublicDemoEventWizard = () => {
                   style={{ backgroundColor: REVELAO_RED }}
                   disabled={!isStepComplete(currentStep.id) || isSubmitting || uploadingImage}
                 >
-                  {currentStep.id === "contact" ? (
+                  {stepIndex === steps.length - 1 ? (
                     <>
                       <Check className="mr-2 h-4 w-4" />
                       {uploadingImage ? "Subiendo..." : isSubmitting ? "Creando..." : "Crear demo"}

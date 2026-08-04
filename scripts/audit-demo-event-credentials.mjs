@@ -25,10 +25,13 @@ assert.match(login, /if \(prefEmail\)[\s\S]*setEmail\(prefEmail\)/);
 assert.match(wizard, /passwordConfirm/);
 assert.match(wizard, /formData\.password\.length >= 8[\s\S]*formData\.password === formData\.passwordConfirm/);
 assert.match(wizard, /GoogleSignInButton/);
+assert.match(wizard, /const steps[\s\S]*\{ id: "contact", label: "Acceso" \}[\s\S]*\{ id: "name", label: "Evento" \}/);
+assert.match(wizard, /stepIndex === steps\.length - 1[\s\S]*handleSubmit\(\)/);
+assert.match(wizard, /signInWithGooglePopup[\s\S]*setStepIndex\(1\)/);
 assert.match(login, /GoogleSignInButton/);
 assert.match(createFunction, /signInWithPassword\([\s\S]*INVALID_CREDENTIALS/);
 assert.match(emailFunction, /authMethod[\s\S]*usesGoogle/);
 assert.match(googleOAuth, /provider: "google"[\s\S]*skipBrowserRedirect: true/);
 assert.match(oauthCallback, /GOOGLE_OAUTH_MESSAGE[\s\S]*window\.opener\.postMessage/);
 
-console.log("Demo event credentials audit passed (20 checks).");
+console.log("Demo event credentials audit passed (23 checks).");
