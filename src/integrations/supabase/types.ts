@@ -965,6 +965,8 @@ export type Database = {
       purchases: {
         Row: {
           created_at: string | null
+          gift_recipient_name: string | null
+          gifted_at: string | null
           id: string
           plan_id: string
           redeem_token: string | null
@@ -977,6 +979,8 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          gift_recipient_name?: string | null
+          gifted_at?: string | null
           id?: string
           plan_id: string
           redeem_token?: string | null
@@ -989,6 +993,8 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          gift_recipient_name?: string | null
+          gifted_at?: string | null
           id?: string
           plan_id?: string
           redeem_token?: string | null
