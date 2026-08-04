@@ -133,11 +133,11 @@ serve(async (req) => {
       ? authenticatedUser?.email?.trim().toLowerCase() ?? ""
       : requestedEmail;
 
-    if (!email || !isEmail(email)) {
-      return json({ error: "INVALID_EMAIL" }, 400);
-    }
     if (useAuthenticatedUser && !authenticatedUser?.id) {
       return json({ error: "UNAUTHORIZED" }, 401);
+    }
+    if (!email || !isEmail(email)) {
+      return json({ error: "INVALID_EMAIL" }, 400);
     }
     if (!useAuthenticatedUser && (!password || password.length < 8)) {
       return json({ error: "INVALID_PASSWORD" }, 400);
