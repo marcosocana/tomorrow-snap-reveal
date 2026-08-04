@@ -17,18 +17,16 @@ import { Language } from "@/lib/translations";
 import { EventFontFamily, FONT_OPTIONS, getFontById, loadGoogleFont } from "@/lib/eventFonts";
 import { FilterType, FILTER_LABELS, FILTER_ORDER, getFilterClass } from "@/lib/photoFilters";
 import weddingPreview from "@/assets/testimonial-wedding.jpg";
-import GoogleSignInButton from "@/components/GoogleSignInButton";
-import { signInWithGooglePopup } from "@/lib/googleOAuth";
 
 type StepId = "name" | "place" | "upload" | "reveal" | "style" | "contact";
 
 const steps: Array<{ id: StepId; label: string }> = [
-  { id: "contact", label: "Acceso" },
   { id: "name", label: "Evento" },
   { id: "place", label: "Lugar" },
   { id: "upload", label: "Fotos" },
   { id: "reveal", label: "Revelado" },
   { id: "style", label: "Estilo" },
+  { id: "contact", label: "Contacto" },
 ];
 
 const REVELAO_RED = "#f06a5f";
@@ -45,44 +43,15 @@ const RequiredMark = () => (
 const generateHash = (): string =>
   Math.random().toString(36).substring(2, 10) + Math.random().toString(36).substring(2, 4);
 
-const generateAlphanumericPassword = (length = 8): string => {
-  const letters = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
-  const digits = "23456789";
-  const alphabet = `${letters}${digits}`;
-  const randomIndex = (maximum: number) => {
-    const values = new Uint32Array(1);
-    crypto.getRandomValues(values);
-    return values[0] % maximum;
-  };
-  const characters = [
-    letters[randomIndex(letters.length)],
-    digits[randomIndex(digits.length)],
-    ...Array.from({ length: Math.max(0, length - 2) }, () => alphabet[randomIndex(alphabet.length)]),
-  ];
-  for (let index = characters.length - 1; index > 0; index -= 1) {
-    const swapIndex = randomIndex(index + 1);
-    [characters[index], characters[swapIndex]] = [characters[swapIndex], characters[index]];
-  }
-  return characters.join("");
-};
-
 const today = new Date();
 
 const PublicDemoEventWizard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const generatedPasswords = useMemo(
-    () => ({
-      password: generateHash(),
-      adminPassword: generateAlphanumericPassword(8),
-    }),
-    [],
-  );
+  const generatedEventPassword = useMemo(generateHash, []);
   const [stepIndex, setStepIndex] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
-  const [googleAuthenticatedEmail, setGoogleAuthenticatedEmail] = useState("");
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -122,30 +91,21 @@ const PublicDemoEventWizard = () => {
   useEffect(() => {
     let mounted = true;
 
-    const applyAuthenticatedUser = (session: Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"]) => {
-      const user = session?.user;
+    const applyAuthenticatedUser = (email: string) => {
       if (!mounted) return;
-      const email = user?.email?.trim().toLowerCase() || "";
-      const isGoogle = user?.app_metadata?.provider === "google";
       if (email) {
-        const name = String(user?.user_metadata?.full_name || user?.user_metadata?.name || "").trim();
-        setFormData((previous) => ({
-          ...previous,
-          contactEmail: isGoogle ? email : previous.contactEmail || email,
-          contactName: previous.contactName || name || (isGoogle ? email.split("@")[0] : ""),
-        }));
+        setFormData((previous) => previous.contactEmail ? previous : { ...previous, contactEmail: email });
       }
-      setGoogleAuthenticatedEmail(isGoogle ? email : "");
     };
 
     const syncAuthenticatedUser = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      applyAuthenticatedUser(session);
+      applyAuthenticatedUser(session?.user.email?.trim().toLowerCase() || "");
     };
 
     void syncAuthenticatedUser();
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      applyAuthenticatedUser(session);
+      applyAuthenticatedUser(session?.user.email?.trim().toLowerCase() || "");
     });
 
     return () => {
@@ -164,40 +124,6 @@ const PublicDemoEventWizard = () => {
       description,
       variant: "destructive",
     });
-  };
-
-  const isGoogleConnected = Boolean(
-    googleAuthenticatedEmail &&
-    googleAuthenticatedEmail === formData.contactEmail.trim().toLowerCase(),
-  );
-
-  const handleGoogleLogin = async () => {
-    if (isGoogleConnected) {
-      setStepIndex(1);
-      return;
-    }
-    setIsGoogleLoading(true);
-    try {
-      const profile = await signInWithGooglePopup(window.location.pathname);
-      setGoogleAuthenticatedEmail(profile.email);
-      setFormData((previous) => ({
-        ...previous,
-        contactEmail: profile.email,
-        contactName: previous.contactName || profile.name || profile.email.split("@")[0],
-        password: "",
-        passwordConfirm: "",
-      }));
-      setStepIndex(1);
-    } catch (error) {
-      console.error("Error connecting Google account:", error);
-      toast({
-        title: "No se pudo acceder con Google",
-        description: "Comprueba que las ventanas emergentes estén permitidas e inténtalo de nuevo.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsGoogleLoading(false);
-    }
   };
 
   const validateStep = (step: StepId) => {
@@ -230,19 +156,19 @@ const PublicDemoEventWizard = () => {
       }
     }
     if (step === "contact") {
-      if (!formData.contactName.trim() || !formData.contactEmail.trim() || (!isGoogleConnected && !formData.contactPhone.trim())) {
-        showError(isGoogleConnected ? "Completa tu nombre y email." : "Completa nombre, email y teléfono.");
+      if (!formData.contactName.trim() || !formData.contactEmail.trim() || !formData.contactPhone.trim()) {
+        showError("Completa nombre, email y teléfono.");
         return false;
       }
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.contactEmail.trim())) {
         showError("Introduce un email válido.");
         return false;
       }
-      if (!isGoogleConnected && formData.password.length < 8) {
+      if (formData.password.length < 8) {
         showError("La contraseña debe tener al menos 8 caracteres.");
         return false;
       }
-      if (!isGoogleConnected && formData.password !== formData.passwordConfirm) {
+      if (formData.password !== formData.passwordConfirm) {
         showError("Las contraseñas no coinciden.");
         return false;
       }
@@ -270,8 +196,9 @@ const PublicDemoEventWizard = () => {
       return (
         !!formData.contactName.trim() &&
         /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.contactEmail.trim()) &&
-        (isGoogleConnected || !!formData.contactPhone.trim()) &&
-        (isGoogleConnected || (formData.password.length >= 8 && formData.password === formData.passwordConfirm))
+        !!formData.contactPhone.trim() &&
+        formData.password.length >= 8 &&
+        formData.password === formData.passwordConfirm
       );
     }
     return false;
@@ -399,14 +326,7 @@ const PublicDemoEventWizard = () => {
       const customImageUrl = DEFAULT_LOGO_URL;
       const backgroundImageUrl = formData.backgroundImage ? await handleImageUpload(formData.backgroundImage) : "";
       const normalizedContactEmail = formData.contactEmail.trim().toLowerCase();
-      const { data: { session } } = await supabase.auth.getSession();
-      const currentUserEmail = session?.user.email?.trim().toLowerCase() || "";
-      const useAuthenticatedUser = Boolean(
-        isGoogleConnected && currentUserEmail && currentUserEmail === normalizedContactEmail,
-      );
-      const managementPassword = useAuthenticatedUser
-        ? generatedPasswords.adminPassword
-        : formData.password;
+      const managementPassword = formData.password;
 
       const { data: createResult, error: createError } = await supabase.functions.invoke("create-demo-event", {
         body: {
@@ -415,10 +335,9 @@ const PublicDemoEventWizard = () => {
           password: managementPassword,
           phone: formData.contactPhone.trim(),
           marketingConsent: true,
-          useAuthenticatedUser,
           event: {
             name: formData.name.trim(),
-            password_hash: generatedPasswords.password,
+            password_hash: generatedEventPassword,
             admin_password: managementPassword,
             upload_start_time: uploadStartDateTime.toISOString(),
             upload_end_time: uploadEndDateTime.toISOString(),
@@ -487,17 +406,14 @@ const PublicDemoEventWizard = () => {
             email: formData.contactEmail.trim(),
             phone: formData.contactPhone.trim(),
           },
-          authMethod: useAuthenticatedUser ? "google" : "password",
         },
       });
     } catch (error) {
       console.error("Error creating demo event:", error);
       const errorCode = error instanceof Error ? error.message : "";
       const description = errorCode.includes("INVALID_CREDENTIALS")
-        ? "Ese email ya tiene una cuenta. Introduce su contraseña correcta o continúa con Google."
-        : errorCode.includes("UNAUTHORIZED")
-          ? "La sesión de Google ha caducado. Vuelve a acceder con Google."
-          : "No se pudo crear el evento.";
+        ? "Ese email ya tiene una cuenta. Introduce su contraseña correcta."
+        : "No se pudo crear el evento.";
       toast({
         title: "Error",
         description,
@@ -744,19 +660,6 @@ const PublicDemoEventWizard = () => {
       case "contact":
         return (
           <div className="space-y-5">
-            <div className="space-y-4">
-              <GoogleSignInButton
-                onClick={handleGoogleLogin}
-                loading={isGoogleLoading}
-                disabled={isSubmitting}
-                label={isGoogleConnected ? `Continuar como ${googleAuthenticatedEmail}` : "Continuar con Google"}
-              />
-              <div className="flex items-center gap-3 text-xs uppercase tracking-wider text-muted-foreground">
-                <div className="h-px flex-1 bg-border" />
-                <span>{isGoogleConnected ? "Cuenta de Google conectada" : "o crea tu acceso con email"}</span>
-                <div className="h-px flex-1 bg-border" />
-              </div>
-            </div>
             <div className="space-y-2">
               <Label htmlFor="contactName" className="flex items-center gap-1.5">
                 Tu nombre
@@ -769,17 +672,16 @@ const PublicDemoEventWizard = () => {
                 Email
                 <RequiredMark />
               </Label>
-              <Input id="contactEmail" type="email" value={formData.contactEmail} onChange={(event) => update("contactEmail", event.target.value)} placeholder="tu@email.com" className="h-12 rounded-full px-4 text-base" readOnly={isGoogleConnected} autoComplete="email" />
+              <Input id="contactEmail" type="email" value={formData.contactEmail} onChange={(event) => update("contactEmail", event.target.value)} placeholder="tu@email.com" className="h-12 rounded-full px-4 text-base" autoComplete="email" />
             </div>
             <div className="space-y-2">
               <Label htmlFor="contactPhone" className="flex items-center gap-1.5">
                 Teléfono
-                {!isGoogleConnected ? <RequiredMark /> : <span className="text-xs font-normal text-muted-foreground">(opcional)</span>}
+                <RequiredMark />
               </Label>
               <Input id="contactPhone" type="tel" value={formData.contactPhone} onChange={(event) => update("contactPhone", event.target.value)} placeholder="+34 600 000 000" className="h-12 rounded-full px-4 text-base" />
             </div>
-            {!isGoogleConnected ? (
-              <div className="grid gap-5 sm:grid-cols-2">
+            <div className="grid gap-5 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="password" className="flex items-center gap-1.5">
                     Contraseña
@@ -812,8 +714,7 @@ const PublicDemoEventWizard = () => {
                     required
                   />
                 </div>
-              </div>
-            ) : null}
+            </div>
             <p className="text-sm text-muted-foreground">
               Al crear la demo te llevaremos al resumen del evento con el enlace de acceso.
             </p>

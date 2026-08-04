@@ -6,14 +6,11 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useAdminI18n } from "@/lib/adminI18n";
 import logoRevelao from "@/assets/logo__revelao.png";
-import GoogleSignInButton from "@/components/GoogleSignInButton";
-import { signInWithGooglePopup } from "@/lib/googleOAuth";
 
 const AdminLogin = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
@@ -88,23 +85,6 @@ const AdminLogin = () => {
     }
   };
 
-  const handleGoogleLogin = async () => {
-    setIsGoogleLoading(true);
-    try {
-      await signInWithGooglePopup(redirectTo || `${pathPrefix}/event-management`);
-      navigate(redirectTo || `${pathPrefix}/event-management`);
-    } catch (error) {
-      console.error("Error logging in with Google:", error);
-      toast({
-        title: t("login.errorTitle"),
-        description: t("login.googleError"),
-        variant: "destructive",
-      });
-    } finally {
-      setIsGoogleLoading(false);
-    }
-  };
-
   return (
     <div
       className="min-h-screen flex flex-col items-center justify-center p-6 bg-background"
@@ -123,20 +103,6 @@ const AdminLogin = () => {
           <p className="text-muted-foreground text-lg font-mono tracking-wide">
             Captura hoy, revela mañana
           </p>
-        </div>
-
-        <div className="space-y-4">
-          <GoogleSignInButton
-            onClick={handleGoogleLogin}
-            loading={isGoogleLoading}
-            disabled={isLoading}
-            label={t("login.google")}
-          />
-          <div className="flex items-center gap-3 text-xs uppercase tracking-wider text-muted-foreground">
-            <div className="h-px flex-1 bg-border" />
-            <span>{t("login.or")}</span>
-            <div className="h-px flex-1 bg-border" />
-          </div>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-4">
@@ -178,7 +144,7 @@ const AdminLogin = () => {
           <Button
             type="submit"
             className="w-full h-12 text-base bg-[hsl(5_85%_65%)] hover:bg-[hsl(5_85%_60%)] text-white font-semibold rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98]"
-            disabled={isLoading || isGoogleLoading}
+            disabled={isLoading}
           >
             {isLoading ? t("login.button.loading") : t("login.button")}
           </Button>

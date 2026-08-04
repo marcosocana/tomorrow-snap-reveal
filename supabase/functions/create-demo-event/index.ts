@@ -44,7 +44,6 @@ type DemoEventPayload = {
   password: string;
   phone?: string | null;
   marketingConsent?: boolean;
-  useAuthenticatedUser?: boolean;
   event: {
     name: string;
     password_hash: string;
@@ -109,14 +108,6 @@ serve(async (req) => {
   }
 
   const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-  const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    global: {
-      headers: {
-        Authorization: req.headers.get("Authorization") ?? "",
-      },
-    },
-  });
-
   try {
     const payload = (await req.json()) as DemoEventPayload;
     const requestedEmail = payload?.contactEmail?.trim().toLowerCase() ?? "";
@@ -124,22 +115,13 @@ serve(async (req) => {
     const password = payload?.password ?? "";
     const phone = payload?.phone?.trim() || null;
     const marketingConsent = payload?.marketingConsent ?? true;
-    const useAuthenticatedUser = payload?.useAuthenticatedUser === true;
     const event = payload?.event;
-    const {
-      data: { user: authenticatedUser },
-    } = await supabaseClient.auth.getUser();
-    const email = useAuthenticatedUser
-      ? authenticatedUser?.email?.trim().toLowerCase() ?? ""
-      : requestedEmail;
+    const email = requestedEmail;
 
-    if (useAuthenticatedUser && !authenticatedUser?.id) {
-      return json({ error: "UNAUTHORIZED" }, 401);
-    }
     if (!email || !isEmail(email)) {
       return json({ error: "INVALID_EMAIL" }, 400);
     }
-    if (!useAuthenticatedUser && (!password || password.length < 8)) {
+    if (!password || password.length < 8) {
       return json({ error: "INVALID_PASSWORD" }, 400);
     }
     if (!event?.name || !event.password_hash || !event.admin_password) {
@@ -148,7 +130,7 @@ serve(async (req) => {
 
     const existingAuthUser = await findAuthUserByEmail(supabaseAdmin, email);
 
-    let userId = useAuthenticatedUser ? authenticatedUser?.id ?? null : existingAuthUser?.id || null;
+    let userId = existingAuthUser?.id || null;
     let createdNewUser = false;
 
     if (!userId) {
@@ -184,7 +166,7 @@ serve(async (req) => {
     // An existing email/password account must prove ownership before a demo
     // can be attached to it. This runs after user creation so it also covers
     // the race where createUser reports that the address already exists.
-    if (!useAuthenticatedUser && !createdNewUser) {
+    if (!createdNewUser) {
       const credentialClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
       const { data: credentialData, error: credentialError } = await credentialClient.auth.signInWithPassword({
         email,
@@ -195,28 +177,7 @@ serve(async (req) => {
       }
     }
 
-    // The first demo establishes the user's management password. If the email
-    // already exists, reuse that password instead of replacing the account
-    // password with the newly generated one.
-    const { data: firstDemo, error: firstDemoError } = await supabaseAdmin
-      .from("events")
-      .select("id, admin_password, created_at")
-      .eq("owner_id", userId)
-      .eq("type", "demo")
-      .order("created_at", { ascending: true })
-      .limit(1)
-      .maybeSingle();
-
-    if (firstDemoError) {
-      return json({ error: "READ_MANAGEMENT_PASSWORD_FAILED", detail: firstDemoError.message }, 500);
-    }
-
-    // For email/password access, the password chosen in the form is the real
-    // Supabase Auth password and therefore the credential shown in the email.
-    // Google users do not receive password credentials.
-    const managementPassword = useAuthenticatedUser
-      ? firstDemo?.admin_password?.trim() || event.admin_password
-      : password;
+    const managementPassword = password;
 
     const { error: profileError } = await supabaseAdmin
       .from("user_profiles")
@@ -297,7 +258,6 @@ serve(async (req) => {
     return json({
       userId,
       event: createdEvent,
-      authMethod: useAuthenticatedUser ? "google" : "password",
       createdNewUser,
     });
   } catch (error) {
