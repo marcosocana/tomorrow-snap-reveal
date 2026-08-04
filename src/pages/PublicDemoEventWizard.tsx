@@ -662,9 +662,9 @@ const PublicDemoEventWizard = () => {
               En este momento se revelarán las fotos y quedarán visibles para todos desde el mismo código QR.
             </p>
             {demoTiming === "now" ? (
-              <div className="rounded-lg border border-[#f06a5f]/30 bg-[#f06a5f]/10 p-4 text-sm text-foreground">
+              <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
                 <p className="font-semibold">Te recomendamos elegir una hora próxima.</p>
-                <p className="mt-1 text-muted-foreground">
+                <p className="mt-1 text-amber-800">
                   Así podrás probar primero a hacer fotos, vídeos y audios y ver el resultado al poco rato, sin esperar demasiado. Podrás subir contenido hasta un minuto antes del revelado.
                 </p>
               </div>
