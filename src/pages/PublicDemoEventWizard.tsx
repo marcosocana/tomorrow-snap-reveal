@@ -644,7 +644,7 @@ const PublicDemoEventWizard = () => {
         return (
           <div className="space-y-5">
             <div className="space-y-2">
-              <div className="grid grid-cols-[minmax(0,1fr)_78px] gap-1.5 sm:grid-cols-[minmax(0,1fr)_112px] sm:gap-3">
+              <div className="grid grid-cols-2 gap-1.5 sm:gap-3">
                 <Label htmlFor="revealDate" className="flex items-center gap-1.5">
                   Fecha
                   <RequiredMark />
@@ -654,7 +654,7 @@ const PublicDemoEventWizard = () => {
                   <RequiredMark />
                 </Label>
               </div>
-              <div className="grid grid-cols-[minmax(0,1fr)_78px] gap-1.5 sm:grid-cols-[minmax(0,1fr)_112px] sm:gap-3">
+              <div className="grid grid-cols-2 gap-1.5 sm:gap-3">
                 <Input id="revealDate" type="date" value={formData.revealDate} onChange={(event) => update("revealDate", event.target.value)} className={dateInputClass} />
                 <Input id="revealTime" type="time" value={formData.revealTime} onChange={(event) => update("revealTime", event.target.value)} className={timeInputClass} />
               </div>
