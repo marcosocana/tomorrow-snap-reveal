@@ -175,15 +175,6 @@ const RedeemEvent = () => {
   };
 
   useEffect(() => {
-    const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setRequiresAccountSetup(!session);
-      setAuthResolved(true);
-    };
-    checkSession();
-  }, []);
-
-  useEffect(() => {
     const fetchPlan = async () => {
       if (!token) return;
       setLoadingPlan(true);
@@ -196,18 +187,37 @@ const RedeemEvent = () => {
           throw error || new Error("INVALID_TOKEN");
         }
         setPlan(data.plan as RedeemPlan);
-        if (data?.userEmail) {
-          setFormData((prev) => ({ ...prev, contactEmail: String(data.userEmail).toLowerCase() }));
+        const purchaseEmail = data?.userEmail ? String(data.userEmail).toLowerCase() : "";
+        if (purchaseEmail) {
+          setFormData((prev) => ({ ...prev, contactEmail: purchaseEmail }));
           setPurchaseEmailLocked(true);
         }
+        const { data: { session } } = await supabase.auth.getSession();
+        if (data?.isGift) {
+          const sessionEmail = session?.user.email?.trim().toLowerCase() || "";
+          if (!session || !purchaseEmail || sessionEmail !== purchaseEmail) {
+            if (session) await supabase.auth.signOut();
+            const redeemPath = `${pathPrefix}/redeem/${token}`;
+            navigate(
+              `${pathPrefix}/admin-login?redirect=${encodeURIComponent(redeemPath)}&email=${encodeURIComponent(purchaseEmail)}`,
+              { replace: true },
+            );
+            return;
+          }
+          setRequiresAccountSetup(false);
+        } else {
+          setRequiresAccountSetup(!session);
+        }
+        setAuthResolved(true);
       } catch {
         setPlanError("El enlace de canje no es válido o ha caducado.");
+        setAuthResolved(true);
       } finally {
         setLoadingPlan(false);
       }
     };
     fetchPlan();
-  }, [token]);
+  }, [navigate, pathPrefix, token]);
 
   const generateQrBlob = async (eventUrl: string): Promise<Blob | null> => {
     try {
@@ -498,6 +508,15 @@ const RedeemEvent = () => {
             description: "Debes usar el mismo email con el que compraste el plan.",
             variant: "destructive",
           });
+          return;
+        }
+        if (errorCode === "GIFT_LOGIN_REQUIRED" || errorCode === "GIFT_ACCOUNT_MISMATCH") {
+          await supabase.auth.signOut();
+          const redeemPath = `${pathPrefix}/redeem/${token}`;
+          navigate(
+            `${pathPrefix}/admin-login?redirect=${encodeURIComponent(redeemPath)}&email=${encodeURIComponent(formData.contactEmail.trim().toLowerCase())}`,
+            { replace: true },
+          );
           return;
         }
         throw error;

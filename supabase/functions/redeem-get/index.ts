@@ -73,5 +73,7 @@ serve(async (req) => {
     status: data.status,
     expiresAt: data.redeem_token_expires_at,
     userEmail: data.user_email ?? null,
+    isGift: Boolean(data.gifted_at),
+    recipientName: data.gift_recipient_name ?? null,
   });
 });

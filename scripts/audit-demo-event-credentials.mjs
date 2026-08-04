@@ -24,10 +24,12 @@ assert.match(wizard, /formData\.password\.length >= 8[\s\S]*formData\.password =
 assert.match(wizard, /const steps[\s\S]*\{ id: "style", label: "Estilo" \}[\s\S]*\{ id: "contact", label: "Contacto" \}/);
 assert.match(wizard, /stepIndex === steps\.length - 1[\s\S]*handleSubmit\(\)/);
 assert.match(createFunction, /signInWithPassword\([\s\S]*INVALID_CREDENTIALS/);
+assert.match(wizard, /Este usuario ya existe y tiene otra contraseña/);
+assert.match(wizard, /https:\/\/acceso\.revelao\.cam\/reset-password/);
 assert.doesNotMatch(wizard, /GoogleSignInButton|signInWithGoogle/);
 assert.doesNotMatch(login, /GoogleSignInButton|signInWithGoogle/);
 assert.doesNotMatch(createFunction, /useAuthenticatedUser/);
 assert.doesNotMatch(emailFunction, /authMethod|usesGoogle/);
 assert.doesNotMatch(app, /OAuthCallback|\/auth\/callback/);
 
-console.log("Demo event credentials audit passed (20 checks).");
+console.log("Demo event credentials audit passed (22 checks).");

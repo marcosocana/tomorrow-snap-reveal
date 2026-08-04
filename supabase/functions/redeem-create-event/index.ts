@@ -135,7 +135,13 @@ serve(async (req) => {
       }
       ownerId = userData.user.id;
       ownerEmail = userData.user.email ?? purchase.user_email ?? null;
+      if (purchase.gifted_at && purchase.user_id && purchase.user_id !== ownerId) {
+        return json({ error: "GIFT_ACCOUNT_MISMATCH" }, 403);
+      }
     } else {
+      if (purchase.gifted_at) {
+        return json({ error: "GIFT_LOGIN_REQUIRED" }, 401);
+      }
       const email = payload?.contactEmail?.trim().toLowerCase() ?? "";
       const password = payload?.password ?? "";
       if (!email || !isEmail(email)) {

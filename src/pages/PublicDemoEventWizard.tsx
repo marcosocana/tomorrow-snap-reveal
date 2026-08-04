@@ -410,12 +410,25 @@ const PublicDemoEventWizard = () => {
     } catch (error) {
       console.error("Error creating demo event:", error);
       const errorCode = error instanceof Error ? error.message : "";
-      const description = errorCode.includes("INVALID_CREDENTIALS")
-        ? "Ese email ya tiene una cuenta. Introduce su contraseña correcta."
-        : "No se pudo crear el evento.";
+      const hasInvalidCredentials = errorCode.includes("INVALID_CREDENTIALS");
       toast({
-        title: "Error",
-        description,
+        title: hasInvalidCredentials ? "Este usuario ya existe" : "Error",
+        description: hasInvalidCredentials ? (
+          <>
+            Este usuario ya existe y tiene otra contraseña. Introduce la contraseña correcta o{" "}
+            <a
+              href="https://acceso.revelao.cam/reset-password"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-semibold underline underline-offset-2"
+            >
+              recupérala
+            </a>
+            .
+          </>
+        ) : (
+          "No se pudo crear el evento."
+        ),
         variant: "destructive",
       });
     } finally {

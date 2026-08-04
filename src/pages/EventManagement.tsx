@@ -5,6 +5,16 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -13,7 +23,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, CalendarDays, List, Plus, Edit, Copy, Download, Eye, LogOut, ArrowLeft, User, Lock, Camera, Video, Mic, MoveRight, ChevronDown, MessageSquareText, KeyRound, Gamepad2 } from "lucide-react";
+import { Calendar, CalendarDays, List, Plus, Edit, Copy, Download, Eye, LogOut, ArrowLeft, User, Lock, Camera, Video, Mic, MoveRight, ChevronDown, MessageSquareText, KeyRound, Gamepad2, Gift, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 import { getCountryByCode } from "@/lib/countries";
@@ -101,6 +111,22 @@ const ADMIN_EVENT_TABS: Array<{ value: AdminEventTab; label: string }> = [
 ];
 const ADMIN_EVENT_MOVE_TARGETS: Array<{ value: AdminEventTab; label: string }> = ADMIN_EVENT_TABS;
 const INITIAL_LOAD_TIMEOUT_MS = 15_000;
+
+type GiftPlanId = "demo" | "small" | "medium" | "xxl";
+
+const emptyGiftForm = () => ({
+  planId: "small" as GiftPlanId,
+  recipientName: "",
+  email: "",
+  password: "",
+});
+
+const generateGiftPassword = () => {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+  const values = new Uint8Array(8);
+  crypto.getRandomValues(values);
+  return Array.from(values, (value) => alphabet[value % alphabet.length]).join("");
+};
 
 const withInitialLoadTimeout = <T,>(promise: PromiseLike<T>, operation: string): Promise<T> => {
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
@@ -273,6 +299,10 @@ const EventManagement = () => {
   const [redeemPlan, setRedeemPlan] = useState<"demo" | "small" | "medium" | "xxl">("small");
   const [generatedRedeem, setGeneratedRedeem] = useState<string | null>(null);
   const [isGeneratingRedeem, setIsGeneratingRedeem] = useState(false);
+  const [giftDialogOpen, setGiftDialogOpen] = useState(false);
+  const [giftExistingConfirmationOpen, setGiftExistingConfirmationOpen] = useState(false);
+  const [giftForm, setGiftForm] = useState(emptyGiftForm);
+  const [isSendingGift, setIsSendingGift] = useState(false);
   const [createdSummary, setCreatedSummary] = useState<{
     id: string;
     name: string;
@@ -628,6 +658,66 @@ const EventManagement = () => {
         description: "No se pudo copiar el enlace.",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleGiftDialogChange = (open: boolean) => {
+    if (!open && isSendingGift) return;
+    setGiftDialogOpen(open);
+    if (!open && !isSendingGift) {
+      setGiftExistingConfirmationOpen(false);
+      setGiftForm(emptyGiftForm());
+    }
+  };
+
+  const handleSendGift = async (confirmExisting = false) => {
+    const recipientName = giftForm.recipientName.trim();
+    const email = giftForm.email.trim().toLowerCase();
+    if (!recipientName || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || giftForm.password.length < 8) {
+      toast({
+        title: "Revisa los datos",
+        description: "Completa el nombre, un email válido y una contraseña de al menos 8 caracteres.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSendingGift(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("admin-gift-revelao", {
+        body: {
+          planId: giftForm.planId,
+          recipientName,
+          email,
+          password: giftForm.password,
+          confirmExisting,
+        },
+      });
+      if (error || data?.error) throw error || new Error(data.error);
+      if (data?.requiresConfirmation) {
+        setGiftExistingConfirmationOpen(true);
+        return;
+      }
+      if (!data?.ok) throw new Error("GIFT_FAILED");
+
+      setGiftExistingConfirmationOpen(false);
+      setGiftDialogOpen(false);
+      setGiftForm(emptyGiftForm());
+      toast({
+        title: "Regalo enviado",
+        description: data.existingAccount
+          ? "El enlace se ha enviado. El usuario accederá con su contraseña anterior."
+          : "El enlace y las nuevas credenciales se han enviado al destinatario.",
+      });
+    } catch (error) {
+      console.error("Error sending Revelao gift:", error);
+      toast({
+        title: "No se pudo enviar el regalo",
+        description: "No se ha creado el regalo. Inténtalo de nuevo.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSendingGift(false);
     }
   };
 
@@ -1599,6 +1689,14 @@ const EventManagement = () => {
                       <KeyRound className="w-4 h-4" />
                       Generar código
                     </Button>
+                    <Button
+                      variant="outline"
+                      className="gap-2"
+                      onClick={() => setGiftDialogOpen(true)}
+                    >
+                      <Gift className="w-4 h-4" />
+                      Regalar Revelao
+                    </Button>
                   </>
                 ) : null}
                 {isSuperAdmin ? (
@@ -2273,6 +2371,107 @@ const EventManagement = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={giftDialogOpen} onOpenChange={handleGiftDialogChange}>
+        <DialogContent className="admin-demo2-shell max-w-md w-[92vw] sm:w-full">
+          <DialogHeader>
+            <DialogTitle>Regalar Revelao</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label htmlFor="giftPlan" className="text-sm font-medium text-foreground">Plan</label>
+              <select
+                id="giftPlan"
+                value={giftForm.planId}
+                onChange={(event) => setGiftForm((previous) => ({ ...previous, planId: event.target.value as GiftPlanId }))}
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                disabled={isSendingGift}
+              >
+                <option value="demo">Demo</option>
+                <option value="small">Start</option>
+                <option value="medium">Plus</option>
+                <option value="xxl">Pro</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="giftRecipientName" className="text-sm font-medium text-foreground">Nombre</label>
+              <Input
+                id="giftRecipientName"
+                value={giftForm.recipientName}
+                onChange={(event) => setGiftForm((previous) => ({ ...previous, recipientName: event.target.value }))}
+                placeholder="Nombre del destinatario"
+                disabled={isSendingGift}
+                autoComplete="name"
+              />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="giftEmail" className="text-sm font-medium text-foreground">Email</label>
+              <Input
+                id="giftEmail"
+                type="email"
+                value={giftForm.email}
+                onChange={(event) => setGiftForm((previous) => ({ ...previous, email: event.target.value }))}
+                placeholder="destinatario@email.com"
+                disabled={isSendingGift}
+                autoComplete="email"
+              />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="giftPassword" className="text-sm font-medium text-foreground">Contraseña</label>
+              <div className="flex gap-2">
+                <Input
+                  id="giftPassword"
+                  type="text"
+                  value={giftForm.password}
+                  onChange={(event) => setGiftForm((previous) => ({ ...previous, password: event.target.value }))}
+                  placeholder="Mínimo 8 caracteres"
+                  disabled={isSendingGift}
+                  autoComplete="new-password"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="shrink-0 gap-2"
+                  onClick={() => setGiftForm((previous) => ({ ...previous, password: generateGiftPassword() }))}
+                  disabled={isSendingGift}
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  Generar
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">“Generar” crea una contraseña alfanumérica de 8 caracteres.</p>
+            </div>
+            <Button
+              className="w-full gap-2"
+              onClick={() => void handleSendGift(false)}
+              disabled={isSendingGift}
+            >
+              <Gift className="h-4 w-4" />
+              {isSendingGift ? "Enviando..." : "Enviar"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={giftExistingConfirmationOpen} onOpenChange={setGiftExistingConfirmationOpen}>
+        <AlertDialogContent className="admin-demo2-shell w-[92vw] max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Esta cuenta ya existe</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta cuenta ya existe. Utilizará la contraseña anterior que ya tiene, no la que tú le has generado.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isSendingGift}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => void handleSendGift(true)}
+              disabled={isSendingGift}
+            >
+              {isSendingGift ? "Enviando..." : "Continuar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Dialog
         open={!!noteEvent}
