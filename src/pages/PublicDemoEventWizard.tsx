@@ -80,6 +80,7 @@ const PublicDemoEventWizard = () => {
   const progress = Math.round(((stepIndex + 1) / steps.length) * 100);
   const backgroundPreview = formData.backgroundImage ? URL.createObjectURL(formData.backgroundImage) : undefined;
   const selectedFont = getFontById(formData.fontFamily);
+  const passwordTooShort = formData.password.length > 0 && formData.password.length < 8;
   const selectTryNow = () => {
     const now = new Date();
     const suggestedReveal = addMinutes(now, 31);
@@ -194,7 +195,7 @@ const PublicDemoEventWizard = () => {
         return false;
       }
       if (formData.password.length < 8) {
-        showError("La contraseña debe tener al menos 8 caracteres.");
+        showError("La contraseña debe contener al menos 8 dígitos.");
         return false;
       }
       if (formData.password !== formData.passwordConfirm) {
@@ -800,11 +801,19 @@ const PublicDemoEventWizard = () => {
                     type="password"
                     value={formData.password}
                     onChange={(event) => update("password", event.target.value)}
-                    placeholder="Mínimo 8 caracteres"
-                    className="h-12 rounded-full px-4 text-base"
+                    placeholder="Mínimo 8 dígitos"
+                    className={`h-12 rounded-full px-4 text-base ${passwordTooShort ? "border-destructive ring-1 ring-destructive focus-visible:ring-destructive" : ""}`}
                     autoComplete="new-password"
+                    aria-invalid={passwordTooShort}
+                    aria-describedby="password-requirement"
                     required
                   />
+                  <p
+                    id="password-requirement"
+                    className={`text-sm ${passwordTooShort ? "font-semibold text-destructive" : "text-muted-foreground"}`}
+                  >
+                    La contraseña debe contener al menos 8 dígitos.
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="passwordConfirm" className="flex items-center gap-1.5">
