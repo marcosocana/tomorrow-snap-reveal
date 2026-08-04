@@ -100,6 +100,21 @@ const ADMIN_EVENT_TABS: Array<{ value: AdminEventTab; label: string }> = [
   { value: "others", label: "Otros" },
 ];
 const ADMIN_EVENT_MOVE_TARGETS: Array<{ value: AdminEventTab; label: string }> = ADMIN_EVENT_TABS;
+const INITIAL_LOAD_TIMEOUT_MS = 15_000;
+
+const withInitialLoadTimeout = <T,>(promise: PromiseLike<T>, operation: string): Promise<T> => {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(
+      () => reject(new Error(`${operation} timed out after ${INITIAL_LOAD_TIMEOUT_MS}ms`)),
+      INITIAL_LOAD_TIMEOUT_MS,
+    );
+  });
+
+  return Promise.race([Promise.resolve(promise), timeout]).finally(() => {
+    if (timeoutId) clearTimeout(timeoutId);
+  });
+};
 
 const parseEventLimits = (raw: any): Record<string, unknown> => {
   if (!raw) return {};
@@ -218,6 +233,7 @@ const EventManagement = () => {
     Record<string, { photos: number; videos: number; audios: number }>
   >({});
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [isDemoMode] = useState(() => localStorage.getItem("isDemoMode") === "true");
   const [adminEventId] = useState(() => localStorage.getItem("adminEventId"));
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
@@ -335,17 +351,26 @@ const EventManagement = () => {
 
   useEffect(() => {
     const checkAuth = async () => {
-      // If accessed via admin password, allow access without full auth
-      if (adminEventId) {
-        loadData();
-        return;
+      try {
+        // If accessed via admin password, allow access without full auth
+        if (adminEventId) {
+          await loadData();
+          return;
+        }
+        const { data: { session } } = await withInitialLoadTimeout(
+          supabase.auth.getSession(),
+          "Restoring the session",
+        );
+        if (!session) {
+          navigate(`${pathPrefix}/admin-login`);
+          return;
+        }
+        await loadData();
+      } catch (error) {
+        console.error("Error checking authentication:", error);
+        setLoadError(true);
+        setIsLoading(false);
       }
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        navigate(`${pathPrefix}/admin-login`);
-        return;
-      }
-      loadData();
     };
 
     checkAuth();
@@ -421,13 +446,13 @@ const EventManagement = () => {
 
   const loadData = async () => {
     try {
+      setLoadError(false);
       // If we have an adminEventId, only load that specific event
       if (adminEventId) {
-        const { data: eventData, error: eventError } = await supabase
-          .from("events")
-          .select("*")
-          .eq("id", adminEventId)
-          .single();
+        const { data: eventData, error: eventError } = await withInitialLoadTimeout(
+          supabase.from("events").select("*").eq("id", adminEventId).single(),
+          "Loading the event",
+        );
 
         if (eventError) throw eventError;
 
@@ -442,7 +467,10 @@ const EventManagement = () => {
           setEventPhotoCounts({});
         }
     } else {
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session } } = await withInitialLoadTimeout(
+          supabase.auth.getSession(),
+          "Restoring the session",
+        );
         if (!session) {
           navigate(`${pathPrefix}/admin-login`);
           return;
@@ -451,9 +479,12 @@ const EventManagement = () => {
         const isAdminUser = (session.user?.email || "").toLowerCase() === "revelao.cam@gmail.com";
         setIsSuperAdmin(isAdminUser);
 
-        const { data: eventsPayload, error: eventsError } = await supabase.functions.invoke(
-          isAdminUser ? "admin-events" : "my-events",
-          { method: "GET" },
+        const { data: eventsPayload, error: eventsError } = await withInitialLoadTimeout(
+          supabase.functions.invoke(
+            isAdminUser ? "admin-events" : "my-events",
+            { method: "GET" },
+          ),
+          "Loading events",
         );
         if (eventsError) throw eventsError;
 
@@ -461,6 +492,10 @@ const EventManagement = () => {
         const fetchedCaptainsEvents = (eventsPayload?.captainsEvents || []) as CaptainsManagedEvent[];
         setEvents(fetchedEvents);
         setCaptainsEvents(fetchedCaptainsEvents);
+
+        // The event list is usable at this point. Optional metadata must not
+        // leave the whole page behind an indefinite loading screen.
+        setIsLoading(false);
 
         if (isAdminUser) {
           setFolders([]);
@@ -498,6 +533,7 @@ const EventManagement = () => {
       }
     } catch (error) {
       console.error("Error loading data:", error);
+      setLoadError(true);
       toast({
         title: t("form.errorTitle"),
         description: t("events.loadError"),
@@ -1513,6 +1549,23 @@ const EventManagement = () => {
     return (
       <div className="admin-demo2-shell min-h-screen flex items-center justify-center bg-background">
         <p className="text-muted-foreground">{t("events.loading")}</p>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="admin-demo2-shell min-h-screen flex flex-col items-center justify-center gap-4 bg-background p-6 text-center">
+        <p className="text-muted-foreground">{t("events.loadError")}</p>
+        <Button
+          onClick={() => {
+            setIsLoading(true);
+            setLoadError(false);
+            void loadData();
+          }}
+        >
+          {t("events.retry")}
+        </Button>
       </div>
     );
   }
