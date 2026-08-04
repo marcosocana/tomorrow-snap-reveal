@@ -386,6 +386,20 @@ const EventManagement = () => {
           navigate(`${pathPrefix}/admin-login`);
           return;
         }
+        const { data: { user }, error: userError } = await supabase.auth.getUser(session.access_token);
+        if (userError || !user) {
+          await supabase.auth.signOut({ scope: "local" });
+          navigate(`${pathPrefix}/admin-login`);
+          return;
+        }
+        setCurrentUserId(user.id);
+        setCurrentUserEmail(user.email ?? null);
+        const { data: profile } = await supabase
+          .from("user_profiles")
+          .select("marketing_opt_in")
+          .eq("id", user.id)
+          .maybeSingle();
+        setMarketingOptIn(profile?.marketing_opt_in ?? true);
         await loadData();
       } catch (error) {
         console.error("Error checking authentication:", error);
@@ -406,23 +420,6 @@ const EventManagement = () => {
       return () => subscription.unsubscribe();
     }
   }, [navigate, isDemoMode, adminEventId]);
-
-  useEffect(() => {
-    const loadUserEmail = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setCurrentUserId(user?.id ?? null);
-      setCurrentUserEmail(user?.email ?? null);
-      if (!user?.id) return;
-      const { data: profile } = await supabase
-        .from("user_profiles")
-        .select("marketing_opt_in")
-        .eq("id", user.id)
-        .maybeSingle();
-      setMarketingOptIn(profile?.marketing_opt_in ?? true);
-    };
-    loadUserEmail();
-  }, []);
-
 
   const handleMarketingToggle = async (checked: boolean) => {
     if (!currentUserId) return;
@@ -503,7 +500,10 @@ const EventManagement = () => {
         const { data: eventsPayload, error: eventsError } = await withInitialLoadTimeout(
           supabase.functions.invoke(
             isAdminUser ? "admin-events" : "my-events",
-            { method: "GET" },
+            {
+              method: "GET",
+              headers: { Authorization: `Bearer ${session.access_token}` },
+            },
           ),
           "Loading events",
         );
@@ -524,7 +524,10 @@ const EventManagement = () => {
         } else {
           const { data: pendingPayload } = await supabase.functions.invoke(
             "redeem-pending",
-            { method: "GET" },
+            {
+              method: "GET",
+              headers: { Authorization: `Bearer ${session.access_token}` },
+            },
           );
           const pending = pendingPayload?.pending;
           if (pending?.token) {

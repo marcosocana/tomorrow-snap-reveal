@@ -23,8 +23,11 @@ assert.match(giftFunction, /from\("purchases"\)[\s\S]*gifted_at[\s\S]*gift_recip
 assert.match(giftFunction, /sendGiftEmail[\s\S]*api\.resend\.com\/emails/);
 assert.match(giftFunction, /admin-login\?email=\$\{encodeURIComponent\(email\)\}&gift=1/);
 assert.doesNotMatch(giftFunction, /const redeemUrl = `\$\{APP_ORIGIN\}\/redeem/);
-assert.match(loginPage, /isGiftLogin[\s\S]*sessionEmail !== requestedEmail[\s\S]*auth\.signOut/);
+assert.match(loginPage, /if \(isGiftLogin\)[\s\S]*auth\.signOut\(\{ scope: "local" \}\)/);
 assert.match(management, /Tienes un evento \{pendingRedeem\.planLabel\} pendiente de canjear/);
+assert.match(management, /getUser\(session\.access_token\)[\s\S]*signOut\(\{ scope: "local" \}\)/);
+assert.match(management, /my-events[\s\S]*Authorization: `Bearer \$\{session\.access_token\}`/);
+assert.match(management, /redeem-pending[\s\S]*Authorization: `Bearer \$\{session\.access_token\}`/);
 assert.match(migration, /gifted_at[\s\S]*gift_recipient_name/);
 assert.match(config, /\[functions\.admin-gift-revelao\]/);
 assert.match(redeemGet, /isGift: Boolean\(data\.gifted_at\)/);
@@ -34,4 +37,4 @@ assert.match(redeemCreate, /GIFT_ACCOUNT_MISMATCH/);
 assert.match(redeemCreate, /GIFT_LOGIN_REQUIRED/);
 assert.match(redeemCreate, /owner_id: ownerId/);
 
-console.log("Revelao gift audit passed (22 checks).");
+console.log("Revelao gift audit passed (25 checks).");

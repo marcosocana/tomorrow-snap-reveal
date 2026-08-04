@@ -25,12 +25,15 @@ const AdminLogin = () => {
   useEffect(() => {
     // Check if user is already logged in
     const checkUser = async () => {
+      if (isGiftLogin) {
+        await supabase.auth.signOut({ scope: "local" });
+        return;
+      }
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
-        const sessionEmail = session.user.email?.trim().toLowerCase() || "";
-        const requestedEmail = prefEmail?.trim().toLowerCase() || "";
-        if (isGiftLogin && requestedEmail && sessionEmail !== requestedEmail) {
-          await supabase.auth.signOut();
+        const { data: { user }, error: userError } = await supabase.auth.getUser(session.access_token);
+        if (userError || !user) {
+          await supabase.auth.signOut({ scope: "local" });
           return;
         }
         navigate(redirectTo || `${pathPrefix}/event-management`);
