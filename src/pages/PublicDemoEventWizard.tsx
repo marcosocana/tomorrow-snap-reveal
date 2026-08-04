@@ -353,7 +353,7 @@ const PublicDemoEventWizard = () => {
 
   const handleSubmit = async () => {
     if (!validateStep("reveal")) {
-      setStepIndex(revealStepIndex);
+      setStepIndex(steps.findIndex((step) => step.id === "reveal"));
       return;
     }
     if (!validateStep("contact")) return;
