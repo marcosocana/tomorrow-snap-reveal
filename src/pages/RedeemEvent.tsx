@@ -55,6 +55,7 @@ const RedeemEvent = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [authResolved, setAuthResolved] = useState(false);
   const [requiresAccountSetup, setRequiresAccountSetup] = useState(false);
+  const [isGiftRedeem, setIsGiftRedeem] = useState(false);
   const [purchaseEmailLocked, setPurchaseEmailLocked] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -188,6 +189,7 @@ const RedeemEvent = () => {
         }
         setPlan(data.plan as RedeemPlan);
         const purchaseEmail = data?.userEmail ? String(data.userEmail).toLowerCase() : "";
+        setIsGiftRedeem(Boolean(data?.isGift));
         if (purchaseEmail) {
           setFormData((prev) => ({ ...prev, contactEmail: purchaseEmail }));
           setPurchaseEmailLocked(true);
@@ -452,7 +454,19 @@ const RedeemEvent = () => {
         }
       }
 
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (isGiftRedeem && !accessToken) {
+        const redeemPath = `${pathPrefix}/redeem/${token}`;
+        navigate(
+          `${pathPrefix}/admin-login?redirect=${encodeURIComponent(redeemPath)}&email=${encodeURIComponent(formData.contactEmail.trim().toLowerCase())}`,
+          { replace: true },
+        );
+        return;
+      }
+
       const { data, error } = await supabase.functions.invoke("redeem-create-event", {
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
         body: {
           token,
           contactEmail: requiresAccountSetup ? formData.contactEmail.trim().toLowerCase() : undefined,
@@ -483,10 +497,12 @@ const RedeemEvent = () => {
 
       if (error) {
         let errorCode = (error as any)?.message || "";
+        let errorStatus: number | null = null;
         try {
           const res = (error as any)?.context;
           if (res && typeof res.json === "function") {
-            const body = await res.json();
+            errorStatus = typeof res.status === "number" ? res.status : null;
+            const body = await res.clone().json();
             errorCode = body?.error || errorCode;
           }
         } catch {
@@ -510,7 +526,12 @@ const RedeemEvent = () => {
           });
           return;
         }
-        if (errorCode === "GIFT_LOGIN_REQUIRED" || errorCode === "GIFT_ACCOUNT_MISMATCH") {
+        if (
+          errorStatus === 401 ||
+          errorCode === "UNAUTHORIZED" ||
+          errorCode === "GIFT_LOGIN_REQUIRED" ||
+          errorCode === "GIFT_ACCOUNT_MISMATCH"
+        ) {
           await supabase.auth.signOut();
           const redeemPath = `${pathPrefix}/redeem/${token}`;
           navigate(

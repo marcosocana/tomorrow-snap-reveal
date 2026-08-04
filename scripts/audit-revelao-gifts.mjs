@@ -24,8 +24,9 @@ assert.match(migration, /gifted_at[\s\S]*gift_recipient_name/);
 assert.match(config, /\[functions\.admin-gift-revelao\]/);
 assert.match(redeemGet, /isGift: Boolean\(data\.gifted_at\)/);
 assert.match(redeemPage, /data\?\.isGift[\s\S]*admin-login\?redirect=/);
+assert.match(redeemPage, /accessToken[\s\S]*Authorization: `Bearer \$\{accessToken\}`/);
 assert.match(redeemCreate, /GIFT_ACCOUNT_MISMATCH/);
 assert.match(redeemCreate, /GIFT_LOGIN_REQUIRED/);
 assert.match(redeemCreate, /owner_id: ownerId/);
 
-console.log("Revelao gift audit passed (17 checks).");
+console.log("Revelao gift audit passed (18 checks).");
