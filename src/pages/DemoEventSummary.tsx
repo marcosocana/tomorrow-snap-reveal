@@ -1,7 +1,7 @@
-import { useLocation, useNavigate, Navigate } from "react-router-dom";
+import { useLocation, Navigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Check, Copy, ExternalLink, Download, Smartphone, Timer } from "lucide-react";
+import { Check, Copy, Download } from "lucide-react";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -29,7 +29,6 @@ interface EventData {
 
 const DemoEventSummary = () => {
   const location = useLocation();
-  const navigate = useNavigate();
   const { toast } = useToast();
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
@@ -222,26 +221,32 @@ const DemoEventSummary = () => {
 
           {/* QR Code */}
           <div className="flex flex-col items-center gap-4 py-4">
-            <div className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-amber-300 bg-amber-50 p-4 text-center text-base font-bold text-amber-950 sm:text-lg">
-              <Smartphone className="h-5 w-5 shrink-0 text-amber-700" />
-              <p>{t("summary.qrTryNow")}</p>
+            <div className="flex w-full items-center justify-center rounded-2xl border-2 border-amber-300 bg-amber-50 p-4 text-center text-base font-bold text-amber-950 sm:text-lg">
+              <p className="sm:hidden">
+                {t("summary.qrMobilePrefix")}{" "}
+                <a href={eventUrl} className="underline underline-offset-2">{t("summary.qrMobileLink")}</a>{" "}
+                {t("summary.qrMobileSuffix")}
+              </p>
+              <p className="hidden sm:block">{t("summary.qrTryNow")}</p>
             </div>
-            <div ref={qrRef} className="bg-white p-4 rounded-lg shadow-sm">
-              {qrFromState ? (
-                <img
-                  src={qrFromState}
-                  alt={t("summary.qrAlt")}
-                  className="h-[200px] w-[200px]"
-                />
-              ) : (
-                <QRCodeSVG
-                  value={eventUrl}
-                  size={200}
-                  level="H"
-                  includeMargin
-                />
-              )}
-            </div>
+            <a href={eventUrl} aria-label="Ver tu evento" className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+              <div ref={qrRef} className="bg-white p-4 rounded-lg shadow-sm">
+                {qrFromState ? (
+                  <img
+                    src={qrFromState}
+                    alt={t("summary.qrAlt")}
+                    className="h-[200px] w-[200px]"
+                  />
+                ) : (
+                  <QRCodeSVG
+                    value={eventUrl}
+                    size={200}
+                    level="H"
+                    includeMargin
+                  />
+                )}
+              </div>
+            </a>
             <Button
               variant="outline"
               size="sm"
@@ -251,8 +256,7 @@ const DemoEventSummary = () => {
               <Download className="w-4 h-4" />
               {t("summary.qrDownload")}
             </Button>
-            <div className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-amber-300 bg-amber-50 p-4 text-center text-sm font-semibold text-amber-900 sm:text-base">
-              <Timer className="h-5 w-5 shrink-0 text-amber-700" />
+            <div className="flex w-full items-center justify-center rounded-2xl border-2 border-amber-300 bg-amber-50 p-4 text-center text-sm font-semibold text-amber-900 sm:text-base">
               <p>
                 {remainingMinutes > 0
                   ? remainingHours > 0
