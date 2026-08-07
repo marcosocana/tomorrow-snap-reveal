@@ -664,9 +664,8 @@ const PublicDemoEventWizard = () => {
             </p>
             {demoTiming === "now" ? (
               <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
-                <p className="font-semibold">Te recomendamos elegir una hora próxima.</p>
-                <p className="mt-1 text-amber-800">
-                  Así podrás probar primero a hacer fotos, vídeos y audios y ver el resultado al poco rato, sin esperar demasiado. Podrás subir contenido hasta un minuto antes del revelado.
+                <p className="text-amber-800">
+                  Te recomendamos elegir una hora de revelado cercana. Así podrás hacer algunas fotos, vídeos y audios de prueba y ver el resultado en poco tiempo, sin tener que esperar demasiado. Podrás seguir subiendo contenido hasta un minuto antes de que se produzca el revelado.
                 </p>
               </div>
             ) : null}
