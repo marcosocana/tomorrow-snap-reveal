@@ -212,6 +212,8 @@ const PublicDemoEventForm = () => {
         expiry_date: null,
         expiry_redirect_url: null,
         allow_photo_deletion: true, // Always true
+        allow_image_attachment: true,
+        allow_video_attachment: true,
         show_legal_text: false, // Always false
       } as any).select().single();
 

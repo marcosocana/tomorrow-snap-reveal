@@ -235,6 +235,8 @@ serve(async (req) => {
         expiry_date: expiryDate.toISOString(),
         expiry_redirect_url: null,
         allow_photo_deletion: true,
+        allow_image_attachment: true,
+        allow_video_attachment: true,
         allow_video_recording: event.allow_video_recording ?? true,
         max_videos: event.max_videos ?? 3,
         max_video_duration: event.max_video_duration ?? 15,

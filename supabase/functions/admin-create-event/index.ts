@@ -77,6 +77,8 @@ type AdminEventPayload = {
     allow_audio_recording?: boolean;
     max_audios?: number | null;
     max_audio_duration?: number;
+    allow_image_attachment?: boolean;
+    allow_video_attachment?: boolean;
     header_style?: string | null;
     limits_json?: Record<string, unknown> | null;
     is_demo?: boolean;
@@ -326,6 +328,8 @@ serve(async (req) => {
         allow_audio_recording: event.allow_audio_recording ?? false,
         max_audios: event.max_audios ?? null,
         max_audio_duration: event.max_audio_duration ?? 30,
+        allow_image_attachment: event.allow_image_attachment ?? true,
+        allow_video_attachment: event.allow_video_attachment ?? true,
         hide_reveal_date: event.hide_reveal_date ?? false,
         header_style: event.header_style ?? "modern",
         owner_id: ownerId,

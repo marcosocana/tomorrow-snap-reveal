@@ -231,6 +231,8 @@ serve(async (req) => {
         upload_end_time: event.upload_end_time,
         reveal_time: event.reveal_time,
         max_photos: maxPhotos,
+        allow_image_attachment: true,
+        allow_video_attachment: true,
         allow_video_recording: allowVideoRecording,
         max_videos: allowVideoRecording ? (maxVideos ?? 0) : 0,
         max_video_duration: 15,
