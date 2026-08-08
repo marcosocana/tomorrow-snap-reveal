@@ -1459,37 +1459,6 @@ const EventForm = () => {
               </div>
             )}
 
-            {showGalleryAttachmentSettings && !isSuperAdmin && (
-              <div className="mt-4 space-y-3 border-t border-border pt-4">
-                <div>
-                  <Label className="text-sm font-semibold">Adjuntar</Label>
-                  <p className="text-xs text-muted-foreground">
-                    Permite a los invitados subir fotos o vídeos ya guardados en su movil. Se activa por defecto en los eventos nuevos y puede desactivarse desde el detalle del evento.
-                  </p>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label htmlFor="allowImageAttachment">Activar opcion de adjuntar</Label>
-                    <p className="text-xs text-muted-foreground">
-                      Muestra un unico boton "Adjuntar" valido para fotos y vídeos desde la galeria del movil.
-                    </p>
-                  </div>
-                  <Switch
-                    id="allowImageAttachment"
-                    checked={formData.allowImageAttachment}
-                    onCheckedChange={(checked) =>
-                      setFormData({
-                        ...formData,
-                        allowImageAttachment: checked,
-                        allowVideoAttachment: checked,
-                      })
-                    }
-                  />
-                </div>
-              </div>
-            )}
-
             {isSuperAdmin && (
               <div className="space-y-2">
                 <Label htmlFor="planType">{t("events.planType")}</Label>
@@ -2074,6 +2043,37 @@ const EventForm = () => {
             <div className="space-y-4 border-t border-border pt-4">
               <Label className="text-base font-semibold">{t("form.optionsSection")}</Label>
 
+              {showGalleryAttachmentSettings && (
+                <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-4">
+                  <div>
+                    <Label className="text-sm font-semibold">Adjuntar</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Permite a los invitados subir fotos o vídeos ya guardados en su móvil. Se activa por defecto en los eventos nuevos y puede desactivarse desde el detalle del evento.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="allowImageAttachment">Activar opción de adjuntar</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Muestra un único botón "Adjuntar" válido para fotos y vídeos desde la galería del móvil.
+                      </p>
+                    </div>
+                    <Switch
+                      id="allowImageAttachment"
+                      checked={formData.allowImageAttachment}
+                      onCheckedChange={(checked) =>
+                        setFormData({
+                          ...formData,
+                          allowImageAttachment: checked,
+                          allowVideoAttachment: checked,
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+              )}
+
               <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-4">
                 <div className="flex items-start justify-between gap-4">
                   <div className="space-y-1">
@@ -2446,36 +2446,6 @@ const EventForm = () => {
                     </div>
                   </div>
 
-                  {showGalleryAttachmentSettings && (
-                    <div className="space-y-3 border-t border-border pt-4">
-                      <div>
-                        <Label className="text-sm font-semibold">Adjuntar</Label>
-                        <p className="text-xs text-muted-foreground">
-                          Permite a los invitados subir fotos o vídeos ya guardados en su movil. Se activa por defecto en los eventos nuevos y puede desactivarse desde el detalle del evento.
-                        </p>
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-0.5">
-                          <Label htmlFor="allowImageAttachment">Activar opcion de adjuntar</Label>
-                          <p className="text-xs text-muted-foreground">
-                            Muestra un unico boton "Adjuntar" valido para fotos y vídeos desde la galeria del movil.
-                          </p>
-                        </div>
-                        <Switch
-                          id="allowImageAttachment"
-                          checked={formData.allowImageAttachment}
-                          onCheckedChange={(checked) =>
-                            setFormData({
-                              ...formData,
-                              allowImageAttachment: checked,
-                              allowVideoAttachment: checked,
-                            })
-                          }
-                        />
-                      </div>
-                    </div>
-                  )}
               </div>
             )}
 
