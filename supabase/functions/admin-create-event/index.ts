@@ -140,7 +140,7 @@ const normalizeIso = (value: unknown): string | null => {
 const getPlanMeta = (maxPhotos: number | null | undefined) => {
   if (maxPhotos === 10) return { label: "Evento Demo", type: "demo", planId: "demo" };
   if (maxPhotos === 50 || maxPhotos === 200) return { label: "Evento Start", type: "paid", planId: "small" };
-  if (maxPhotos === 300 || maxPhotos === 1200) return { label: "Evento Plus", type: "paid", planId: "medium" };
+  if (maxPhotos === 300 || maxPhotos === 1200 || maxPhotos === 5000) return { label: "Evento Plus", type: "paid", planId: "medium" };
   if (maxPhotos === 500 || maxPhotos === 1000 || maxPhotos == null) return { label: "Evento Pro", type: "paid", planId: "xxl" };
   return { label: "Evento personalizado", type: "paid", planId: "custom" };
 };

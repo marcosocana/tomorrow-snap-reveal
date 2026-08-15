@@ -29,17 +29,17 @@ export const PLANS: Record<PlanId, PlanConfig> = {
   medium: {
     id: "medium",
     label: "Plus",
-    maxPhotos: 1200,
-    maxVideos: 90,
-    maxAudios: 200,
+    maxPhotos: 5000,
+    maxVideos: 200,
+    maxAudios: 500,
     stripePriceIdEnv: "STRIPE_PRICE_MEDIUM",
   },
   large: {
     id: "large",
     label: "Plus",
-    maxPhotos: 1200,
-    maxVideos: 90,
-    maxAudios: 200,
+    maxPhotos: 5000,
+    maxVideos: 200,
+    maxAudios: 500,
     stripePriceIdEnv: "STRIPE_PRICE_LARGE",
   },
   xxl: {

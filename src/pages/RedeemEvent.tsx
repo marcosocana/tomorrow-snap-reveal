@@ -120,7 +120,7 @@ const RedeemEvent = () => {
   const expiryDays =
     plan?.maxPhotos === 10 ? 10 :
     plan?.maxPhotos === 200 ? 20 :
-    plan?.maxPhotos === 1200 ? 60 :
+    plan?.maxPhotos === 1200 || plan?.maxPhotos === 5000 ? 60 :
     90;
 
   const getPlanBadge = () => {
@@ -132,7 +132,7 @@ const RedeemEvent = () => {
     if (label.toLowerCase() === "start" || plan.maxPhotos === 200) {
       return { label: "Start", color: "bg-emerald-50 text-emerald-700 border-emerald-200" };
     }
-    if (label.toLowerCase() === "plus" || plan.maxPhotos === 1200) {
+    if (label.toLowerCase() === "plus" || plan.maxPhotos === 1200 || plan.maxPhotos === 5000) {
       return { label: "Plus", color: "bg-blue-50 text-blue-700 border-blue-200" };
     }
     return { label: "Pro", color: "bg-purple-50 text-purple-700 border-purple-200" };

@@ -767,7 +767,7 @@ const EventManagement = () => {
   const getPlanType = (maxPhotos?: number | null) => {
     if (maxPhotos === 10) return { label: "Demo", color: "bg-[#f06a5f]/10 text-[#f06a5f] border-[#f06a5f]/30" };
     if (maxPhotos === 50 || maxPhotos === 200) return { label: "Start", color: "bg-emerald-50 text-emerald-700 border-emerald-200" };
-    if (maxPhotos === 300 || maxPhotos === 1200) return { label: "Plus", color: "bg-blue-50 text-blue-700 border-blue-200" };
+    if (maxPhotos === 300 || maxPhotos === 1200 || maxPhotos === 5000) return { label: "Plus", color: "bg-blue-50 text-blue-700 border-blue-200" };
     if (maxPhotos === 500 || maxPhotos === 1000 || maxPhotos == null) return { label: "Pro", color: "bg-purple-50 text-purple-700 border-purple-200" };
     return { label: "-", color: "bg-muted text-muted-foreground border-border" };
   };

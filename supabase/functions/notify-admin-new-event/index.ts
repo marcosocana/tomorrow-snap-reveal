@@ -26,7 +26,7 @@ function inferType(event: any, planLabel?: string): string {
   const mp = event?.max_photos;
   if (mp === 10) return "Demo";
   if (mp === 50 || mp === 200) return "Start";
-  if (mp === 300 || mp === 1200) return "Plus";
+  if (mp === 300 || mp === 1200 || mp === 5000) return "Plus";
   if (mp === 500 || mp === 1000 || mp == null) return "Pro";
   return "Evento";
 }

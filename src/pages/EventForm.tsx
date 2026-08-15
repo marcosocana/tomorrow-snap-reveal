@@ -153,11 +153,11 @@ const PLAN_LIMITS: Record<
     maxAudios: "60",
   },
   medium: {
-    maxPhotos: "1200",
+    maxPhotos: "5000",
     allowVideoRecording: true,
-    maxVideos: "90",
+    maxVideos: "200",
     allowAudioRecording: true,
-    maxAudios: "200",
+    maxAudios: "500",
   },
   xxl: {
     maxPhotos: "",
@@ -542,7 +542,7 @@ const EventForm = () => {
       const resolvedPlanType =
         event.plan_id === "demo" || event.max_photos === 10 ? "demo" :
         event.plan_id === "small" || event.max_photos === 200 ? "small" :
-        event.plan_id === "medium" || event.plan_id === "large" || event.max_photos === 1200 ? "medium" :
+        event.plan_id === "medium" || event.plan_id === "large" || event.max_photos === 1200 || event.max_photos === 5000 ? "medium" :
         event.plan_id === "xxl" ? "xxl" :
         event.max_photos == null ? "xxl" :
         "custom";
@@ -1220,7 +1220,7 @@ const EventForm = () => {
     if (planType === "custom") return null;
     if (formData.maxPhotos === "10" || isDemoMode || planType === "demo") return 90;
     if (formData.maxPhotos === "200") return 20;
-    if (formData.maxPhotos === "1200") return 60;
+    if (formData.maxPhotos === "1200" || formData.maxPhotos === "5000") return 60;
     return 90;
   };
 

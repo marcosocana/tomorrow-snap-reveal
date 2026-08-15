@@ -216,7 +216,7 @@ serve(async (req) => {
     const expiryDays =
       plan?.maxPhotos === 10 ? 10 :
       plan?.maxPhotos === 200 ? 20 :
-      plan?.maxPhotos === 1200 ? 60 :
+      plan?.maxPhotos === 1200 || plan?.maxPhotos === 5000 ? 60 :
       90;
     expiryDate.setUTCDate(expiryDate.getUTCDate() + expiryDays);
     expiryDate.setUTCHours(23, 59, 0, 0);
