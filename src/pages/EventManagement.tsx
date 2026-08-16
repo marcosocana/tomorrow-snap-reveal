@@ -764,7 +764,8 @@ const EventManagement = () => {
     });
   };
 
-  const getPlanType = (maxPhotos?: number | null) => {
+  const getPlanType = (maxPhotos?: number | null, planId?: string | null) => {
+    if (planId === "capsule") return { label: "Cápsula", color: "bg-rose-50 text-rose-700 border-rose-200" };
     if (maxPhotos === 10) return { label: "Demo", color: "bg-[#f06a5f]/10 text-[#f06a5f] border-[#f06a5f]/30" };
     if (maxPhotos === 50 || maxPhotos === 200) return { label: "Start", color: "bg-emerald-50 text-emerald-700 border-emerald-200" };
     if (maxPhotos === 300 || maxPhotos === 1200 || maxPhotos === 5000) return { label: "Plus", color: "bg-blue-50 text-blue-700 border-blue-200" };
@@ -841,7 +842,7 @@ const EventManagement = () => {
         !search ||
         event.name.toLowerCase().includes(search) ||
         (getAdminOwnerEmail(event) || "").toLowerCase().includes(search);
-      const planLabel = getPlanType(event.max_photos).label;
+      const planLabel = getPlanType(event.max_photos, (event as any).plan_id).label;
       const matchesType = adminTypeFilter === "all" || planLabel === adminTypeFilter;
       const hasPhone = !!getAdminOwnerPhone(event);
       const matchesPhone =
@@ -860,7 +861,7 @@ const EventManagement = () => {
           case "name":
             return event.name.toLowerCase();
           case "type":
-            return getPlanType(event.max_photos).label;
+            return getPlanType(event.max_photos, (event as any).plan_id).label;
           case "email":
             return (getAdminOwnerEmail(event) || "").toLowerCase();
           case "photos":
@@ -1262,7 +1263,7 @@ const EventManagement = () => {
     const qrStorageUrl = getEventQrUrl(event);
     const statusLabel = t(`events.status.${statusInfo.status}`);
 
-    const planType = getPlanType(event.max_photos);
+    const planType = getPlanType(event.max_photos, (event as any).plan_id);
 
     return (
       <Card key={event.id} className="p-4 md:p-6">
@@ -1597,7 +1598,7 @@ const EventManagement = () => {
         const matchesSearch = !search
           || event.name.toLowerCase().includes(search)
           || (getAdminOwnerEmail(event) || "").toLowerCase().includes(search);
-        const matchesType = adminTypeFilter === "all" || getPlanType(event.max_photos).label === adminTypeFilter;
+        const matchesType = adminTypeFilter === "all" || getPlanType(event.max_photos, (event as any).plan_id).label === adminTypeFilter;
         const hasPhone = Boolean(getAdminOwnerPhone(event));
         const matchesPhone = adminPhoneFilter === "all"
           || (adminPhoneFilter === "yes" && hasPhone)
@@ -2033,9 +2034,9 @@ const EventManagement = () => {
                         </td>
                         <td className="py-3 pr-4">
                           <span
-                            className={`inline-flex items-center justify-center min-w-[3.25rem] h-6 rounded-full border px-2 text-xs font-semibold whitespace-nowrap ${getPlanType(event.max_photos).color}`}
+                            className={`inline-flex items-center justify-center min-w-[3.25rem] h-6 rounded-full border px-2 text-xs font-semibold whitespace-nowrap ${getPlanType(event.max_photos, (event as any).plan_id).color}`}
                           >
-                            {getPlanType(event.max_photos).label}
+                            {getPlanType(event.max_photos, (event as any).plan_id).label}
                           </span>
                         </td>
                         <td className="py-3 pr-4">
