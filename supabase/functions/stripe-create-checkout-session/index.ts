@@ -6,7 +6,10 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 const STRIPE_SECRET_KEY = Deno.env.get("STRIPE_SECRET_KEY") ?? "";
 const APP_ORIGIN = Deno.env.get("APP_ORIGIN") ?? "https://acceso.revelao.cam";
-const STRIPE_PRICE_CAPTAINS_TABLE = Deno.env.get("STRIPE_PRICE_CAPTAINS_TABLE") ?? "";
+// Stripe Price "Juego" (Capitanes, one-time, 4.95 EUR). Price IDs are safe to
+// keep as a deployable default; the dedicated env var allows future rotation.
+const STRIPE_PRICE_CAPTAINS_GAME =
+  Deno.env.get("STRIPE_PRICE_CAPTAINS_GAME") ?? "price_1U51pa5qbMQlPRrsRCs3dWRZ";
 const STRIPE_PRICE_CAPTAINS_PACK = Deno.env.get("STRIPE_PRICE_CAPTAINS_PACK") ?? "";
 
 const corsHeaders = {
@@ -91,11 +94,11 @@ serve(async (req) => {
 
     if (planId === "captains") {
       if (body.quoteOnly) {
-        if (!STRIPE_PRICE_CAPTAINS_TABLE || !STRIPE_PRICE_CAPTAINS_PACK) {
+        if (!STRIPE_PRICE_CAPTAINS_GAME || !STRIPE_PRICE_CAPTAINS_PACK) {
           return json({ error: "MISSING_CAPTAINS_PRICE_ID" }, 500);
         }
         const [gamePrice, captainPackPrice] = await Promise.all([
-          fetchStripePrice(STRIPE_PRICE_CAPTAINS_TABLE),
+          fetchStripePrice(STRIPE_PRICE_CAPTAINS_GAME),
           fetchStripePrice(STRIPE_PRICE_CAPTAINS_PACK),
         ]);
         if (!gamePrice || !captainPackPrice || gamePrice.currency !== captainPackPrice.currency) {
@@ -113,7 +116,7 @@ serve(async (req) => {
         return json({ error: "INVALID_TABLE_COUNT" }, 400);
       }
       const captainPack = Boolean(body.captainPack);
-      if (!STRIPE_PRICE_CAPTAINS_TABLE || (captainPack && !STRIPE_PRICE_CAPTAINS_PACK)) {
+      if (!STRIPE_PRICE_CAPTAINS_GAME || (captainPack && !STRIPE_PRICE_CAPTAINS_PACK)) {
         return json({ error: "MISSING_CAPTAINS_PRICE_ID" }, 500);
       }
       const onboardingParams = new URLSearchParams({
@@ -124,7 +127,7 @@ serve(async (req) => {
 
       params.set("success_url", `${APP_ORIGIN}/nuevoeventocapitanes?${onboardingParams.toString()}`);
       params.set("cancel_url", `${APP_ORIGIN}/planes?checkout=cancel`);
-      params.append("line_items[0][price]", STRIPE_PRICE_CAPTAINS_TABLE);
+      params.append("line_items[0][price]", STRIPE_PRICE_CAPTAINS_GAME);
       params.append("line_items[0][quantity]", String(tableCount));
       if (captainPack) {
         params.append("line_items[1][price]", STRIPE_PRICE_CAPTAINS_PACK);
