@@ -14,7 +14,7 @@ export const CaptainsCheckoutCard = ({ compact = false }: CaptainsCheckoutCardPr
   const [tableCount, setTableCount] = useState(6);
   const [captainPack, setCaptainPack] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const total = useMemo(() => tableCount * (3 + (captainPack ? 12.95 : 0)), [captainPack, tableCount]);
+  const total = useMemo(() => tableCount * (4.95 + (captainPack ? 12.95 : 0)), [captainPack, tableCount]);
 
   const formatEur = (amount: number) =>
     new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR", maximumFractionDigits: 2 }).format(amount);
@@ -59,8 +59,8 @@ export const CaptainsCheckoutCard = ({ compact = false }: CaptainsCheckoutCardPr
             </p>
           </div>
           <ul className="grid gap-2 text-sm text-foreground sm:grid-cols-2">
-            <li className="flex items-center gap-2"><Check className="h-4 w-4 text-[#f06a5f]" /> 3,00 € por mesa</li>
-            <li className="flex items-center gap-2"><Check className="h-4 w-4 text-[#f06a5f]" /> Onboarding público de creación</li>
+            <li className="flex items-center gap-2"><Check className="h-4 w-4 text-[#f06a5f]" /> 4,95 € por mesa</li>
+            <li className="flex items-center gap-2"><Check className="h-4 w-4 text-[#f06a5f]" /> Hasta 25 retos personalizables</li>
             <li className="flex items-center gap-2"><Check className="h-4 w-4 text-[#f06a5f]" /> QR y enlace al juego</li>
             <li className="flex items-center gap-2"><Check className="h-4 w-4 text-[#f06a5f]" /> Pack Capitán opcional +12,95 €/mesa</li>
           </ul>

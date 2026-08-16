@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const url = Deno.env.get("SUPABASE_URL") ?? "";
 const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 const headers = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type" };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...headers, "Content-Type": "application/json" } });
 const slugify = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "capitanes";
@@ -92,8 +93,21 @@ serve(async (req) => {
   const code = String(body.code ?? "").trim().toUpperCase();
   if (code.length !== 16) return json({ error: "INVALID_CODE" }, 400);
   const admin = createClient(url, serviceKey);
-  const { data: access } = await admin.from("captains_creation_codes").select("id, redeemed_at, expires_at, event_id, max_tables").eq("code", code).maybeSingle();
+  const { data: access } = await admin.from("captains_creation_codes").select("id, redeemed_at, expires_at, event_id, max_tables, account_owner_id").eq("code", code).maybeSingle();
   if (!access || new Date(access.expires_at).getTime() <= Date.now()) return json({ error: "INVALID_CODE" }, 400);
+  let authenticatedUserId: string | null = null;
+  if (access.account_owner_id) {
+    const authorization = req.headers.get("Authorization") ?? "";
+    if (!authorization.startsWith("Bearer ") || !anonKey) return json({ error: "LOGIN_REQUIRED" }, 401);
+    const authClient = createClient(url, anonKey, {
+      global: { headers: { Authorization: authorization } },
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data: userData, error: userError } = await authClient.auth.getUser();
+    if (userError || !userData.user) return json({ error: "LOGIN_REQUIRED" }, 401);
+    authenticatedUserId = userData.user.id;
+    if (authenticatedUserId !== access.account_owner_id) return json({ error: "ACCOUNT_MISMATCH" }, 403);
+  }
   if (access.redeemed_at && access.event_id) {
     const { data: existingEvent } = await admin.from("captains_events").select("*").eq("id", access.event_id).maybeSingle();
     if (!existingEvent) return json({ error: "EVENT_NOT_FOUND" }, 404);
@@ -155,11 +169,28 @@ serve(async (req) => {
 
   const contactEmail = String(body.event.contact_email || "").trim().toLowerCase();
   if (!isEmail(contactEmail)) return json({ error: "INVALID_EMAIL" }, 400);
-  const { ownerId, managementPassword } = await resolveManagementAccount(
-    admin,
-    contactEmail,
-    String(body.event.contact_phone || "").trim() || null,
-  );
+  let ownerId: string;
+  let managementPassword: string | null = null;
+  let managementEmail = contactEmail;
+  if (access.account_owner_id && authenticatedUserId) {
+    ownerId = authenticatedUserId;
+    const { data: accountData, error: accountError } = await admin.auth.admin.getUserById(ownerId);
+    if (accountError || !accountData.user?.email) return json({ error: "ACCOUNT_NOT_FOUND" }, 404);
+    managementEmail = accountData.user.email.trim().toLowerCase();
+    const { error: profileError } = await admin.from("user_profiles").upsert({
+      id: ownerId,
+      phone: String(body.event.contact_phone || "").trim() || null,
+    }, { onConflict: "id" });
+    if (profileError) return json({ error: "CREATE_PROFILE_FAILED", detail: profileError.message }, 500);
+  } else {
+    const resolved = await resolveManagementAccount(
+      admin,
+      contactEmail,
+      String(body.event.contact_phone || "").trim() || null,
+    );
+    ownerId = resolved.ownerId;
+    managementPassword = resolved.managementPassword;
+  }
 
   let slug = slugify(body.event.name);
   for (let suffix = 2;; suffix += 1) {
@@ -251,7 +282,7 @@ serve(async (req) => {
   return json({
     event,
     credentials: {
-      email: contactEmail,
+      email: managementEmail,
       password: managementPassword,
     },
   });

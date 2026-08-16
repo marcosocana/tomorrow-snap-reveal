@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -30,6 +30,7 @@ import { PricingPreview } from "@/components/PricingPreview";
 import { deleteRevelaoEventsCompletely } from "@/lib/deleteRevelaoEvents";
 import { AdminEventsCalendar } from "@/components/AdminEventsCalendar";
 import { deleteCaptainsEvent } from "@/lib/captainsService";
+import { CaptainsCheckoutCard } from "@/components/CaptainsCheckoutCard";
 
 interface Event {
   id: string;
@@ -277,6 +278,7 @@ const EventManagement = () => {
   const [adminNoteSaving, setAdminNoteSaving] = useState(false);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [pricingOpen, setPricingOpen] = useState(false);
+  const [captainsCheckoutOpen, setCaptainsCheckoutOpen] = useState(false);
   const [pricingStep, setPricingStep] = useState<"plans" | "redeem">("plans");
   const [redeemCode, setRedeemCode] = useState("");
   const [redeemError, setRedeemError] = useState<string | null>(null);
@@ -323,6 +325,7 @@ const EventManagement = () => {
     max_audios?: number | null;
     owner_email: string | null;
   } | null>(null);
+  const didChooseInitialProduct = useRef(false);
   
   // Dialogs
 
@@ -339,7 +342,10 @@ const EventManagement = () => {
     setActiveProduct(product);
 
     if (action === "new") {
-      if (product === "captains") navigate(isSuperAdmin ? "/admin/capitanes/onboarding" : "/nuevoeventocapitanes");
+      if (product === "captains") {
+        if (isSuperAdmin) navigate("/admin/capitanes/onboarding");
+        else setCaptainsCheckoutOpen(true);
+      }
       else if (product === "capsule") navigate(`${pathPrefix}/event-form?product=capsule`);
       else if (isSuperAdmin) navigate(`${pathPrefix}/event-form`);
       else {
@@ -395,7 +401,29 @@ const EventManagement = () => {
     () => events.filter(isCapsuleEvent),
     [events],
   );
+  const productCounts = useMemo<Record<ProductSection, number>>(() => ({
+    revelao: revelaoEvents.length,
+    captains: captainsEvents.length,
+    capsule: capsuleEvents.length,
+  }), [revelaoEvents.length, captainsEvents.length, capsuleEvents.length]);
+  const orderedProductSections = useMemo(() => {
+    if (isSuperAdmin) return PRODUCT_SECTIONS;
+    return [...PRODUCT_SECTIONS].sort((left, right) => {
+      const leftHasEvents = productCounts[left.value] > 0 ? 1 : 0;
+      const rightHasEvents = productCounts[right.value] > 0 ? 1 : 0;
+      return rightHasEvents - leftHasEvents;
+    });
+  }, [isSuperAdmin, productCounts]);
   const productEvents = activeProduct === "capsule" ? capsuleEvents : revelaoEvents;
+
+  useEffect(() => {
+    if (isLoading || isSuperAdmin || didChooseInitialProduct.current) return;
+    const firstProductWithEvents = orderedProductSections.find(
+      (product) => productCounts[product.value] > 0,
+    );
+    setActiveProduct(firstProductWithEvents?.value ?? "revelao");
+    didChooseInitialProduct.current = true;
+  }, [isLoading, isSuperAdmin, orderedProductSections, productCounts]);
 
   const loadMediaCounts = async (eventsList: Event[]) => {
     const eventIds = eventsList.map((event) => event.id).filter(Boolean);
@@ -539,6 +567,7 @@ const EventManagement = () => {
   useEffect(() => {
     const created = (location.state as any)?.createdEvent;
     if (created) {
+      didChooseInitialProduct.current = true;
       setCreatedSummary(created);
       setActiveProduct(
         created.plan_id === "capsule" || created.type === "capsule" ? "capsule" : "revelao",
@@ -851,7 +880,7 @@ const EventManagement = () => {
   };
 
   const getPlanType = (maxPhotos?: number | null, planId?: string | null) => {
-    if (planId === "capsule") return { label: "Cápsula", color: "bg-rose-50 text-rose-700 border-rose-200" };
+    if (planId === "capsule") return { label: "Cápsula del tiempo", color: "bg-rose-50 text-rose-700 border-rose-200" };
     if (maxPhotos === 10) return { label: "Demo", color: "bg-[#f06a5f]/10 text-[#f06a5f] border-[#f06a5f]/30" };
     if (maxPhotos === 50 || maxPhotos === 200) return { label: "Start", color: "bg-emerald-50 text-emerald-700 border-emerald-200" };
     if (maxPhotos === 300 || maxPhotos === 1200 || maxPhotos === 5000) return { label: "Plus", color: "bg-blue-50 text-blue-700 border-blue-200" };
@@ -1333,10 +1362,13 @@ const EventManagement = () => {
   };
 
   const renderEventCard = (event: Event) => {
+    const capsule = isCapsuleEvent(event);
     const effectiveEvent = getEffectiveEvent(event);
     const { photos: photoCount, videos: videoCount, audios: audioCount } = getMediaCounts(event);
     const { photos: photoLimit, videos: videoLimit, audios: audioLimit } = getMediaLimits(event);
-    const eventUrl = `https://acceso.revelao.cam/events/${event.password_hash}`;
+    const eventUrl = capsule
+      ? `https://acceso.revelao.cam/capsula/${event.id}`
+      : `https://acceso.revelao.cam/events/${event.password_hash}`;
     const slideshowUrl = `${window.location.origin}/slideshow/${event.id}`;
     const statusInfo = getEventStatus(
       event.upload_start_time,
@@ -1344,7 +1376,9 @@ const EventManagement = () => {
       event.reveal_time,
       event.expiry_date
     );
-    const qrStorageUrl = getEventQrUrl(event);
+    // Capsule QR codes always point to the guest recording screen. Avoid any
+    // legacy cached QR that may still contain the generic /events URL.
+    const qrStorageUrl = capsule ? null : getEventQrUrl(event);
     const statusLabel = t(`events.status.${statusInfo.status}`);
 
     const planType = getPlanType(event.max_photos, (event as any).plan_id);
@@ -1404,17 +1438,25 @@ const EventManagement = () => {
                 <Download className="w-4 h-4" />
                 {t("events.downloadQrAction")}
               </Button>
-              <MediaUsageTag
-                photoCount={photoCount}
-                photoLimit={photoLimit}
-                videoCount={videoCount}
-                videoLimit={videoLimit}
-                audioCount={audioCount}
-                audioLimit={audioLimit}
-                onClick={() => setPreviewEvent(effectiveEvent)}
-                className="w-full"
-              />
+              {capsule ? (
+                <div className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-border px-3 py-1 text-xs font-medium text-foreground">
+                  <Video className="h-3.5 w-3.5" />
+                  {videoCount} {videoCount === 1 ? "vídeo subido" : "vídeos subidos"}
+                </div>
+              ) : (
+                <MediaUsageTag
+                  photoCount={photoCount}
+                  photoLimit={photoLimit}
+                  videoCount={videoCount}
+                  videoLimit={videoLimit}
+                  audioCount={audioCount}
+                  audioLimit={audioLimit}
+                  onClick={() => setPreviewEvent(effectiveEvent)}
+                  className="w-full"
+                />
+              )}
               <div className="space-y-2 pt-1 w-full sm:hidden">
+                {capsule && <p className="text-xs font-medium text-foreground">Enlace para dejar vídeos</p>}
                 <div className="flex items-center gap-2">
                   <input
                     type="text"
@@ -1425,7 +1467,7 @@ const EventManagement = () => {
                   <Button
                     size="icon"
                     variant="outline"
-                    onClick={() => handleCopyUrl(event.password_hash)}
+                    onClick={() => handleCopyValue(eventUrl)}
                   >
                     <Copy className="w-4 h-4" />
                   </Button>
@@ -1437,6 +1479,8 @@ const EventManagement = () => {
                     <Eye className="w-4 h-4" />
                   </Button>
                 </div>
+                {!capsule && (
+                  <>
                 <p className="pt-2 text-xs font-medium text-foreground">{t("events.slideshowLabel")}</p>
                 <div className="flex items-center gap-2">
                   <input
@@ -1462,6 +1506,8 @@ const EventManagement = () => {
                     <Eye className="w-4 h-4" />
                   </Button>
                 </div>
+                  </>
+                )}
               </div>
             </div>
 
@@ -1485,7 +1531,7 @@ const EventManagement = () => {
                     {formatInTimeZone(new Date(event.upload_end_time), event.timezone || "Europe/Madrid", "dd/MM/yyyy HH:mm", { locale: dateLocale })}
                   </p>
                 )}
-                {event.reveal_time && (
+                {!capsule && event.reveal_time && (
                   <p>
                     <span className="font-medium">{t("events.revealDate")}:</span>{" "}
                     {formatInTimeZone(new Date(event.reveal_time), event.timezone || "Europe/Madrid", "dd/MM/yyyy HH:mm", { locale: dateLocale })}
@@ -1493,6 +1539,7 @@ const EventManagement = () => {
                 )}
               </div>
               <div className="space-y-2 pt-1 hidden sm:block">
+                {capsule && <p className="text-xs font-medium text-foreground">Enlace para dejar vídeos</p>}
                 <div className="flex items-center gap-2">
                   <input
                     type="text"
@@ -1503,7 +1550,7 @@ const EventManagement = () => {
                   <Button
                     size="icon"
                     variant="outline"
-                    onClick={() => handleCopyUrl(event.password_hash)}
+                    onClick={() => handleCopyValue(eventUrl)}
                   >
                     <Copy className="w-4 h-4" />
                   </Button>
@@ -1515,6 +1562,8 @@ const EventManagement = () => {
                     <Eye className="w-4 h-4" />
                   </Button>
                 </div>
+                {!capsule && (
+                  <>
                 <p className="pt-2 text-xs font-medium text-foreground">{t("events.slideshowLabel")}</p>
                 <div className="flex items-center gap-2">
                   <input
@@ -1540,8 +1589,10 @@ const EventManagement = () => {
                     <Eye className="w-4 h-4" />
                   </Button>
                 </div>
+                  </>
+                )}
               </div>
-              <p className="text-sm text-muted-foreground">
+              {!capsule && <p className="text-sm text-muted-foreground">
                 <span className="font-medium">{t("events.country")}:</span>{" "}
                 {(() => {
                   const country = getCountryByCode(event.country_code || "ES");
@@ -1553,7 +1604,7 @@ const EventManagement = () => {
                   const lang = getLanguageByCode(event.language || "es");
                   return lang ? `${lang.flag} ${lang.name}` : event.language || "es";
                 })()}
-              </p>
+              </p>}
               <Button
                 variant="outline"
                 size="sm"
@@ -1995,15 +2046,9 @@ const EventManagement = () => {
           </div>
 
           <div role="tablist" aria-label="Tipo de producto" className="grid grid-cols-3 rounded-xl border border-border bg-muted/30 p-1">
-            {PRODUCT_SECTIONS.map((product) => {
+            {orderedProductSections.map((product) => {
               const selected = activeProduct === product.value;
-              const count = product.value === "captains"
-                ? captainsEvents.length
-                : events.filter((event) =>
-                    product.value === "capsule"
-                      ? event.plan_id === "capsule" || event.type === "capsule"
-                      : event.plan_id !== "capsule" && event.type !== "capsule"
-                  ).length;
+              const count = productCounts[product.value];
               return (
                 <button
                   key={product.value}
@@ -2439,6 +2484,16 @@ const EventManagement = () => {
             <p className="text-muted-foreground">
               {t("events.none")}
             </p>
+            <p className="mt-2 font-medium text-foreground">
+              Empieza creando el tuyo
+            </p>
+            <Button
+              className="mt-5 gap-2"
+              onClick={() => openProductAction("new")}
+            >
+              <Plus className="h-4 w-4" />
+              {t("events.new")}
+            </Button>
           </Card>
         ) : (
           <div className="space-y-4">
@@ -2633,6 +2688,15 @@ const EventManagement = () => {
               </div>
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={captainsCheckoutOpen} onOpenChange={setCaptainsCheckoutOpen}>
+        <DialogContent className="admin-demo2-shell max-h-[92dvh] w-[94vw] max-w-5xl overflow-y-auto p-4 sm:p-6">
+          <DialogHeader>
+            <DialogTitle>Crear un evento de Capitanes</DialogTitle>
+          </DialogHeader>
+          <CaptainsCheckoutCard />
         </DialogContent>
       </Dialog>
 

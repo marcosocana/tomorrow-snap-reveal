@@ -170,6 +170,7 @@ export type Database = {
       }
       captains_creation_codes: {
         Row: {
+          account_owner_id: string | null
           code: string
           created_at: string
           created_by: string | null
@@ -180,6 +181,7 @@ export type Database = {
           redeemed_at: string | null
         }
         Insert: {
+          account_owner_id?: string | null
           code: string
           created_at?: string
           created_by?: string | null
@@ -190,6 +192,7 @@ export type Database = {
           redeemed_at?: string | null
         }
         Update: {
+          account_owner_id?: string | null
           code?: string
           created_at?: string
           created_by?: string | null
@@ -200,6 +203,13 @@ export type Database = {
           redeemed_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "captains_creation_codes_account_owner_id_fkey"
+            columns: ["account_owner_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "captains_creation_codes_created_by_fkey"
             columns: ["created_by"]

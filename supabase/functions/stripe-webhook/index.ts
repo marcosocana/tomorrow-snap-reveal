@@ -76,13 +76,13 @@ const sendCaptainsCheckoutEmail = async (
     throw new Error("Missing RESEND_API_KEY or FROM_EMAIL");
   }
 
-  const totalPerTable = captainPack ? "15,95 €" : "3,00 €";
+  const totalPerTable = captainPack ? "17,90 €" : "4,95 €";
   const html = `
     <div style="font-family:sans-serif;max-width:520px;margin:auto;padding:24px;">
       ${LOGO_URL ? `<p style="text-align:center;"><img src="${LOGO_URL}" alt="Logo" style="height:48px;" /></p>` : ""}
       <h2 style="text-align:center;">Tu compra de Capitanes está lista</h2>
       <p style="text-align:center;color:#444;">
-        Ya puedes crear tu juego de Capitanes con la configuración comprada.
+        Ya puedes crear tu juego de Capitanes con la configuración comprada. Inicia sesión con la misma cuenta utilizada para realizar la compra.
       </p>
       <div style="background:#f5f5f5;border-radius:12px;padding:16px;margin:20px 0;">
         <p style="margin:0 0 8px;"><strong>Mesas:</strong> ${tableCount}</p>
@@ -288,7 +288,7 @@ serve(async (req) => {
     const creationCode = purchase?.redeem_token || redeemToken;
     const { data: existingCreationCode, error: creationCodeReadError } = await supabaseAdmin
       .from("captains_creation_codes")
-      .select("id")
+      .select("id,account_owner_id")
       .eq("code", creationCode)
       .maybeSingle();
     if (creationCodeReadError) {
@@ -298,9 +298,25 @@ serve(async (req) => {
     if (!existingCreationCode) {
       const { error: creationCodeInsertError } = await supabaseAdmin
         .from("captains_creation_codes")
-        .insert({ code: creationCode, created_by: null, expires_at: redeemExpiresAt, max_tables: tableCount });
+        .insert({
+          code: creationCode,
+          created_by: null,
+          account_owner_id: userId,
+          expires_at: redeemExpiresAt,
+          max_tables: tableCount,
+        });
       if (creationCodeInsertError) {
         console.error("stripe-webhook captains creation code insert error:", creationCodeInsertError);
+        return json({ error: "DB error" }, 500);
+      }
+    } else if (userId && !existingCreationCode.account_owner_id) {
+      const { error: ownerLinkError } = await supabaseAdmin
+        .from("captains_creation_codes")
+        .update({ account_owner_id: userId })
+        .eq("id", existingCreationCode.id)
+        .is("account_owner_id", null);
+      if (ownerLinkError) {
+        console.error("stripe-webhook captains account link error:", ownerLinkError);
         return json({ error: "DB error" }, 500);
       }
     }
@@ -311,7 +327,8 @@ serve(async (req) => {
         tableCount: String(tableCount),
         captainPack: captainPack ? "1" : "0",
       });
-      const onboardingUrl = `${APP_ORIGIN}/admin/capitanes/onboarding?${onboardingParams.toString()}`;
+      const onboardingPath = `/nuevoeventocapitanes?${onboardingParams.toString()}`;
+      const onboardingUrl = `${APP_ORIGIN}/admin-login?redirect=${encodeURIComponent(onboardingPath)}`;
       try {
         await sendCaptainsCheckoutEmail(userEmail, onboardingUrl, creationCode, tableCount, captainPack);
       } catch (emailError) {

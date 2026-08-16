@@ -1118,7 +1118,25 @@ export const CaptainsOnboarding = () => {
       if (data.mode !== "edit") syncTables(Math.min(tableCount, validatedMaxTables));
       setCodeValidated(true);
     } catch (error) {
-      toast({ title: "Código no válido", description: "Revisa el código o solicita uno nuevo.", variant: "destructive" });
+      let errorCode = "";
+      const response = (error as { context?: Response })?.context;
+      if (response) {
+        try {
+          const body = await response.clone().json() as { error?: string };
+          errorCode = body.error || "";
+        } catch {
+          // Keep the generic validation message for non-JSON errors.
+        }
+      }
+      toast({
+        title: errorCode === "ACCOUNT_MISMATCH" ? "Compra asociada a otra cuenta" : "Código no válido",
+        description: errorCode === "LOGIN_REQUIRED"
+          ? "Inicia sesión con la cuenta utilizada para realizar la compra."
+          : errorCode === "ACCOUNT_MISMATCH"
+            ? "Entra con la misma cuenta con la que compraste Capitanes."
+            : "Revisa el código o solicita uno nuevo.",
+        variant: "destructive",
+      });
     } finally {
       setIsValidatingCode(false);
     }
