@@ -272,7 +272,20 @@ const TimeCapsuleAdminForm = ({
           method: "POST",
           body: { ownerEmail: ownerEmail.trim(), event: payload },
         });
-        if (error || !data?.event) throw error || new Error("No se recibió el evento creado");
+        if (error) {
+          let errorCode = error.message || "CREATE_EVENT_FAILED";
+          const context = (error as { context?: Response }).context;
+          if (context) {
+            try {
+              const errorBody = await context.json() as { error?: string };
+              errorCode = errorBody.error || errorCode;
+            } catch {
+              // Preserve the function error when its response is not JSON.
+            }
+          }
+          throw new Error(errorCode);
+        }
+        if (!data?.event) throw new Error("No se recibió el evento creado");
         const created = data.event;
         setSavedEventId(created.id);
         setCreatedEvent({
@@ -295,7 +308,29 @@ const TimeCapsuleAdminForm = ({
       }
     } catch (error) {
       console.error("Error saving time capsule:", error);
-      toast({ title: "Error", description: "No se pudo guardar la cápsula.", variant: "destructive" });
+      const errorCode = error instanceof Error ? error.message : "";
+      if (errorCode.includes("INVALID_CREDENTIALS")) {
+        toast({
+          title: "Este usuario ya existe",
+          description: (
+            <>
+              Este usuario ya existe y tiene otra contraseña. Introduce la contraseña correcta o{" "}
+              <a
+                href="https://acceso.revelao.cam/reset-password"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-semibold underline underline-offset-2"
+              >
+                recupérala
+              </a>
+              .
+            </>
+          ),
+          variant: "destructive",
+        });
+      } else {
+        toast({ title: "Error", description: "No se pudo guardar la cápsula.", variant: "destructive" });
+      }
     } finally {
       setIsSaving(false);
     }
@@ -428,7 +463,7 @@ const TimeCapsuleAdminForm = ({
           </span>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-[1fr,280px]">
+        <div className={publicUrl ? "grid gap-6 lg:grid-cols-[1fr,280px]" : "grid gap-6"}>
         <Card className="p-6">
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
@@ -603,8 +638,8 @@ const TimeCapsuleAdminForm = ({
           </form>
         </Card>
 
+        {publicUrl && (
         <aside className="space-y-4">
-        {publicUrl ? (
           <Card className="p-6 space-y-4 text-center lg:sticky lg:top-6">
             <h2 className="text-lg font-semibold">QR para los invitados</h2>
             <div className="flex justify-center bg-white p-4 rounded-xl w-fit mx-auto">
@@ -615,12 +650,8 @@ const TimeCapsuleAdminForm = ({
               <Copy className="w-4 h-4 mr-2" /> Copiar enlace
             </Button>
           </Card>
-        ) : (
-          <Card className="p-6 text-center text-sm text-muted-foreground">
-            El QR para los invitados aparecerá aquí cuando guardes la cápsula.
-          </Card>
-        )}
         </aside>
+        )}
         </div>
 
         {isEditing && (

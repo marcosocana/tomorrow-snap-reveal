@@ -454,12 +454,42 @@ const TimeCapsule = () => {
   }
 
   if (step === "intro") {
-    return wrap(
-      <div className="space-y-4 text-center">
-        <button type="button" className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-[#f06a5f] px-6 font-semibold text-white transition hover:bg-[#df5d53]" onClick={() => setStep("message")}>
-          <Heart className="w-4 h-4" /> Empezar
-        </button>
-      </div>,
+    return (
+      <main
+        className="relative h-[100dvh] overflow-hidden bg-black px-5 text-white"
+        style={backgroundStyle}
+      >
+        <div
+          className="mx-auto flex h-full w-full max-w-md flex-col"
+          style={{
+            paddingTop: "max(1.75rem, env(safe-area-inset-top))",
+            paddingBottom: "max(1.25rem, env(safe-area-inset-bottom))",
+          }}
+        >
+          <header className="shrink-0 space-y-3 text-center">
+            <h1
+              className="text-[clamp(2.25rem,11vw,3.5rem)] font-bold leading-[1.05] tracking-tight"
+              style={{ fontFamily: titleFont.fontFamily }}
+            >
+              {event.name}
+            </h1>
+            <div className="mx-auto h-1 w-12 rounded-full bg-[#f06a5f]" />
+          </header>
+
+          <div className="mt-auto shrink-0 space-y-4">
+            <button
+              type="button"
+              className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-[#f06a5f] px-6 font-semibold text-white shadow-lg transition hover:bg-[#df5d53]"
+              onClick={() => setStep("message")}
+            >
+              <Heart className="h-4 w-4" /> Empezar
+            </button>
+            <div className="mx-auto flex w-fit items-center justify-center rounded-md bg-white px-4 py-2 shadow-lg">
+              <img src="/LogoMiniRevelao.svg" alt="Revelao" className="h-7 w-auto object-contain" />
+            </div>
+          </div>
+        </div>
+      </main>
     );
   }
 

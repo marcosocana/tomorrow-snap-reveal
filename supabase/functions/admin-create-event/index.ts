@@ -108,7 +108,7 @@ const isUserExistsError = (message: string) => {
 };
 
 const findUserIdByEmail = async (
-  supabaseAdmin: any,
+  supabaseAdmin: ReturnType<typeof createClient>,
   ownerEmail: string,
 ): Promise<string | null> => {
   const normalizedEmail = ownerEmail.trim().toLowerCase();
@@ -197,6 +197,11 @@ serve(async (req) => {
     if (!event?.name || !event.password_hash || !event.admin_password) {
       return json({ error: "INVALID_EVENT" }, 400);
     }
+    const isCapsule = event.plan_id === "capsule" || event.type === "capsule";
+    const ownerPassword = event.admin_password;
+    if (isCapsule && ownerPassword.length < 8) {
+      return json({ error: "INVALID_PASSWORD" }, 400);
+    }
     const uploadStartTime = normalizeIso(event.upload_start_time);
     const uploadEndTime = normalizeIso(event.upload_end_time);
     const revealTime = normalizeIso(event.reveal_time);
@@ -214,6 +219,7 @@ serve(async (req) => {
     );
 
     let ownerId: string | null = null;
+    let createdNewOwner = false;
     try {
       ownerId = await findUserIdByEmail(supabaseAdmin, ownerEmail);
     } catch {
@@ -224,7 +230,7 @@ serve(async (req) => {
       const { data: createdUserData, error: createdUserError } =
         await supabaseAdmin.auth.admin.createUser({
           email: ownerEmail,
-          password: generateTempPassword(),
+          password: isCapsule ? ownerPassword : generateTempPassword(),
           email_confirm: true,
         });
 
@@ -244,11 +250,30 @@ serve(async (req) => {
         }
       } else {
         ownerId = createdUserData.user.id;
+        createdNewOwner = true;
       }
     }
 
     if (!ownerId) {
       return json({ error: "OWNER_NOT_RESOLVED" }, 500);
+    }
+
+    // A capsule created for an existing account may only be attached after
+    // proving ownership with that account's real password. New accounts are
+    // created above using the password entered in the capsule form.
+    if (isCapsule && !createdNewOwner) {
+      const credentialClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      });
+      const { data: credentialData, error: credentialError } =
+        await credentialClient.auth.signInWithPassword({
+          email: ownerEmail,
+          password: ownerPassword,
+        });
+      if (credentialError || credentialData.user?.id !== ownerId) {
+        return json({ error: "INVALID_CREDENTIALS" }, 401);
+      }
+      await credentialClient.auth.signOut();
     }
 
     let profileErrorMessage: string | null = null;
