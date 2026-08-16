@@ -1398,6 +1398,37 @@ const EventForm = () => {
     </Card>
   ) : null;
 
+  if (planType === "capsule" && (isSuperAdmin || isEditing)) {
+    return (
+      <TimeCapsuleAdminForm
+        eventId={eventId}
+        pathPrefix={pathPrefix}
+        ownerEmail={ownerEmailInput}
+        onOwnerEmailChange={setOwnerEmailInput}
+        planSelector={
+          isSuperAdmin && !isEditing ? (
+            <div className="space-y-2">
+              <Label htmlFor="planTypeCapsule">{t("events.planType")}</Label>
+              <select
+                id="planTypeCapsule"
+                value={planType}
+                onChange={(e) => applyPlanPreset(e.target.value as PlanType)}
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+              >
+                <option value="demo">{t("events.planDemo")}</option>
+                <option value="small">{t("events.planSmall")}</option>
+                <option value="medium">{t("events.planMedium")}</option>
+                <option value="xxl">{t("events.planXl")}</option>
+                <option value="custom">{t("events.planCustom")}</option>
+                <option value="capsule">Cápsula del tiempo</option>
+              </select>
+            </div>
+          ) : null
+        }
+      />
+    );
+  }
+
   return (
     <div
       className="admin-demo2-shell revelao-event-detail min-h-screen bg-background p-4 md:p-6 overflow-x-hidden"
