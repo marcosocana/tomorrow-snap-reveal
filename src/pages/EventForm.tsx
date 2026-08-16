@@ -37,6 +37,8 @@ import {
 } from "@/components/ui/carousel";
 import { useAdminI18n } from "@/lib/adminI18n";
 import { QRCodeSVG } from "qrcode.react";
+import TimeCapsuleAdminForm from "@/components/TimeCapsuleAdminForm";
+import { TIME_CAPSULE_PLAN_ID } from "@/lib/timeCapsule";
 const defaultQrLogo = "/marca_revelao_qr_evento.png";
 const defaultDemoLogo = "/LogoMiniRevelao.svg";
 import weddingPreview from "@/assets/testimonial-wedding.jpg";
@@ -129,7 +131,7 @@ const EVENT_FORM_STEPS: Array<{ value: EventFormStep; label: string }> = [
 ];
 
 const PLAN_LIMITS: Record<
-  Exclude<PlanType, "custom">,
+  Exclude<PlanType, "custom" | "capsule">,
   {
     maxPhotos: string;
     allowVideoRecording: boolean;
@@ -382,7 +384,7 @@ const EventForm = () => {
 
   const applyPlanPreset = (value: PlanType) => {
     setPlanType(value);
-    if (value === "custom") return;
+    if (value === "custom" || value === "capsule") return;
 
     const limits = PLAN_LIMITS[value];
     setFormData((prev) => ({
@@ -540,6 +542,7 @@ const EventForm = () => {
       
       const qrPasswordSettings = getEventQrPasswordSettings(event.limits_json);
       const resolvedPlanType =
+        event.plan_id === TIME_CAPSULE_PLAN_ID || event.type === TIME_CAPSULE_PLAN_ID ? "capsule" :
         event.plan_id === "demo" || event.max_photos === 10 ? "demo" :
         event.plan_id === "small" || event.max_photos === 200 ? "small" :
         event.plan_id === "medium" || event.plan_id === "large" || event.max_photos === 1200 || event.max_photos === 5000 ? "medium" :
@@ -1199,7 +1202,7 @@ const EventForm = () => {
   }, [isSuperAdmin, isEditing, isDemoMode]);
 
   useEffect(() => {
-    if (!isSuperAdmin || isEditing || planType === "custom") return;
+    if (!isSuperAdmin || isEditing || planType === "custom" || planType === "capsule") return;
     const limits = PLAN_LIMITS[planType];
     setFormData((prev) => {
       if (prev.maxPhotos || prev.maxVideos || prev.maxAudios) return prev;
@@ -1217,7 +1220,7 @@ const EventForm = () => {
   }, [isSuperAdmin, isEditing, planType]);
 
   const getExpiryDays = () => {
-    if (planType === "custom") return null;
+    if (planType === "custom" || planType === "capsule") return null;
     if (formData.maxPhotos === "10" || isDemoMode || planType === "demo") return 90;
     if (formData.maxPhotos === "200") return 20;
     if (formData.maxPhotos === "1200" || formData.maxPhotos === "5000") return 60;
@@ -1473,6 +1476,7 @@ const EventForm = () => {
                   <option value="medium">{t("events.planMedium")}</option>
                   <option value="xxl">{t("events.planXl")}</option>
                   <option value="custom">{t("events.planCustom")}</option>
+                  <option value="capsule">Cápsula del tiempo</option>
                 </select>
               </div>
             )}
