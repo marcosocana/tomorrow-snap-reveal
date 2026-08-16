@@ -2488,11 +2488,8 @@ const EventManagement = () => {
                     {t("events.unfiled")}
                   </h2>
                 )}
-                {mixedUnfiledEvents.map((item) =>
-                  item.kind === "revelao"
-                    ? renderEventCard(item.event)
-                    : renderCaptainsEventCard(item.event)
-                )}
+                {mixedUnfiledEvents.map((item) => renderEventCard(item.event))}
+
               </div>
             )}
               </>
