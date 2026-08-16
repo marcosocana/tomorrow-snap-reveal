@@ -7,7 +7,8 @@ import {
   getTimeCapsuleSettings,
   isTimeCapsuleEvent,
 } from "@/lib/timeCapsule";
-import { Heart, Loader2, RotateCcw, Send, Square, Video } from "lucide-react";
+import { getFontById, loadGoogleFont, type EventFontFamily } from "@/lib/eventFonts";
+import { Heart, Loader2, RotateCcw, Send, Square, SwitchCamera, Video } from "lucide-react";
 
 type Step = "intro" | "name" | "record" | "done";
 
@@ -16,6 +17,7 @@ interface CapsuleEvent {
   name: string;
   description: string | null;
   custom_image_url: string | null;
+  font_family: string | null;
   upload_start_time: string | null;
   upload_end_time: string | null;
   timezone: string | null;
@@ -77,6 +79,40 @@ const formatSeconds = (value: number) => {
   return `${String(Math.floor(safe / 60)).padStart(2, "0")}:${String(safe % 60).padStart(2, "0")}`;
 };
 
+const createVideoThumbnail = (url: string) =>
+  new Promise<string | null>((resolve) => {
+    const preview = document.createElement("video");
+    preview.muted = true;
+    preview.playsInline = true;
+    preview.preload = "auto";
+    const finish = () => {
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = preview.videoWidth || 720;
+        canvas.height = preview.videoHeight || 1280;
+        const context = canvas.getContext("2d");
+        if (!context) return resolve(null);
+        context.drawImage(preview, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL("image/jpeg", 0.82));
+      } catch {
+        resolve(null);
+      }
+    };
+    preview.onloadeddata = () => {
+      const target = Number.isFinite(preview.duration) && preview.duration > 0
+        ? Math.min(0.3, preview.duration / 2)
+        : 0;
+      if (target > 0) {
+        preview.onseeked = finish;
+        preview.currentTime = target;
+      } else {
+        finish();
+      }
+    };
+    preview.onerror = () => resolve(null);
+    preview.src = url;
+  });
+
 const TimeCapsule = () => {
   const { eventId } = useParams<{ eventId: string }>();
   const [event, setEvent] = useState<CapsuleEvent | null>(null);
@@ -89,6 +125,9 @@ const TimeCapsule = () => {
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
   const [recordedUrl, setRecordedUrl] = useState<string | null>(null);
   const [recordedDuration, setRecordedDuration] = useState(0);
+  const [recordedThumbnail, setRecordedThumbnail] = useState<string | null>(null);
+  const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
+  const [isCameraReady, setIsCameraReady] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [recordError, setRecordError] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
@@ -112,7 +151,7 @@ const TimeCapsule = () => {
       const { data, error } = await supabasePublic
         .from("events")
         .select(
-          "id, name, description, custom_image_url, upload_start_time, upload_end_time, timezone, plan_id, type, limits_json",
+          "id, name, description, custom_image_url, font_family, upload_start_time, upload_end_time, timezone, plan_id, type, limits_json",
         )
         .eq("id", eventId)
         .maybeSingle();
@@ -146,6 +185,7 @@ const TimeCapsule = () => {
   const stopStream = useCallback(() => {
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
+    setIsCameraReady(false);
   }, []);
 
   useEffect(
@@ -174,32 +214,50 @@ const TimeCapsule = () => {
     return addYears(weddingStart, capsuleSettings.years);
   }, [capsuleSettings.years, event?.upload_start_time]);
   const openDateLabel = formatLongDate(informationalOpenDate?.toISOString() ?? null, timeZone);
+  const titleFont = useMemo(
+    () => getFontById((event?.font_family as EventFontFamily) || "system"),
+    [event?.font_family],
+  );
+
+  useEffect(() => {
+    loadGoogleFont(titleFont);
+  }, [titleFont]);
 
   const startsAt = event?.upload_start_time ? new Date(event.upload_start_time).getTime() : null;
   const endsAt = event?.upload_end_time ? new Date(event.upload_end_time).getTime() : null;
   const notOpenYet = startsAt !== null && now < startsAt;
   const closed = endsAt !== null && now > endsAt;
 
-  const startCamera = async () => {
+  const startCamera = async (cameraFacing: "user" | "environment" = facingMode) => {
     setRecordError(null);
     try {
+      stopStream();
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
+        video: { facingMode: { ideal: cameraFacing }, width: { ideal: 1280 }, height: { ideal: 720 } },
         audio: true,
       });
       streamRef.current = stream;
+      setIsCameraReady(true);
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play().catch(() => undefined);
       }
     } catch {
+      setIsCameraReady(false);
       setRecordError("Necesitamos permiso para usar la cámara y el micrófono.");
     }
   };
 
+  const switchCamera = async () => {
+    if (isRecording) return;
+    const nextFacing = facingMode === "user" ? "environment" : "user";
+    setFacingMode(nextFacing);
+    await startCamera(nextFacing);
+  };
+
   useEffect(() => {
     if (step !== "record" || recordedBlob) return;
-    startCamera();
+    startCamera("user");
     return () => {
       clearTimers();
       stopStream();
@@ -244,7 +302,9 @@ const TimeCapsule = () => {
         setRecordedBlob(blob);
         setRecordedUrl((previous) => {
           if (previous) URL.revokeObjectURL(previous);
-          return URL.createObjectURL(blob);
+          const nextUrl = URL.createObjectURL(blob);
+          void createVideoThumbnail(nextUrl).then(setRecordedThumbnail);
+          return nextUrl;
         });
         stopStream();
       };
@@ -269,13 +329,14 @@ const TimeCapsule = () => {
   const resetRecording = async () => {
     clearTimers();
     setRecordedBlob(null);
+    setRecordedThumbnail(null);
     setRecordedUrl((previous) => {
       if (previous) URL.revokeObjectURL(previous);
       return null;
     });
     setRecordedDuration(0);
     setElapsed(0);
-    await startCamera();
+    await startCamera(facingMode);
   };
 
   const sendVideo = async () => {
@@ -332,28 +393,40 @@ const TimeCapsule = () => {
     );
   }
 
+  const backgroundStyle: React.CSSProperties = {
+    backgroundImage: event.custom_image_url
+      ? `linear-gradient(180deg, rgba(0,0,0,0.38) 0%, rgba(0,0,0,0.62) 55%, rgba(0,0,0,0.82) 100%), url("${event.custom_image_url.replace(/"/g, "%22")}")`
+      : "linear-gradient(160deg, #252525 0%, #151515 52%, #050505 100%)",
+    backgroundPosition: "center",
+    backgroundSize: "cover",
+    fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif",
+  };
+
   const header = (
-    <header className="text-center space-y-3">
-      {event.custom_image_url ? (
-        <img
-          src={event.custom_image_url}
-          alt={event.name}
-          className="mx-auto max-h-40 w-auto rounded-2xl object-cover shadow-lg"
-          loading="lazy"
-        />
-      ) : null}
-      <p className="capsule-eyebrow">Cápsula del tiempo</p>
-      <h1 className="capsule-script text-4xl sm:text-5xl">{event.name}</h1>
-      <div className="capsule-rule mx-auto w-32" />
+    <header className="space-y-3 text-center text-white">
+      <h1
+        className="text-4xl font-bold tracking-tight sm:text-5xl"
+        style={{ fontFamily: titleFont.fontFamily }}
+      >
+        {event.name}
+      </h1>
+      <div className="mx-auto h-1 w-12 rounded-full bg-[#f06a5f]" />
     </header>
   );
 
   const wrap = (children: React.ReactNode) => (
-    <main className="capsule-shell min-h-[100dvh] px-5 py-10 flex items-center justify-center">
+    <main
+      className="relative flex min-h-[100dvh] items-center justify-center bg-black px-5 py-10 text-white"
+      style={backgroundStyle}
+    >
       <div className="w-full max-w-md space-y-8">
         {header}
-        <section className="capsule-card p-7 space-y-6">{children}</section>
-        <p className="text-center text-xs opacity-50">Revelao.cam</p>
+        <section className="space-y-6 rounded-3xl border border-white/20 bg-black/35 p-7 shadow-2xl backdrop-blur-md">
+          {children}
+        </section>
+        <div className="mx-auto flex w-fit items-center justify-center rounded-md bg-white px-4 py-2 shadow-lg">
+          <img src="/LogoMiniRevelao.svg" alt="Revelao" className="h-7 w-auto object-contain" />
+        </div>
       </div>
     </main>
   );
@@ -388,9 +461,9 @@ const TimeCapsule = () => {
           {event.description?.trim() ||
             `Graba un vídeo de hasta ${TIME_CAPSULE_MAX_VIDEO_SECONDS} segundos para los novios. Nadie podrá verlo: quedará guardado y sellado hasta el ${openDateLabel}, cuando lo abrirán juntos y volverán a vivir este día.`}
         </p>
-        <div className="capsule-rule" />
-        <p className="capsule-eyebrow">Se abrirá en {capsuleSettings.years} años · {openDateLabel}</p>
-        <button type="button" className="capsule-btn" onClick={() => setStep("name")}>
+        <div className="h-px bg-white/20" />
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/70">Se abrirá en {capsuleSettings.years} años · {openDateLabel}</p>
+        <button type="button" className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-[#f06a5f] px-6 font-semibold text-white transition hover:bg-[#df5d53]" onClick={() => setStep("name")}>
           <Heart className="w-4 h-4" /> Empezar
         </button>
       </div>,
@@ -410,15 +483,15 @@ const TimeCapsule = () => {
         <h2 className="text-2xl">¿Cómo te llamas?</h2>
         <p className="text-base opacity-75">Así los novios sabrán de quién es cada mensaje.</p>
         <input
-          className="capsule-input"
+          className="h-12 w-full rounded-full border border-white/30 bg-white/95 px-5 text-center text-base text-foreground outline-none transition focus:border-[#f06a5f] focus:ring-2 focus:ring-[#f06a5f]/30"
           value={guestName}
           onChange={(inputEvent) => setGuestName(inputEvent.target.value)}
           placeholder="Tu nombre"
           maxLength={60}
           autoFocus
         />
-        <button type="submit" className="capsule-btn" disabled={guestName.trim().length < 2}>
-          Continuar
+        <button type="submit" className="inline-flex min-h-12 w-full items-center justify-center rounded-full bg-[#f06a5f] px-6 font-semibold text-white transition hover:bg-[#df5d53] disabled:cursor-not-allowed disabled:opacity-50" disabled={guestName.trim().length < 2}>
+          Siguiente
         </button>
       </form>,
     );
@@ -436,60 +509,108 @@ const TimeCapsule = () => {
     );
   }
 
-  return wrap(
-    <div className="space-y-5">
-      <div className="text-center space-y-1">
-        <h2 className="text-2xl">Graba tu mensaje</h2>
-        <p className="text-base opacity-75">Máximo {TIME_CAPSULE_MAX_VIDEO_SECONDS} segundos</p>
+  return (
+    <main className="relative h-[100dvh] w-full overflow-hidden bg-black text-white">
+      {recordedUrl ? (
+        <video
+          src={recordedUrl}
+          poster={recordedThumbnail || undefined}
+          controls
+          playsInline
+          preload="metadata"
+          className="absolute inset-x-0 top-0 h-[calc(100%-7rem)] w-full bg-black object-contain"
+        />
+      ) : (
+        <video
+          ref={videoRef}
+          muted
+          playsInline
+          autoPlay
+          className="absolute inset-0 h-full w-full object-cover"
+          style={{ transform: facingMode === "user" ? "scaleX(-1)" : undefined }}
+        />
+      )}
+
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-black/75 to-transparent" />
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-64 bg-gradient-to-t from-black/90 via-black/55 to-transparent" />
+
+      <div className="absolute inset-x-0 top-0 z-10 flex items-start justify-between gap-4 px-5 pb-5 pt-[max(1.25rem,env(safe-area-inset-top))]">
+        <div>
+          <p className="text-lg font-bold leading-tight">{recordedBlob ? "Revisa tu vídeo" : "Graba tu mensaje"}</p>
+          <p className="mt-1 text-sm text-white/70">{guestName.trim()} · máximo {TIME_CAPSULE_MAX_VIDEO_SECONDS}s</p>
+        </div>
+        {!recordedBlob ? (
+          <button
+            type="button"
+            onClick={() => void switchCamera()}
+            disabled={isRecording}
+            aria-label="Cambiar cámara"
+            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/25 bg-black/35 text-white backdrop-blur-md transition hover:bg-black/55 disabled:opacity-40"
+          >
+            <SwitchCamera className="h-5 w-5" />
+          </button>
+        ) : null}
       </div>
 
-      <div className="relative overflow-hidden rounded-2xl bg-black/80 aspect-[3/4]">
-        {recordedUrl ? (
-          <video src={recordedUrl} controls playsInline className="h-full w-full object-cover" />
+      {isRecording ? (
+        <div className="absolute left-1/2 top-[max(5.5rem,calc(env(safe-area-inset-top)+4.5rem))] z-10 -translate-x-1/2 rounded-full bg-black/60 px-4 py-2 text-sm font-semibold tracking-widest backdrop-blur-md">
+          <span className="mr-2 inline-block h-2.5 w-2.5 animate-pulse rounded-full bg-red-500" />
+          {formatSeconds(TIME_CAPSULE_MAX_VIDEO_SECONDS - elapsed)}
+        </div>
+      ) : null}
+
+      <div className="absolute inset-x-0 bottom-0 z-20 px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-8">
+        {recordError ? (
+          <p className="mx-auto mb-4 max-w-md rounded-2xl bg-black/65 px-4 py-3 text-center text-sm text-white backdrop-blur-md">
+            {recordError}
+          </p>
+        ) : null}
+
+        {recordedBlob ? (
+          <div className="mx-auto grid w-full max-w-md grid-cols-2 gap-3">
+            <button
+              type="button"
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-white/30 bg-black/45 px-4 font-semibold text-white backdrop-blur-md transition hover:bg-black/65"
+              onClick={resetRecording}
+              disabled={isSending}
+            >
+              <RotateCcw className="h-4 w-4" /> Volver a grabar
+            </button>
+            <button
+              type="button"
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#f06a5f] px-4 font-semibold text-white transition hover:bg-[#df5d53] disabled:opacity-50"
+              onClick={sendVideo}
+              disabled={isSending}
+            >
+              {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              {isSending ? "Enviando" : "Enviar"}
+            </button>
+          </div>
+        ) : isRecording ? (
+          <button
+            type="button"
+            onClick={stopRecording}
+            aria-label="Terminar grabación"
+            className="mx-auto flex h-20 w-20 items-center justify-center rounded-full border-4 border-white bg-[#f06a5f] shadow-2xl"
+          >
+            <Square className="h-7 w-7 fill-current" />
+          </button>
         ) : (
-          <video
-            ref={videoRef}
-            muted
-            playsInline
-            autoPlay
-            className="h-full w-full object-cover"
-            style={{ transform: "scaleX(-1)" }}
-          />
-        )}
-        {isRecording && (
-          <div className="absolute top-3 left-1/2 -translate-x-1/2 rounded-full bg-black/55 px-3 py-1 text-sm text-white tracking-widest">
-            ● {formatSeconds(TIME_CAPSULE_MAX_VIDEO_SECONDS - elapsed)}
+          <div className="text-center">
+            <button
+              type="button"
+              onClick={startRecording}
+              disabled={!isCameraReady}
+              aria-label="Empezar a grabar"
+              className="mx-auto flex h-20 w-20 items-center justify-center rounded-full border-4 border-white bg-[#f06a5f] shadow-2xl transition active:scale-95 disabled:opacity-50"
+            >
+              <Video className="h-7 w-7" />
+            </button>
+            <p className="mt-3 text-sm font-medium text-white/80">Pulsa para empezar</p>
           </div>
         )}
       </div>
-
-      {recordError && <p className="text-center text-sm text-red-600">{recordError}</p>}
-
-      {recordedBlob ? (
-        <div className="space-y-3">
-          <button type="button" className="capsule-btn" onClick={sendVideo} disabled={isSending}>
-            {isSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-            {isSending ? "Enviando" : "Enviar a la cápsula"}
-          </button>
-          <button
-            type="button"
-            className="capsule-btn capsule-btn-ghost"
-            onClick={resetRecording}
-            disabled={isSending}
-          >
-            <RotateCcw className="w-4 h-4" /> Volver a grabar
-          </button>
-        </div>
-      ) : isRecording ? (
-        <button type="button" className="capsule-btn" onClick={stopRecording}>
-          <Square className="w-4 h-4" /> Terminar
-        </button>
-      ) : (
-        <button type="button" className="capsule-btn" onClick={startRecording}>
-          <Video className="w-4 h-4" /> Grabar
-        </button>
-      )}
-    </div>,
+    </main>
   );
 };
 

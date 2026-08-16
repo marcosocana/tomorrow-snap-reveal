@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import FontSelect from "@/components/FontSelect";
 import { useToast } from "@/hooks/use-toast";
 import { QRCodeSVG } from "qrcode.react";
 import { ArrowLeft, Copy, ImagePlus, Loader2, Trash2 } from "lucide-react";
@@ -13,6 +14,7 @@ import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 import { format } from "date-fns";
 import {
   TIME_CAPSULE_MAX_VIDEO_SECONDS,
+  TIME_CAPSULE_DEFAULT_DESCRIPTION,
   TIME_CAPSULE_PLAN_ID,
   TIME_CAPSULE_YEAR_OPTIONS,
   addYears,
@@ -21,6 +23,7 @@ import {
   withTimeCapsuleSettings,
 } from "@/lib/timeCapsule";
 import type { Json } from "@/integrations/supabase/types";
+import type { EventFontFamily } from "@/lib/eventFonts";
 
 interface TimeCapsuleAdminFormProps {
   eventId?: string;
@@ -53,7 +56,8 @@ const TimeCapsuleAdminForm = ({
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
+  const [description, setDescription] = useState(TIME_CAPSULE_DEFAULT_DESCRIPTION);
+  const [fontFamily, setFontFamily] = useState<EventFontFamily>("system");
   const [coverUrl, setCoverUrl] = useState("");
   const [weddingStartDate, setWeddingStartDate] = useState("");
   const [weddingStartTime, setWeddingStartTime] = useState("");
@@ -76,6 +80,7 @@ const TimeCapsuleAdminForm = ({
       const settings = getTimeCapsuleSettings(data.limits_json as Json);
       setName(data.name);
       setDescription(data.description || "");
+      setFontFamily((data.font_family as EventFontFamily) || "system");
       setCoverUrl(data.custom_image_url || "");
       setPassword(data.password_hash);
       setYears(settings.years);
@@ -156,6 +161,7 @@ const TimeCapsuleAdminForm = ({
       const payload = {
         name: name.trim(),
         description: description.trim() || null,
+        font_family: fontFamily,
         custom_image_url: coverUrl || null,
         password_hash: password,
         admin_password: password,
@@ -270,8 +276,16 @@ const TimeCapsuleAdminForm = ({
                 id="capsuleDescription"
                 value={description}
                 onChange={(inputEvent) => setDescription(inputEvent.target.value)}
-                placeholder="Si lo dejas vacío se usará el texto romántico por defecto."
                 rows={3}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Tipografía del título</Label>
+              <FontSelect
+                value={fontFamily}
+                onChange={setFontFamily}
+                previewText={name || "Nombre del evento"}
               />
             </div>
 

@@ -2,6 +2,8 @@ import type { Json } from "@/integrations/supabase/types";
 
 export const TIME_CAPSULE_PLAN_ID = "capsule";
 export const TIME_CAPSULE_MAX_VIDEO_SECONDS = 60;
+export const TIME_CAPSULE_DEFAULT_DESCRIPTION =
+  "Graba un vídeo de hasta 60 segundos para los novios. Nadie podrá verlo: quedará guardado y sellado hasta que abran la cápsula, cuando volverán a vivir este día.";
 export const TIME_CAPSULE_YEAR_OPTIONS = [2, 3, 4, 5, 10] as const;
 
 export type TimeCapsuleYears = (typeof TIME_CAPSULE_YEAR_OPTIONS)[number];
