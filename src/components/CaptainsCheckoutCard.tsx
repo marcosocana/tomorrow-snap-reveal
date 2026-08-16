@@ -14,7 +14,9 @@ export const CaptainsCheckoutCard = ({ compact = false }: CaptainsCheckoutCardPr
   const [tableCount, setTableCount] = useState(6);
   const [captainPack, setCaptainPack] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const total = useMemo(() => tableCount * (4.95 + (captainPack ? 12.95 : 0)), [captainPack, tableCount]);
+  const gameSubtotal = useMemo(() => tableCount * 4.95, [tableCount]);
+  const captainPackSubtotal = useMemo(() => (captainPack ? tableCount * 12.95 : 0), [captainPack, tableCount]);
+  const total = gameSubtotal + captainPackSubtotal;
 
   const formatEur = (amount: number) =>
     new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR", maximumFractionDigits: 2 }).format(amount);
@@ -90,6 +92,18 @@ export const CaptainsCheckoutCard = ({ compact = false }: CaptainsCheckoutCardPr
             </span>
           </label>
           <div className="my-4 rounded-lg bg-background p-3">
+            <div className="mb-3 space-y-1 border-b border-border pb-3 text-sm">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-muted-foreground">Juego ({tableCount} mesas × 4,95 €)</span>
+                <span className="font-medium text-foreground">{formatEur(gameSubtotal)}</span>
+              </div>
+              {captainPack ? (
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-muted-foreground">Pack ({tableCount} mesas × 12,95 €)</span>
+                  <span className="font-medium text-foreground">{formatEur(captainPackSubtotal)}</span>
+                </div>
+              ) : null}
+            </div>
             <p className="text-xs text-muted-foreground">Total</p>
             <p className="text-3xl font-bold text-foreground">{formatEur(total)}</p>
           </div>

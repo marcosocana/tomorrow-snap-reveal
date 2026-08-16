@@ -1400,7 +1400,7 @@ const EventForm = () => {
     </Card>
   ) : null;
 
-  if (planType === "capsule" && (isSuperAdmin || isEditing)) {
+  if (planType === "capsule") {
     return (
       <TimeCapsuleAdminForm
         eventId={eventId}

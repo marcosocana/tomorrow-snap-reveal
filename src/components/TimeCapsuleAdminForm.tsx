@@ -613,23 +613,25 @@ const TimeCapsuleAdminForm = ({
               </div>
             )}
 
-            <div className="space-y-2">
-              <Label htmlFor="capsulePassword">Contraseña</Label>
-              <Input
-                id="capsulePassword"
-                type="password"
-                value={password}
-                onChange={(inputEvent) => setPassword(inputEvent.target.value)}
-                placeholder="Mínimo 8 dígitos"
-                autoComplete={isEditing ? "current-password" : "new-password"}
-                minLength={8}
-                aria-describedby="capsule-password-requirement"
-                required
-              />
-              <p id="capsule-password-requirement" className="text-xs text-muted-foreground">
-                La contraseña debe contener al menos 8 dígitos.
-              </p>
-            </div>
+            {!isEditing && (
+              <div className="space-y-2">
+                <Label htmlFor="capsulePassword">Contraseña</Label>
+                <Input
+                  id="capsulePassword"
+                  type="password"
+                  value={password}
+                  onChange={(inputEvent) => setPassword(inputEvent.target.value)}
+                  placeholder="Mínimo 8 dígitos"
+                  autoComplete="new-password"
+                  minLength={8}
+                  aria-describedby="capsule-password-requirement"
+                  required
+                />
+                <p id="capsule-password-requirement" className="text-xs text-muted-foreground">
+                  La contraseña debe contener al menos 8 dígitos.
+                </p>
+              </div>
+            )}
 
             <Button type="submit" className="w-full" disabled={isSaving}>
               {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}

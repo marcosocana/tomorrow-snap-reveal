@@ -74,11 +74,10 @@ serve(async (req) => {
       if (!tableCount) {
         return json({ error: "INVALID_TABLE_COUNT" }, 400);
       }
-      if (!STRIPE_PRICE_CAPTAINS_TABLE || !STRIPE_PRICE_CAPTAINS_PACK) {
+      const captainPack = Boolean(body.captainPack);
+      if (!STRIPE_PRICE_CAPTAINS_TABLE || (captainPack && !STRIPE_PRICE_CAPTAINS_PACK)) {
         return json({ error: "MISSING_CAPTAINS_PRICE_ID" }, 500);
       }
-
-      const captainPack = Boolean(body.captainPack);
       const onboardingParams = new URLSearchParams({
         checkout: "success",
         tableCount: String(tableCount),
