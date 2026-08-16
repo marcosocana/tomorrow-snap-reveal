@@ -118,7 +118,7 @@ const getOwnerWhatsappUrl = (phone: string | null) => {
 };
 
 type HeaderStyle = "gradient" | "modern";
-type PlanType = "demo" | "small" | "medium" | "xxl" | "custom";
+type PlanType = "demo" | "small" | "medium" | "xxl" | "custom" | "capsule";
 type EventFormStep = "general" | "space" | "dates" | "options";
 
 const EVENT_FORM_STEPS: Array<{ value: EventFormStep; label: string }> = [
