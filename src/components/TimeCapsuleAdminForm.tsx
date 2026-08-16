@@ -144,7 +144,7 @@ const TimeCapsuleAdminForm = ({
         expiry_date: expiry.toISOString(),
         max_photos: 0,
         allow_video_recording: true,
-        max_videos: null,
+        max_videos: 1000,
         max_video_duration: TIME_CAPSULE_MAX_VIDEO_SECONDS,
         allow_audio_recording: false,
         max_audios: 0,
