@@ -57,13 +57,14 @@ serve(async (req) => {
     return json({ error: "Missing RESEND_API_KEY or FROM_EMAIL" }, 500);
   }
 
-  const { event, contactInfo, qrUrl, eventType, planLabel, lang } = (await req.json()) as {
+  const { event, contactInfo, qrUrl, eventType, planLabel, lang, publicUrl } = (await req.json()) as {
     event?: DemoEvent;
     contactInfo?: ContactInfo;
     qrUrl?: string | null;
-    eventType?: "demo" | "paid";
+    eventType?: "demo" | "paid" | "capsule";
     planLabel?: string | null;
     lang?: EmailLang;
+    publicUrl?: string | null;
   };
 
   if (!event || !contactInfo?.email) {
@@ -72,7 +73,7 @@ serve(async (req) => {
 
   const emailLang: EmailLang = lang === "en" || lang === "it" ? lang : "es";
   const pathPrefix = emailLang === "es" ? "" : `/${emailLang}`;
-  const eventUrl = `https://acceso.revelao.cam/events/${event.password_hash}`;
+  const eventUrl = publicUrl?.trim() || `https://acceso.revelao.cam/events/${event.password_hash}`;
   const credentialEmail = contactInfo.email.trim().toLowerCase();
   const adminUrl = `https://acceso.revelao.cam${pathPrefix}/admin-login?email=${encodeURIComponent(credentialEmail)}`;
   const planUrl = "https://www.revelao.cam";
@@ -105,17 +106,23 @@ serve(async (req) => {
     }
   };
 
-  const isDemo = eventType !== "paid";
+  const isCapsule = eventType === "capsule";
+  const isDemo = eventType !== "paid" && !isCapsule;
   const t = {
     es: {
       subjectDemo: "Tu evento de prueba en Revelao",
       subjectPaid: "Tu evento en Revelao",
+      subjectCapsule: "Tu cápsula del tiempo en Revelao",
       introDemo: "Tu evento de prueba está listo",
       introPaid: "Tu evento está listo",
+      introCapsule: "Tu cápsula del tiempo está lista",
       howTitle: "Cómo funciona",
       howStep1: "Comparte el QR con tus invitados para que puedan acceder al evento.",
       howStep2: "Tus invitados suben fotos durante el periodo de subida.",
       howStep3: "En la fecha de Revelado, todas las fotos aparecen juntas.",
+      capsuleStep1: "Comparte el QR con tus invitados durante la celebración.",
+      capsuleStep2: "Cada invitado indica su nombre y graba un mensaje en vídeo.",
+      capsuleStep3: "Los vídeos quedan guardados dentro de vuestra cápsula.",
       summary: "Fechas del evento",
       qrTitle: "Información de tu evento",
       qrLabel: "Código QR",
@@ -142,12 +149,17 @@ serve(async (req) => {
     en: {
       subjectDemo: "Your Revelao demo event",
       subjectPaid: "Your Revelao event",
+      subjectCapsule: "Your Revelao time capsule",
       introDemo: "Your demo event is ready",
       introPaid: "Your event is ready",
+      introCapsule: "Your time capsule is ready",
       howTitle: "How it works",
       howStep1: "Share the QR with your guests so they can access the event.",
       howStep2: "Your guests upload photos during the upload period.",
       howStep3: "On the Reveal date, all photos appear together.",
+      capsuleStep1: "Share the QR with your guests during the celebration.",
+      capsuleStep2: "Each guest enters their name and records a video message.",
+      capsuleStep3: "The videos are safely stored inside your time capsule.",
       summary: "Event dates",
       qrTitle: "Your event information",
       qrLabel: "QR code",
@@ -174,12 +186,17 @@ serve(async (req) => {
     it: {
       subjectDemo: "Il tuo evento demo su Revelao",
       subjectPaid: "Il tuo evento su Revelao",
+      subjectCapsule: "La tua capsula del tempo su Revelao",
       introDemo: "Il tuo evento demo è pronto",
       introPaid: "Il tuo evento è pronto",
+      introCapsule: "La tua capsula del tempo è pronta",
       howTitle: "Come funziona",
       howStep1: "Condividi il QR con gli invitati per accedere all’evento.",
       howStep2: "Gli invitati caricano foto durante il periodo di caricamento.",
       howStep3: "Alla data di Rivelazione, tutte le foto compaiono insieme.",
+      capsuleStep1: "Condividi il QR con gli invitati durante la celebrazione.",
+      capsuleStep2: "Ogni invitato inserisce il nome e registra un videomessaggio.",
+      capsuleStep3: "I video restano custoditi nella vostra capsula del tempo.",
       summary: "Date dell’evento",
       qrTitle: "Informazioni sul tuo evento",
       qrLabel: "Codice QR",
@@ -205,18 +222,20 @@ serve(async (req) => {
     },
   }[emailLang];
 
+  const howSteps = isCapsule
+    ? [t.capsuleStep1, t.capsuleStep2, t.capsuleStep3]
+    : [t.howStep1, t.howStep2, t.howStep3];
+
   const html = `
     <div style="font-family: Arial, sans-serif; color: #111; line-height: 1.6; background: #ffffff;">
       <div style="text-align: center; padding: 8px 0 16px;">
         <img src="${logoSrc}" alt="Revelao" style="height: 96px; width: auto; display: inline-block;" />
       </div>
-      <p style="font-size: 13px; margin: 0 0 4px;">${isDemo ? t.introDemo : t.introPaid}</p>
+      <p style="font-size: 13px; margin: 0 0 4px;">${isCapsule ? t.introCapsule : isDemo ? t.introDemo : t.introPaid}</p>
       <p style="font-size: 20px; font-weight: 700; margin: 0 0 16px;">${event.name}</p>
       <p style="font-weight: 700; margin: 0 0 8px;">${t.howTitle}</p>
       <ul style="margin: 0 0 16px; padding-left: 20px; color: #444;">
-        <li style="margin-bottom: 6px;">${t.howStep1}</li>
-        <li style="margin-bottom: 6px;">${t.howStep2}</li>
-        <li style="margin-bottom: 6px;">${t.howStep3}</li>
+        ${howSteps.map((step) => `<li style="margin-bottom: 6px;">${step}</li>`).join("")}
       </ul>
       <p style="font-weight: 700; margin: 0 0 8px;">${t.qrTitle}</p>
       <div style="margin: 12px 0 20px; padding: 16px; background: #f5f5f5; border-radius: 12px;">
@@ -232,13 +251,13 @@ serve(async (req) => {
         <p style="font-weight: 700; margin: 12px 0 6px;">${t.summary}</p>
         <p style="margin: 6px 0 0;">${t.uploadStart}: ${formatDate(event.upload_start_time)}</p>
         <p style="margin: 6px 0 0;">${t.uploadEnd}: ${formatDate(event.upload_end_time)}</p>
-        <p style="margin: 6px 0 0;">${t.reveal}: ${formatDate(event.reveal_time)}</p>
-        <p style="margin: 6px 0 0;">${t.maxPhotos}: ${event.max_photos}</p>
+        ${isCapsule ? "" : `<p style="margin: 6px 0 0;">${t.reveal}: ${formatDate(event.reveal_time)}</p>`}
+        ${isCapsule ? "" : `<p style="margin: 6px 0 0;">${t.maxPhotos}: ${event.max_photos}</p>`}
         <p style="margin: 6px 0 0;">${t.timezone}: ${eventTz}</p>
       </div>
       <div style="margin: 16px 0 20px; padding: 16px; background: #fef9c3; border: 1px solid #fde68a; border-radius: 12px;">
         ${
-          isDemo
+          isDemo || isCapsule
             ? `<div style="margin: 0 0 16px; padding: 16px; background: #ffffff; border: 2px solid #f06a5f; border-radius: 10px;">
                 <p style="font-size: 16px; font-weight: 700; margin: 0 0 12px;">${t.credentialsTitle}</p>
                 <p style="margin: 6px 0;"><strong>${t.userLabel}:</strong> <span style="font-family: monospace;">${escapeHtml(credentialEmail)}</span></p>
@@ -258,7 +277,9 @@ serve(async (req) => {
         ${
           isDemo
             ? `<p style="margin: 0;">${t.demoNote.replace("{price}", "36€")}</p>`
-            : `<p style="margin: 0;"><strong>${t.paidTitle}</strong> ${t.paidText}</p>`
+            : isCapsule
+              ? `<p style="margin: 0;">${t.paidText}</p>`
+              : `<p style="margin: 0;"><strong>${t.paidTitle}</strong> ${t.paidText}</p>`
         }
       </div>
       <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;" />
@@ -269,7 +290,7 @@ serve(async (req) => {
   const payload = {
     from: FROM_EMAIL,
     to: contactInfo.email,
-    subject: isDemo ? t.subjectDemo : t.subjectPaid,
+    subject: isCapsule ? t.subjectCapsule : isDemo ? t.subjectDemo : t.subjectPaid,
     html,
   };
 

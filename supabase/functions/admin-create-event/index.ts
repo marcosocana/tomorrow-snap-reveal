@@ -149,6 +149,7 @@ const getPlanMetaByPlanId = (
   planId: string | null | undefined,
   maxPhotos: number | null | undefined,
 ) => {
+  if (planId === "capsule") return { label: "Cápsula del tiempo", type: "capsule", planId: "capsule" };
   if (planId === "demo") return { label: "Evento Demo", type: "demo", planId: "demo" };
   if (planId === "small") return { label: "Evento Start", type: "paid", planId: "small" };
   if (planId === "medium" || planId === "large") return { label: "Evento Plus", type: "paid", planId: "medium" };
@@ -343,9 +344,10 @@ serve(async (req) => {
 
     await notifyAdminNewEvent(createdEvent);
 
-    // Send email to owner using existing template
+    // Send email to owner using the shared Revelao template.
+    let emailSent = false;
     try {
-      await fetch(`${SUPABASE_URL}/functions/v1/send-demo-event-email`, {
+      const emailResponse = await fetch(`${SUPABASE_URL}/functions/v1/send-demo-event-email`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -355,11 +357,18 @@ serve(async (req) => {
         body: JSON.stringify({
           event: createdEvent,
           contactInfo: { email: ownerEmail },
-          eventType: planMeta.type === "demo" ? "demo" : "paid",
+          eventType: planMeta.type === "capsule" ? "capsule" : planMeta.type === "demo" ? "demo" : "paid",
           planLabel: planMeta.label,
           lang: createdEvent.language || "es",
+          publicUrl: planMeta.type === "capsule"
+            ? `https://acceso.revelao.cam/capsula/${createdEvent.id}`
+            : undefined,
         }),
       });
+      emailSent = emailResponse.ok;
+      if (!emailResponse.ok) {
+        console.error("admin-create-event email response error:", await emailResponse.text());
+      }
     } catch (emailError) {
       console.error("admin-create-event email error:", emailError);
     }
@@ -369,6 +378,7 @@ serve(async (req) => {
         ...createdEvent,
         owner_email: ownerEmail,
       },
+      emailSent,
     });
   } catch (error) {
     console.error("admin-create-event error:", error);

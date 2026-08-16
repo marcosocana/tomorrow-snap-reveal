@@ -17,3 +17,9 @@ verify_jwt = false
 
 [functions.delete-account]
 verify_jwt = false
+
+[functions.process-time-capsule-unlocks]
+verify_jwt = false
+
+[functions.unlock-time-capsule]
+verify_jwt = false

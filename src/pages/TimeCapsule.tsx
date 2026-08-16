@@ -10,7 +10,7 @@ import {
 import { getFontById, loadGoogleFont, type EventFontFamily } from "@/lib/eventFonts";
 import { Heart, Loader2, RotateCcw, Send, Square, SwitchCamera, Video } from "lucide-react";
 
-type Step = "intro" | "name" | "record" | "done";
+type Step = "intro" | "message" | "name" | "record" | "done";
 
 interface CapsuleEvent {
   id: string;
@@ -455,16 +455,28 @@ const TimeCapsule = () => {
 
   if (step === "intro") {
     return wrap(
+      <div className="space-y-4 text-center">
+        <button type="button" className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-[#f06a5f] px-6 font-semibold text-white transition hover:bg-[#df5d53]" onClick={() => setStep("message")}>
+          <Heart className="w-4 h-4" /> Empezar
+        </button>
+      </div>,
+    );
+  }
+
+  if (step === "message") {
+    return wrap(
       <div className="space-y-6 text-center">
-        <h2 className="text-2xl">Un mensaje para el futuro</h2>
-        <p className="text-lg leading-relaxed opacity-85">
+        <h2 className="text-2xl font-bold">Un mensaje para el futuro</h2>
+        <p className="text-lg leading-relaxed text-white/85">
           {event.description?.trim() ||
             `Graba un vídeo de hasta ${TIME_CAPSULE_MAX_VIDEO_SECONDS} segundos para los novios. Nadie podrá verlo: quedará guardado y sellado hasta el ${openDateLabel}, cuando lo abrirán juntos y volverán a vivir este día.`}
         </p>
         <div className="h-px bg-white/20" />
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/70">Se abrirá en {capsuleSettings.years} años · {openDateLabel}</p>
-        <button type="button" className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-[#f06a5f] px-6 font-semibold text-white transition hover:bg-[#df5d53]" onClick={() => setStep("name")}>
-          <Heart className="w-4 h-4" /> Empezar
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/70">
+          Se abrirá en {capsuleSettings.years} años · {openDateLabel}
+        </p>
+        <button type="button" className="inline-flex min-h-12 w-full items-center justify-center rounded-full bg-[#f06a5f] px-6 font-semibold text-white transition hover:bg-[#df5d53]" onClick={() => setStep("name")}>
+          Siguiente
         </button>
       </div>,
     );

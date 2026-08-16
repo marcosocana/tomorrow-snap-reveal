@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import FontSelect from "@/components/FontSelect";
 import { useToast } from "@/hooks/use-toast";
 import { QRCodeSVG } from "qrcode.react";
-import { ArrowLeft, Copy, ImagePlus, Loader2, Trash2 } from "lucide-react";
+import { ArrowLeft, Check, Copy, Download, ImagePlus, Loader2, LockKeyhole, Pencil, RefreshCw, Trash2, Video } from "lucide-react";
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 import { format } from "date-fns";
 import {
@@ -30,12 +30,16 @@ interface TimeCapsuleAdminFormProps {
   pathPrefix: string;
   ownerEmail?: string;
   onOwnerEmailChange?: (value: string) => void;
-  planSelector?: React.ReactNode;
+  isSuperAdmin?: boolean;
 }
 
-const generatePassword = () => {
-  const alphabet = "abcdefghijkmnopqrstuvwxyz23456789";
-  return Array.from(crypto.getRandomValues(new Uint8Array(24)), (n) => alphabet[n % alphabet.length]).join("");
+type CapsuleVideo = {
+  id: string;
+  url: string;
+  thumbnailUrl: string | null;
+  durationSeconds: number | null;
+  capturedAt: string;
+  guestName: string | null;
 };
 
 const TIMEZONE = "Europe/Madrid";
@@ -45,11 +49,12 @@ const TimeCapsuleAdminForm = ({
   pathPrefix,
   ownerEmail = "",
   onOwnerEmailChange,
-  planSelector,
+  isSuperAdmin = false,
 }: TimeCapsuleAdminFormProps) => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const qrRef = useRef<HTMLDivElement | null>(null);
 
   const isEditing = !!eventId;
   const [isLoading, setIsLoading] = useState(isEditing);
@@ -64,9 +69,24 @@ const TimeCapsuleAdminForm = ({
   const [weddingEndDate, setWeddingEndDate] = useState("");
   const [weddingEndTime, setWeddingEndTime] = useState("");
   const [years, setYears] = useState<number>(5);
-  const [password, setPassword] = useState(generatePassword);
+  const [password, setPassword] = useState("");
   const [limitsJson, setLimitsJson] = useState<Json | null>(null);
   const [savedEventId, setSavedEventId] = useState<string | null>(eventId ?? null);
+  const [createdEvent, setCreatedEvent] = useState<{
+    id: string;
+    name: string;
+    password_hash: string;
+    admin_password: string;
+    upload_start_time: string;
+    upload_end_time: string;
+    owner_email: string;
+    email_sent: boolean;
+  } | null>(null);
+  const [unlockPassword, setUnlockPassword] = useState("");
+  const [contentLoading, setContentLoading] = useState(false);
+  const [contentUnlocked, setContentUnlocked] = useState(false);
+  const [contentError, setContentError] = useState<string | null>(null);
+  const [capsuleVideos, setCapsuleVideos] = useState<CapsuleVideo[]>([]);
 
   useEffect(() => {
     if (!eventId) return;
@@ -105,6 +125,57 @@ const TimeCapsuleAdminForm = ({
     return addYears(base, years);
   }, [weddingStartDate, weddingStartTime, years]);
 
+  const capsuleEnded = useMemo(() => {
+    if (!weddingEndDate || !weddingEndTime) return false;
+    const end = fromZonedTime(`${weddingEndDate}T${weddingEndTime}:00`, TIMEZONE);
+    return !Number.isNaN(end.getTime()) && end.getTime() <= Date.now();
+  }, [weddingEndDate, weddingEndTime]);
+
+  const loadCapsuleContent = async (passwordOverride?: string) => {
+    if (!eventId) return;
+    setContentLoading(true);
+    setContentError(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("unlock-time-capsule", {
+        method: "POST",
+        body: { eventId, password: passwordOverride ?? unlockPassword },
+      });
+      if (error) {
+        let code = "UNLOCK_FAILED";
+        const context = (error as { context?: Response }).context;
+        if (context) {
+          try {
+            const errorBody = await context.json() as { error?: string };
+            code = errorBody.error || code;
+          } catch {
+            // Keep the generic code when the function did not return JSON.
+          }
+        }
+        throw new Error(code);
+      }
+      setCapsuleVideos((data?.videos ?? []) as CapsuleVideo[]);
+      setContentUnlocked(true);
+    } catch (error) {
+      const code = error instanceof Error ? error.message : "UNLOCK_FAILED";
+      const messages: Record<string, string> = {
+        CAPSULE_NOT_FINISHED: "La cápsula todavía está recibiendo vídeos. Podrás abrirla cuando termine el evento.",
+        PASSWORD_REQUIRED: "Introduce la contraseña de descapsulamiento que has recibido por email.",
+        INVALID_PASSWORD: "La contraseña de descapsulamiento no es correcta.",
+        FORBIDDEN: "No tienes permiso para acceder al contenido de esta cápsula.",
+      };
+      setContentError(messages[code] || "No se pudo abrir la cápsula. Inténtalo de nuevo.");
+      setContentUnlocked(false);
+    } finally {
+      setContentLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (eventId && isSuperAdmin && !isLoading) void loadCapsuleContent("");
+    // The superadmin access is loaded once after the event form finishes loading.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventId, isSuperAdmin, isLoading]);
+
   const publicUrl = savedEventId ? getTimeCapsulePublicUrl(savedEventId) : null;
 
   const handleCoverUpload = async (file: File) => {
@@ -135,11 +206,13 @@ const TimeCapsuleAdminForm = ({
       !weddingStartTime ||
       !weddingEndDate ||
       !weddingEndTime ||
-      !openDate
+      !openDate ||
+      password.length < 8 ||
+      (!isEditing && !ownerEmail.trim())
     ) {
       toast({
         title: "Faltan datos",
-        description: "Indica el nombre de los novios y cuándo empieza y termina la boda.",
+        description: "Completa todos los campos obligatorios. La contraseña debe contener al menos 8 dígitos.",
         variant: "destructive",
       });
       return;
@@ -195,15 +268,30 @@ const TimeCapsuleAdminForm = ({
         setSavedEventId(eventId);
         toast({ title: "Cápsula actualizada", description: "Los cambios se han guardado." });
       } else {
-        const { data: { user } } = await supabase.auth.getUser();
-        const { data: created, error } = await supabase
-          .from("events")
-          .insert({ ...payload, owner_id: user?.id || null } as never)
-          .select()
-          .single();
-        if (error) throw error;
+        const { data, error } = await supabase.functions.invoke("admin-create-event", {
+          method: "POST",
+          body: { ownerEmail: ownerEmail.trim(), event: payload },
+        });
+        if (error || !data?.event) throw error || new Error("No se recibió el evento creado");
+        const created = data.event;
         setSavedEventId(created.id);
-        toast({ title: "Cápsula creada", description: "Ya puedes descargar el QR." });
+        setCreatedEvent({
+          id: created.id,
+          name: created.name,
+          password_hash: created.password_hash,
+          admin_password: created.admin_password,
+          upload_start_time: created.upload_start_time,
+          upload_end_time: created.upload_end_time,
+          owner_email: created.owner_email || ownerEmail.trim(),
+          email_sent: data.emailSent === true,
+        });
+        toast({
+          title: "Cápsula creada",
+          description: data.emailSent
+            ? "Hemos enviado al propietario el QR y la información del evento."
+            : "La cápsula se creó, pero el email no pudo enviarse. Revisa la configuración de correo.",
+          variant: data.emailSent ? "default" : "destructive",
+        });
       }
     } catch (error) {
       console.error("Error saving time capsule:", error);
@@ -213,10 +301,109 @@ const TimeCapsuleAdminForm = ({
     }
   };
 
+  const downloadQr = async (eventName: string) => {
+    const svg = qrRef.current?.querySelector("svg");
+    if (!svg) return;
+    const svgText = new XMLSerializer().serializeToString(svg);
+    const source = URL.createObjectURL(new Blob([svgText], { type: "image/svg+xml;charset=utf-8" }));
+    const image = new Image();
+    image.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = 720;
+      canvas.height = 720;
+      const context = canvas.getContext("2d");
+      if (!context) return;
+      context.fillStyle = "#ffffff";
+      context.fillRect(0, 0, 720, 720);
+      context.drawImage(image, 0, 0, 720, 720);
+      URL.revokeObjectURL(source);
+      canvas.toBlob((blob) => {
+        if (!blob) return;
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `qr-${eventName || "capsula"}.png`;
+        link.click();
+        URL.revokeObjectURL(url);
+      }, "image/png");
+    };
+    image.src = source;
+  };
+
   if (isLoading) {
     return (
       <div className="admin-demo2-shell min-h-screen flex items-center justify-center">
         <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (createdEvent) {
+    const createdPublicUrl = getTimeCapsulePublicUrl(createdEvent.id);
+    return (
+      <div className="min-h-screen bg-background p-4 md:p-6">
+        <div className="mx-auto max-w-2xl space-y-6">
+          <div className="flex flex-col items-center gap-4 text-center">
+            <img src="/LogoMiniRevelao.svg" alt="Revelao" className="h-12 w-auto" />
+            <div className="flex items-center gap-2 text-green-600">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-green-100">
+                <Check className="h-5 w-5" />
+              </span>
+              <h1 className="text-xl font-semibold">Cápsula creada correctamente</h1>
+            </div>
+            <p className={`text-sm ${createdEvent.email_sent ? "text-muted-foreground" : "font-medium text-destructive"}`}>
+              {createdEvent.email_sent
+                ? "Se ha enviado al propietario un email con el QR, las fechas y sus credenciales."
+                : "La cápsula está creada, pero el email no se ha podido enviar. Revisa RESEND_API_KEY y FROM_EMAIL en Supabase."}
+            </p>
+          </div>
+
+          <Card className="space-y-6 p-5 sm:p-6">
+            <div className="text-center">
+              <h2 className="text-2xl font-bold">{createdEvent.name}</h2>
+              <p className="mt-1 text-sm text-muted-foreground">Cápsula del tiempo</p>
+            </div>
+
+            <div className="flex flex-col items-center gap-4">
+              <a href={createdPublicUrl} target="_blank" rel="noreferrer" className="rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <div ref={qrRef} className="rounded-xl bg-white p-4 shadow-sm">
+                  <QRCodeSVG value={createdPublicUrl} size={220} level="H" includeMargin />
+                </div>
+              </a>
+              <Button type="button" variant="outline" className="gap-2" onClick={() => void downloadQr(createdEvent.name)}>
+                <Download className="h-4 w-4" /> Descargar QR
+              </Button>
+            </div>
+
+            <div className="space-y-4 border-t border-border pt-5 text-sm">
+              <div>
+                <p className="font-medium text-muted-foreground">Enlace para invitados</p>
+                <div className="mt-1 flex items-center gap-2">
+                  <code className="min-w-0 flex-1 break-all rounded-md bg-muted px-3 py-2">{createdPublicUrl}</code>
+                  <Button type="button" variant="outline" size="icon" onClick={() => navigator.clipboard.writeText(createdPublicUrl)}>
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <p><span className="font-medium">Email:</span><br />{createdEvent.owner_email}</p>
+                <p><span className="font-medium">Contraseña:</span><br /><code className="text-base font-bold tracking-wider">{createdEvent.admin_password}</code></p>
+                <p><span className="font-medium">Inicio de grabación:</span><br />{format(new Date(createdEvent.upload_start_time), "dd/MM/yyyy HH:mm")}</p>
+                <p><span className="font-medium">Fin de grabación:</span><br />{format(new Date(createdEvent.upload_end_time), "dd/MM/yyyy HH:mm")}</p>
+                <p className="sm:col-span-2"><span className="font-medium">Apertura informativa:</span><br />{openDate ? format(openDate, "dd/MM/yyyy") : "-"}</p>
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Button type="button" variant="outline" onClick={() => navigate(`${pathPrefix}/event-management`)}>
+                Volver a eventos
+              </Button>
+              <Button type="button" className="gap-2" onClick={() => navigate(`${pathPrefix}/event-form/${createdEvent.id}`)}>
+                <Pencil className="h-4 w-4" /> Editar evento
+              </Button>
+            </div>
+          </Card>
+        </div>
       </div>
     );
   }
@@ -244,21 +431,6 @@ const TimeCapsuleAdminForm = ({
         <div className="grid gap-6 lg:grid-cols-[1fr,280px]">
         <Card className="p-6">
           <form onSubmit={handleSubmit} className="space-y-6">
-            {planSelector}
-
-            {!isEditing && onOwnerEmailChange && (
-              <div className="space-y-2">
-                <Label htmlFor="capsuleOwnerEmail">Email del propietario</Label>
-                <Input
-                  id="capsuleOwnerEmail"
-                  type="email"
-                  value={ownerEmail}
-                  onChange={(inputEvent) => onOwnerEmailChange(inputEvent.target.value)}
-                  placeholder="email@dominio.com"
-                />
-              </div>
-            )}
-
             <div className="space-y-2">
               <Label htmlFor="capsuleName">Nombre de los novios</Label>
               <Input
@@ -391,26 +563,36 @@ const TimeCapsuleAdminForm = ({
               )}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="capsulePassword">Contraseña de los novios</Label>
-              <div className="flex gap-2">
+            {!isEditing && onOwnerEmailChange && (
+              <div className="space-y-2">
+                <Label htmlFor="capsuleOwnerEmail">Email</Label>
                 <Input
-                  id="capsulePassword"
-                  value={password}
-                  onChange={(inputEvent) => setPassword(inputEvent.target.value)}
+                  id="capsuleOwnerEmail"
+                  type="email"
+                  value={ownerEmail}
+                  onChange={(inputEvent) => onOwnerEmailChange(inputEvent.target.value)}
+                  placeholder="tu@email.com"
+                  autoComplete="email"
                   required
                 />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={() => navigator.clipboard.writeText(password)}
-                >
-                  <Copy className="w-4 h-4" />
-                </Button>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Acceso de los novios: acceso.revelao.cam/events/{password}
+            )}
+
+            <div className="space-y-2">
+              <Label htmlFor="capsulePassword">Contraseña</Label>
+              <Input
+                id="capsulePassword"
+                type="password"
+                value={password}
+                onChange={(inputEvent) => setPassword(inputEvent.target.value)}
+                placeholder="Mínimo 8 dígitos"
+                autoComplete={isEditing ? "current-password" : "new-password"}
+                minLength={8}
+                aria-describedby="capsule-password-requirement"
+                required
+              />
+              <p id="capsule-password-requirement" className="text-xs text-muted-foreground">
+                La contraseña debe contener al menos 8 dígitos.
               </p>
             </div>
 
@@ -440,6 +622,95 @@ const TimeCapsuleAdminForm = ({
         )}
         </aside>
         </div>
+
+        {isEditing && (
+          <Card className="p-5 sm:p-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <LockKeyhole className="h-5 w-5 text-muted-foreground" />
+                  <h2 className="text-lg font-semibold">Contenido de la cápsula</h2>
+                </div>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {isSuperAdmin
+                    ? "Acceso permanente de superadmin, aunque el evento todavía no haya terminado."
+                    : capsuleEnded
+                      ? "Introduce la contraseña de descapsulamiento enviada por email al finalizar el evento."
+                      : "El contenido estará disponible cuando termine el evento. En ese momento recibirás por email la contraseña de descapsulamiento."}
+                </p>
+              </div>
+              {(isSuperAdmin || contentUnlocked) && (
+                <Button type="button" variant="outline" size="sm" onClick={() => void loadCapsuleContent(isSuperAdmin ? "" : unlockPassword)} disabled={contentLoading}>
+                  <RefreshCw className={`mr-2 h-4 w-4 ${contentLoading ? "animate-spin" : ""}`} /> Actualizar
+                </Button>
+              )}
+            </div>
+
+            {!isSuperAdmin && capsuleEnded && !contentUnlocked && (
+              <form
+                className="mt-5 flex max-w-lg flex-col gap-3 sm:flex-row"
+                onSubmit={(submitEvent) => {
+                  submitEvent.preventDefault();
+                  void loadCapsuleContent();
+                }}
+              >
+                <Input
+                  type="password"
+                  autoComplete="off"
+                  value={unlockPassword}
+                  onChange={(inputEvent) => setUnlockPassword(inputEvent.target.value)}
+                  placeholder="Contraseña de descapsulamiento"
+                  aria-label="Contraseña de descapsulamiento"
+                  required
+                />
+                <Button type="submit" disabled={contentLoading || !unlockPassword.trim()}>
+                  {contentLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Descapsular
+                </Button>
+              </form>
+            )}
+
+            {contentError && <p className="mt-4 text-sm font-medium text-destructive">{contentError}</p>}
+
+            {contentLoading && !contentUnlocked && isSuperAdmin && (
+              <div className="mt-6 flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" /> Cargando vídeos…
+              </div>
+            )}
+
+            {contentUnlocked && (
+              capsuleVideos.length > 0 ? (
+                <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                  {capsuleVideos.map((capsuleVideo) => (
+                    <article key={capsuleVideo.id} className="overflow-hidden rounded-xl border border-border bg-muted/20">
+                      <video
+                        src={capsuleVideo.url}
+                        poster={capsuleVideo.thumbnailUrl || undefined}
+                        controls
+                        playsInline
+                        preload="metadata"
+                        className="aspect-[9/16] max-h-[520px] w-full bg-black object-contain"
+                      />
+                      <div className="space-y-1 p-3 text-sm">
+                        <p className="font-medium">{capsuleVideo.guestName || "Invitado"}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {format(new Date(capsuleVideo.capturedAt), "dd/MM/yyyy HH:mm")}
+                          {capsuleVideo.durationSeconds ? ` · ${capsuleVideo.durationSeconds}s` : ""}
+                        </p>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-6 flex flex-col items-center rounded-xl border border-dashed border-border px-6 py-10 text-center">
+                  <Video className="mb-3 h-8 w-8 text-muted-foreground" />
+                  <p className="font-medium">Todavía no hay vídeos en esta cápsula</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Los vídeos enviados por los invitados aparecerán aquí.</p>
+                </div>
+              )
+            )}
+          </Card>
+        )}
       </div>
     </div>
   );
