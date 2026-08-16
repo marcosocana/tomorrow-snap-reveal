@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { QRCodeSVG } from "qrcode.react";
 import { ArrowLeft, Copy, Heart, ImagePlus, Loader2, Trash2 } from "lucide-react";
-import { fromZonedTime } from "date-fns-tz";
+import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 import { format } from "date-fns";
 import {
   TIME_CAPSULE_MAX_VIDEO_SECONDS,
@@ -55,7 +55,10 @@ const TimeCapsuleAdminForm = ({
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [coverUrl, setCoverUrl] = useState("");
-  const [weddingDate, setWeddingDate] = useState("");
+  const [weddingStartDate, setWeddingStartDate] = useState("");
+  const [weddingStartTime, setWeddingStartTime] = useState("");
+  const [weddingEndDate, setWeddingEndDate] = useState("");
+  const [weddingEndTime, setWeddingEndTime] = useState("");
   const [years, setYears] = useState<number>(5);
   const [password, setPassword] = useState(generatePassword);
   const [limitsJson, setLimitsJson] = useState<Json | null>(null);
@@ -78,7 +81,12 @@ const TimeCapsuleAdminForm = ({
       setYears(settings.years);
       setLimitsJson((data.limits_json as Json) ?? null);
       if (data.upload_start_time) {
-        setWeddingDate(format(new Date(data.upload_start_time), "yyyy-MM-dd"));
+        setWeddingStartDate(formatInTimeZone(data.upload_start_time, TIMEZONE, "yyyy-MM-dd"));
+        setWeddingStartTime(formatInTimeZone(data.upload_start_time, TIMEZONE, "HH:mm"));
+      }
+      if (data.upload_end_time) {
+        setWeddingEndDate(formatInTimeZone(data.upload_end_time, TIMEZONE, "yyyy-MM-dd"));
+        setWeddingEndTime(formatInTimeZone(data.upload_end_time, TIMEZONE, "HH:mm"));
       }
       setIsLoading(false);
     };
@@ -86,11 +94,11 @@ const TimeCapsuleAdminForm = ({
   }, [eventId, toast]);
 
   const openDate = useMemo(() => {
-    if (!weddingDate) return null;
-    const base = fromZonedTime(`${weddingDate}T12:00:00`, TIMEZONE);
+    if (!weddingStartDate || !weddingStartTime) return null;
+    const base = fromZonedTime(`${weddingStartDate}T${weddingStartTime}:00`, TIMEZONE);
     if (Number.isNaN(base.getTime())) return null;
     return addYears(base, years);
-  }, [weddingDate, years]);
+  }, [weddingStartDate, weddingStartTime, years]);
 
   const publicUrl = savedEventId ? getTimeCapsulePublicUrl(savedEventId) : null;
 
@@ -116,10 +124,28 @@ const TimeCapsuleAdminForm = ({
 
   const handleSubmit = async (formEvent: React.FormEvent) => {
     formEvent.preventDefault();
-    if (!name.trim() || !weddingDate || !openDate) {
+    if (
+      !name.trim() ||
+      !weddingStartDate ||
+      !weddingStartTime ||
+      !weddingEndDate ||
+      !weddingEndTime ||
+      !openDate
+    ) {
       toast({
         title: "Faltan datos",
-        description: "Indica el nombre de los novios y la fecha de la boda.",
+        description: "Indica el nombre de los novios y cuándo empieza y termina la boda.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const uploadStart = fromZonedTime(`${weddingStartDate}T${weddingStartTime}:00`, TIMEZONE);
+    const uploadEnd = fromZonedTime(`${weddingEndDate}T${weddingEndTime}:00`, TIMEZONE);
+    if (Number.isNaN(uploadStart.getTime()) || Number.isNaN(uploadEnd.getTime()) || uploadEnd <= uploadStart) {
+      toast({
+        title: "Horario no válido",
+        description: "El final de la boda debe ser posterior al inicio.",
         variant: "destructive",
       });
       return;
@@ -127,10 +153,6 @@ const TimeCapsuleAdminForm = ({
 
     setIsSaving(true);
     try {
-      const uploadStart = fromZonedTime(`${weddingDate}T09:00:00`, TIMEZONE);
-      const uploadEnd = new Date(uploadStart.getTime() + 36 * 60 * 60 * 1000);
-      const expiry = new Date(openDate.getTime() + 90 * 24 * 60 * 60 * 1000);
-
       const payload = {
         name: name.trim(),
         description: description.trim() || null,
@@ -139,9 +161,11 @@ const TimeCapsuleAdminForm = ({
         admin_password: password,
         upload_start_time: uploadStart.toISOString(),
         upload_end_time: uploadEnd.toISOString(),
-        reveal_time: openDate.toISOString(),
+        // The future opening year is informational. Keep the platform's functional
+        // reveal timestamp aligned with the end of the recording window.
+        reveal_time: uploadEnd.toISOString(),
         hide_reveal_date: false,
-        expiry_date: expiry.toISOString(),
+        expiry_date: null,
         max_photos: 0,
         allow_video_recording: true,
         max_videos: 1000,
@@ -276,39 +300,78 @@ const TimeCapsuleAdminForm = ({
               </div>
             </div>
 
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="capsuleWeddingDate">Fecha de la boda</Label>
-                <Input
-                  id="capsuleWeddingDate"
-                  type="date"
-                  value={weddingDate}
-                  onChange={(inputEvent) => setWeddingDate(inputEvent.target.value)}
-                  required
-                />
-                <p className="text-xs text-muted-foreground">El QR estará activo ese día (36 horas).</p>
+            <div className="space-y-4 rounded-xl border border-border p-4">
+              <div>
+                <h2 className="font-semibold text-foreground">Horario de grabación</h2>
+                <p className="text-xs text-muted-foreground">
+                  El QR solo permitirá grabar vídeos entre el inicio y el final indicados.
+                </p>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="capsuleYears">Se abrirá dentro de</Label>
-                <select
-                  id="capsuleYears"
-                  value={years}
-                  onChange={(selectEvent) => setYears(Number(selectEvent.target.value))}
-                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                >
-                  {TIME_CAPSULE_YEAR_OPTIONS.map((option) => (
-                    <option key={option} value={option}>
-                      {option} años
-                    </option>
-                  ))}
-                </select>
-                {openDate && (
-                  <p className="text-xs text-muted-foreground">
-                    Apertura: {format(openDate, "dd/MM/yyyy")}
-                  </p>
-                )}
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="capsuleWeddingStartDate">Cuándo empieza la boda</Label>
+                  <div className="grid grid-cols-[1fr_110px] gap-2">
+                    <Input
+                      id="capsuleWeddingStartDate"
+                      type="date"
+                      value={weddingStartDate}
+                      onChange={(inputEvent) => setWeddingStartDate(inputEvent.target.value)}
+                      required
+                    />
+                    <Input
+                      id="capsuleWeddingStartTime"
+                      aria-label="Hora de inicio de la boda"
+                      type="time"
+                      value={weddingStartTime}
+                      onChange={(inputEvent) => setWeddingStartTime(inputEvent.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="capsuleWeddingEndDate">Cuándo termina la boda</Label>
+                  <div className="grid grid-cols-[1fr_110px] gap-2">
+                    <Input
+                      id="capsuleWeddingEndDate"
+                      type="date"
+                      value={weddingEndDate}
+                      onChange={(inputEvent) => setWeddingEndDate(inputEvent.target.value)}
+                      required
+                    />
+                    <Input
+                      id="capsuleWeddingEndTime"
+                      aria-label="Hora de finalización de la boda"
+                      type="time"
+                      value={weddingEndTime}
+                      onChange={(inputEvent) => setWeddingEndTime(inputEvent.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="capsuleYears">Se abrirá dentro de</Label>
+              <select
+                id="capsuleYears"
+                value={years}
+                onChange={(selectEvent) => setYears(Number(selectEvent.target.value))}
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+              >
+                {TIME_CAPSULE_YEAR_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {option} años
+                  </option>
+                ))}
+              </select>
+              {openDate && (
+                <p className="text-xs text-muted-foreground">
+                  Dato informativo para los invitados. Fecha indicada de apertura: {format(openDate, "dd/MM/yyyy")}.
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">

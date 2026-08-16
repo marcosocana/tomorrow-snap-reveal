@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { supabasePublic } from "@/integrations/supabase/publicClient";
 import {
   TIME_CAPSULE_MAX_VIDEO_SECONDS,
+  addYears,
   getTimeCapsuleSettings,
   isTimeCapsuleEvent,
 } from "@/lib/timeCapsule";
@@ -17,7 +18,6 @@ interface CapsuleEvent {
   custom_image_url: string | null;
   upload_start_time: string | null;
   upload_end_time: string | null;
-  reveal_time: string;
   timezone: string | null;
   plan_id: string | null;
   type: string | null;
@@ -58,6 +58,20 @@ const formatLongDate = (iso: string | null, timeZone: string) => {
   }).format(date);
 };
 
+const formatLongDateTime = (iso: string | null, timeZone: string) => {
+  if (!iso) return "";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat("es-ES", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone,
+  }).format(date);
+};
+
 const formatSeconds = (value: number) => {
   const safe = Math.max(0, Math.floor(value));
   return `${String(Math.floor(safe / 60)).padStart(2, "0")}:${String(safe % 60).padStart(2, "0")}`;
@@ -77,6 +91,7 @@ const TimeCapsule = () => {
   const [recordedDuration, setRecordedDuration] = useState(0);
   const [isSending, setIsSending] = useState(false);
   const [recordError, setRecordError] = useState<string | null>(null);
+  const [now, setNow] = useState(() => Date.now());
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -97,7 +112,7 @@ const TimeCapsule = () => {
       const { data, error } = await supabasePublic
         .from("events")
         .select(
-          "id, name, description, custom_image_url, upload_start_time, upload_end_time, reveal_time, timezone, plan_id, type, limits_json",
+          "id, name, description, custom_image_url, upload_start_time, upload_end_time, timezone, plan_id, type, limits_json",
         )
         .eq("id", eventId)
         .maybeSingle();
@@ -142,14 +157,24 @@ const TimeCapsule = () => {
     [clearTimers, stopStream, recordedUrl],
   );
 
+  useEffect(() => {
+    const interval = window.setInterval(() => setNow(Date.now()), 15_000);
+    return () => window.clearInterval(interval);
+  }, []);
+
   const capsuleSettings = useMemo(
     () => getTimeCapsuleSettings((event?.limits_json ?? null) as never),
     [event?.limits_json],
   );
   const timeZone = event?.timezone || "Europe/Madrid";
-  const openDateLabel = formatLongDate(event?.reveal_time ?? null, timeZone);
+  const informationalOpenDate = useMemo(() => {
+    if (!event?.upload_start_time) return null;
+    const weddingStart = new Date(event.upload_start_time);
+    if (Number.isNaN(weddingStart.getTime())) return null;
+    return addYears(weddingStart, capsuleSettings.years);
+  }, [capsuleSettings.years, event?.upload_start_time]);
+  const openDateLabel = formatLongDate(informationalOpenDate?.toISOString() ?? null, timeZone);
 
-  const now = Date.now();
   const startsAt = event?.upload_start_time ? new Date(event.upload_start_time).getTime() : null;
   const endsAt = event?.upload_end_time ? new Date(event.upload_end_time).getTime() : null;
   const notOpenYet = startsAt !== null && now < startsAt;
@@ -189,6 +214,16 @@ const TimeCapsule = () => {
     }
     setIsRecording(false);
   };
+
+  useEffect(() => {
+    if (!notOpenYet && !closed) return;
+    clearTimers();
+    if (recorderRef.current && recorderRef.current.state !== "inactive") {
+      recorderRef.current.stop();
+    }
+    stopStream();
+    setIsRecording(false);
+  }, [clearTimers, closed, notOpenYet, stopStream]);
 
   const startRecording = () => {
     if (!streamRef.current) return;
@@ -245,6 +280,12 @@ const TimeCapsule = () => {
 
   const sendVideo = async () => {
     if (!event || !recordedBlob) return;
+    const sendTime = Date.now();
+    if ((startsAt !== null && sendTime < startsAt) || (endsAt !== null && sendTime > endsAt)) {
+      setNow(sendTime);
+      setRecordError("La cápsula del tiempo está cerrada y ya no admite vídeos.");
+      return;
+    }
     setIsSending(true);
     setRecordError(null);
     try {
@@ -320,9 +361,9 @@ const TimeCapsule = () => {
   if (notOpenYet) {
     return wrap(
       <div className="text-center space-y-3">
-        <h2 className="text-2xl">Todavía queda un poquito</h2>
+        <h2 className="text-2xl">La cápsula del tiempo está cerrada</h2>
         <p className="text-lg leading-relaxed opacity-80">
-          Esta cápsula del tiempo se abrirá el día de la boda. Vuelve a escanear el código entonces para dejar tu mensaje.
+          Podrás grabar tu mensaje a partir del {formatLongDateTime(event.upload_start_time, timeZone)}.
         </p>
       </div>,
     );
@@ -331,9 +372,9 @@ const TimeCapsule = () => {
   if (closed) {
     return wrap(
       <div className="text-center space-y-3">
-        <h2 className="text-2xl">La cápsula ya está sellada</h2>
+        <h2 className="text-2xl">La cápsula del tiempo está cerrada</h2>
         <p className="text-lg leading-relaxed opacity-80">
-          Los mensajes de este día ya están guardados. Los novios los verán el {openDateLabel}.
+          El plazo para grabar mensajes terminó el {formatLongDateTime(event.upload_end_time, timeZone)}.
         </p>
       </div>,
     );
