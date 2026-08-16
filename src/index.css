@@ -240,8 +240,10 @@ All colors MUST be HSL.
   }
 
   .admin-demo2-shell button.bg-primary:hover {
-    background-color: var(--admin-demo2-accent);
-    opacity: 0.9;
+    border-color: hsl(var(--border));
+    background-color: hsl(var(--muted));
+    color: hsl(var(--foreground));
+    opacity: 1;
   }
 
   .admin-demo2-shell button[class*="border"],
@@ -252,8 +254,41 @@ All colors MUST be HSL.
 
   .admin-demo2-shell button[class*="border"]:hover,
   .admin-demo2-shell button[class*="bg-background"]:hover {
-    background-color: var(--admin-demo2-accent-soft);
+    background-color: hsl(var(--muted));
     color: hsl(var(--foreground));
+  }
+
+  .admin-demo2-shell button:not(:disabled):hover,
+  .admin-demo2-shell [role="button"]:hover {
+    border-color: hsl(var(--border)) !important;
+    background-color: hsl(var(--muted)) !important;
+    color: hsl(var(--foreground)) !important;
+    opacity: 1 !important;
+  }
+
+  .admin-demo2-shell [class*="hover:bg-primary"]:hover,
+  .admin-demo2-shell [class*="hover:border-primary"]:hover,
+  .admin-demo2-shell [class*="hover:bg-[#f06a5f]"]:hover,
+  .admin-demo2-shell [class*="hover:border-[#f06a5f]"]:hover {
+    border-color: hsl(var(--border)) !important;
+    background-color: hsl(var(--muted)) !important;
+    color: hsl(var(--foreground)) !important;
+  }
+
+  .admin-demo2-shell a:hover {
+    color: hsl(var(--foreground)) !important;
+  }
+
+  .admin-demo2-shell .admin-neutral-tab:hover {
+    border-color: hsl(var(--border)) !important;
+    background-color: hsl(var(--muted)) !important;
+    color: hsl(var(--foreground)) !important;
+    opacity: 1;
+  }
+
+  .admin-demo2-shell .admin-secondary-tab,
+  .admin-demo2-shell .admin-secondary-tab:hover {
+    border-radius: 0.375rem !important;
   }
 
   .admin-demo2-shell [role="tab"] {
@@ -321,7 +356,7 @@ All colors MUST be HSL.
   }
 
   .admin-demo2-shell tbody tr:hover {
-    background-color: rgba(240, 106, 95, 0.045);
+    background-color: hsl(var(--muted) / 0.7);
   }
 
   .admin-demo2-shell [data-state="active"],

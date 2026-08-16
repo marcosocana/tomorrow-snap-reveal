@@ -1769,7 +1769,7 @@ const EventManagement = () => {
             type="button"
             variant={adminView === "list" ? "default" : "ghost"}
             size="sm"
-            className="h-8 gap-1.5"
+            className="admin-neutral-tab h-8 gap-1.5"
             onClick={() => setAdminView("list")}
           >
             <List className="h-4 w-4" />
@@ -1779,7 +1779,7 @@ const EventManagement = () => {
             type="button"
             variant={adminView === "calendar" ? "default" : "ghost"}
             size="sm"
-            className="h-8 gap-1.5"
+            className="admin-neutral-tab h-8 gap-1.5"
             onClick={() => setAdminView("calendar")}
           >
             <CalendarDays className="h-4 w-4" />
@@ -1797,7 +1797,7 @@ const EventManagement = () => {
             key={value}
             type="button"
             onClick={() => setCaptainsStatusFilter(value)}
-            className={`inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm font-medium transition-colors ${
+            className={`admin-neutral-tab admin-secondary-tab inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm font-medium transition-colors ${
               captainsStatusFilter === value
                 ? "!border-foreground !bg-foreground !text-background shadow-sm"
                 : "border-border bg-background text-foreground hover:bg-muted"
@@ -1810,12 +1810,12 @@ const EventManagement = () => {
           </button>
         ))}
       </div>
-      <div className="flex flex-col gap-3 lg:flex-row">
+      <div className="grid grid-cols-[minmax(220px,1fr)_auto] items-center gap-2 overflow-x-auto">
         <Input
           value={adminSearch}
           onChange={(event) => setAdminSearch(event.target.value)}
           placeholder="Buscar por nombre, email o descripción"
-          className="flex-1"
+          className="min-w-[220px]"
         />
         <select
           value={adminPhoneFilter}
@@ -2024,7 +2024,7 @@ const EventManagement = () => {
                     setSelectedEventIds(new Set());
                     setSelectedCaptainsIds(new Set());
                   }}
-                  className={`flex min-h-11 items-center justify-center gap-2 rounded-lg px-2 py-2 text-sm font-semibold transition-colors ${
+                  className={`admin-neutral-tab flex min-h-11 items-center justify-center gap-2 rounded-lg px-2 py-2 text-sm font-semibold transition-colors ${
                     selected ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
@@ -2060,7 +2060,7 @@ const EventManagement = () => {
                   type="button"
                   variant={adminView === "list" ? "default" : "ghost"}
                   size="sm"
-                  className="h-8 gap-1.5"
+                  className="admin-neutral-tab h-8 gap-1.5"
                   onClick={() => setAdminView("list")}
                 >
                   <List className="h-4 w-4" />
@@ -2070,7 +2070,7 @@ const EventManagement = () => {
                   type="button"
                   variant={adminView === "calendar" ? "default" : "ghost"}
                   size="sm"
-                  className="h-8 gap-1.5"
+                  className="admin-neutral-tab h-8 gap-1.5"
                   onClick={() => setAdminView("calendar")}
                 >
                   <CalendarDays className="h-4 w-4" />
@@ -2088,7 +2088,7 @@ const EventManagement = () => {
                         key={tab.value}
                         type="button"
                         onClick={() => setAdminActiveTab(tab.value)}
-                        className={`inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm font-medium transition-colors ${
+                        className={`admin-neutral-tab admin-secondary-tab inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm font-medium transition-colors ${
                           isActive
                             ? "!border-foreground !bg-foreground !text-background shadow-sm"
                             : "border-border bg-background text-foreground hover:bg-muted"
@@ -2102,15 +2102,15 @@ const EventManagement = () => {
                     );
                   })}
                 </div>
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-                  <div className="flex-1">
+                <div className="grid grid-cols-[minmax(220px,1fr)_auto] items-center gap-2 overflow-x-auto">
+                  <div className="min-w-[220px]">
                     <Input
                       value={adminSearch}
                       onChange={(event) => setAdminSearch(event.target.value)}
                       placeholder="Buscar por nombre o email"
                     />
                   </div>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-nowrap gap-2">
                     {activeProduct === "revelao" ? (
                       <select
                         value={adminTypeFilter}
@@ -2161,7 +2161,7 @@ const EventManagement = () => {
                     key={tab.value}
                     type="button"
                     onClick={() => setAdminActiveTab(tab.value)}
-                    className={`inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm font-medium transition-colors ${
+                    className={`admin-neutral-tab admin-secondary-tab inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm font-medium transition-colors ${
                       isActive
                         ? "!border-foreground !bg-foreground !text-background shadow-sm"
                         : "border-border bg-background text-foreground hover:bg-muted"
@@ -2181,15 +2181,15 @@ const EventManagement = () => {
                 );
               })}
             </div>
-            <div className="flex flex-col lg:flex-row lg:items-center gap-3 pt-2">
-              <div className="flex-1">
+            <div className="grid grid-cols-[minmax(220px,1fr)_auto] items-center gap-2 overflow-x-auto pt-2">
+              <div className="min-w-[220px]">
                 <Input
                   value={adminSearch}
                   onChange={(e) => setAdminSearch(e.target.value)}
                   placeholder={t("events.filters.search")}
                 />
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-nowrap gap-2">
                 {activeProduct === "revelao" ? (
                   <select
                     value={adminTypeFilter}
