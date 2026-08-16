@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { QRCodeSVG } from "qrcode.react";
-import { ArrowLeft, Copy, Heart, ImagePlus, Loader2, Trash2 } from "lucide-react";
+import { ArrowLeft, Copy, ImagePlus, Loader2, Trash2 } from "lucide-react";
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 import { format } from "date-fns";
 import {
@@ -216,9 +216,9 @@ const TimeCapsuleAdminForm = ({
   }
 
   return (
-    <div className="admin-demo2-shell min-h-screen bg-background p-4 md:p-6" data-scroll-container>
-      <div className="max-w-3xl mx-auto space-y-6">
-        <div className="flex items-center gap-3">
+    <div className="admin-demo2-shell revelao-event-detail min-h-screen bg-background p-4 md:p-6 overflow-x-hidden" data-scroll-container>
+      <div className="max-w-6xl mx-auto space-y-4 md:space-y-6">
+        <div className="flex items-center gap-4">
           <Button
             variant="ghost"
             size="icon"
@@ -227,12 +227,15 @@ const TimeCapsuleAdminForm = ({
           >
             <ArrowLeft className="w-5 h-5" />
           </Button>
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-2" data-scroll-anchor>
-            <Heart className="w-5 h-5 text-[#f06a5f]" />
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground" data-scroll-anchor>
             {isEditing ? name || "Cápsula del tiempo" : "Nueva cápsula del tiempo"}
           </h1>
+          <span className="rounded-full border border-rose-200 bg-rose-50 px-2 py-1 text-xs font-semibold uppercase tracking-wide text-rose-700">
+            Cápsula del tiempo
+          </span>
         </div>
 
+        <div className="grid gap-6 lg:grid-cols-[1fr,280px]">
         <Card className="p-6">
           <form onSubmit={handleSubmit} className="space-y-6">
             {planSelector}
@@ -404,8 +407,9 @@ const TimeCapsuleAdminForm = ({
           </form>
         </Card>
 
-        {publicUrl && (
-          <Card className="p-6 space-y-4 text-center">
+        <aside className="space-y-4">
+        {publicUrl ? (
+          <Card className="p-6 space-y-4 text-center lg:sticky lg:top-6">
             <h2 className="text-lg font-semibold">QR para los invitados</h2>
             <div className="flex justify-center bg-white p-4 rounded-xl w-fit mx-auto">
               <QRCodeSVG value={publicUrl} size={200} level="H" />
@@ -415,7 +419,13 @@ const TimeCapsuleAdminForm = ({
               <Copy className="w-4 h-4 mr-2" /> Copiar enlace
             </Button>
           </Card>
+        ) : (
+          <Card className="p-6 text-center text-sm text-muted-foreground">
+            El QR para los invitados aparecerá aquí cuando guardes la cápsula.
+          </Card>
         )}
+        </aside>
+        </div>
       </div>
     </div>
   );

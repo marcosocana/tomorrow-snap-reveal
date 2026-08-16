@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -28,6 +29,7 @@ import { useAdminI18n } from "@/lib/adminI18n";
 import { PricingPreview } from "@/components/PricingPreview";
 import { deleteRevelaoEventsCompletely } from "@/lib/deleteRevelaoEvents";
 import { AdminEventsCalendar } from "@/components/AdminEventsCalendar";
+import { deleteCaptainsEvent } from "@/lib/captainsService";
 
 interface Event {
   id: string;
@@ -68,6 +70,8 @@ interface Event {
   max_audios?: number | null;
   max_audio_duration?: number | null;
   limits_json?: any;
+  plan_id?: string | null;
+  type?: string | null;
 }
 
 interface CaptainsManagedEvent {
@@ -83,12 +87,21 @@ interface CaptainsManagedEvent {
   created_at: string;
   table_count: number;
   challenge_count: number;
+  scoring_mode?: "automatic" | "manual" | null;
   owner_email?: string | null;
   owner_phone?: string | null;
 }
 
 type AdminEventTab = "new" | "upcoming" | "past" | "tests" | "others";
 type ManualAdminEventTab = Exclude<AdminEventTab, "others">;
+type ProductSection = "revelao" | "captains" | "capsule";
+type ProductAction = "new" | "code" | "gift";
+
+const PRODUCT_SECTIONS: Array<{ value: ProductSection; label: string }> = [
+  { value: "revelao", label: "Revelao" },
+  { value: "captains", label: "Capitanes" },
+  { value: "capsule", label: "Cápsula del tiempo" },
+];
 
 const ADMIN_EVENT_TAB_KEY = "admin_event_tab";
 const ADMIN_EVENT_NOTE_KEY = "admin_note";
@@ -272,7 +285,9 @@ const EventManagement = () => {
     planLabel: string;
   } | null>(null);
   const [adminSearch, setAdminSearch] = useState("");
-  const [adminTypeFilter, setAdminTypeFilter] = useState<"all" | "Demo" | "Start" | "Plus" | "Pro" | "Capitanes">("all");
+  const [activeProduct, setActiveProduct] = useState<ProductSection>("revelao");
+  const [productAction, setProductAction] = useState<ProductAction | null>(null);
+  const [adminTypeFilter, setAdminTypeFilter] = useState<"all" | "Demo" | "Start" | "Plus" | "Pro">("all");
   const [adminPhoneFilter, setAdminPhoneFilter] = useState<"all" | "yes" | "no">("all");
   const [adminActiveTab, setAdminActiveTab] = useState<AdminEventTab>("upcoming");
   const [adminSort, setAdminSort] = useState<{ key: "name" | "type" | "start" | "creation" | "email" | "photos"; direction: "asc" | "desc" }>({
@@ -294,6 +309,8 @@ const EventManagement = () => {
   const [giftForm, setGiftForm] = useState(emptyGiftForm);
   const [isSendingGift, setIsSendingGift] = useState(false);
   const [giftError, setGiftError] = useState<string | null>(null);
+  const [captainsStatusFilter, setCaptainsStatusFilter] = useState<"all" | "in_progress" | "finished">("all");
+  const [selectedCaptainsIds, setSelectedCaptainsIds] = useState<Set<string>>(new Set());
   const [createdSummary, setCreatedSummary] = useState<{
     id: string;
     name: string;
@@ -313,6 +330,72 @@ const EventManagement = () => {
   const location = useLocation();
   const { toast } = useToast();
   const { t, dateLocale, pathPrefix } = useAdminI18n();
+
+  const openProductAction = (action: ProductAction) => setProductAction(action);
+
+  const handleProductAction = (product: ProductSection) => {
+    const action = productAction;
+    setProductAction(null);
+    setActiveProduct(product);
+
+    if (action === "new") {
+      if (product === "captains") navigate(isSuperAdmin ? "/admin/capitanes/onboarding" : "/nuevoeventocapitanes");
+      else if (product === "capsule") navigate(`${pathPrefix}/event-form?product=capsule`);
+      else if (isSuperAdmin) navigate(`${pathPrefix}/event-form`);
+      else {
+        setPricingStep("plans");
+        setPricingOpen(true);
+      }
+      return;
+    }
+
+    if (action === "code") {
+      if (product === "captains") {
+        navigate("/admin/capitanes?openCode=1");
+      } else if (product === "capsule") {
+        toast({
+          title: "El QR se crea con la cápsula",
+          description: "Configura la cápsula y al guardarla tendrás su QR para compartir.",
+        });
+        navigate(`${pathPrefix}/event-form?product=capsule`);
+      } else {
+        setGeneratedRedeem(null);
+        setRedeemGeneratorOpen(true);
+      }
+      return;
+    }
+
+    if (action === "gift") {
+      if (product === "revelao") {
+        setGiftDialogOpen(true);
+      } else if (product === "captains") {
+        toast({
+          title: "Regalar Capitanes",
+          description: "Genera un código y comparte el enlace de creación con el destinatario.",
+        });
+        navigate("/admin/capitanes?openCode=1");
+      } else {
+        toast({
+          title: "Regalar una cápsula",
+          description: "Crea la cápsula indicando el email de su propietario y comparte su QR.",
+        });
+        navigate(`${pathPrefix}/event-form?product=capsule`);
+      }
+    }
+  };
+
+  const isCapsuleEvent = (event: Event) =>
+    event.plan_id === "capsule" || event.type === "capsule";
+
+  const revelaoEvents = useMemo(
+    () => events.filter((event) => !isCapsuleEvent(event)),
+    [events],
+  );
+  const capsuleEvents = useMemo(
+    () => events.filter(isCapsuleEvent),
+    [events],
+  );
+  const productEvents = activeProduct === "capsule" ? capsuleEvents : revelaoEvents;
 
   const loadMediaCounts = async (eventsList: Event[]) => {
     const eventIds = eventsList.map((event) => event.id).filter(Boolean);
@@ -457,6 +540,9 @@ const EventManagement = () => {
     const created = (location.state as any)?.createdEvent;
     if (created) {
       setCreatedSummary(created);
+      setActiveProduct(
+        created.plan_id === "capsule" || created.type === "capsule" ? "capsule" : "revelao",
+      );
       setAdminActiveTab("new");
       navigate(location.pathname, { replace: true, state: null });
     }
@@ -730,7 +816,7 @@ const EventManagement = () => {
     const result: Record<string, Event[]> = { unfiled: [] };
     folders.forEach((f) => (result[f.id] = []));
     
-    events.forEach((event) => {
+    revelaoEvents.forEach((event) => {
       if (event.folder_id && result[event.folder_id]) {
         result[event.folder_id].push(event);
       } else {
@@ -744,7 +830,7 @@ const EventManagement = () => {
     });
     
     return result;
-  }, [events, folders]);
+  }, [revelaoEvents, folders]);
 
   const shouldShowPricing = useMemo(() => {
     if (!adminEventId || events.length !== 1) return false;
@@ -816,7 +902,7 @@ const EventManagement = () => {
       others: 0,
     };
 
-    events.forEach((event) => {
+    productEvents.forEach((event) => {
       const manualTab = getManualAdminEventTab(event);
       if (manualTab) {
         counts[manualTab] += 1;
@@ -824,26 +910,24 @@ const EventManagement = () => {
         counts.others += 1;
       }
     });
-    counts.others += captainsEvents.length;
-
     return counts;
-  }, [events, captainsEvents]);
+  }, [productEvents]);
 
   useEffect(() => {
     if (!isLoading && adminActiveTab === "new" && adminTabCounts.new === 0) {
-      setAdminActiveTab("upcoming");
+      setAdminActiveTab(activeProduct === "capsule" ? "others" : "upcoming");
     }
-  }, [adminActiveTab, adminTabCounts.new, isLoading]);
+  }, [activeProduct, adminActiveTab, adminTabCounts.new, isLoading]);
 
   const superAdminEvents = useMemo(() => {
     const search = adminSearch.trim().toLowerCase();
-    let list = events.filter((event) => {
+    let list = productEvents.filter((event) => {
       const matchesSearch =
         !search ||
         event.name.toLowerCase().includes(search) ||
         (getAdminOwnerEmail(event) || "").toLowerCase().includes(search);
       const planLabel = getPlanType(event.max_photos, (event as any).plan_id).label;
-      const matchesType = adminTypeFilter === "all" || planLabel === adminTypeFilter;
+      const matchesType = activeProduct === "capsule" || adminTypeFilter === "all" || planLabel === adminTypeFilter;
       const hasPhone = !!getAdminOwnerPhone(event);
       const matchesPhone =
         adminPhoneFilter === "all" ||
@@ -883,7 +967,7 @@ const EventManagement = () => {
       return 0;
     });
     return list;
-  }, [events, adminSearch, adminTypeFilter, adminPhoneFilter, adminActiveTab, adminSort, eventPhotoCounts, eventMediaCounts]);
+  }, [productEvents, activeProduct, adminSearch, adminTypeFilter, adminPhoneFilter, adminActiveTab, adminSort, eventPhotoCounts, eventMediaCounts]);
 
   const pageSize = adminPageSize === "all" ? superAdminEvents.length || 1 : adminPageSize;
 
@@ -1584,21 +1668,59 @@ const EventManagement = () => {
     </div>
   );
 
-  const mixedUnfiledEvents = [
-    ...eventsByFolder.unfiled.map((event) => ({ kind: "revelao" as const, event, createdAt: event.created_at })),
-    ...captainsEvents.map((event) => ({ kind: "captains" as const, event, createdAt: event.created_at })),
-  ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const mixedUnfiledEvents = eventsByFolder.unfiled
+    .map((event) => ({ kind: "revelao" as const, event, createdAt: event.created_at }))
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+  const filteredCaptainsEvents = useMemo(() => {
+    const search = adminSearch.trim().toLowerCase();
+    const now = Date.now();
+    return captainsEvents.filter((event) => {
+      const matchesSearch = !search
+        || event.name.toLowerCase().includes(search)
+        || (event.owner_email || "").toLowerCase().includes(search)
+        || (event.description || "").toLowerCase().includes(search);
+      const hasPhone = Boolean(event.owner_phone);
+      const matchesPhone = adminPhoneFilter === "all"
+        || (adminPhoneFilter === "yes" && hasPhone)
+        || (adminPhoneFilter === "no" && !hasPhone);
+      const finished = Boolean(event.end_time && new Date(event.end_time).getTime() < now);
+      const matchesStatus = captainsStatusFilter === "all"
+        || (captainsStatusFilter === "finished" && finished)
+        || (captainsStatusFilter === "in_progress" && !finished);
+      return matchesSearch && matchesPhone && matchesStatus;
+    });
+  }, [captainsEvents, adminSearch, adminPhoneFilter, captainsStatusFilter]);
+
+  const captainsStatusCounts = useMemo(() => {
+    const now = Date.now();
+    const finished = captainsEvents.filter(
+      (event) => event.end_time && new Date(event.end_time).getTime() < now,
+    ).length;
+    return { all: captainsEvents.length, in_progress: captainsEvents.length - finished, finished };
+  }, [captainsEvents]);
 
   const filteredCalendarEvents = useMemo(() => {
     const search = adminSearch.trim().toLowerCase();
-    const revelaoEntries = events
+    if (activeProduct === "captains") {
+      return filteredCaptainsEvents.map((event) => ({
+        id: event.id,
+        name: event.name,
+        kind: "captains" as const,
+        createdAt: event.created_at,
+        startsAt: event.start_time,
+        endsAt: event.end_time,
+      }));
+    }
+
+    return productEvents
       .filter((event) => {
         const manualTab = getManualAdminEventTab(event);
         const matchesTab = adminActiveTab === "others" ? !manualTab : manualTab === adminActiveTab;
         const matchesSearch = !search
           || event.name.toLowerCase().includes(search)
           || (getAdminOwnerEmail(event) || "").toLowerCase().includes(search);
-        const matchesType = adminTypeFilter === "all" || getPlanType(event.max_photos, (event as any).plan_id).label === adminTypeFilter;
+        const matchesType = activeProduct === "capsule" || adminTypeFilter === "all" || getPlanType(event.max_photos, event.plan_id).label === adminTypeFilter;
         const hasPhone = Boolean(getAdminOwnerPhone(event));
         const matchesPhone = adminPhoneFilter === "all"
           || (adminPhoneFilter === "yes" && hasPhone)
@@ -1613,32 +1735,176 @@ const EventManagement = () => {
         startsAt: event.upload_start_time,
         endsAt: event.reveal_time || event.upload_end_time,
       }));
+  }, [activeProduct, productEvents, filteredCaptainsEvents, adminSearch, adminTypeFilter, adminPhoneFilter, adminActiveTab]);
 
-    const captainsEntries = adminActiveTab === "others"
-      ? captainsEvents
-        .filter((event) => {
-          const matchesSearch = !search
-            || event.name.toLowerCase().includes(search)
-            || (event.owner_email || "").toLowerCase().includes(search);
-          const matchesType = adminTypeFilter === "all" || adminTypeFilter === "Capitanes";
-          const hasPhone = Boolean(event.owner_phone);
-          const matchesPhone = adminPhoneFilter === "all"
-            || (adminPhoneFilter === "yes" && hasPhone)
-            || (adminPhoneFilter === "no" && !hasPhone);
-          return matchesSearch && matchesType && matchesPhone;
-        })
-        .map((event) => ({
-          id: event.id,
-          name: event.name,
-          kind: "captains" as const,
-          createdAt: event.created_at,
-          startsAt: event.start_time,
-          endsAt: event.end_time,
-        }))
-      : [];
+  const toggleCaptainsSelection = (eventId: string) => {
+    setSelectedCaptainsIds((current) => {
+      const next = new Set(current);
+      if (next.has(eventId)) next.delete(eventId);
+      else next.add(eventId);
+      return next;
+    });
+  };
 
-    return [...revelaoEntries, ...captainsEntries];
-  }, [events, captainsEvents, adminSearch, adminTypeFilter, adminPhoneFilter, adminActiveTab]);
+  const handleDeleteCaptainsSelection = async () => {
+    if (selectedCaptainsIds.size === 0) return;
+    if (!window.confirm(`¿Eliminar ${selectedCaptainsIds.size} evento(s) de Capitanes seleccionados?`)) return;
+    try {
+      await Promise.all(Array.from(selectedCaptainsIds).map((id) => deleteCaptainsEvent(id)));
+      setSelectedCaptainsIds(new Set());
+      await loadData();
+      toast({ title: "Eventos eliminados", description: "La selección se ha eliminado correctamente." });
+    } catch (error) {
+      console.error("Error deleting captains selection:", error);
+      toast({ title: "Error", description: "No hemos podido eliminar la selección.", variant: "destructive" });
+    }
+  };
+
+  const renderCaptainsAdminView = () => (
+    <Card className="p-4 space-y-4">
+      <div className="flex flex-col gap-3 border-b border-border pb-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm font-semibold text-foreground">Eventos de Capitanes</p>
+        <div className="inline-flex self-start rounded-lg border border-border bg-muted/30 p-1">
+          <Button
+            type="button"
+            variant={adminView === "list" ? "default" : "ghost"}
+            size="sm"
+            className="h-8 gap-1.5"
+            onClick={() => setAdminView("list")}
+          >
+            <List className="h-4 w-4" />
+            Listado
+          </Button>
+          <Button
+            type="button"
+            variant={adminView === "calendar" ? "default" : "ghost"}
+            size="sm"
+            className="h-8 gap-1.5"
+            onClick={() => setAdminView("calendar")}
+          >
+            <CalendarDays className="h-4 w-4" />
+            Calendario
+          </Button>
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {([
+          ["all", "Todos"],
+          ["in_progress", "En curso"],
+          ["finished", "Finalizados"],
+        ] as const).map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => setCaptainsStatusFilter(value)}
+            className={`inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm font-medium transition-colors ${
+              captainsStatusFilter === value
+                ? "!border-foreground !bg-foreground !text-background shadow-sm"
+                : "border-border bg-background text-foreground hover:bg-muted"
+            }`}
+          >
+            {label}
+            <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+              {captainsStatusCounts[value]}
+            </span>
+          </button>
+        ))}
+      </div>
+      <div className="flex flex-col gap-3 lg:flex-row">
+        <Input
+          value={adminSearch}
+          onChange={(event) => setAdminSearch(event.target.value)}
+          placeholder="Buscar por nombre, email o descripción"
+          className="flex-1"
+        />
+        <select
+          value={adminPhoneFilter}
+          onChange={(event) => setAdminPhoneFilter(event.target.value as typeof adminPhoneFilter)}
+          className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+        >
+          <option value="all">Con y sin teléfono</option>
+          <option value="yes">Con teléfono</option>
+          <option value="no">Sin teléfono</option>
+        </select>
+      </div>
+      {selectedCaptainsIds.size > 0 ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-muted/50 px-3 py-2">
+          <p className="text-xs text-muted-foreground">{selectedCaptainsIds.size} seleccionados</p>
+          <Button variant="destructive" size="sm" onClick={() => void handleDeleteCaptainsSelection()}>
+            Eliminar selección
+          </Button>
+        </div>
+      ) : null}
+      {adminView === "calendar" ? (
+        <AdminEventsCalendar
+          events={filteredCalendarEvents}
+          onOpen={(event) => navigate(`/admin/capitanes/${event.id}`, { state: { fromEventManagement: true } })}
+        />
+      ) : filteredCaptainsEvents.length > 0 ? (
+        <div className="overflow-x-auto">
+          <table className="min-w-[980px] w-full text-sm">
+            <thead>
+              <tr className="border-b text-left text-muted-foreground">
+                <th className="w-10 py-3 pr-3 font-medium"> </th>
+                <th className="py-3 pr-4 font-medium">Evento</th>
+                <th className="py-3 pr-4 font-medium">Estado</th>
+                <th className="py-3 pr-4 font-medium">Creación</th>
+                <th className="py-3 pr-4 font-medium">Mesas</th>
+                <th className="py-3 pr-4 font-medium">Retos</th>
+                <th className="py-3 pr-4 font-medium">Puntuación</th>
+                <th className="py-3 pr-4 font-medium">Inicio</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredCaptainsEvents.map((event) => {
+                const finished = Boolean(event.end_time && new Date(event.end_time).getTime() <= Date.now());
+                return (
+                  <tr
+                    key={event.id}
+                    role="link"
+                    tabIndex={0}
+                    className="cursor-pointer border-b transition-colors hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none last:border-b-0"
+                    onClick={() => navigate(`/admin/capitanes/${event.id}`, { state: { fromEventManagement: true } })}
+                    onKeyDown={(keyboardEvent) => {
+                      if (keyboardEvent.key === "Enter") navigate(`/admin/capitanes/${event.id}`, { state: { fromEventManagement: true } });
+                    }}
+                  >
+                    <td className="py-3 pr-3">
+                      <input
+                        type="checkbox"
+                        checked={selectedCaptainsIds.has(event.id)}
+                        onChange={() => toggleCaptainsSelection(event.id)}
+                        onClick={(clickEvent) => clickEvent.stopPropagation()}
+                        onKeyDown={(keyboardEvent) => keyboardEvent.stopPropagation()}
+                        className="h-4 w-4 accent-primary"
+                      />
+                    </td>
+                    <td className="py-3 pr-4 font-medium">{event.name}</td>
+                    <td className="py-3 pr-4">
+                      <Badge className="rounded-full" variant={finished ? "outline" : "default"}>
+                        {finished ? "Terminado" : "En curso"}
+                      </Badge>
+                    </td>
+                    <td className="py-3 pr-4">{format(new Date(event.created_at), "dd/MM/yyyy HH:mm", { locale: dateLocale })}</td>
+                    <td className="py-3 pr-4">{event.table_count}</td>
+                    <td className="py-3 pr-4">{event.challenge_count}</td>
+                    <td className="py-3 pr-4">{event.scoring_mode === "automatic" ? "Automática" : "Manual"}</td>
+                    <td className="py-3 pr-4">
+                      {event.start_time ? format(new Date(event.start_time), "dd/MM/yyyy HH:mm", { locale: dateLocale }) : "-"}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="rounded-lg border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
+          No hay eventos de Capitanes con estos filtros.
+        </div>
+      )}
+    </Card>
+  );
 
   if (isLoading) {
     return (
@@ -1681,7 +1947,7 @@ const EventManagement = () => {
                   <>
                     <Button
                       className="gap-2"
-                      onClick={() => navigate(`${pathPrefix}/event-form`)}
+                      onClick={() => openProductAction("new")}
                     >
                       <Plus className="w-4 h-4" />
                       {t("events.new")}
@@ -1689,7 +1955,7 @@ const EventManagement = () => {
                     <Button
                       variant="outline"
                       className="gap-2"
-                      onClick={() => setRedeemGeneratorOpen(true)}
+                      onClick={() => openProductAction("code")}
                     >
                       <KeyRound className="w-4 h-4" />
                       Generar código
@@ -1697,24 +1963,12 @@ const EventManagement = () => {
                     <Button
                       variant="outline"
                       className="gap-2"
-                      onClick={() => setGiftDialogOpen(true)}
+                      onClick={() => openProductAction("gift")}
                     >
                       <Gift className="w-4 h-4" />
-                      Regalar Revelao
+                      Regalar
                     </Button>
                   </>
-                ) : null}
-                {isSuperAdmin ? (
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => navigate("/admin/capitanes")}
-                    aria-label="Capitanes"
-                    title="Capitanes"
-                    className="rounded-full font-bold"
-                  >
-                    <span className="text-sm leading-none">C</span>
-                  </Button>
                 ) : null}
                 <Button
                   variant="outline"
@@ -1731,16 +1985,54 @@ const EventManagement = () => {
               {!adminEventId && !isSuperAdmin && (
                 <Button
                   className="gap-2 flex-1 sm:flex-initial"
-                  onClick={() => {
-                    setPricingStep("plans");
-                    setPricingOpen(true);
-                  }}
+                  onClick={() => openProductAction("new")}
                 >
                   <Plus className="w-4 h-4" />
                   {t("events.new")}
                 </Button>
               )}
             </div>
+          </div>
+
+          <div role="tablist" aria-label="Tipo de producto" className="grid grid-cols-3 rounded-xl border border-border bg-muted/30 p-1">
+            {PRODUCT_SECTIONS.map((product) => {
+              const selected = activeProduct === product.value;
+              const count = product.value === "captains"
+                ? captainsEvents.length
+                : events.filter((event) =>
+                    product.value === "capsule"
+                      ? event.plan_id === "capsule" || event.type === "capsule"
+                      : event.plan_id !== "capsule" && event.type !== "capsule"
+                  ).length;
+              return (
+                <button
+                  key={product.value}
+                  type="button"
+                  role="tab"
+                  aria-selected={selected}
+                  onClick={() => {
+                    setActiveProduct(product.value);
+                    if (product.value === "capsule") setAdminActiveTab("others");
+                    if (product.value === "revelao") setAdminActiveTab("upcoming");
+                    if (product.value === "captains") {
+                      setCaptainsStatusFilter("all");
+                      setAdminView("list");
+                    }
+                    setAdminSearch("");
+                    setAdminTypeFilter("all");
+                    setAdminPhoneFilter("all");
+                    setSelectedEventIds(new Set());
+                    setSelectedCaptainsIds(new Set());
+                  }}
+                  className={`flex min-h-11 items-center justify-center gap-2 rounded-lg px-2 py-2 text-sm font-semibold transition-colors ${
+                    selected ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <span className="truncate">{product.label}</span>
+                  <span className="rounded-full bg-muted px-2 py-0.5 text-xs">{count}</span>
+                </button>
+              );
+            })}
           </div>
 
         {!isSuperAdmin && pendingRedeem ? (
@@ -1759,7 +2051,7 @@ const EventManagement = () => {
           </Card>
         ) : null}
 
-        {isSuperAdmin ? (
+        {isSuperAdmin ? activeProduct === "captains" ? renderCaptainsAdminView() : (
           <Card className="p-4 space-y-4">
             <div className="flex items-center justify-between gap-3 border-b border-border pb-3">
               <p className="text-sm font-semibold text-foreground">Vista de eventos</p>
@@ -1819,19 +2111,20 @@ const EventManagement = () => {
                     />
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <select
-                      value={adminTypeFilter}
-                      onChange={(event) => setAdminTypeFilter(event.target.value as typeof adminTypeFilter)}
-                      className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                      aria-label="Filtrar por tipo"
-                    >
-                      <option value="all">Todos los tipos</option>
-                      <option value="Demo">Demo</option>
-                      <option value="Start">Start</option>
-                      <option value="Plus">Plus</option>
-                      <option value="Pro">Pro</option>
-                      <option value="Capitanes">Capitanes</option>
-                    </select>
+                    {activeProduct === "revelao" ? (
+                      <select
+                        value={adminTypeFilter}
+                        onChange={(event) => setAdminTypeFilter(event.target.value as typeof adminTypeFilter)}
+                        className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                        aria-label="Filtrar por tipo"
+                      >
+                        <option value="all">Todos los tipos</option>
+                        <option value="Demo">Demo</option>
+                        <option value="Start">Start</option>
+                        <option value="Plus">Plus</option>
+                        <option value="Pro">Pro</option>
+                      </select>
+                    ) : null}
                     <select
                       value={adminPhoneFilter}
                       onChange={(event) => setAdminPhoneFilter(event.target.value as typeof adminPhoneFilter)}
@@ -1897,18 +2190,19 @@ const EventManagement = () => {
                 />
               </div>
               <div className="flex gap-2">
-                <select
-                  value={adminTypeFilter}
-                  onChange={(e) => setAdminTypeFilter(e.target.value as any)}
-                  className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                >
-                  <option value="all">{t("events.filters.typeAll")}</option>
-                  <option value="Demo">Demo</option>
-                  <option value="Start">Start</option>
-                  <option value="Plus">Plus</option>
-                  <option value="Pro">Pro</option>
-                  <option value="Capitanes">Capitanes</option>
-                </select>
+                {activeProduct === "revelao" ? (
+                  <select
+                    value={adminTypeFilter}
+                    onChange={(e) => setAdminTypeFilter(e.target.value as typeof adminTypeFilter)}
+                    className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                  >
+                    <option value="all">{t("events.filters.typeAll")}</option>
+                    <option value="Demo">Demo</option>
+                    <option value="Start">Start</option>
+                    <option value="Plus">Plus</option>
+                    <option value="Pro">Pro</option>
+                  </select>
+                ) : null}
                 <select
                   value={adminPhoneFilter}
                   onChange={(e) => setAdminPhoneFilter(e.target.value as any)}
@@ -2135,7 +2429,11 @@ const EventManagement = () => {
               </>
             )}
           </Card>
-        ) : events.length === 0 && captainsEvents.length === 0 && folders.length === 0 ? (
+        ) : (activeProduct === "captains"
+          ? captainsEvents.length === 0
+          : activeProduct === "capsule"
+            ? capsuleEvents.length === 0
+            : revelaoEvents.length === 0 && folders.length === 0) ? (
           <Card className="p-12 text-center">
             <Calendar className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
             <p className="text-muted-foreground">
@@ -2144,6 +2442,12 @@ const EventManagement = () => {
           </Card>
         ) : (
           <div className="space-y-4">
+            {activeProduct === "captains" ? (
+              captainsEvents.map(renderCaptainsEventCard)
+            ) : activeProduct === "capsule" ? (
+              capsuleEvents.map(renderEventCard)
+            ) : (
+              <>
             {/* Folders first */}
             {folders.map((folder) => (
               <FolderCard
@@ -2190,6 +2494,8 @@ const EventManagement = () => {
                     : renderCaptainsEventCard(item.event)
                 )}
               </div>
+            )}
+              </>
             )}
           </div>
         )}
@@ -2329,6 +2635,38 @@ const EventManagement = () => {
                 </div>
               </div>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={productAction !== null}
+        onOpenChange={(open) => {
+          if (!open) setProductAction(null);
+        }}
+      >
+        <DialogContent className="admin-demo2-shell max-w-md w-[92vw] sm:w-full">
+          <DialogHeader>
+            <DialogTitle>
+              {productAction === "new"
+                ? "¿Qué tipo de evento quieres crear?"
+                : productAction === "code"
+                  ? "¿Para qué producto quieres generar el código?"
+                  : "¿Qué producto quieres regalar?"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-3">
+            {PRODUCT_SECTIONS.map((product) => (
+              <button
+                key={product.value}
+                type="button"
+                onClick={() => handleProductAction(product.value)}
+                className="flex min-h-14 items-center justify-between rounded-lg border border-border bg-background px-4 py-3 text-left font-semibold text-foreground transition-colors hover:border-primary hover:bg-muted/40"
+              >
+                <span>{product.label}</span>
+                <MoveRight className="h-4 w-4 text-muted-foreground" />
+              </button>
+            ))}
           </div>
         </DialogContent>
       </Dialog>

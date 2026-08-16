@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useBeforeUnload, useNavigate, useParams } from "react-router-dom";
+import { useBeforeUnload, useLocation, useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { deleteRevelaoEventsCompletely } from "@/lib/deleteRevelaoEvents";
 import { Button } from "@/components/ui/button";
@@ -172,6 +172,7 @@ const PLAN_LIMITS: Record<
 
 const EventForm = () => {
   const { eventId } = useParams<{ eventId?: string }>();
+  const location = useLocation();
   const isEditing = !!eventId;
   const [isLoading, setIsLoading] = useState(isEditing);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -193,7 +194,8 @@ const EventForm = () => {
   const [backgroundAdjustX, setBackgroundAdjustX] = useState(50);
   const [backgroundAdjustY, setBackgroundAdjustY] = useState(50);
   const [backgroundAdjustZoom, setBackgroundAdjustZoom] = useState(1);
-  const [planType, setPlanType] = useState<PlanType>("demo");
+  const requestedProduct = new URLSearchParams(location.search).get("product");
+  const [planType, setPlanType] = useState<PlanType>(requestedProduct === "capsule" ? "capsule" : "demo");
   const [activeFormStep, setActiveFormStep] = useState<EventFormStep>("general");
   const [maxUnlockedFormStep, setMaxUnlockedFormStep] = useState(0);
   const [savedEditSnapshot, setSavedEditSnapshot] = useState<string | null>(null);

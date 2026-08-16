@@ -782,6 +782,7 @@ const EmptyState = ({ text }: { text: string }) => (
 export const CaptainsAdminList = () => {
   useRequireAdmin();
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: events = [], isLoading, isError } = useCaptainsEvents();
@@ -793,6 +794,11 @@ export const CaptainsAdminList = () => {
   const [generatedCode, setGeneratedCode] = useState<string | null>(null);
   const [isGeneratingCode, setIsGeneratingCode] = useState(false);
   const [codeTableCount, setCodeTableCount] = useState(6);
+  useEffect(() => {
+    if (new URLSearchParams(location.search).get("openCode") !== "1") return;
+    setCodeDialogOpen(true);
+    navigate(location.pathname, { replace: true });
+  }, [location.pathname, location.search, navigate]);
   const generateCreationCode = async () => {
     try {
       setIsGeneratingCode(true);
