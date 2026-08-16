@@ -329,3 +329,103 @@ All colors MUST be HSL.
     border-color: var(--admin-demo2-accent);
   }
 }
+
+/* ── Cápsula del tiempo (bodas) ───────────────────────────── */
+@layer components {
+  .capsule-shell {
+    --capsule-ivory: 38 44% 97%;
+    --capsule-blush: 350 46% 92%;
+    --capsule-rose: 344 38% 62%;
+    --capsule-deep: 340 22% 26%;
+    --capsule-gold: 36 42% 62%;
+    background:
+      radial-gradient(circle at 15% 12%, hsl(var(--capsule-blush) / 0.85), transparent 55%),
+      radial-gradient(circle at 85% 88%, hsl(var(--capsule-gold) / 0.28), transparent 60%),
+      hsl(var(--capsule-ivory));
+    color: hsl(var(--capsule-deep));
+    font-family: "Cormorant Garamond", Georgia, serif;
+  }
+
+  .capsule-shell .capsule-script {
+    font-family: "Great Vibes", "Cormorant Garamond", cursive;
+    color: hsl(var(--capsule-rose));
+    line-height: 1.15;
+  }
+
+  .capsule-shell .capsule-card {
+    background: hsl(0 0% 100% / 0.72);
+    backdrop-filter: blur(10px);
+    border: 1px solid hsl(var(--capsule-gold) / 0.35);
+    border-radius: 1.75rem;
+    box-shadow: 0 24px 60px -30px hsl(var(--capsule-deep) / 0.45);
+  }
+
+  .capsule-shell .capsule-rule {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, hsl(var(--capsule-gold) / 0.7), transparent);
+  }
+
+  .capsule-shell .capsule-input {
+    width: 100%;
+    border: 0;
+    border-bottom: 1px solid hsl(var(--capsule-gold) / 0.6);
+    background: transparent;
+    padding: 0.6rem 0.25rem;
+    font-family: inherit;
+    font-size: 1.25rem;
+    text-align: center;
+    color: hsl(var(--capsule-deep));
+  }
+
+  .capsule-shell .capsule-input::placeholder {
+    color: hsl(var(--capsule-deep) / 0.35);
+  }
+
+  .capsule-shell .capsule-input:focus {
+    outline: none;
+    border-bottom-color: hsl(var(--capsule-rose));
+  }
+
+  .capsule-shell .capsule-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    width: 100%;
+    min-height: 3.25rem;
+    padding: 0 1.5rem;
+    border-radius: 9999px;
+    background: linear-gradient(135deg, hsl(var(--capsule-rose)), hsl(var(--capsule-gold)));
+    color: hsl(0 0% 100%);
+    font-family: inherit;
+    font-size: 1.05rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    box-shadow: 0 16px 34px -18px hsl(var(--capsule-rose) / 0.9);
+    transition: transform 160ms ease, box-shadow 160ms ease, opacity 160ms ease;
+  }
+
+  .capsule-shell .capsule-btn:active {
+    transform: scale(0.98);
+  }
+
+  .capsule-shell .capsule-btn:disabled {
+    opacity: 0.5;
+    box-shadow: none;
+  }
+
+  .capsule-shell .capsule-btn-ghost {
+    background: transparent;
+    color: hsl(var(--capsule-deep) / 0.7);
+    box-shadow: none;
+    border: 1px solid hsl(var(--capsule-gold) / 0.5);
+  }
+
+  .capsule-shell .capsule-eyebrow {
+    text-transform: uppercase;
+    letter-spacing: 0.32em;
+    font-size: 0.7rem;
+    color: hsl(var(--capsule-deep) / 0.55);
+  }
+}
