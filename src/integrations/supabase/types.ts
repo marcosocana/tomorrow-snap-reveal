@@ -1067,6 +1067,53 @@ export type Database = {
         }
         Relationships: []
       }
+      time_capsule_unlock_credentials: {
+        Row: {
+          attempts: number
+          created_at: string
+          due_at: string
+          event_id: string
+          last_error: string | null
+          password_hash: string
+          sent_at: string | null
+          status: string
+          unlock_password: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          due_at: string
+          event_id: string
+          last_error?: string | null
+          password_hash: string
+          sent_at?: string | null
+          status?: string
+          unlock_password: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          due_at?: string
+          event_id?: string
+          last_error?: string | null
+          password_hash?: string
+          sent_at?: string | null
+          status?: string
+          unlock_password?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "time_capsule_unlock_credentials_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: true
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_profiles: {
         Row: {
           created_at: string
@@ -1200,6 +1247,7 @@ export type Database = {
         Returns: Json
       }
       schedule_demo_lifecycle_email_cron: { Args: never; Returns: undefined }
+      schedule_time_capsule_unlock_cron: { Args: never; Returns: undefined }
     }
     Enums: {
       [_ in never]: never
