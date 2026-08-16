@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Check, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,12 +14,57 @@ export const CaptainsCheckoutCard = ({ compact = false }: CaptainsCheckoutCardPr
   const [tableCount, setTableCount] = useState(6);
   const [captainPack, setCaptainPack] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const gameSubtotal = useMemo(() => tableCount * 4.95, [tableCount]);
-  const captainPackSubtotal = useMemo(() => (captainPack ? tableCount * 12.95 : 0), [captainPack, tableCount]);
-  const total = gameSubtotal + captainPackSubtotal;
+  const [quote, setQuote] = useState<{
+    gameUnitAmount: number;
+    captainPackUnitAmount: number;
+    currency: string;
+  } | null>(null);
+  const [quoteError, setQuoteError] = useState(false);
+  const gameSubtotal = useMemo(
+    () => (quote ? tableCount * quote.gameUnitAmount : null),
+    [quote, tableCount],
+  );
+  const captainPackSubtotal = useMemo(
+    () => (quote && captainPack ? tableCount * quote.captainPackUnitAmount : 0),
+    [captainPack, quote, tableCount],
+  );
+  const total = gameSubtotal === null ? null : gameSubtotal + captainPackSubtotal;
 
-  const formatEur = (amount: number) =>
-    new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR", maximumFractionDigits: 2 }).format(amount);
+  const formatMoney = (amountInCents: number) =>
+    new Intl.NumberFormat("es-ES", {
+      style: "currency",
+      currency: quote?.currency ?? "EUR",
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amountInCents / 100);
+
+  useEffect(() => {
+    let active = true;
+    const loadStripeQuote = async () => {
+      const { data, error } = await supabase.functions.invoke("stripe-create-checkout-session", {
+        body: { planId: "captains", quoteOnly: true },
+      });
+      if (!active) return;
+      if (
+        error ||
+        typeof data?.gameUnitAmount !== "number" ||
+        typeof data?.captainPackUnitAmount !== "number" ||
+        typeof data?.currency !== "string"
+      ) {
+        setQuoteError(true);
+        return;
+      }
+      setQuote({
+        gameUnitAmount: data.gameUnitAmount,
+        captainPackUnitAmount: data.captainPackUnitAmount,
+        currency: data.currency,
+      });
+    };
+    void loadStripeQuote();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleCheckout = async () => {
     const cleanTableCount = Math.max(1, Math.min(999, Math.floor(tableCount || 1)));
@@ -61,10 +106,10 @@ export const CaptainsCheckoutCard = ({ compact = false }: CaptainsCheckoutCardPr
             </p>
           </div>
           <ul className="grid gap-2 text-sm text-foreground sm:grid-cols-2">
-            <li className="flex items-center gap-2"><Check className="h-4 w-4 text-[#f06a5f]" /> 4,95 € por mesa</li>
+            <li className="flex items-center gap-2"><Check className="h-4 w-4 text-[#f06a5f]" /> {quote ? `${formatMoney(quote.gameUnitAmount)} por mesa` : "Precio por mesa consultado en Stripe"}</li>
             <li className="flex items-center gap-2"><Check className="h-4 w-4 text-[#f06a5f]" /> Hasta 25 retos personalizables</li>
             <li className="flex items-center gap-2"><Check className="h-4 w-4 text-[#f06a5f]" /> QR y enlace al juego</li>
-            <li className="flex items-center gap-2"><Check className="h-4 w-4 text-[#f06a5f]" /> Pack Capitán opcional +12,95 €/mesa</li>
+            <li className="flex items-center gap-2"><Check className="h-4 w-4 text-[#f06a5f]" /> Pack Capitán opcional{quote ? ` +${formatMoney(quote.captainPackUnitAmount)}/mesa` : ""}</li>
           </ul>
         </div>
         <div className="rounded-xl border border-border bg-muted/20 p-4">
@@ -88,24 +133,36 @@ export const CaptainsCheckoutCard = ({ compact = false }: CaptainsCheckoutCardPr
             />
             <span>
               <span className="block font-medium text-foreground">Añadir pack Capitán</span>
-              <span className="block text-muted-foreground">+12,95 € por mesa</span>
+              <span className="block text-muted-foreground">
+                {quote ? `+${formatMoney(quote.captainPackUnitAmount)} por mesa` : "Importe consultado en Stripe"}
+              </span>
             </span>
           </label>
           <div className="my-4 rounded-lg bg-background p-3">
-            <div className="mb-3 space-y-1 border-b border-border pb-3 text-sm">
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-muted-foreground">Juego ({tableCount} mesas × 4,95 €)</span>
-                <span className="font-medium text-foreground">{formatEur(gameSubtotal)}</span>
-              </div>
-              {captainPack ? (
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-muted-foreground">Pack ({tableCount} mesas × 12,95 €)</span>
-                  <span className="font-medium text-foreground">{formatEur(captainPackSubtotal)}</span>
+            {quote && gameSubtotal !== null && total !== null ? (
+              <>
+                <div className="mb-3 space-y-1 border-b border-border pb-3 text-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-muted-foreground">Juego ({tableCount} mesas × {formatMoney(quote.gameUnitAmount)})</span>
+                    <span className="font-medium text-foreground">{formatMoney(gameSubtotal)}</span>
+                  </div>
+                  {captainPack ? (
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-muted-foreground">Pack ({tableCount} mesas × {formatMoney(quote.captainPackUnitAmount)})</span>
+                      <span className="font-medium text-foreground">{formatMoney(captainPackSubtotal)}</span>
+                    </div>
+                  ) : null}
                 </div>
-              ) : null}
-            </div>
-            <p className="text-xs text-muted-foreground">Total</p>
-            <p className="text-3xl font-bold text-foreground">{formatEur(total)}</p>
+                <p className="text-xs text-muted-foreground">Total</p>
+                <p className="text-3xl font-bold text-foreground">{formatMoney(total)}</p>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                {quoteError
+                  ? "No hemos podido consultar el importe. Stripe mostrará el total exacto antes de pagar."
+                  : "Consultando el importe exacto en Stripe…"}
+              </p>
+            )}
           </div>
           <Button className="h-11 w-full rounded-full bg-[#f06a5f] text-white hover:bg-[#e95f54]" onClick={handleCheckout} disabled={isLoading}>
             {isLoading ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : null}

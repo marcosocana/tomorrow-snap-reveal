@@ -31,6 +31,7 @@ import { deleteRevelaoEventsCompletely } from "@/lib/deleteRevelaoEvents";
 import { AdminEventsCalendar } from "@/components/AdminEventsCalendar";
 import { deleteCaptainsEvent } from "@/lib/captainsService";
 import { CaptainsCheckoutCard } from "@/components/CaptainsCheckoutCard";
+import { TimeCapsuleCheckoutPlans } from "@/components/TimeCapsuleCheckoutPlans";
 
 interface Event {
   id: string;
@@ -279,6 +280,7 @@ const EventManagement = () => {
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [pricingOpen, setPricingOpen] = useState(false);
   const [captainsCheckoutOpen, setCaptainsCheckoutOpen] = useState(false);
+  const [capsuleCheckoutOpen, setCapsuleCheckoutOpen] = useState(false);
   const [pricingStep, setPricingStep] = useState<"plans" | "redeem">("plans");
   const [redeemCode, setRedeemCode] = useState("");
   const [redeemError, setRedeemError] = useState<string | null>(null);
@@ -346,7 +348,10 @@ const EventManagement = () => {
         if (isSuperAdmin) navigate("/admin/capitanes/onboarding");
         else setCaptainsCheckoutOpen(true);
       }
-      else if (product === "capsule") navigate(`${pathPrefix}/event-form?product=capsule`);
+      else if (product === "capsule") {
+        if (isSuperAdmin) navigate(`${pathPrefix}/event-form?product=capsule`);
+        else setCapsuleCheckoutOpen(true);
+      }
       else if (isSuperAdmin) navigate(`${pathPrefix}/event-form`);
       else {
         setPricingStep("plans");
@@ -2697,6 +2702,15 @@ const EventManagement = () => {
             <DialogTitle>Crear un evento de Capitanes</DialogTitle>
           </DialogHeader>
           <CaptainsCheckoutCard />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={capsuleCheckoutOpen} onOpenChange={setCapsuleCheckoutOpen}>
+        <DialogContent className="admin-demo2-shell max-h-[92dvh] w-[94vw] max-w-6xl overflow-y-auto p-4 sm:p-6">
+          <DialogHeader>
+            <DialogTitle>Crear una Cápsula del tiempo</DialogTitle>
+          </DialogHeader>
+          <TimeCapsuleCheckoutPlans customerEmail={currentUserEmail} />
         </DialogContent>
       </Dialog>
 

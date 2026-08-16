@@ -71,12 +71,19 @@ const sendCaptainsCheckoutEmail = async (
   creationCode: string,
   tableCount: number,
   captainPack: boolean,
+  totalAmount: number | null,
+  currency: string | null,
 ) => {
   if (!RESEND_API_KEY || !FROM_EMAIL) {
     throw new Error("Missing RESEND_API_KEY or FROM_EMAIL");
   }
 
-  const totalPerTable = captainPack ? "17,90 €" : "4,95 €";
+  const formattedTotal = typeof totalAmount === "number"
+    ? new Intl.NumberFormat("es-ES", {
+        style: "currency",
+        currency: (currency || "eur").toUpperCase(),
+      }).format(totalAmount / 100)
+    : null;
   const html = `
     <div style="font-family:sans-serif;max-width:520px;margin:auto;padding:24px;">
       ${LOGO_URL ? `<p style="text-align:center;"><img src="${LOGO_URL}" alt="Logo" style="height:48px;" /></p>` : ""}
@@ -87,7 +94,7 @@ const sendCaptainsCheckoutEmail = async (
       <div style="background:#f5f5f5;border-radius:12px;padding:16px;margin:20px 0;">
         <p style="margin:0 0 8px;"><strong>Mesas:</strong> ${tableCount}</p>
         <p style="margin:0 0 8px;"><strong>Pack Capitán:</strong> ${captainPack ? "Sí" : "No"}</p>
-        <p style="margin:0;"><strong>Precio por mesa:</strong> ${totalPerTable}</p>
+        ${formattedTotal ? `<p style="margin:0;"><strong>Total pagado:</strong> ${formattedTotal}</p>` : ""}
       </div>
       <p style="text-align:center;">
         <a href="${onboardingUrl}" style="display:inline-block;background:#f06a5f;color:#fff;padding:12px 24px;border-radius:999px;text-decoration:none;font-weight:700;">
@@ -330,7 +337,15 @@ serve(async (req) => {
       const onboardingPath = `/nuevoeventocapitanes?${onboardingParams.toString()}`;
       const onboardingUrl = `${APP_ORIGIN}/admin-login?redirect=${encodeURIComponent(onboardingPath)}`;
       try {
-        await sendCaptainsCheckoutEmail(userEmail, onboardingUrl, creationCode, tableCount, captainPack);
+        await sendCaptainsCheckoutEmail(
+          userEmail,
+          onboardingUrl,
+          creationCode,
+          tableCount,
+          captainPack,
+          typeof session.amount_total === "number" ? session.amount_total : null,
+          session.currency ?? null,
+        );
       } catch (emailError) {
         console.error("stripe-webhook captains email error:", emailError);
         return json({ error: "EMAIL_SEND_FAILED" }, 500);

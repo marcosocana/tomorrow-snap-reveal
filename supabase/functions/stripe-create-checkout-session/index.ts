@@ -28,6 +28,21 @@ const normalizeTableCount = (value: unknown) => {
   return Math.max(1, Math.min(999, Math.floor(count)));
 };
 
+const fetchStripePrice = async (priceId: string) => {
+  const response = await fetch(`https://api.stripe.com/v1/prices/${encodeURIComponent(priceId)}`, {
+    headers: { Authorization: `Bearer ${STRIPE_SECRET_KEY}` },
+  });
+  const price = await response.json();
+  if (!response.ok || typeof price?.unit_amount !== "number" || !price?.currency) {
+    console.error("stripe-create-checkout-session price lookup error:", price);
+    return null;
+  }
+  return {
+    unitAmount: price.unit_amount as number,
+    currency: String(price.currency).toLowerCase(),
+  };
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -42,7 +57,12 @@ serve(async (req) => {
   }
 
   try {
-    const body = (await req.json()) as { planId?: string; tableCount?: number; captainPack?: boolean };
+    const body = (await req.json()) as {
+      planId?: string;
+      tableCount?: number;
+      captainPack?: boolean;
+      quoteOnly?: boolean;
+    };
     const planId = body.planId ?? "";
 
     const authHeader = req.headers.get("Authorization") || "";
@@ -70,6 +90,24 @@ serve(async (req) => {
     }
 
     if (planId === "captains") {
+      if (body.quoteOnly) {
+        if (!STRIPE_PRICE_CAPTAINS_TABLE || !STRIPE_PRICE_CAPTAINS_PACK) {
+          return json({ error: "MISSING_CAPTAINS_PRICE_ID" }, 500);
+        }
+        const [gamePrice, captainPackPrice] = await Promise.all([
+          fetchStripePrice(STRIPE_PRICE_CAPTAINS_TABLE),
+          fetchStripePrice(STRIPE_PRICE_CAPTAINS_PACK),
+        ]);
+        if (!gamePrice || !captainPackPrice || gamePrice.currency !== captainPackPrice.currency) {
+          return json({ error: "INVALID_CAPTAINS_PRICE" }, 500);
+        }
+        return json({
+          gameUnitAmount: gamePrice.unitAmount,
+          captainPackUnitAmount: captainPackPrice.unitAmount,
+          currency: gamePrice.currency,
+        });
+      }
+
       const tableCount = normalizeTableCount(body.tableCount);
       if (!tableCount) {
         return json({ error: "INVALID_TABLE_COUNT" }, 400);
