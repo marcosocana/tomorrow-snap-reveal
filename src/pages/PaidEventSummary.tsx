@@ -2,13 +2,14 @@ import { useLocation, useNavigate, Navigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Check, Copy, ExternalLink, Download } from "lucide-react";
-import { useEffect, useState, useCallback } from "react";
+import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { format, differenceInMinutes } from "date-fns";
 import { es } from "date-fns/locale";
 import { toZonedTime } from "date-fns-tz";
 import logoRevelao from "@/assets/logo__revelao.png";
+import { useAdminI18n } from "@/lib/adminI18n";
 
 interface EventData {
   id: string;
@@ -28,6 +29,7 @@ const PaidEventSummary = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { pathPrefix } = useAdminI18n();
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
   const event = location.state?.event as EventData | undefined;
@@ -40,7 +42,6 @@ const PaidEventSummary = () => {
 
   const eventUrl = `https://acceso.revelao.cam/events/${event.password_hash}`;
   const slideshowUrl = `${window.location.origin}/slideshow/${event.id}`;
-  const adminUrl = "https://acceso.revelao.cam";
   const eventTz = event.timezone || "Europe/Madrid";
   const storedQrUrl = event
     ? localStorage.getItem(`event-qr-url-${event.id}`) ||
@@ -53,7 +54,7 @@ const PaidEventSummary = () => {
   )}`;
   const qrImageUrl = qrFromState || storedQrUrl || fallbackQrUrl;
 
-  const downloadQR = useCallback(async () => {
+  const downloadQR = async () => {
     try {
       const response = await fetch(qrImageUrl);
       const blob = await response.blob();
@@ -66,7 +67,7 @@ const PaidEventSummary = () => {
     } catch {
       window.open(qrImageUrl, "_blank", "noopener,noreferrer");
     }
-  }, [event.name, qrImageUrl]);
+  };
 
   const formatEventDate = (dateString: string) => {
     try {
@@ -241,25 +242,12 @@ const PaidEventSummary = () => {
 
         <Card className="p-6 border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-900/10">
           <div className="space-y-4 text-sm">
-            <p className="text-muted-foreground">
-              Entra en{" "}
-              <a
-                href={adminUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-primary hover:underline font-medium"
-              >
-                acceso.revelao.cam
-              </a>{" "}
-              o accede a través del siguiente botón.
-            </p>
+            <p className="text-muted-foreground">Accede directamente a la configuración del evento que acabas de crear.</p>
             <Button
               className="bg-primary text-primary-foreground hover:bg-primary/90"
-              asChild
+              onClick={() => navigate(`${pathPrefix}/event-form/${event.id}`)}
             >
-              <a href={adminUrl} target="_blank" rel="noopener noreferrer">
-                Gestionar evento
-              </a>
+              Editar evento
             </Button>
           </div>
         </Card>

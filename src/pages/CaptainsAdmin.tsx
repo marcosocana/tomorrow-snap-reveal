@@ -1062,6 +1062,8 @@ const captainsOnboardingSteps: Array<{ id: CaptainsOnboardingStep; label: string
   { id: "contact", label: "Contacto" },
 ];
 
+const CAPTAINS_ONBOARDING_INFO_CLASS = "text-xs leading-relaxed text-muted-foreground";
+
 export const CaptainsOnboarding = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -1401,8 +1403,17 @@ export const CaptainsOnboarding = () => {
 	          email: contactEmail.trim(),
 	          phone: contactPhone.trim(),
 	        };
-	        await Promise.allSettled([
-	          supabase.functions.invoke("send-captains-event-email", {
+	        const creationNotifications = [
+	          supabase.functions.invoke("notify-admin-new-event", {
+	            body: {
+	              event: createdEvent,
+	              planLabel: "Capitanes",
+	              panelPath: `/admin/capitanes/${createdEvent.id}`,
+	            },
+	          }),
+	        ];
+	        if (created.emailSent !== true) {
+	          creationNotifications.push(supabase.functions.invoke("send-captains-event-email", {
 	            body: {
 	              event: createdEvent,
 	              contactInfo,
@@ -1413,15 +1424,9 @@ export const CaptainsOnboarding = () => {
 	              challengeCount: selectedChallenges.length,
 	              credentials: created.credentials,
 	            },
-	          }),
-	          supabase.functions.invoke("notify-admin-new-event", {
-	            body: {
-	              event: createdEvent,
-	              planLabel: "Capitanes",
-	              panelPath: `/admin/capitanes/${createdEvent.id}`,
-	            },
-	          }),
-	        ]);
+	          }));
+	        }
+	        await Promise.allSettled(creationNotifications);
 	      }
 	      toast({ title: editingEventId ? "Juego actualizado" : "Juego creado", description: "Capitanes ya está listo para usar." });
 	      navigate(`/admin/capitanes/${created?.event.id}?code=${encodeURIComponent(accessCode)}`);
@@ -1452,17 +1457,17 @@ export const CaptainsOnboarding = () => {
               <Textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={5} className="rounded-2xl px-4 py-3" />
             </label>
             <div className="space-y-2">
-              <div className="grid gap-2 sm:grid-cols-[1fr_110px]">
-                <label className="space-y-2">
+              <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,96px)] gap-2 sm:grid-cols-[minmax(0,1fr)_110px]">
+                <label className="min-w-0 space-y-2">
                   <span className="text-sm font-medium">Fecha de fin</span>
-                  <Input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} />
+                  <Input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} className="h-12 min-w-0 w-full max-w-full rounded-full px-2 text-sm sm:px-4 sm:text-base" />
                 </label>
-                <label className="space-y-2">
+                <label className="min-w-0 space-y-2">
                   <span className="text-sm font-medium">Hora</span>
-                  <Input type="time" value={endHour} onChange={(event) => setEndHour(event.target.value)} />
+                  <Input type="time" value={endHour} onChange={(event) => setEndHour(event.target.value)} className="h-12 min-w-0 w-full max-w-full rounded-full px-2 text-sm sm:px-4 sm:text-base" />
                 </label>
               </div>
-              <p className="text-xs text-muted-foreground">
+              <p className={CAPTAINS_ONBOARDING_INFO_CLASS}>
                 A partir de este momento, el ranking y todo el contenido generado se harán públicos para todos los grupos. Ya no se podrán completar más retos.
               </p>
             </div>
@@ -1474,15 +1479,15 @@ export const CaptainsOnboarding = () => {
             <label className="space-y-2">
               <span className="text-sm font-medium">Número de mesas</span>
               <Input type="number" min={1} max={maxTables ?? 999} value={tableCount} onChange={(event) => syncTables(Number(event.target.value))} className="h-12 w-32 rounded-full px-4 text-center text-base" />
-              {maxTables ? <span className="block text-xs text-muted-foreground">Máximo incluido en tu código: {maxTables} mesas.</span> : null}
+              {maxTables ? <span className={`block ${CAPTAINS_ONBOARDING_INFO_CLASS}`}>Máximo incluido en tu código: {maxTables} mesas.</span> : null}
             </label>
-            <div className="rounded-2xl border border-border bg-muted/30 p-4 text-sm text-muted-foreground">
+            <div className={`rounded-2xl border border-border bg-muted/30 p-4 ${CAPTAINS_ONBOARDING_INFO_CLASS}`}>
               Haz click en el muñeco de cada mesa para editar todos los detalles del capitán: nombre, mesa, aspecto, pelo, piel y vestuario.
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid min-w-0 gap-3 sm:grid-cols-2">
               {tables.map((table, index) => (
-                <div key={index} className="rounded-2xl border border-border bg-card p-4">
-	                  <div className="mb-3 flex items-center gap-3">
+                <div key={index} className="min-w-0 overflow-hidden rounded-2xl border border-border bg-card p-4">
+	                  <div className="mb-3 flex min-w-0 items-center gap-3">
 	                    <button
 	                      type="button"
 	                      className="rounded-xl border border-transparent p-1 transition hover:border-primary hover:bg-primary/5"
@@ -1493,20 +1498,20 @@ export const CaptainsOnboarding = () => {
                     </button>
                     <div>
                       <p className="text-sm font-semibold">Mesa {index + 1}</p>
-	                      <p className="text-xs text-muted-foreground">Click en el muñeco para editar</p>
+	                      <p className={CAPTAINS_ONBOARDING_INFO_CLASS}>Click en el muñeco para editar</p>
 	                    </div>
 	                  </div>
-	                  <div className="mb-3 flex items-center justify-between gap-3 rounded-xl border border-border bg-muted/20 p-3">
+	                  <div className="mb-3 flex min-w-0 flex-col items-stretch gap-3 overflow-hidden rounded-xl border border-border bg-muted/20 p-3 sm:flex-row sm:items-center sm:justify-between">
 	                    <div className="flex min-w-0 items-center gap-3">
 	                      <CaptainPhotoPreview table={table} size="sm" />
 	                      <div className="min-w-0">
 	                        <p className="text-xs font-medium text-foreground">Foto del capitán/a</p>
-	                        <p className="truncate text-xs text-muted-foreground">
+	                        <p className={`truncate ${CAPTAINS_ONBOARDING_INFO_CLASS}`}>
 	                          {table.captain_photo_url ? "Foto añadida" : "Añádela desde aquí sin entrar al modal"}
 	                        </p>
 	                      </div>
 	                    </div>
-	                    <div className="flex shrink-0 items-center gap-2">
+	                    <div className="flex min-w-0 items-center justify-end gap-2 sm:shrink-0">
 	                      {table.captain_photo_url ? (
 	                        <Button
 	                          type="button"
@@ -1542,9 +1547,9 @@ export const CaptainsOnboarding = () => {
 	                      </label>
 	                    </div>
 	                  </div>
-	                  <div className="grid gap-2">
-	                    <Input value={table.table_name} onChange={(event) => setTables((prev) => prev.map((item, itemIndex) => itemIndex === index ? { ...item, table_name: event.target.value } : item))} placeholder={`Mesa ${index + 1}`} />
-	                    <Input value={table.captain_name} onChange={(event) => setTables((prev) => prev.map((item, itemIndex) => itemIndex === index ? { ...item, captain_name: event.target.value } : item))} placeholder="Nombre capitán/a" />
+	                  <div className="grid min-w-0 gap-2">
+	                    <Input value={table.table_name} onChange={(event) => setTables((prev) => prev.map((item, itemIndex) => itemIndex === index ? { ...item, table_name: event.target.value } : item))} placeholder={`Mesa ${index + 1}`} className="min-w-0 w-full max-w-full" />
+	                    <Input value={table.captain_name} onChange={(event) => setTables((prev) => prev.map((item, itemIndex) => itemIndex === index ? { ...item, captain_name: event.target.value } : item))} placeholder="Nombre capitán/a" className="min-w-0 w-full max-w-full" />
 	                  </div>
                 </div>
               ))}
@@ -1554,7 +1559,7 @@ export const CaptainsOnboarding = () => {
       case "challenges":
         return (
           <div className="space-y-5">
-            <div className="flex flex-col gap-3 rounded-2xl border border-border bg-muted/30 p-4 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+            <div className={`flex flex-col gap-3 rounded-2xl border border-border bg-muted/30 p-4 sm:flex-row sm:items-center sm:justify-between ${CAPTAINS_ONBOARDING_INFO_CLASS}`}>
               <div>
                 <p className="font-medium text-foreground">{selectedChallenges.length}/{CAPTAINS_MAX_CHALLENGES} retos añadidos al evento</p>
                 <p>Selecciona del catálogo completo, crea retos nuevos y edita el detalle antes de publicar.</p>
@@ -1603,10 +1608,10 @@ export const CaptainsOnboarding = () => {
             <div className="space-y-3">
               <div>
                 <h2 className="text-base font-semibold">Retos del evento</h2>
-                <p className="text-sm text-muted-foreground">Edita cualquier reto añadido desde el catálogo o creado manualmente.</p>
+                <p className={CAPTAINS_ONBOARDING_INFO_CLASS}>Edita cualquier reto añadido desde el catálogo o creado manualmente.</p>
               </div>
               {selectedChallenges.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+                <div className={`rounded-2xl border border-dashed border-border p-6 text-center ${CAPTAINS_ONBOARDING_INFO_CLASS}`}>
                   Todavía no hay retos seleccionados para este evento.
                 </div>
               ) : (
@@ -1628,7 +1633,7 @@ export const CaptainsOnboarding = () => {
       case "contact":
         return (
           <div className="space-y-5">
-            <div className="rounded-2xl border border-border bg-muted/30 p-4 text-sm text-muted-foreground">
+            <div className={`rounded-2xl border border-border bg-muted/30 p-4 ${CAPTAINS_ONBOARDING_INFO_CLASS}`}>
               Estos datos se guardarán en el detalle del evento. Al crear Capitanes enviaremos al usuario el resumen y el enlace de edición, y a Revelao el aviso interno del nuevo evento.
             </div>
             <label className="space-y-2">
@@ -1657,7 +1662,7 @@ export const CaptainsOnboarding = () => {
             <KeyRound className="h-6 w-6 text-primary" />
           </div>
           <h1 className="text-2xl font-bold">Crea tu evento de Capitanes</h1>
-          <p className="mt-2 text-sm text-muted-foreground">Introduce el código que te ha facilitado Revelao para acceder al formulario.</p>
+          <p className={`mt-2 ${CAPTAINS_ONBOARDING_INFO_CLASS}`}>Introduce el código que te ha facilitado Revelao para acceder al formulario.</p>
           <form className="mt-6 space-y-4" onSubmit={(event) => { event.preventDefault(); validateAccessCode(); }}>
             <Input
               value={accessCode}
@@ -1686,20 +1691,21 @@ export const CaptainsOnboarding = () => {
             </div>
             <div className="space-y-1">
               <h1 className="text-2xl font-bold text-foreground sm:text-3xl">{editingEventId ? "Edita tu juego de Capitanes" : "Crea tu juego de Capitanes"}</h1>
-              <p className="text-sm text-muted-foreground">Configura el juego por pasos y guarda todos los cambios sin necesidad de iniciar sesión.</p>
+              <p className={CAPTAINS_ONBOARDING_INFO_CLASS}>Configura el juego por pasos y guarda todos los cambios sin necesidad de iniciar sesión.</p>
             </div>
             <div className="h-2 overflow-hidden rounded-full bg-muted">
               <div className="h-full rounded-full transition-all" style={{ width: `${progress}%`, backgroundColor: primaryColor }} />
             </div>
-            <ol className="-mx-4 flex gap-0 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0">
+            <ol className="-mx-1 flex gap-1 px-1 pb-1 sm:mx-0 sm:gap-0 sm:px-0">
               {captainsOnboardingSteps.map((step, index) => (
-                <li key={step.id} className="flex min-w-[128px] flex-1 items-center">
+                <li key={step.id} className="flex min-w-0 flex-1 items-center sm:min-w-[128px]">
                 <button
                   type="button"
+                  aria-label={`${index + 1}. ${step.label}`}
                   onClick={() => {
                     if (index <= stepIndex) setStepIndex(index);
                   }}
-                  className={`flex min-h-12 w-full items-center gap-2 rounded-xl border px-3 text-left text-xs font-semibold transition ${
+                  className={`flex min-h-10 w-full items-center justify-center gap-1 rounded-xl border px-1 text-center text-xs font-semibold transition sm:min-h-12 sm:justify-start sm:gap-2 sm:px-3 sm:text-left ${
                     index === stepIndex
                       ? "border-primary bg-primary/10 text-foreground shadow-sm"
                       : index < stepIndex
@@ -1710,7 +1716,7 @@ export const CaptainsOnboarding = () => {
                   <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] ${index === stepIndex ? "bg-primary/15 text-foreground" : index < stepIndex ? "bg-emerald-100" : "bg-muted"}`}>
                     {index < stepIndex ? <Check className="h-3.5 w-3.5" /> : index + 1}
                   </span>
-                  <span>{step.label}</span>
+                  <span className="hidden sm:inline">{step.label}</span>
                 </button>
                 {index < captainsOnboardingSteps.length - 1 ? <span className={`mx-1 hidden h-px w-5 shrink-0 sm:block ${index < stepIndex ? "bg-emerald-300" : "bg-border"}`} /> : null}
                 </li>
@@ -1744,7 +1750,7 @@ export const CaptainsOnboarding = () => {
       <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Editar detalles de la mesa</DialogTitle>
-          <DialogDescription>Personaliza el capitán que verá cada mesa al entrar al juego.</DialogDescription>
+          <DialogDescription className={CAPTAINS_ONBOARDING_INFO_CLASS}>Personaliza el capitán que verá cada mesa al entrar al juego.</DialogDescription>
         </DialogHeader>
         {editingTable && editingTableIndex !== null ? (
           <div className="space-y-5">
@@ -1829,7 +1835,7 @@ export const CaptainsOnboarding = () => {
       <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Crear reto nuevo</DialogTitle>
-          <DialogDescription>Completa la información del reto. Al añadirlo aparecerá en el listado con el resto de retos del evento.</DialogDescription>
+          <DialogDescription className={CAPTAINS_ONBOARDING_INFO_CLASS}>Completa la información del reto. Al añadirlo aparecerá en el listado con el resto de retos del evento.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <ChallengeEditor
@@ -1853,7 +1859,7 @@ export const CaptainsOnboarding = () => {
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle>Límite de retos alcanzado</DialogTitle>
-          <DialogDescription>El máximo por evento es de {CAPTAINS_MAX_CHALLENGES} retos. Elimina alguno del listado para añadir otro.</DialogDescription>
+          <DialogDescription className={CAPTAINS_ONBOARDING_INFO_CLASS}>El máximo por evento es de {CAPTAINS_MAX_CHALLENGES} retos. Elimina alguno del listado para añadir otro.</DialogDescription>
         </DialogHeader>
         <div className="flex justify-end">
           <Button type="button" onClick={() => setChallengeLimitOpen(false)}>Entendido</Button>

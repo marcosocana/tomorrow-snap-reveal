@@ -588,8 +588,8 @@ const RedeemEvent = () => {
 
       const { data: userData } = await supabase.auth.getUser();
       const userEmail = data?.ownerEmail || userData?.user?.email || formData.contactEmail?.trim() || null;
-      if (userEmail) {
-        await supabase.functions.invoke("send-demo-event-email", {
+      if (userEmail && data?.emailSent !== true) {
+        const { error: summaryEmailError } = await supabase.functions.invoke("send-demo-event-email", {
           body: {
             event: newEvent,
             qrUrl: qrUrl || localStorage.getItem(`event-qr-url-${newEvent.id}`),
@@ -598,6 +598,7 @@ const RedeemEvent = () => {
             planLabel: plan?.label ?? null,
           },
         });
+        if (summaryEmailError) console.error("Paid event summary email retry failed:", summaryEmailError);
       }
 
       toast({

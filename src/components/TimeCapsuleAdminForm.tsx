@@ -49,6 +49,12 @@ type CapsuleVideo = {
 
 const TIMEZONE = "Europe/Madrid";
 
+const generateTimeCapsulePassword = () => {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const values = crypto.getRandomValues(new Uint8Array(8));
+  return Array.from(values, (value) => alphabet[value % alphabet.length]).join("");
+};
+
 const sanitizeDownloadName = (value: string) =>
   value
     .normalize("NFD")
@@ -98,7 +104,7 @@ const TimeCapsuleAdminForm = ({
   const [logoMode, setLogoMode] = useState<TimeCapsuleLogoMode>("default");
   const [logoUrl, setLogoUrl] = useState("");
   const [logoLink, setLogoLink] = useState(TIME_CAPSULE_DEFAULT_LOGO_LINK);
-  const [password, setPassword] = useState("");
+  const [password, setPassword] = useState(() => redeemToken ? generateTimeCapsulePassword() : "");
   const [limitsJson, setLimitsJson] = useState<Json | null>(null);
   const [savedEventId, setSavedEventId] = useState<string | null>(eventId ?? null);
   const [createdEvent, setCreatedEvent] = useState<{
@@ -336,7 +342,7 @@ const TimeCapsuleAdminForm = ({
     ) {
       toast({
         title: "Faltan datos",
-        description: "Completa todos los campos obligatorios. La contraseña debe contener al menos 8 dígitos.",
+        description: "Completa todos los campos obligatorios para continuar.",
         variant: "destructive",
       });
       return;
@@ -480,6 +486,22 @@ const TimeCapsuleAdminForm = ({
           if (signInError) console.error("Capsule account automatic sign in failed:", signInError);
         }
         const created = data.event;
+        const summaryEmail = created.owner_email || ownerEmail.trim() || accountEmail.trim().toLowerCase();
+        let emailSent = data.emailSent === true;
+        if (summaryEmail && !emailSent) {
+          const { data: emailData, error: emailError } = await supabase.functions.invoke("send-demo-event-email", {
+            body: {
+              event: created,
+              contactInfo: { email: summaryEmail },
+              eventType: "capsule",
+              planLabel: redeemPlanLabel || "Cápsula del tiempo",
+              lang: created.language || "es",
+              publicUrl: getTimeCapsulePublicUrl(created.id),
+            },
+          });
+          emailSent = !emailError && emailData?.success === true;
+          if (emailError) console.error("Time capsule summary email retry failed:", emailError);
+        }
         setSavedEventId(created.id);
         setCreatedEvent({
           id: created.id,
@@ -489,16 +511,16 @@ const TimeCapsuleAdminForm = ({
           upload_start_time: created.upload_start_time,
           upload_end_time: created.upload_end_time,
           owner_email: created.owner_email || ownerEmail.trim(),
-          email_sent: redeemToken ? true : data.emailSent === true,
+          email_sent: emailSent,
         });
         toast({
           title: "Cápsula creada",
-          description: redeemToken
-            ? "La cápsula se ha asociado a tu cuenta correctamente."
-            : data.emailSent
-            ? "Hemos enviado al propietario el QR y la información del evento."
-            : "La cápsula se creó, pero el email no pudo enviarse. Revisa la configuración de correo.",
-          variant: redeemToken || data.emailSent ? "default" : "destructive",
+          description: !emailSent
+            ? "La cápsula se creó, pero el email de resumen no pudo enviarse."
+            : redeemToken
+              ? "La cápsula se ha asociado a tu cuenta y hemos enviado el resumen por email."
+              : "Hemos enviado al propietario el QR y la información del evento.",
+          variant: emailSent ? "default" : "destructive",
         });
       }
     } catch (error) {
@@ -588,11 +610,11 @@ const TimeCapsuleAdminForm = ({
               <h1 className="text-xl font-semibold">Cápsula creada correctamente</h1>
             </div>
             <p className={`text-sm ${createdEvent.email_sent ? "text-muted-foreground" : "font-medium text-destructive"}`}>
-              {redeemToken
-                ? "La cápsula ya está asociada a tu cuenta y lista para compartir."
-                : createdEvent.email_sent
-                ? "Se ha enviado al propietario un email con el QR, las fechas y sus credenciales."
-                : "La cápsula está creada, pero el email no se ha podido enviar. Revisa RESEND_API_KEY y FROM_EMAIL en Supabase."}
+              {!createdEvent.email_sent
+                ? "La cápsula está creada, pero el email de resumen no se ha podido enviar."
+                : redeemToken
+                  ? "La cápsula ya está asociada a tu cuenta y el resumen se ha enviado por email."
+                  : "Se ha enviado al propietario un email con el QR, las fechas y sus credenciales."}
             </p>
           </div>
 
@@ -636,7 +658,7 @@ const TimeCapsuleAdminForm = ({
               <Button type="button" variant="outline" onClick={() => navigate(`${pathPrefix}/event-management`)}>
                 Volver a eventos
               </Button>
-              <Button type="button" className="gap-2" onClick={() => navigate(`${pathPrefix}/event-form/${createdEvent.id}`)}>
+              <Button type="button" className="gap-2" onClick={() => navigate(`${pathPrefix}/event-form/${createdEvent.id}?product=capsule`)}>
                 <Pencil className="h-4 w-4" /> Editar evento
               </Button>
             </div>
@@ -924,7 +946,7 @@ const TimeCapsuleAdminForm = ({
               </div>
             )}
 
-            {!isEditing && (
+            {!isEditing && !redeemToken && (
               <div className="space-y-2">
                 <Label htmlFor="capsulePassword">Contraseña de descapsulamiento</Label>
                 <Input

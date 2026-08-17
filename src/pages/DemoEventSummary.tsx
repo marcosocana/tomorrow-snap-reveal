@@ -1,4 +1,4 @@
-import { useLocation, Navigate } from "react-router-dom";
+import { useLocation, useNavigate, Navigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Check, Copy, Download } from "lucide-react";
@@ -29,6 +29,7 @@ interface EventData {
 
 const DemoEventSummary = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
@@ -46,10 +47,6 @@ const DemoEventSummary = () => {
   const slideshowUrl = event ? `${window.location.origin}/slideshow/${event.id}` : "";
   const slideshowLabel = lang === "en" ? "Live slideshow" : lang === "it" ? "Slideshow in diretta" : "Slideshow en directo";
   const credentialEmail = contactInfo?.email?.trim().toLowerCase() || "";
-  const adminUrlBase = `https://acceso.revelao.cam${pathPrefix}/admin-login`;
-  const adminUrl = credentialEmail
-    ? `${adminUrlBase}?email=${encodeURIComponent(credentialEmail)}`
-    : adminUrlBase;
   const eventTz = event?.timezone || "Europe/Madrid";
   const shouldShowPricing = /^\d{8}$/.test(event?.password_hash || "");
   const demoPhotos = event?.max_photos ?? 10;
@@ -355,25 +352,12 @@ const DemoEventSummary = () => {
               </div>
               <p className="text-xs text-muted-foreground">Guarda estos datos. Los necesitarás para acceder a la gestión del evento.</p>
             </div>
-            <p className="text-muted-foreground">
-              Entra en{" "}
-              <a
-                href={adminUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-primary hover:underline font-medium"
-              >
-                acceso.revelao.cam
-              </a>{" "}
-              o accede a través del siguiente botón.
-            </p>
+            <p className="text-muted-foreground">Accede directamente a la configuración del evento que acabas de crear.</p>
             <Button
               className={primaryButtonClass}
-              asChild
+              onClick={() => navigate(`${pathPrefix}/event-form/${event.id}`)}
             >
-              <a href={adminUrl} target="_blank" rel="noopener noreferrer">
-                Gestionar evento
-              </a>
+              Editar evento
             </Button>
           </div>
         </Card>

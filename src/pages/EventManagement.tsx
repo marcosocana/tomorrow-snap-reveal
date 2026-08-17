@@ -14,7 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, CalendarDays, List, Plus, Edit, Copy, Download, Eye, LogOut, ArrowLeft, User, Lock, Camera, Video, Mic, MoveRight, ChevronDown, MessageSquareText, KeyRound, Gamepad2, Gift, RefreshCw } from "lucide-react";
+import { Calendar, CalendarDays, List, Plus, Edit, Copy, Download, Eye, LogOut, ArrowLeft, User, Lock, Camera, Video, Mic, MoveRight, ChevronDown, MessageSquareText, KeyRound, Gamepad2, Gift, RefreshCw, ExternalLink, Hourglass } from "lucide-react";
 import { format } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 import { getCountryByCode } from "@/lib/countries";
@@ -113,7 +113,7 @@ const ADMIN_EVENT_NOTE_KEY = "admin_note";
 const ADMIN_EVENT_TABS: Array<{ value: AdminEventTab; label: string }> = [
   { value: "new", label: "Nuevos" },
   { value: "upcoming", label: "Próximos" },
-  { value: "past", label: "Pasados" },
+  { value: "past", label: "Finalizados" },
   { value: "tests", label: "Pruebas" },
   { value: "others", label: "Otros" },
 ];
@@ -323,6 +323,7 @@ const EventManagement = () => {
   const [isSendingGift, setIsSendingGift] = useState(false);
   const [giftError, setGiftError] = useState<string | null>(null);
   const [captainsStatusFilter, setCaptainsStatusFilter] = useState<"all" | "in_progress" | "finished">("all");
+  const [capsuleStatusFilter, setCapsuleStatusFilter] = useState<"all" | "pending" | "in_progress" | "past">("all");
   const [selectedCaptainsIds, setSelectedCaptainsIds] = useState<Set<string>>(new Set());
   const [createdSummary, setCreatedSummary] = useState<{
     id: string;
@@ -947,6 +948,70 @@ const EventManagement = () => {
     return counts;
   }, [productEvents]);
 
+  const capsuleStatusCounts = useMemo(() => {
+    const now = Date.now();
+    const counts = { all: productEvents.length, pending: 0, in_progress: 0, past: 0 };
+    productEvents.forEach((event) => {
+      const startsAt = event.upload_start_time ? new Date(event.upload_start_time).getTime() : null;
+      const endsAt = event.upload_end_time ? new Date(event.upload_end_time).getTime() : null;
+      if (startsAt !== null && startsAt > now) counts.pending += 1;
+      else if (endsAt !== null && endsAt < now) counts.past += 1;
+      else counts.in_progress += 1;
+    });
+    return counts;
+  }, [productEvents]);
+
+  const renderSuperAdminFilterTabs = () => (
+    <div className="flex flex-wrap gap-2">
+      {activeProduct === "capsule"
+        ? ([
+            ["all", "Todos"],
+            ["pending", "Próximos"],
+            ["in_progress", "En curso"],
+            ["past", "Finalizados"],
+          ] as const).map(([value, label]) => {
+            const isActive = capsuleStatusFilter === value;
+            return (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setCapsuleStatusFilter(value)}
+                className={`admin-neutral-tab admin-secondary-tab inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm font-medium transition-colors ${
+                  isActive
+                    ? "!border-foreground !bg-foreground !text-background shadow-sm"
+                    : "border-border bg-background text-foreground hover:bg-muted"
+                }`}
+              >
+                <span>{label}</span>
+                <span className={`rounded-full px-2 py-0.5 text-xs ${isActive ? "bg-background/20 !text-background" : "bg-muted text-muted-foreground"}`}>
+                  {capsuleStatusCounts[value]}
+                </span>
+              </button>
+            );
+          })
+        : ADMIN_EVENT_TABS.filter((tab) => tab.value !== "new" || adminTabCounts.new > 0).map((tab) => {
+            const isActive = adminActiveTab === tab.value;
+            return (
+              <button
+                key={tab.value}
+                type="button"
+                onClick={() => setAdminActiveTab(tab.value)}
+                className={`admin-neutral-tab admin-secondary-tab inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm font-medium transition-colors ${
+                  isActive
+                    ? "!border-foreground !bg-foreground !text-background shadow-sm"
+                    : "border-border bg-background text-foreground hover:bg-muted"
+                }`}
+              >
+                <span>{tab.label}</span>
+                <span className={`rounded-full px-2 py-0.5 text-xs ${isActive ? "bg-background/20 !text-background" : "bg-muted text-muted-foreground"}`}>
+                  {adminTabCounts[tab.value]}
+                </span>
+              </button>
+            );
+          })}
+    </div>
+  );
+
   useEffect(() => {
     if (!isLoading && adminActiveTab === "new" && adminTabCounts.new === 0) {
       setAdminActiveTab(activeProduct === "capsule" ? "others" : "upcoming");
@@ -968,7 +1033,17 @@ const EventManagement = () => {
         (adminPhoneFilter === "yes" && hasPhone) ||
         (adminPhoneFilter === "no" && !hasPhone);
       const manualTab = getManualAdminEventTab(event);
-      const matchesTab = adminActiveTab === "others" ? !manualTab : manualTab === adminActiveTab;
+      const now = Date.now();
+      const startsAt = event.upload_start_time ? new Date(event.upload_start_time).getTime() : null;
+      const endsAt = event.upload_end_time ? new Date(event.upload_end_time).getTime() : null;
+      const capsuleStatus = startsAt !== null && startsAt > now
+        ? "pending"
+        : endsAt !== null && endsAt < now
+          ? "past"
+          : "in_progress";
+      const matchesTab = activeProduct === "capsule"
+        ? capsuleStatusFilter === "all" || capsuleStatusFilter === capsuleStatus
+        : adminActiveTab === "others" ? !manualTab : manualTab === adminActiveTab;
       return matchesSearch && matchesType && matchesPhone && matchesTab;
     });
 
@@ -1001,13 +1076,13 @@ const EventManagement = () => {
       return 0;
     });
     return list;
-  }, [productEvents, activeProduct, adminSearch, adminTypeFilter, adminPhoneFilter, adminActiveTab, adminSort, eventPhotoCounts, eventMediaCounts]);
+  }, [productEvents, activeProduct, adminSearch, adminTypeFilter, adminPhoneFilter, adminActiveTab, capsuleStatusFilter, adminSort, eventPhotoCounts, eventMediaCounts]);
 
   const pageSize = adminPageSize === "all" ? superAdminEvents.length || 1 : adminPageSize;
 
   useEffect(() => {
     setAdminPage(1);
-  }, [adminSearch, adminTypeFilter, adminPhoneFilter, adminActiveTab, adminSort, adminPageSize]);
+  }, [adminSearch, adminTypeFilter, adminPhoneFilter, adminActiveTab, capsuleStatusFilter, adminSort, adminPageSize]);
 
   useEffect(() => {
     if (selectedEventIds.size === 0) return;
@@ -1744,21 +1819,9 @@ const EventManagement = () => {
       const matchesStatus = captainsStatusFilter === "all"
         || (captainsStatusFilter === "finished" && finished)
         || (captainsStatusFilter === "in_progress" && !finished);
-      const matchesTab = adminActiveTab === "others"
-        ? !event.admin_event_tab
-        : event.admin_event_tab === adminActiveTab;
-      return matchesSearch && matchesPhone && matchesStatus && matchesTab;
+      return matchesSearch && matchesPhone && matchesStatus;
     });
-  }, [captainsEvents, adminSearch, adminPhoneFilter, captainsStatusFilter, adminActiveTab]);
-
-  const captainsAdminTabCounts = useMemo(() => {
-    const counts: Record<AdminEventTab, number> = { new: 0, upcoming: 0, past: 0, tests: 0, others: 0 };
-    captainsEvents.forEach((event) => {
-      if (event.admin_event_tab) counts[event.admin_event_tab] += 1;
-      else counts.others += 1;
-    });
-    return counts;
-  }, [captainsEvents]);
+  }, [captainsEvents, adminSearch, adminPhoneFilter, captainsStatusFilter]);
 
   const captainsStatusCounts = useMemo(() => {
     const now = Date.now();
@@ -1784,7 +1847,17 @@ const EventManagement = () => {
     return productEvents
       .filter((event) => {
         const manualTab = getManualAdminEventTab(event);
-        const matchesTab = adminActiveTab === "others" ? !manualTab : manualTab === adminActiveTab;
+        const now = Date.now();
+        const startsAt = event.upload_start_time ? new Date(event.upload_start_time).getTime() : null;
+        const endsAt = event.upload_end_time ? new Date(event.upload_end_time).getTime() : null;
+        const capsuleStatus = startsAt !== null && startsAt > now
+          ? "pending"
+          : endsAt !== null && endsAt < now
+            ? "past"
+            : "in_progress";
+        const matchesTab = activeProduct === "capsule"
+          ? capsuleStatusFilter === "all" || capsuleStatusFilter === capsuleStatus
+          : adminActiveTab === "others" ? !manualTab : manualTab === adminActiveTab;
         const matchesSearch = !search
           || event.name.toLowerCase().includes(search)
           || (getAdminOwnerEmail(event) || "").toLowerCase().includes(search);
@@ -1803,7 +1876,7 @@ const EventManagement = () => {
         startsAt: event.upload_start_time,
         endsAt: event.reveal_time || event.upload_end_time,
       }));
-  }, [activeProduct, productEvents, filteredCaptainsEvents, adminSearch, adminTypeFilter, adminPhoneFilter, adminActiveTab]);
+  }, [activeProduct, productEvents, filteredCaptainsEvents, adminSearch, adminTypeFilter, adminPhoneFilter, adminActiveTab, capsuleStatusFilter]);
 
   const toggleCaptainsSelection = (eventId: string) => {
     setSelectedCaptainsIds((current) => {
@@ -1833,27 +1906,6 @@ const EventManagement = () => {
     } catch (error) {
       console.error("Error deleting captains selection:", error);
       toast({ title: "Error", description: "No hemos podido eliminar la selección.", variant: "destructive" });
-    }
-  };
-
-  const handleMoveCaptainsSelection = async (targetTab: AdminEventTab) => {
-    const ids = Array.from(selectedCaptainsIds);
-    if (ids.length === 0) return;
-    const adminEventTab = targetTab === "others" ? null : targetTab;
-    try {
-      const { error } = await supabase
-        .from("captains_events")
-        .update({ admin_event_tab: adminEventTab } as never)
-        .in("id", ids);
-      if (error) throw error;
-      setCaptainsEvents((current) => current.map((event) => (
-        ids.includes(event.id) ? { ...event, admin_event_tab: adminEventTab } : event
-      )));
-      setSelectedCaptainsIds(new Set());
-      toast({ title: "Eventos movidos", description: `Se han movido ${ids.length} evento(s) de Capitanes.` });
-    } catch (error) {
-      console.error("Error moving captains selection:", error);
-      toast({ title: "No se pudieron mover", description: "Comprueba la configuración de Supabase.", variant: "destructive" });
     }
   };
 
@@ -1906,23 +1958,6 @@ const EventManagement = () => {
         </div>
       </div>
       <div className="flex flex-wrap gap-2">
-        {ADMIN_EVENT_TABS.filter((tab) => tab.value !== "new" || captainsAdminTabCounts.new > 0).map((tab) => (
-          <button
-            key={tab.value}
-            type="button"
-            onClick={() => setAdminActiveTab(tab.value)}
-            className={`admin-neutral-tab admin-secondary-tab inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm font-medium transition-colors ${
-              adminActiveTab === tab.value
-                ? "!border-foreground !bg-foreground !text-background shadow-sm"
-                : "border-border bg-background text-foreground hover:bg-muted"
-            }`}
-          >
-            {tab.label}
-            <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{captainsAdminTabCounts[tab.value]}</span>
-          </button>
-        ))}
-      </div>
-      <div className="flex flex-wrap gap-2">
         {([
           ["all", "Todos"],
           ["in_progress", "En curso"],
@@ -1966,20 +2001,6 @@ const EventManagement = () => {
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-muted/50 px-3 py-2">
           <p className="text-xs text-muted-foreground">{selectedCaptainsIds.size} seleccionados</p>
           <div className="flex flex-wrap items-center gap-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-1">
-                  <MoveRight className="h-4 w-4" /> Mover a... <ChevronDown className="h-3.5 w-3.5" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {ADMIN_EVENT_MOVE_TARGETS.map((target) => (
-                  <DropdownMenuItem key={target.value} onClick={() => void handleMoveCaptainsSelection(target.value)}>
-                    {target.label}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
             <Button variant="outline" size="sm" className="gap-1" onClick={() => void handleLockCaptainsSelection()}>
               <Lock className="h-4 w-4" /> Bloquear
             </Button>
@@ -2171,6 +2192,7 @@ const EventManagement = () => {
                       setCaptainsStatusFilter("all");
                       setAdminView("list");
                     }
+                    if (product.value === "capsule") setCapsuleStatusFilter("all");
                     setAdminSearch("");
                     setAdminTypeFilter("all");
                     setAdminPhoneFilter("all");
@@ -2241,28 +2263,7 @@ const EventManagement = () => {
             </div>
             {adminView === "calendar" ? (
               <div className="space-y-4">
-                <div className="flex flex-wrap gap-2">
-                  {ADMIN_EVENT_TABS.filter((tab) => tab.value !== "new" || adminTabCounts.new > 0).map((tab) => {
-                    const isActive = adminActiveTab === tab.value;
-                    return (
-                      <button
-                        key={tab.value}
-                        type="button"
-                        onClick={() => setAdminActiveTab(tab.value)}
-                        className={`admin-neutral-tab admin-secondary-tab inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm font-medium transition-colors ${
-                          isActive
-                            ? "!border-foreground !bg-foreground !text-background shadow-sm"
-                            : "border-border bg-background text-foreground hover:bg-muted"
-                        }`}
-                      >
-                        <span>{tab.label}</span>
-                        <span className={`rounded-full px-2 py-0.5 text-xs ${isActive ? "bg-background/20 !text-background" : "bg-muted text-muted-foreground"}`}>
-                          {adminTabCounts[tab.value]}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
+                {renderSuperAdminFilterTabs()}
                 <div className="grid grid-cols-[minmax(220px,1fr)_auto] items-center gap-2 overflow-x-auto">
                   <div className="min-w-[220px]">
                     <Input
@@ -2314,34 +2315,7 @@ const EventManagement = () => {
               </div>
             ) : (
               <>
-            <div className="flex flex-wrap gap-2">
-              {ADMIN_EVENT_TABS.filter((tab) => tab.value !== "new" || adminTabCounts.new > 0).map((tab) => {
-                const isActive = adminActiveTab === tab.value;
-                return (
-                  <button
-                    key={tab.value}
-                    type="button"
-                    onClick={() => setAdminActiveTab(tab.value)}
-                    className={`admin-neutral-tab admin-secondary-tab inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm font-medium transition-colors ${
-                      isActive
-                        ? "!border-foreground !bg-foreground !text-background shadow-sm"
-                        : "border-border bg-background text-foreground hover:bg-muted"
-                    }`}
-                  >
-                    <span>{tab.label}</span>
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-xs ${
-                        isActive
-                          ? "bg-background/20 !text-background"
-                          : "bg-muted text-muted-foreground"
-                      }`}
-                    >
-                      {adminTabCounts[tab.value]}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+            {renderSuperAdminFilterTabs()}
             <div className="grid grid-cols-[minmax(220px,1fr)_auto] items-center gap-2 overflow-x-auto pt-2">
               <div className="min-w-[220px]">
                 <Input
@@ -2381,6 +2355,7 @@ const EventManagement = () => {
                   {selectedEventIds.size} seleccionados
                 </p>
                 <div className="flex items-center gap-2">
+                  {activeProduct === "revelao" && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="outline" size="sm" className="gap-1">
@@ -2400,6 +2375,7 @@ const EventManagement = () => {
                       ))}
                     </DropdownMenuContent>
                   </DropdownMenu>
+                  )}
                   <Button
                     variant="outline"
                     size="sm"
@@ -2692,7 +2668,80 @@ const EventManagement = () => {
             </div>
           </Card>
         ) : null}
+
+        <section aria-label="Descubre las experiencias Revelao" className="grid gap-4 pt-2 md:grid-cols-3">
+          <a
+            href="https://revelao.cam"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group flex min-h-56 flex-col rounded-2xl border border-[#f06a5f]/25 bg-gradient-to-br from-[#fff7f6] to-background p-6 shadow-sm transition hover:-translate-y-1 hover:border-[#f06a5f]/50 hover:shadow-lg"
+          >
+            <span className="mb-5 flex h-11 w-11 items-center justify-center rounded-xl bg-[#f06a5f] text-white shadow-sm">
+              <Camera className="h-5 w-5" />
+            </span>
+            <h2 className="text-xl font-bold text-foreground">Revelao</h2>
+            <p className="mt-2 flex-1 text-sm leading-relaxed text-muted-foreground">
+              Reúne las fotos, vídeos y audios de todos tus invitados con un único QR y descubre el evento desde todos los puntos de vista.
+            </p>
+            <span className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-[#f06a5f]">
+              Descubrir Revelao <ExternalLink className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+            </span>
+          </a>
+
+          <a
+            href="https://revelao.cam/capitanes"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group flex min-h-56 flex-col rounded-2xl border border-violet-300/40 bg-gradient-to-br from-violet-50 to-background p-6 shadow-sm transition hover:-translate-y-1 hover:border-violet-400/60 hover:shadow-lg"
+          >
+            <span className="mb-5 flex h-11 w-11 items-center justify-center rounded-xl bg-violet-600 text-white shadow-sm">
+              <Gamepad2 className="h-5 w-5" />
+            </span>
+            <h2 className="text-xl font-bold text-foreground">Capitanes</h2>
+            <p className="mt-2 flex-1 text-sm leading-relaxed text-muted-foreground">
+              Convierte las mesas de tu evento en equipos y haz que compitan superando retos en una experiencia divertida e inolvidable.
+            </p>
+            <span className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-violet-700">
+              Descubrir Capitanes <ExternalLink className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+            </span>
+          </a>
+
+          <a
+            href="https://revelao.cam/capsuladeltiempo"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group flex min-h-56 flex-col rounded-2xl border border-amber-300/50 bg-gradient-to-br from-amber-50 to-background p-6 shadow-sm transition hover:-translate-y-1 hover:border-amber-400/70 hover:shadow-lg"
+          >
+            <span className="mb-5 flex h-11 w-11 items-center justify-center rounded-xl bg-amber-500 text-white shadow-sm">
+              <Hourglass className="h-5 w-5" />
+            </span>
+            <h2 className="text-xl font-bold text-foreground">Cápsula del tiempo</h2>
+            <p className="mt-2 flex-1 text-sm leading-relaxed text-muted-foreground">
+              Guarda mensajes en vídeo de tus invitados y vuelve a vivirlos en el futuro cuando llegue el momento de abrir la cápsula.
+            </p>
+            <span className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-amber-700">
+              Descubrir la Cápsula <ExternalLink className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+            </span>
+          </a>
+        </section>
       </div>
+
+      <a
+        href={`https://wa.me/34695834018?text=${encodeURIComponent("Hola! Tengo una duda sobre Revelao.")}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Contactar por WhatsApp"
+        className="group fixed bottom-5 right-5 z-50 flex items-center gap-3"
+      >
+        <span className="hidden items-center rounded-full bg-white/95 px-4 py-2 text-sm font-semibold text-foreground shadow-lg ring-1 ring-black/5 sm:inline-flex">
+          ¿Hablamos por WhatsApp?
+        </span>
+        <span className="relative flex h-16 w-16 items-center justify-center rounded-full bg-[#4FCE5D] shadow-[0_14px_30px_-12px_rgba(0,0,0,0.65)] transition-transform duration-200 group-hover:scale-[1.06]">
+          <svg viewBox="0 0 448 512" aria-hidden="true" className="h-9 w-9 fill-white">
+            <path d="M380.9 97.1C339 55.1 283.2 32 223.9 32 101.5 32 1.9 131.6 1.9 254c0 44.9 11.7 88.6 33.9 127L0 480l102.4-33.8c37.6 20.5 79.9 31.3 123 31.3h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-37.6 0-74.4-10.1-106.7-29.2l-7.6-4.5-60.8 20.1 20.4-59.3-4.9-7.7a183.7 183.7 0 0 1-28.2-97.8c0-101.4 82.5-183.9 183.9-183.9 49.1 0 95.2 19.1 129.9 53.8a182.8 182.8 0 0 1 53.7 130c-.1 101.4-82.6 183.9-183.8 183.9zm101-137.8c-5.5-2.8-32.8-16.1-37.9-18-5.1-1.9-8.8-2.8-12.5 2.8-3.7 5.6-14.3 18-17.6 21.8-3.2 3.7-6.5 4.2-12 1.4-32.6-16.3-54-29.1-75.5-66-5.7-9.8 5.7-9.1 16.3-30.3 1.8-3.7.9-6.9-.5-9.7-1.4-2.8-12.5-30.1-17.1-41.2-4.5-10.8-9.1-9.3-12.5-9.5-3.2-.2-6.9-.2-10.6-.2-3.7 0-9.7 1.4-14.8 6.9-5.1 5.6-19.4 19-19.4 46.3s19.9 53.7 22.6 57.4c2.8 3.7 39.1 59.7 94.8 83.8 35.2 15.2 49 16.5 66.6 13.9 10.7-1.6 32.8-13.4 37.4-26.4 4.6-13 4.6-24.1 3.2-26.4-1.3-2.5-5-3.9-10.6-6.6z" />
+          </svg>
+        </span>
+      </a>
 
       {/* Gallery Preview Modal */}
       <GalleryPreviewModal
@@ -3206,6 +3255,18 @@ const EventManagement = () => {
                 }}
               >
                 {t("events.copyUrl")}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={() => {
+                  const productQuery = activeProduct === "capsule" ? "?product=capsule" : "";
+                  setCreatedSummary(null);
+                  navigate(`${pathPrefix}/event-form/${createdSummary.id}${productQuery}`);
+                }}
+              >
+                Editar evento
               </Button>
             </div>
           )}

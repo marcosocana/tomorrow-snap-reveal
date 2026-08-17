@@ -38,6 +38,41 @@ const notifyAdminNewEvent = async (event: unknown) => {
   }
 };
 
+const sendOwnerSummaryEmail = async ({
+  event,
+  email,
+  planLabel,
+}: {
+  event: Record<string, unknown>;
+  email: string;
+  planLabel: string;
+}) => {
+  try {
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/send-demo-event-email`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        apikey: SUPABASE_ANON_KEY,
+      },
+      body: JSON.stringify({
+        event,
+        contactInfo: { email },
+        eventType: "paid",
+        planLabel,
+        lang: event.language || "es",
+      }),
+    });
+    if (!response.ok) {
+      console.error("redeem-create-event summary email error:", await response.text());
+    }
+    return response.ok;
+  } catch (error) {
+    console.error("redeem-create-event summary email error:", error);
+    return false;
+  }
+};
+
 type PaidEventPayload = {
   token: string;
   contactEmail?: string;
@@ -302,7 +337,12 @@ serve(async (req) => {
       })
       .eq("id", purchase.id);
 
-    return json({ event: createdEvent, ownerEmail: ownerEmail ?? null });
+    const summaryEmail = ownerEmail ?? purchase.user_email ?? "";
+    const emailSent = summaryEmail
+      ? await sendOwnerSummaryEmail({ event: createdEvent, email: summaryEmail, planLabel: plan.label })
+      : false;
+
+    return json({ event: createdEvent, ownerEmail: summaryEmail || null, emailSent });
   } catch (error) {
     console.error("redeem-create-event error:", error);
     return json({ error: "UNKNOWN_ERROR" }, 500);

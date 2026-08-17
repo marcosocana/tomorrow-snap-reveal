@@ -31,6 +31,42 @@ const findAuthUserByEmail = async (admin: ReturnType<typeof createClient>, email
   }
   return null;
 };
+const sendOwnerSummaryEmail = async ({
+  event,
+  contactInfo,
+  publicUrl,
+  qrImageUrl,
+  adminUrl,
+  tableCount,
+  challengeCount,
+  credentials,
+}: {
+  event: Record<string, unknown>;
+  contactInfo: { name: string; email: string; phone: string };
+  publicUrl: string;
+  qrImageUrl: string;
+  adminUrl: string;
+  tableCount: number;
+  challengeCount: number;
+  credentials: { email: string; password: string | null };
+}) => {
+  try {
+    const response = await fetch(`${url}/functions/v1/send-captains-event-email`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${anonKey}`,
+        apikey: anonKey,
+      },
+      body: JSON.stringify({ event, contactInfo, publicUrl, qrImageUrl, adminUrl, tableCount, challengeCount, credentials }),
+    });
+    if (!response.ok) console.error("redeem-captains-code summary email error:", await response.text());
+    return response.ok;
+  } catch (error) {
+    console.error("redeem-captains-code summary email error:", error);
+    return false;
+  }
+};
 const resolveManagementAccount = async (
   admin: ReturnType<typeof createClient>,
   email: string,
@@ -283,12 +319,28 @@ serve(async (req) => {
     status: "redeemed",
     redeemed_at: new Date().toISOString(),
   }).eq("redeem_token", code).eq("plan_id", "captains");
+  const credentials = {
+    email: managementEmail,
+    password: managementPassword,
+  };
+  const emailSent = await sendOwnerSummaryEmail({
+    event,
+    contactInfo: {
+      name: String(body.event.contact_name || "").trim(),
+      email: contactEmail,
+      phone: String(body.event.contact_phone || "").trim(),
+    },
+    publicUrl,
+    qrImageUrl,
+    adminUrl: `${CAPTAINS_PUBLIC_ORIGIN}/admin/capitanes/${event.id}?code=${encodeURIComponent(code)}`,
+    tableCount: tableRows.length,
+    challengeCount: challengeRows.length,
+    credentials,
+  });
   return json({
     event,
-    credentials: {
-      email: managementEmail,
-      password: managementPassword,
-    },
+    credentials,
+    emailSent,
   });
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);

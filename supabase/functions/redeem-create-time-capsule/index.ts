@@ -26,6 +26,43 @@ const findAuthUserByEmail = async (admin: ReturnType<typeof createClient>, email
   return null;
 };
 
+const sendOwnerSummaryEmail = async ({
+  event,
+  email,
+  planLabel,
+}: {
+  event: Record<string, unknown>;
+  email: string;
+  planLabel: string;
+}) => {
+  try {
+    const publicUrl = `https://acceso.revelao.cam/capsula/${event.id}`;
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/send-demo-event-email`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        apikey: SUPABASE_ANON_KEY,
+      },
+      body: JSON.stringify({
+        event,
+        contactInfo: { email },
+        eventType: "capsule",
+        planLabel,
+        lang: event.language || "es",
+        publicUrl,
+      }),
+    });
+    if (!response.ok) {
+      console.error("redeem-create-time-capsule summary email error:", await response.text());
+    }
+    return response.ok;
+  } catch (error) {
+    console.error("redeem-create-time-capsule summary email error:", error);
+    return false;
+  }
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "METHOD_NOT_ALLOWED" }, 405);
@@ -172,8 +209,14 @@ serve(async (req) => {
     return json({ error: "TOKEN_ALREADY_USED" }, 409);
   }
 
+  const summaryEmail = ownerEmail || purchase.user_email || "";
+  const emailSent = summaryEmail
+    ? await sendOwnerSummaryEmail({ event: createdEvent, email: summaryEmail, planLabel: plan.label })
+    : false;
+
   return json({
     event: { ...createdEvent, owner_email: ownerEmail || purchase.user_email || null },
     plan: { id: plan.id, label: plan.label, maxMessages },
+    emailSent,
   });
 });
