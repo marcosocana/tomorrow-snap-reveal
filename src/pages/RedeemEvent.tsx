@@ -9,7 +9,7 @@ import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Trash2 } from "lucide-react";
 import { addDays, format, subHours, differenceInMinutes } from "date-fns";
 import { fromZonedTime, formatInTimeZone, toZonedTime } from "date-fns-tz";
 import { QRCodeSVG } from "qrcode.react";
@@ -23,16 +23,15 @@ import {
 import CountrySelect from "@/components/CountrySelect";
 import LanguageSelect from "@/components/LanguageSelect";
 import FontSelect from "@/components/FontSelect";
-import EventPreview from "@/components/EventPreview";
 import { Language } from "@/lib/translations";
 import { EventFontFamily } from "@/lib/eventFonts";
 import { FilterType, FILTER_ORDER, getFilterClass, getGrainClass } from "@/lib/photoFilters";
-import logoDemo from "@/assets/Frame 626035.png";
 import weddingPreview from "@/assets/testimonial-wedding.jpg";
 import { useAdminI18n } from "@/lib/adminI18n";
 import { getTimezoneOffset } from "@/lib/countries";
 import { hashPassword } from "@/lib/hashPassword";
 import { withEventQrPasswordSettings } from "@/lib/eventQrPassword";
+import type { Json } from "@/integrations/supabase/types";
 
 const generateHash = (): string => Math.random().toString(36).substring(2, 10);
 
@@ -70,9 +69,7 @@ const RedeemEvent = () => {
       // Event fields
       contactEmail: "",
       contactPassword: "",
-      contactPasswordConfirm: "",
       contactPhone: "",
-      acceptMarketing: true,
       name: "",
       password: generateHash(),
       adminPassword: generateHash(),
@@ -208,7 +205,14 @@ const RedeemEvent = () => {
           }
           setRequiresAccountSetup(false);
         } else {
-          setRequiresAccountSetup(!session);
+          const isGeneratedCode = !purchaseEmail;
+          setRequiresAccountSetup(isGeneratedCode || !session);
+          if (isGeneratedCode && session?.user.email) {
+            setFormData((prev) => ({
+              ...prev,
+              contactEmail: prev.contactEmail || session.user.email?.trim().toLowerCase() || "",
+            }));
+          }
         }
         setAuthResolved(true);
       } catch {
@@ -387,14 +391,6 @@ const RedeemEvent = () => {
         });
         return;
       }
-      if (formData.contactPassword !== formData.contactPasswordConfirm) {
-        toast({
-          title: "Error",
-          description: "Las contraseñas no coinciden.",
-          variant: "destructive",
-        });
-        return;
-      }
     }
 
     setIsSubmitting(true);
@@ -472,7 +468,6 @@ const RedeemEvent = () => {
           contactEmail: requiresAccountSetup ? formData.contactEmail.trim().toLowerCase() : undefined,
           password: requiresAccountSetup ? formData.contactPassword : undefined,
           phone: requiresAccountSetup ? (formData.contactPhone.trim() || null) : undefined,
-          marketingConsent: requiresAccountSetup ? formData.acceptMarketing : undefined,
           event: {
             name: formData.name,
             password_hash: formData.password,
@@ -496,10 +491,11 @@ const RedeemEvent = () => {
       });
 
       if (error) {
-        let errorCode = (error as any)?.message || "";
+        const functionError = error as unknown as { message?: string; context?: Response };
+        let errorCode = functionError.message || "";
         let errorStatus: number | null = null;
         try {
-          const res = (error as any)?.context;
+          const res = functionError.context;
           if (res && typeof res.json === "function") {
             errorStatus = typeof res.status === "number" ? res.status : null;
             const body = await res.clone().json();
@@ -509,13 +505,23 @@ const RedeemEvent = () => {
           // ignore
         }
 
-        if (errorCode === "USER_EXISTS_LOGIN_REQUIRED") {
+        if (errorCode === "INVALID_CREDENTIALS" || errorCode === "USER_EXISTS_LOGIN_REQUIRED") {
           toast({
             title: "Ya existe una cuenta con ese email",
-            description: "Inicia sesión para crear tu evento de pago.",
+            description: (
+              <>
+                La contraseña no coincide. Introdúcela de nuevo o{" "}
+                <a
+                  href={`${pathPrefix}/reset-password`}
+                  className="font-semibold underline underline-offset-2"
+                >
+                  recupérala aquí
+                </a>
+                .
+              </>
+            ),
             variant: "destructive",
           });
-          navigate(`${pathPrefix}/admin-login?redirect=${encodeURIComponent(`${pathPrefix}/redeem/${token}`)}&email=${encodeURIComponent(formData.contactEmail.trim().toLowerCase())}`);
           return;
         }
         if (errorCode === "EMAIL_MISMATCH") {
@@ -545,8 +551,17 @@ const RedeemEvent = () => {
 
       const newEvent = data?.event;
       if (!newEvent) throw new Error("No se pudo crear el evento");
+      if (requiresAccountSetup) {
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: formData.contactEmail.trim().toLowerCase(),
+          password: formData.contactPassword,
+        });
+        if (signInError) {
+          console.error("Account created but automatic sign in failed:", signInError);
+        }
+      }
       const limitsJsonValue = withEventQrPasswordSettings(
-        (newEvent as any).limits_json || null,
+        (newEvent as { limits_json?: Json | null }).limits_json || null,
         formData.qrPasswordEnabled,
         qrPasswordHash,
         formData.qrPasswordScope
@@ -554,7 +569,7 @@ const RedeemEvent = () => {
       if (formData.qrPasswordEnabled) {
         await supabase
           .from("events")
-          .update({ limits_json: limitsJsonValue } as any)
+          .update({ limits_json: limitsJsonValue } as never)
           .eq("id", newEvent.id);
       }
       const eventForSummary = {
@@ -636,31 +651,43 @@ const RedeemEvent = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-6">
-      <div className="max-w-6xl mx-auto space-y-4 md:space-y-6">
-        <div className="flex flex-col items-center gap-4 mb-6">
-          <img 
-            src={logoDemo} 
-            alt="Revelao.com" 
-            className="h-16 w-auto"
-          />
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground text-center">
+    <main className="min-h-screen bg-background">
+      <div className="mx-auto flex min-h-screen w-full max-w-5xl flex-col px-4 py-5 sm:px-6 lg:py-8">
+        <section className="flex flex-1 flex-col">
+        <div className="mb-5 space-y-3">
+          <div className="flex justify-center sm:justify-start">
+            <img src="/LogoTransparent.png" alt="Revelao" className="h-8 w-auto" />
+          </div>
+          <div className="space-y-1">
+          <h1 className="text-2xl font-bold text-foreground sm:text-3xl">
             Crea tu evento
           </h1>
-          <p className="text-muted-foreground text-center max-w-md">
+          <p className="text-sm text-muted-foreground">
             {plan ? (
-              <span className={`inline-flex items-center justify-center rounded-full border px-3 py-1 text-xs font-semibold ${getPlanBadge()?.color ?? "border-border text-muted-foreground"}`}>
+              <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${getPlanBadge()?.color ?? "border-border text-muted-foreground"}`}>
                 {getPlanBadge()?.label ?? plan.label}
               </span>
             ) : (
               "Configura tu evento"
             )}
           </p>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-muted">
+            <div
+              className="h-full rounded-full bg-[#f06a5f] transition-all"
+              style={{ width: `${currentStep === 1 ? 50 : 100}%` }}
+            />
+          </div>
         </div>
 
-        <div className="grid lg:grid-cols-[1fr,280px] gap-6">
-          <Card className="p-6">
-            <form onSubmit={currentStep === 1 ? handleStepAdvance : handleSubmit} className="space-y-6">
+          <form onSubmit={currentStep === 1 ? handleStepAdvance : handleSubmit} className="flex flex-1 flex-col pb-24 sm:pb-0">
+          <Card className="flex-1 p-4 shadow-sm sm:p-6">
+            <div className="mb-5">
+              <p className="text-xs font-semibold uppercase text-muted-foreground">
+                {currentStep === 1 ? "Evento" : requiresAccountSetup ? "Acceso" : "Confirmación"}
+              </p>
+            </div>
+            <div className="space-y-6">
               {currentStep === 1 && (
                 <>
                   <div className="space-y-2">
@@ -1132,8 +1159,8 @@ const RedeemEvent = () => {
                   {requiresAccountSetup ? (
                     <div className="space-y-4">
                       <Label className="text-base font-semibold">Información de contacto</Label>
-                      <p className="text-xs text-muted-foreground">
-                        Para terminar, crea tu acceso con email y contraseña. Así crearemos tu usuario y tu evento de pago.
+                      <p className="text-sm text-muted-foreground">
+                        Introduce tu email y contraseña para terminar. Si el usuario no existe, lo crearemos; si ya existe, la contraseña deberá coincidir.
                       </p>
 
                       <div className="space-y-2">
@@ -1148,6 +1175,8 @@ const RedeemEvent = () => {
                           placeholder="tu@email.com"
                           required
                           readOnly={purchaseEmailLocked}
+                          autoComplete="email"
+                          className="h-12 rounded-full px-4 text-base"
                         />
                       </div>
 
@@ -1162,24 +1191,18 @@ const RedeemEvent = () => {
                           onChange={(e) => setFormData({ ...formData, contactPassword: e.target.value })}
                           placeholder="Mínimo 8 caracteres"
                           required
-                          autoComplete="new-password"
+                          autoComplete="current-password"
+                          className="h-12 rounded-full px-4 text-base"
                         />
                       </div>
 
-                      <div className="space-y-2">
-                        <Label htmlFor="contactPasswordConfirm">
-                          Repetir contraseña<span className="text-red-500"> *</span>
-                        </Label>
-                        <Input
-                          id="contactPasswordConfirm"
-                          type="password"
-                          value={formData.contactPasswordConfirm}
-                          onChange={(e) => setFormData({ ...formData, contactPasswordConfirm: e.target.value })}
-                          placeholder="Repite la contraseña"
-                          required
-                          autoComplete="new-password"
-                        />
-                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        ¿Ya tienes usuario y no recuerdas la contraseña?{" "}
+                        <a href={`${pathPrefix}/reset-password`} className="font-semibold text-[#f06a5f] underline underline-offset-2">
+                          Recupérala aquí
+                        </a>
+                        .
+                      </p>
 
                       <div className="space-y-2">
                         <Label htmlFor="contactPhone">Teléfono (opcional)</Label>
@@ -1189,18 +1212,10 @@ const RedeemEvent = () => {
                           value={formData.contactPhone}
                           onChange={(e) => setFormData({ ...formData, contactPhone: e.target.value })}
                           placeholder="+34 600 000 000"
+                          className="h-12 rounded-full px-4 text-base"
                         />
                       </div>
 
-                      <label className="flex items-start gap-3 text-sm text-foreground">
-                        <input
-                          type="checkbox"
-                          className="mt-1 h-4 w-4 rounded border-border"
-                          checked={formData.acceptMarketing}
-                          onChange={(e) => setFormData({ ...formData, acceptMarketing: e.target.checked })}
-                        />
-                        <span>Autorizo el envío de comunicaciones comerciales por email (opcional).</span>
-                      </label>
                     </div>
                   ) : (
                     <div className="space-y-4">
@@ -1252,15 +1267,20 @@ const RedeemEvent = () => {
                 </>
               )}
 
-              <div className="pt-4 flex gap-3">
+              </div>
+          </Card>
+
+              <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/95 px-4 py-3 backdrop-blur sm:static sm:mt-5 sm:border-t-0 sm:bg-transparent sm:px-0">
+                <div className="flex gap-3">
                 {currentStep === 2 && (
-                  <Button type="button" variant="outline" className="flex-1" onClick={handleStepBack}>
-                    Atrás
+                  <Button type="button" variant="outline" className="h-12 w-14 flex-none rounded-full sm:w-auto sm:flex-1" onClick={handleStepBack}>
+                    <ArrowLeft className="h-4 w-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Atrás</span>
                   </Button>
                 )}
                 <Button
                   type="submit"
-                  className={`flex-1 ${
+                  className={`h-12 flex-1 rounded-full bg-[#f06a5f] text-white hover:bg-[#e95f54] ${
                     (currentStep === 1
                       ? !isStep1Complete() || uploadingImage
                       : isSubmitting || uploadingImage)
@@ -1281,49 +1301,21 @@ const RedeemEvent = () => {
                   }}
                 >
                   {currentStep === 1
-                    ? "Siguiente"
+                    ? <><span>Siguiente</span><ArrowRight className="ml-2 h-4 w-4" /></>
                     : uploadingImage
                       ? "Subiendo imagen..."
                       : isSubmitting
                         ? "Creando evento..."
                         : requiresAccountSetup
-                          ? "Crear usuario y evento"
-                          : "Terminar"}
+                          ? <><Check className="mr-2 h-4 w-4" /> Crear evento</>
+                          : <><Check className="mr-2 h-4 w-4" /> Terminar</>}
                 </Button>
+                </div>
               </div>
             </form>
-          </Card>
-
-          <div className="hidden lg:block">
-            <div className="sticky top-6">
-              <Card className="p-4">
-                <EventPreview
-                  eventName={formData.name}
-                  description={formData.description}
-                  fontFamily={formData.fontFamily}
-                  fontSize={formData.fontSize}
-                  backgroundImageUrl={
-                    formData.backgroundImage 
-                      ? URL.createObjectURL(formData.backgroundImage) 
-                      : formData.backgroundImageUrl || undefined
-                  }
-                  customImageUrl={
-                    formData.customImage 
-                      ? URL.createObjectURL(formData.customImage) 
-                      : formData.customImageUrl || undefined
-                  }
-                  filterType={formData.filterType}
-                  language={formData.language}
-                  allowVideoRecording={false}
-                  allowAudioRecording={false}
-                  headerStyle="modern"
-                />
-              </Card>
-            </div>
-          </div>
-        </div>
+        </section>
       </div>
-    </div>
+    </main>
   );
 };
 

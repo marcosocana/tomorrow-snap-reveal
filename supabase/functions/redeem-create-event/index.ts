@@ -68,6 +68,19 @@ type PaidEventPayload = {
 const isEmail = (value: string) =>
   /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
+const findAuthUserByEmail = async (
+  admin: ReturnType<typeof createClient>,
+  email: string,
+) => {
+  for (let page = 1; page <= 10; page += 1) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
+    if (error) throw error;
+    const user = (data?.users ?? []).find((candidate) => candidate.email?.trim().toLowerCase() === email);
+    if (user || (data?.users ?? []).length < 1000) return user ?? null;
+  }
+  return null;
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -123,10 +136,13 @@ serve(async (req) => {
 
     let ownerId: string | null = null;
     let ownerEmail: string | null = null;
-    let contactPhone: string | null = payload?.phone?.trim() || null;
-    const marketingConsent = payload?.marketingConsent ?? true;
+    const contactPhone: string | null = payload?.phone?.trim() || null;
+    const marketingConsent = payload?.marketingConsent === true;
 
-    if (tokenAuth) {
+    const requiresCodeCredentials = !purchase.gifted_at && !purchase.user_id && !purchase.user_email;
+
+    if (purchase.gifted_at) {
+      if (!tokenAuth) return json({ error: "GIFT_LOGIN_REQUIRED" }, 401);
       const { data: userData, error: userError } = await supabase.auth.getUser(
         tokenAuth,
       );
@@ -135,13 +151,10 @@ serve(async (req) => {
       }
       ownerId = userData.user.id;
       ownerEmail = userData.user.email ?? purchase.user_email ?? null;
-      if (purchase.gifted_at && purchase.user_id && purchase.user_id !== ownerId) {
+      if (purchase.user_id && purchase.user_id !== ownerId) {
         return json({ error: "GIFT_ACCOUNT_MISMATCH" }, 403);
       }
-    } else {
-      if (purchase.gifted_at) {
-        return json({ error: "GIFT_LOGIN_REQUIRED" }, 401);
-      }
+    } else if (requiresCodeCredentials || !tokenAuth) {
       const email = payload?.contactEmail?.trim().toLowerCase() ?? "";
       const password = payload?.password ?? "";
       if (!email || !isEmail(email)) {
@@ -155,34 +168,42 @@ serve(async (req) => {
         return json({ error: "EMAIL_MISMATCH" }, 409);
       }
 
-      const { data: existingAuthUser, error: existingUserError } = await supabaseAdmin
-        .schema("auth")
-        .from("users")
-        .select("id")
-        .eq("email", email)
-        .maybeSingle();
-
-      if (existingUserError) {
-        console.error("redeem-create-event user lookup error:", existingUserError.message);
+      let existingAuthUser;
+      try {
+        existingAuthUser = await findAuthUserByEmail(supabaseAdmin, email);
+      } catch (existingUserError) {
+        console.error("redeem-create-event user lookup error:", existingUserError);
         return json({ error: "USER_LOOKUP_FAILED" }, 500);
       }
-      if (existingAuthUser?.id) {
-        return json({ error: "USER_EXISTS_LOGIN_REQUIRED" }, 409);
-      }
 
-      const { data: createdUser, error: createUserError } =
-        await supabaseAdmin.auth.admin.createUser({
-          email,
-          password,
-          email_confirm: true,
+      if (existingAuthUser) {
+        const passwordClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+          auth: { persistSession: false, autoRefreshToken: false },
         });
+        const { data: passwordData, error: passwordError } = await passwordClient.auth.signInWithPassword({ email, password });
+        if (passwordError || passwordData.user?.id !== existingAuthUser.id) {
+          return json({ error: "INVALID_CREDENTIALS" }, 403);
+        }
+        ownerId = existingAuthUser.id;
+      } else {
+        const { data: createdUser, error: createUserError } =
+          await supabaseAdmin.auth.admin.createUser({
+            email,
+            password,
+            email_confirm: true,
+          });
 
-      if (createUserError || !createdUser?.user?.id) {
-        return json({ error: "CREATE_USER_FAILED", detail: createUserError?.message ?? "unknown_error" }, 500);
+        if (createUserError || !createdUser?.user?.id) {
+          return json({ error: "CREATE_USER_FAILED", detail: createUserError?.message ?? "unknown_error" }, 500);
+        }
+        ownerId = createdUser.user.id;
       }
-
-      ownerId = createdUser.user.id;
       ownerEmail = email;
+    } else {
+      const { data: userData, error: userError } = await supabase.auth.getUser(tokenAuth);
+      if (userError || !userData?.user) return json({ error: "UNAUTHORIZED" }, 401);
+      ownerId = userData.user.id;
+      ownerEmail = userData.user.email ?? purchase.user_email ?? null;
     }
 
     if (!ownerId) {

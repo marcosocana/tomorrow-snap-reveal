@@ -505,6 +505,10 @@ const EventForm = () => {
         }
         return;
       }
+      if (planType === "capsule" && capsuleRedeemToken && !isEditing) {
+        setIsLoading(false);
+        return;
+      }
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         const returnPath = `${location.pathname}${location.search}`;
@@ -520,7 +524,7 @@ const EventForm = () => {
     };
 
     checkAuth();
-  }, [navigate, isDemoMode, isEditing, eventId, adminEventId, location.pathname, location.search, pathPrefix]);
+  }, [navigate, isDemoMode, isEditing, eventId, adminEventId, location.pathname, location.search, pathPrefix, planType, capsuleRedeemToken]);
 
   const loadEvent = async () => {
     if (!eventId) return;

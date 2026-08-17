@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import FontSelect from "@/components/FontSelect";
 import { useToast } from "@/hooks/use-toast";
 import { QRCodeSVG } from "qrcode.react";
-import { ArrowLeft, Check, Copy, Download, ImagePlus, Loader2, LockKeyhole, Pencil, RefreshCw, Trash2, Video } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Copy, Download, ImagePlus, Loader2, LockKeyhole, Pencil, RefreshCw, Trash2, Video } from "lucide-react";
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 import { format } from "date-fns";
 import JSZip from "jszip";
@@ -119,6 +119,11 @@ const TimeCapsuleAdminForm = ({
   const [capsuleVideos, setCapsuleVideos] = useState<CapsuleVideo[]>([]);
   const [superAdminUnlockPassword, setSuperAdminUnlockPassword] = useState("");
   const [redeemPlanLabel, setRedeemPlanLabel] = useState("");
+  const [redeemStep, setRedeemStep] = useState<1 | 2>(1);
+  const [redeemNeedsCredentials, setRedeemNeedsCredentials] = useState(Boolean(redeemToken));
+  const [redeemEmailLocked, setRedeemEmailLocked] = useState(false);
+  const [accountEmail, setAccountEmail] = useState("");
+  const [accountPassword, setAccountPassword] = useState("");
 
   useEffect(() => {
     if (!redeemToken) return;
@@ -128,10 +133,26 @@ const TimeCapsuleAdminForm = ({
         toast({ title: "Código no válido", description: "Este código de Cápsula no existe o ha caducado.", variant: "destructive" });
         return;
       }
+      const purchaseEmail = data?.userEmail ? String(data.userEmail).trim().toLowerCase() : "";
+      if (data?.isGift) {
+        const { data: { session } } = await supabase.auth.getSession();
+        const sessionEmail = session?.user.email?.trim().toLowerCase() || "";
+        if (!session || !purchaseEmail || sessionEmail !== purchaseEmail) {
+          const redeemPath = `${pathPrefix}/event-form?product=capsule&redeem=${encodeURIComponent(redeemToken)}`;
+          navigate(`${pathPrefix}/admin-login?redirect=${encodeURIComponent(redeemPath)}&email=${encodeURIComponent(purchaseEmail)}`, { replace: true });
+          return;
+        }
+        setRedeemNeedsCredentials(false);
+      } else {
+        const { data: { session } } = await supabase.auth.getSession();
+        setRedeemNeedsCredentials(true);
+        setAccountEmail(purchaseEmail || session?.user.email?.trim().toLowerCase() || "");
+        setRedeemEmailLocked(Boolean(purchaseEmail));
+      }
       setRedeemPlanLabel(String(data.plan.label || "Cápsula del tiempo"));
     };
     void loadRedeemPlan();
-  }, [redeemToken, toast]);
+  }, [navigate, pathPrefix, redeemToken, toast]);
 
   useEffect(() => {
     if (!eventId) return;
@@ -307,6 +328,37 @@ const TimeCapsuleAdminForm = ({
     }
   };
 
+  const advanceCapsuleRedeem = () => {
+    const normalizedLogoLink = normalizeTimeCapsuleLogoLink(logoLink);
+    if (
+      !name.trim() || !weddingStartDate || !weddingStartTime || !weddingEndDate ||
+      !weddingEndTime || !openDate || password.length < 8
+    ) {
+      toast({
+        title: "Faltan datos",
+        description: "Completa todos los campos obligatorios. La contraseña debe contener al menos 8 dígitos.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const uploadStart = fromZonedTime(`${weddingStartDate}T${weddingStartTime}:00`, TIMEZONE);
+    const uploadEnd = fromZonedTime(`${weddingEndDate}T${weddingEndTime}:00`, TIMEZONE);
+    if (Number.isNaN(uploadStart.getTime()) || Number.isNaN(uploadEnd.getTime()) || uploadEnd <= uploadStart) {
+      toast({ title: "Horario no válido", description: "El final de la boda debe ser posterior al inicio.", variant: "destructive" });
+      return;
+    }
+    if (logoMode === "custom" && !logoUrl) {
+      toast({ title: "Falta el logo", description: "Sube un logo personalizado o elige otra opción.", variant: "destructive" });
+      return;
+    }
+    if (logoMode !== "none" && logoLink.trim() && !normalizedLogoLink) {
+      toast({ title: "Enlace no válido", description: "Introduce un enlace web válido para el logo.", variant: "destructive" });
+      return;
+    }
+    setRedeemStep(2);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const handleSubmit = async (formEvent: React.FormEvent) => {
     formEvent.preventDefault();
     const normalizedLogoLink = normalizeTimeCapsuleLogoLink(logoLink);
@@ -318,7 +370,8 @@ const TimeCapsuleAdminForm = ({
       !weddingEndTime ||
       !openDate ||
       password.length < 8 ||
-      (!isEditing && !redeemToken && !ownerEmail.trim())
+      (!isEditing && !redeemToken && !ownerEmail.trim()) ||
+      (redeemToken && redeemNeedsCredentials && (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(accountEmail.trim()) || accountPassword.length < 8))
     ) {
       toast({
         title: "Faltan datos",
@@ -394,7 +447,12 @@ const TimeCapsuleAdminForm = ({
       } else {
         const functionName = redeemToken ? "redeem-create-time-capsule" : "admin-create-event";
         const body = redeemToken
-          ? { token: redeemToken, event: payload }
+          ? {
+              token: redeemToken,
+              contactEmail: redeemNeedsCredentials ? accountEmail.trim().toLowerCase() : undefined,
+              password: redeemNeedsCredentials ? accountPassword : undefined,
+              event: payload,
+            }
           : { ownerEmail: ownerEmail.trim(), event: payload };
         const { data, error } = await supabase.functions.invoke(functionName, {
           method: "POST",
@@ -414,6 +472,13 @@ const TimeCapsuleAdminForm = ({
           throw new Error(errorCode);
         }
         if (!data?.event) throw new Error("No se recibió el evento creado");
+        if (redeemToken && redeemNeedsCredentials) {
+          const { error: signInError } = await supabase.auth.signInWithPassword({
+            email: accountEmail.trim().toLowerCase(),
+            password: accountPassword,
+          });
+          if (signInError) console.error("Capsule account automatic sign in failed:", signInError);
+        }
         const created = data.event;
         setSavedEventId(created.id);
         setCreatedEvent({
@@ -456,6 +521,12 @@ const TimeCapsuleAdminForm = ({
               .
             </>
           ),
+          variant: "destructive",
+        });
+      } else if (errorCode.includes("EMAIL_MISMATCH")) {
+        toast({
+          title: "Email no válido",
+          description: "Debes usar el mismo email asociado a este código.",
           variant: "destructive",
         });
       } else {
@@ -576,8 +647,25 @@ const TimeCapsuleAdminForm = ({
   }
 
   return (
-    <div className="admin-demo2-shell revelao-event-detail min-h-screen bg-background p-4 md:p-6 overflow-x-hidden" data-scroll-container>
-      <div className="max-w-6xl mx-auto space-y-4 md:space-y-6">
+    <div className={`${redeemToken ? "min-h-screen bg-background" : "admin-demo2-shell revelao-event-detail min-h-screen bg-background p-4 md:p-6 overflow-x-hidden"}`} data-scroll-container>
+      <div className={redeemToken ? "mx-auto flex min-h-screen w-full max-w-5xl flex-col px-4 py-5 sm:px-6 lg:py-8" : "max-w-6xl mx-auto space-y-4 md:space-y-6"}>
+        {redeemToken ? (
+          <div className="mb-5 space-y-3">
+            <div className="flex justify-center sm:justify-start">
+              <img src="/LogoTransparent.png" alt="Revelao" className="h-8 w-auto" />
+            </div>
+            <div className="space-y-1">
+              <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Crea tu Cápsula del tiempo</h1>
+              {redeemPlanLabel && <p className="text-sm text-muted-foreground">Plan: {redeemPlanLabel}</p>}
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full rounded-full bg-[#f06a5f] transition-all"
+                style={{ width: `${redeemNeedsCredentials && redeemStep === 1 ? 50 : 100}%` }}
+              />
+            </div>
+          </div>
+        ) : (
         <div className="flex items-center gap-4">
           <Button
             variant="ghost"
@@ -594,16 +682,29 @@ const TimeCapsuleAdminForm = ({
             Cápsula del tiempo
           </span>
         </div>
+        )}
 
-        {redeemPlanLabel && !isEditing ? (
+        {redeemPlanLabel && !isEditing && !redeemToken ? (
           <Card className="border-rose-200 bg-rose-50/60 p-4 text-sm text-rose-900">
             Plan canjeado: <span className="font-semibold">{redeemPlanLabel}</span>
           </Card>
         ) : null}
 
         <div className={publicUrl ? "grid gap-6 lg:grid-cols-[1fr,280px]" : "grid gap-6"}>
-        <Card className="p-6">
-          <form onSubmit={handleSubmit} className="space-y-6">
+        <Card className={`p-6 ${redeemToken ? "[&_input]:h-12 [&_input]:rounded-full [&_input]:px-4" : ""}`}>
+          <form
+            onSubmit={(event) => {
+              if (redeemToken && redeemNeedsCredentials && redeemStep === 1) {
+                event.preventDefault();
+                advanceCapsuleRedeem();
+                return;
+              }
+              void handleSubmit(event);
+            }}
+            className={`space-y-6 ${redeemToken ? "pb-20 sm:pb-0" : ""}`}
+          >
+            {(!redeemToken || !redeemNeedsCredentials || redeemStep === 1) && (
+            <>
             <div className="space-y-2">
               <Label htmlFor="capsuleName">Nombre de los novios</Label>
               <Input
@@ -825,7 +926,7 @@ const TimeCapsuleAdminForm = ({
 
             {!isEditing && (
               <div className="space-y-2">
-                <Label htmlFor="capsulePassword">Contraseña</Label>
+                <Label htmlFor="capsulePassword">Contraseña de descapsulamiento</Label>
                 <Input
                   id="capsulePassword"
                   type="password"
@@ -842,11 +943,72 @@ const TimeCapsuleAdminForm = ({
                 </p>
               </div>
             )}
+            </>
+            )}
 
-            <Button type="submit" className="w-full" disabled={isSaving}>
-              {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              {isEditing ? "Guardar cambios" : "Crear cápsula del tiempo"}
-            </Button>
+            {redeemToken && redeemNeedsCredentials && redeemStep === 2 && (
+              <div className="space-y-5">
+                <div className="space-y-2">
+                  <h2 className="text-lg font-semibold">Tu acceso</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Introduce tu email y contraseña para terminar. Si el usuario no existe, lo crearemos; si ya existe, la contraseña deberá coincidir.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="capsuleAccountEmail">Email</Label>
+                  <Input
+                    id="capsuleAccountEmail"
+                    type="email"
+                    value={accountEmail}
+                    onChange={(event) => setAccountEmail(event.target.value)}
+                    placeholder="tu@email.com"
+                    autoComplete="email"
+                    readOnly={redeemEmailLocked}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="capsuleAccountPassword">Contraseña</Label>
+                  <Input
+                    id="capsuleAccountPassword"
+                    type="password"
+                    value={accountPassword}
+                    onChange={(event) => setAccountPassword(event.target.value)}
+                    placeholder="Mínimo 8 caracteres"
+                    autoComplete="current-password"
+                    minLength={8}
+                    required
+                  />
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  ¿Ya tienes usuario y no recuerdas la contraseña?{" "}
+                  <a href={`${pathPrefix}/reset-password`} className="font-semibold text-[#f06a5f] underline underline-offset-2">
+                    Recupérala aquí
+                  </a>
+                  .
+                </p>
+              </div>
+            )}
+
+            <div className={redeemToken ? "fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/95 px-4 py-3 backdrop-blur sm:static sm:border-0 sm:bg-transparent sm:px-0" : ""}>
+            {redeemToken && redeemNeedsCredentials && redeemStep === 1 ? (
+              <Button type="button" className="h-12 w-full rounded-full gap-2" onClick={advanceCapsuleRedeem}>
+                Siguiente <ArrowRight className="h-4 w-4" />
+              </Button>
+            ) : (
+              <div className="flex gap-3">
+                {redeemToken && redeemNeedsCredentials && redeemStep === 2 && (
+                  <Button type="button" variant="outline" className="h-12 rounded-full" onClick={() => setRedeemStep(1)} disabled={isSaving}>
+                    <ArrowLeft className="mr-2 h-4 w-4" /> Atrás
+                  </Button>
+                )}
+                <Button type="submit" className="h-12 flex-1 rounded-full" disabled={isSaving}>
+                  {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  {isEditing ? "Guardar cambios" : "Crear cápsula del tiempo"}
+                </Button>
+              </div>
+            )}
+            </div>
           </form>
         </Card>
 

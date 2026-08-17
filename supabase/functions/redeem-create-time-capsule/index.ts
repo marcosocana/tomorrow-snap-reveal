@@ -15,6 +15,16 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
   status,
   headers: { ...corsHeaders, "Content-Type": "application/json" },
 });
+const isEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+const findAuthUserByEmail = async (admin: ReturnType<typeof createClient>, email: string) => {
+  for (let page = 1; page <= 10; page += 1) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
+    if (error) throw error;
+    const user = (data?.users ?? []).find((candidate) => candidate.email?.trim().toLowerCase() === email);
+    if (user || (data?.users ?? []).length < 1000) return user ?? null;
+  }
+  return null;
+};
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -22,14 +32,6 @@ serve(async (req) => {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !SUPABASE_ANON_KEY) {
     return json({ error: "MISSING_ENV" }, 500);
   }
-
-  const authorization = req.headers.get("Authorization") ?? "";
-  const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    global: { headers: { Authorization: authorization } },
-    auth: { persistSession: false },
-  });
-  const { data: { user }, error: userError } = await userClient.auth.getUser();
-  if (userError || !user) return json({ error: "UNAUTHORIZED" }, 401);
 
   const payload = await req.json().catch(() => ({}));
   const redeemToken = String(payload?.token || "").trim().toUpperCase();
@@ -44,7 +46,60 @@ serve(async (req) => {
   if (purchase.redeem_token_expires_at && new Date(purchase.redeem_token_expires_at).getTime() < Date.now()) {
     return json({ error: "TOKEN_EXPIRED" }, 410);
   }
-  if (purchase.user_id && purchase.user_id !== user.id) return json({ error: "ACCOUNT_MISMATCH" }, 403);
+
+  let ownerId: string;
+  let ownerEmail: string;
+  if (purchase.user_id) {
+    const authorization = req.headers.get("Authorization") ?? "";
+    const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: authorization } },
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data: { user }, error: userError } = await userClient.auth.getUser();
+    if (userError || !user) return json({ error: "LOGIN_REQUIRED" }, 401);
+    if (purchase.user_id !== user.id) return json({ error: "ACCOUNT_MISMATCH" }, 403);
+    ownerId = user.id;
+    ownerEmail = user.email?.trim().toLowerCase() || purchase.user_email || "";
+  } else {
+    const email = String(payload?.contactEmail || "").trim().toLowerCase();
+    const accountPassword = String(payload?.password || "");
+    if (!isEmail(email)) return json({ error: "INVALID_EMAIL" }, 400);
+    if (accountPassword.length < 8) return json({ error: "INVALID_PASSWORD" }, 400);
+    const purchaseEmail = purchase.user_email?.trim().toLowerCase() || null;
+    if (purchaseEmail && purchaseEmail !== email) return json({ error: "EMAIL_MISMATCH" }, 409);
+
+    let existingUser;
+    try {
+      existingUser = await findAuthUserByEmail(admin, email);
+    } catch (lookupError) {
+      console.error("redeem-create-time-capsule user lookup error:", lookupError);
+      return json({ error: "USER_LOOKUP_FAILED" }, 500);
+    }
+    if (existingUser) {
+      const passwordClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      });
+      const { data: passwordData, error: passwordError } = await passwordClient.auth.signInWithPassword({
+        email,
+        password: accountPassword,
+      });
+      if (passwordError || passwordData.user?.id !== existingUser.id) {
+        return json({ error: "INVALID_CREDENTIALS" }, 403);
+      }
+      ownerId = existingUser.id;
+    } else {
+      const { data: createdUser, error: createUserError } = await admin.auth.admin.createUser({
+        email,
+        password: accountPassword,
+        email_confirm: true,
+      });
+      if (createUserError || !createdUser.user) {
+        return json({ error: "CREATE_USER_FAILED", detail: createUserError?.message }, 500);
+      }
+      ownerId = createdUser.user.id;
+    }
+    ownerEmail = email;
+  }
 
   const plan = getPlanById(purchase.plan_id);
   if (!plan || plan.product !== "capsule") return json({ error: "INVALID_PLAN" }, 400);
@@ -102,15 +157,15 @@ serve(async (req) => {
     country_code: "ES",
     language: "es",
     limits_json: limitsJson,
-    owner_id: user.id,
+    owner_id: ownerId,
   }).select().single();
   if (eventError || !createdEvent) return json({ error: "CREATE_EVENT_FAILED", detail: eventError?.message }, 500);
 
   const { data: redeemed, error: redeemError } = await admin.from("purchases").update({
     status: "redeemed",
     redeemed_at: new Date().toISOString(),
-    user_id: user.id,
-    user_email: user.email ?? purchase.user_email ?? null,
+    user_id: ownerId,
+    user_email: ownerEmail || purchase.user_email || null,
   }).eq("id", purchase.id).eq("status", "paid").is("redeemed_at", null).select("id").maybeSingle();
   if (redeemError || !redeemed) {
     await admin.from("events").delete().eq("id", createdEvent.id);
@@ -118,7 +173,7 @@ serve(async (req) => {
   }
 
   return json({
-    event: { ...createdEvent, owner_email: user.email ?? purchase.user_email ?? null },
+    event: { ...createdEvent, owner_email: ownerEmail || purchase.user_email || null },
     plan: { id: plan.id, label: plan.label, maxMessages },
   });
 });
