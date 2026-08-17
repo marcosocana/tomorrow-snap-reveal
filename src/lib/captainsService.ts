@@ -1018,20 +1018,106 @@ export const generateRandomChallengeOrderForEvent = async (eventId: string) => {
   return results.flat();
 };
 
-export const getCaptainsRanking = async (eventId: string) => {
-  const { data, error } = await pdb
-    .from("captains_tables")
-    .select("*")
-    .eq("event_id", eventId)
-    .order("total_points", { ascending: false })
-    .order("completed_challenges", { ascending: false })
-    .order("last_activity_at", { ascending: true, nullsFirst: false });
-  ensureNoError(error);
+const captainsRankingTerminalStatuses = new Set<CaptainsTableChallengeStatus>([
+  "completed",
+  "failed",
+  "time_expired",
+  "pending_review",
+  "rejected",
+  "deleted",
+]);
 
-  return ((data || []) as CaptainsTable[]).map((table, index) => ({
-    ...table,
-    rank: index + 1,
-  })) as CaptainsRankingItem[];
+const timestampValue = (value?: string | null) => {
+  if (!value) return null;
+  const timestamp = new Date(value).getTime();
+  return Number.isFinite(timestamp) ? timestamp : null;
+};
+
+const getCaptainsTableCompletionMetrics = (
+  table: CaptainsTable,
+  rows: CaptainsTableChallenge[],
+) => {
+  const allChallengesFinished =
+    rows.length > 0 && rows.every((row) => captainsRankingTerminalStatuses.has(row.status));
+  if (!allChallengesFinished) {
+    return { all_challenges_finished: false, completion_duration_seconds: null };
+  }
+
+  const challengeStartTimes = rows
+    .map((row) => timestampValue(row.started_at))
+    .filter((value): value is number => value !== null);
+  const fallbackStart = timestampValue(table.claimed_at);
+  const startedAt = challengeStartTimes.length > 0 ? Math.min(...challengeStartTimes) : fallbackStart;
+  const finishedAtValues = rows
+    .map((row) => timestampValue(row.submitted_at) ?? timestampValue(row.reviewed_at) ?? timestampValue(row.updated_at))
+    .filter((value): value is number => value !== null);
+  const finishedAt = finishedAtValues.length === rows.length ? Math.max(...finishedAtValues) : null;
+  const completionDurationSeconds =
+    startedAt !== null && finishedAt !== null
+      ? Math.max(0, Math.floor((finishedAt - startedAt) / 1000))
+      : null;
+
+  return {
+    all_challenges_finished: true,
+    completion_duration_seconds: completionDurationSeconds,
+  };
+};
+
+export const rankCaptainsTables = (
+  tables: CaptainsTable[],
+  tableChallenges: CaptainsTableChallenge[],
+) => {
+  const challengesByTable = new Map<string, CaptainsTableChallenge[]>();
+  tableChallenges.forEach((row) => {
+    const currentRows = challengesByTable.get(row.table_id) || [];
+    currentRows.push(row);
+    challengesByTable.set(row.table_id, currentRows);
+  });
+
+  return tables
+    .map((table) => ({
+      ...table,
+      ...getCaptainsTableCompletionMetrics(table, challengesByTable.get(table.id) || []),
+    }))
+    .sort((first, second) => {
+      const pointsDifference = second.total_points - first.total_points;
+      if (pointsDifference !== 0) return pointsDifference;
+
+      if (first.all_challenges_finished !== second.all_challenges_finished) {
+        return first.all_challenges_finished ? -1 : 1;
+      }
+      if (first.all_challenges_finished && second.all_challenges_finished) {
+        const firstDuration = first.completion_duration_seconds ?? Number.POSITIVE_INFINITY;
+        const secondDuration = second.completion_duration_seconds ?? Number.POSITIVE_INFINITY;
+        if (firstDuration !== secondDuration) return firstDuration - secondDuration;
+      }
+
+      return (
+        second.completed_challenges - first.completed_challenges ||
+        (timestampValue(first.last_activity_at) ?? Number.POSITIVE_INFINITY) -
+          (timestampValue(second.last_activity_at) ?? Number.POSITIVE_INFINITY) ||
+        first.table_number - second.table_number
+      );
+    })
+    .map((table, index) => ({ ...table, rank: index + 1 })) as CaptainsRankingItem[];
+};
+
+export const getCaptainsRanking = async (eventId: string) => {
+  const [{ data: tables, error: tablesError }, { data: tableChallenges, error: challengesError }] =
+    await Promise.all([
+      pdb.from("captains_tables").select("*").eq("event_id", eventId),
+      pdb
+        .from("captains_table_challenges")
+        .select("*")
+        .eq("event_id", eventId),
+    ]);
+  ensureNoError(tablesError);
+  ensureNoError(challengesError);
+
+  return rankCaptainsTables(
+    (tables || []) as CaptainsTable[],
+    (tableChallenges || []) as CaptainsTableChallenge[],
+  );
 };
 
 export const getCaptainsEvidence = async (eventId: string, status?: CaptainsEvidenceStatus) => {

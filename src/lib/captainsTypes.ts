@@ -167,6 +167,8 @@ export interface CaptainsEventDetail {
 
 export interface CaptainsRankingItem extends CaptainsTable {
   rank: number;
+  all_challenges_finished: boolean;
+  completion_duration_seconds: number | null;
 }
 
 export interface CaptainsEventListItem extends CaptainsEvent {

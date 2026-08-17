@@ -4365,7 +4365,12 @@ const RankingCard = ({
 }) => (
   <Card className="rounded-2xl p-5 shadow-sm">
     <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-      <h2 className="font-semibold">Ranking en tiempo real</h2>
+      <div>
+        <h2 className="font-semibold">Ranking en tiempo real</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          En caso de empate a puntos, gana la mesa que complete todos los retos en menos tiempo, desde el inicio del primero hasta el final del último.
+        </p>
+      </div>
       <Button type="button" variant="outline" className="gap-2 rounded-full" onClick={onResetAll} disabled={isResettingAll || ranking.length === 0}>
         <RefreshCw className={`h-4 w-4 ${isResettingAll ? "animate-spin" : ""}`} />
         {isResettingAll ? "Reseteando..." : "Resetear todos"}

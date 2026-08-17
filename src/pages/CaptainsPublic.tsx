@@ -10,6 +10,7 @@ import {
   getCaptainsRanking,
   getCaptainsTableChallenges,
   getCaptainsTableChallengesForTable,
+  rankCaptainsTables,
   selectCaptainsTableSession,
   startCaptainsTableChallenge,
   uploadCaptainsEvidence,
@@ -1376,9 +1377,7 @@ export default function CaptainsPublic() {
       };
     });
 
-    return items
-      .sort((a, b) => b.total_points - a.total_points || b.completed_challenges - a.completed_challenges)
-      .map((table, index) => ({ ...table, rank: index + 1 })) as CaptainsRankingItem[];
+    return rankCaptainsTables(items, rowsForActiveTable || []);
   };
 
   const refreshGame = async () => {
@@ -2367,6 +2366,9 @@ export default function CaptainsPublic() {
         <div className="space-y-4 pb-5">
           <div className="pt-3">
             <h1 className="text-3xl">Ranking</h1>
+            <p className="mt-2 text-base leading-6 text-[#151515]/60">
+              En caso de empate a puntos, gana la mesa que complete todos los retos en menos tiempo, desde el inicio del primero hasta el final del último.
+            </p>
             <p className="mt-2 text-2xl leading-7 text-[#151515]/70">{message}</p>
           </div>
           {eventEnded ? (
