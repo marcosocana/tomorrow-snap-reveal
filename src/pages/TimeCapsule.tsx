@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { supabasePublic } from "@/integrations/supabase/publicClient";
 import {
   TIME_CAPSULE_MAX_VIDEO_SECONDS,
+  TIME_CAPSULE_DEFAULT_LOGO_URL,
   addYears,
   getTimeCapsuleSettings,
   isTimeCapsuleEvent,
@@ -24,6 +25,7 @@ interface CapsuleEvent {
   plan_id: string | null;
   type: string | null;
   limits_json: unknown;
+  max_videos: number | null;
 }
 
 const getSupportedMimeType = () => {
@@ -151,7 +153,7 @@ const TimeCapsule = () => {
       const { data, error } = await supabasePublic
         .from("events")
         .select(
-          "id, name, description, custom_image_url, font_family, upload_start_time, upload_end_time, timezone, plan_id, type, limits_json",
+          "id, name, description, custom_image_url, font_family, upload_start_time, upload_end_time, timezone, plan_id, type, limits_json, max_videos",
         )
         .eq("id", eventId)
         .maybeSingle();
@@ -227,6 +229,32 @@ const TimeCapsule = () => {
   const endsAt = event?.upload_end_time ? new Date(event.upload_end_time).getTime() : null;
   const notOpenYet = startsAt !== null && now < startsAt;
   const closed = endsAt !== null && now > endsAt;
+
+  const capsuleLogo = useMemo(() => {
+    if (capsuleSettings.logoMode === "none") return null;
+    const logoUrl = capsuleSettings.logoMode === "custom" && capsuleSettings.logoUrl
+      ? capsuleSettings.logoUrl
+      : TIME_CAPSULE_DEFAULT_LOGO_URL;
+    const logo = (
+      <div className="mx-auto flex w-fit items-center justify-center rounded-md bg-white px-4 py-2 shadow-lg">
+        <img
+          src={logoUrl}
+          alt={capsuleSettings.logoMode === "custom" ? "Logo del evento" : "Revelao"}
+          className="h-7 max-w-[180px] object-contain"
+        />
+      </div>
+    );
+    return capsuleSettings.logoLink ? (
+      <a
+        href={capsuleSettings.logoLink}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="mx-auto block w-fit rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+      >
+        {logo}
+      </a>
+    ) : logo;
+  }, [capsuleSettings.logoLink, capsuleSettings.logoMode, capsuleSettings.logoUrl]);
 
   const startCamera = async (cameraFacing: "user" | "environment" = facingMode) => {
     setRecordError(null);
@@ -363,12 +391,24 @@ const TimeCapsule = () => {
         duration_seconds: Math.max(1, Math.min(TIME_CAPSULE_MAX_VIDEO_SECONDS, recordedDuration || 1)),
         metadata: { guest_name: guestName.trim(), source: "time_capsule" },
       });
-      if (insertError) throw insertError;
+      if (insertError) {
+        await supabasePublic.storage.from("event-videos").remove([fileName]);
+        throw insertError;
+      }
 
       stopStream();
       setStep("done");
-    } catch {
-      setRecordError("No hemos podido enviar tu vídeo. Inténtalo de nuevo.");
+    } catch (error) {
+      const message = error instanceof Error
+        ? error.message
+        : error && typeof error === "object" && "message" in error
+          ? String(error.message)
+          : String(error);
+      setRecordError(
+        message.includes("TIME_CAPSULE_MESSAGE_LIMIT_REACHED")
+          ? "Esta cápsula ya ha alcanzado el máximo de mensajes de su plan."
+          : "No hemos podido enviar tu vídeo. Inténtalo de nuevo.",
+      );
     } finally {
       setIsSending(false);
     }
@@ -424,9 +464,7 @@ const TimeCapsule = () => {
         <section className="space-y-6 rounded-3xl border border-white/20 bg-black/35 p-7 shadow-2xl backdrop-blur-md">
           {children}
         </section>
-        <div className="mx-auto flex w-fit items-center justify-center rounded-md bg-white px-4 py-2 shadow-lg">
-          <img src="/LogoMiniRevelao.svg" alt="Revelao" className="h-7 w-auto object-contain" />
-        </div>
+        {capsuleLogo}
       </div>
     </main>
   );
@@ -484,9 +522,7 @@ const TimeCapsule = () => {
             >
               <Heart className="h-4 w-4" /> Empezar
             </button>
-            <div className="mx-auto flex w-fit items-center justify-center rounded-md bg-white px-4 py-2 shadow-lg">
-              <img src="/LogoMiniRevelao.svg" alt="Revelao" className="h-7 w-auto object-contain" />
-            </div>
+            {capsuleLogo}
           </div>
         </div>
       </main>

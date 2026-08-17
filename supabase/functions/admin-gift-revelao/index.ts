@@ -66,22 +66,25 @@ const sendGiftEmail = async ({
   recipientName,
   email,
   password,
-  planLabel,
   loginUrl,
   existingAccount,
+  productName,
+  giftSummary,
 }: {
   recipientName: string;
   email: string;
   password: string;
-  planLabel: string;
   loginUrl: string;
   existingAccount: boolean;
+  productName: string;
+  giftSummary: string;
 }) => {
   if (!RESEND_API_KEY || !FROM_EMAIL) throw new Error("MISSING_EMAIL_ENV");
 
   const safeName = escapeHtml(recipientName);
   const safeEmail = escapeHtml(email);
-  const safePlan = escapeHtml(planLabel);
+  const safeProduct = escapeHtml(productName);
+  const safeSummary = escapeHtml(giftSummary);
   const safeUrl = escapeHtml(loginUrl);
   const credentials = existingAccount
     ? `<p style="margin:0;color:#555;">Tu cuenta ya existía, así que debes utilizar la contraseña que ya tenías. Si no la recuerdas, puedes recuperarla desde la pantalla de acceso.</p>`
@@ -93,8 +96,8 @@ const sendGiftEmail = async ({
   const html = `
     <div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;padding:24px;color:#151515;line-height:1.5;">
       ${LOGO_URL ? `<p style="text-align:center;"><img src="${escapeHtml(LOGO_URL)}" alt="Revelao" style="height:48px;" /></p>` : ""}
-      <h2 style="text-align:center;margin-bottom:8px;">${safeName}, te han regalado Revelao</h2>
-      <p style="text-align:center;color:#555;margin-top:0;">Tienes un plan ${safePlan} listo para crear tu evento.</p>
+      <h2 style="text-align:center;margin-bottom:8px;">${safeName}, te han regalado ${safeProduct}</h2>
+      <p style="text-align:center;color:#555;margin-top:0;">Tienes ${safeSummary} listo para crear tu evento.</p>
       ${credentials}
       <p style="text-align:center;margin:24px 0;">
         <a href="${safeUrl}" style="display:inline-block;background:#f06a5f;color:#fff;padding:12px 24px;border-radius:999px;text-decoration:none;font-weight:700;">
@@ -114,7 +117,7 @@ const sendGiftEmail = async ({
     body: JSON.stringify({
       from: FROM_EMAIL,
       to: email,
-      subject: `${recipientName}, te han regalado Revelao`,
+      subject: `${recipientName}, te han regalado ${productName}`,
       html,
     }),
   });
@@ -144,14 +147,23 @@ serve(async (req) => {
   const recipientName = String(payload?.recipientName || "").trim().replace(/\s+/g, " ");
   const email = String(payload?.email || "").trim().toLowerCase();
   const password = String(payload?.password || "");
-  const plan = getPlanById(String(payload?.planId || ""));
+  const product = ["revelao", "captains", "capsule"].includes(String(payload?.product))
+    ? String(payload.product) as "revelao" | "captains" | "capsule"
+    : "revelao";
+  const plan = product === "captains" ? null : getPlanById(String(payload?.planId || ""));
+  const tableCount = Math.floor(Number(payload?.tableCount));
   const confirmExisting = payload?.confirmExisting === true;
+  const validPlan = product === "revelao"
+    ? Boolean(plan && plan.product !== "capsule")
+    : product === "capsule"
+      ? plan?.product === "capsule"
+      : Number.isFinite(tableCount) && tableCount >= 1 && tableCount <= 999;
 
   if (
     !recipientName || recipientName.length > 120 ||
     !isEmail(email) || email.length > 320 ||
     password.length < 8 || password.length > 128 ||
-    !plan
+    !validPlan
   ) {
     return json({ error: "INVALID_PAYLOAD" }, 400);
   }
@@ -165,6 +177,7 @@ serve(async (req) => {
   let userId = existingUser?.id ?? null;
   let createdNewUser = false;
   let purchaseId: string | null = null;
+  let captainsCodeId: string | null = null;
 
   try {
     if (!userId) {
@@ -196,13 +209,14 @@ serve(async (req) => {
 
     const redeemToken = generateRedeemToken();
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+    const purchasePlanId = product === "captains" ? "captains" : plan!.id;
     const { data: purchase, error: purchaseError } = await supabaseAdmin
       .from("purchases")
       .insert({
         user_id: userId,
         user_email: email,
         stripe_session_id: null,
-        plan_id: plan.id,
+        plan_id: purchasePlanId,
         status: "paid",
         redeem_token: redeemToken,
         redeem_token_expires_at: expiresAt,
@@ -216,14 +230,38 @@ serve(async (req) => {
     if (purchaseError || !purchase) throw new Error(purchaseError?.message || "CREATE_GIFT_FAILED");
     purchaseId = purchase.id;
 
-    const loginUrl = `${APP_ORIGIN}/admin-login?email=${encodeURIComponent(email)}&gift=1`;
+    if (product === "captains") {
+      const { data: creationCode, error: creationCodeError } = await supabaseAdmin
+        .from("captains_creation_codes")
+        .insert({
+          code: redeemToken,
+          created_by: user.id,
+          account_owner_id: userId,
+          expires_at: expiresAt,
+          max_tables: tableCount,
+        })
+        .select("id")
+        .single();
+      if (creationCodeError || !creationCode) throw new Error(creationCodeError?.message || "CREATE_CAPTAINS_CODE_FAILED");
+      captainsCodeId = creationCode.id;
+    }
+
+    const redemptionPath = product === "captains"
+      ? `/nuevoeventocapitanes?code=${encodeURIComponent(redeemToken)}&tableCount=${tableCount}`
+      : product === "capsule"
+        ? `/event-form?product=capsule&redeem=${encodeURIComponent(redeemToken)}`
+        : "/event-management";
+    const loginUrl = `${APP_ORIGIN}/admin-login?email=${encodeURIComponent(email)}&gift=1&redirect=${encodeURIComponent(redemptionPath)}`;
+    const productName = product === "captains" ? "Capitanes" : product === "capsule" ? "una Cápsula del tiempo" : "Revelao";
+    const planLabel = product === "captains" ? `${tableCount} mesas` : plan!.label;
     await sendGiftEmail({
       recipientName,
       email,
       password,
-      planLabel: plan.label,
       loginUrl,
       existingAccount: !createdNewUser,
+      productName,
+      giftSummary: product === "captains" ? `un juego para ${tableCount} mesas` : `un plan ${planLabel}`,
     });
 
     return json({
@@ -234,6 +272,7 @@ serve(async (req) => {
     });
   } catch (error) {
     console.error("admin-gift-revelao error:", error);
+    if (captainsCodeId) await supabaseAdmin.from("captains_creation_codes").delete().eq("id", captainsCodeId);
     if (purchaseId) await supabaseAdmin.from("purchases").delete().eq("id", purchaseId);
     if (createdNewUser && userId) await supabaseAdmin.auth.admin.deleteUser(userId);
     return json({ error: "GIFT_FAILED" }, 500);

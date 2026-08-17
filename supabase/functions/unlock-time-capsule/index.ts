@@ -47,15 +47,13 @@ serve(async (req) => {
 
   const isSuperAdmin = user.email?.trim().toLowerCase() === SUPERADMIN_EMAIL;
   if (!isSuperAdmin && user.id !== event.owner_id) return json({ error: "FORBIDDEN" }, 403);
+  const { data: credential, error: credentialError } = await admin.from("time_capsule_unlock_credentials")
+    .select("password_hash,unlock_password").eq("event_id", event.id).maybeSingle();
+  if (credentialError || !credential) return json({ error: "CREDENTIAL_UNAVAILABLE" }, 500);
   if (!isSuperAdmin) {
-    if (!event.upload_end_time || new Date(event.upload_end_time).getTime() > Date.now()) {
-      return json({ error: "CAPSULE_NOT_FINISHED" }, 403);
-    }
     const password = body.password?.trim().toUpperCase() ?? "";
     if (!password) return json({ error: "PASSWORD_REQUIRED" }, 400);
-    const { data: credential } = await admin.from("time_capsule_unlock_credentials")
-      .select("password_hash").eq("event_id", event.id).maybeSingle();
-    if (!credential || await sha256(password) !== credential.password_hash) {
+    if (await sha256(password) !== credential.password_hash) {
       return json({ error: "INVALID_PASSWORD" }, 403);
     }
   }
@@ -88,6 +86,7 @@ serve(async (req) => {
   return json({
     unlocked: true,
     isSuperAdmin,
+    unlockPassword: isSuperAdmin ? credential.unlock_password : undefined,
     videos: signedVideos.filter((video) => video.url),
   });
 });

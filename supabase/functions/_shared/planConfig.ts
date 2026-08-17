@@ -1,4 +1,12 @@
-export type PlanId = "demo" | "small" | "medium" | "large" | "xxl";
+export type PlanId =
+  | "demo"
+  | "small"
+  | "medium"
+  | "large"
+  | "xxl"
+  | "capsule_basic"
+  | "capsule_pro"
+  | "capsule_unlimited";
 
 export type PlanConfig = {
   id: PlanId;
@@ -7,6 +15,7 @@ export type PlanConfig = {
   maxVideos: number | null;
   maxAudios: number | null;
   stripePriceIdEnv: string;
+  product?: "revelao" | "capsule";
 };
 
 export const PLANS: Record<PlanId, PlanConfig> = {
@@ -49,6 +58,33 @@ export const PLANS: Record<PlanId, PlanConfig> = {
     maxVideos: null,
     maxAudios: null,
     stripePriceIdEnv: "STRIPE_PRICE_XXL",
+  },
+  capsule_basic: {
+    id: "capsule_basic",
+    label: "Cápsula Basic · 50 mensajes",
+    maxPhotos: 0,
+    maxVideos: 50,
+    maxAudios: 0,
+    stripePriceIdEnv: "STRIPE_PRICE_CAPSULE_BASIC",
+    product: "capsule",
+  },
+  capsule_pro: {
+    id: "capsule_pro",
+    label: "Cápsula Pro · 200 mensajes",
+    maxPhotos: 0,
+    maxVideos: 200,
+    maxAudios: 0,
+    stripePriceIdEnv: "STRIPE_PRICE_CAPSULE_PRO",
+    product: "capsule",
+  },
+  capsule_unlimited: {
+    id: "capsule_unlimited",
+    label: "Cápsula Sin límites",
+    maxPhotos: 0,
+    maxVideos: null,
+    maxAudios: 0,
+    stripePriceIdEnv: "STRIPE_PRICE_CAPSULE_UNLIMITED",
+    product: "capsule",
   },
 };
 

@@ -75,6 +75,11 @@ serve(async (req) => {
     }
 
     const plan = getPlanById(purchase.plan_id);
+    const product = purchase.plan_id === "captains"
+      ? "captains"
+      : plan?.product === "capsule"
+        ? "capsule"
+        : "revelao";
 
     return json({
       pending: {
@@ -89,6 +94,8 @@ serve(async (req) => {
               stripePriceIdEnv: plan.stripePriceIdEnv,
             }
           : null,
+        product,
+        label: purchase.plan_id === "captains" ? "Capitanes" : plan?.label ?? "evento",
         expiresAt: purchase.redeem_token_expires_at ?? null,
       },
     });

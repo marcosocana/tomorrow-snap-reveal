@@ -32,6 +32,7 @@ import { AdminEventsCalendar } from "@/components/AdminEventsCalendar";
 import { deleteCaptainsEvent } from "@/lib/captainsService";
 import { CaptainsCheckoutCard } from "@/components/CaptainsCheckoutCard";
 import { TimeCapsuleCheckoutPlans } from "@/components/TimeCapsuleCheckoutPlans";
+import { TIME_CAPSULE_REDEEM_PLANS, type TimeCapsuleRedeemPlanId } from "@/lib/timeCapsule";
 
 interface Event {
   id: string;
@@ -92,6 +93,8 @@ interface CaptainsManagedEvent {
   scoring_mode?: "automatic" | "manual" | null;
   owner_email?: string | null;
   owner_phone?: string | null;
+  admin_event_tab?: ManualAdminEventTab | null;
+  deletion_lock_pin?: string | null;
 }
 
 type AdminEventTab = "new" | "upcoming" | "past" | "tests" | "others";
@@ -117,10 +120,11 @@ const ADMIN_EVENT_TABS: Array<{ value: AdminEventTab; label: string }> = [
 const ADMIN_EVENT_MOVE_TARGETS: Array<{ value: AdminEventTab; label: string }> = ADMIN_EVENT_TABS;
 const INITIAL_LOAD_TIMEOUT_MS = 15_000;
 
-type GiftPlanId = "demo" | "small" | "medium" | "xxl";
+type GiftPlanId = "demo" | "small" | "medium" | "xxl" | TimeCapsuleRedeemPlanId;
 
-const emptyGiftForm = () => ({
-  planId: "small" as GiftPlanId,
+const emptyGiftForm = (product: ProductSection = "revelao") => ({
+  planId: (product === "capsule" ? "capsule_basic" : "small") as GiftPlanId,
+  tableCount: 6,
   recipientName: "",
   email: "",
   password: "",
@@ -287,6 +291,7 @@ const EventManagement = () => {
   const [pendingRedeem, setPendingRedeem] = useState<{
     token: string;
     planLabel: string;
+    product: ProductSection;
   } | null>(null);
   const [adminSearch, setAdminSearch] = useState("");
   const [activeProduct, setActiveProduct] = useState<ProductSection>("revelao");
@@ -305,10 +310,14 @@ const EventManagement = () => {
   // pageSize computed after superAdminEvents below
   const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(new Set());
   const [redeemGeneratorOpen, setRedeemGeneratorOpen] = useState(false);
+  const [redeemProduct, setRedeemProduct] = useState<ProductSection>("revelao");
   const [redeemPlan, setRedeemPlan] = useState<"demo" | "small" | "medium" | "xxl">("small");
+  const [capsuleRedeemPlan, setCapsuleRedeemPlan] = useState<TimeCapsuleRedeemPlanId>("capsule_basic");
+  const [captainsRedeemTables, setCaptainsRedeemTables] = useState(6);
   const [generatedRedeem, setGeneratedRedeem] = useState<string | null>(null);
   const [isGeneratingRedeem, setIsGeneratingRedeem] = useState(false);
   const [giftDialogOpen, setGiftDialogOpen] = useState(false);
+  const [giftProduct, setGiftProduct] = useState<ProductSection>("revelao");
   const [giftExistingConfirmationOpen, setGiftExistingConfirmationOpen] = useState(false);
   const [giftForm, setGiftForm] = useState(emptyGiftForm);
   const [isSendingGift, setIsSendingGift] = useState(false);
@@ -342,6 +351,7 @@ const EventManagement = () => {
     const action = productAction;
     setProductAction(null);
     setActiveProduct(product);
+    if (product === "captains" || product === "capsule") setAdminActiveTab("others");
 
     if (action === "new") {
       if (product === "captains") {
@@ -361,37 +371,16 @@ const EventManagement = () => {
     }
 
     if (action === "code") {
-      if (product === "captains") {
-        navigate("/admin/capitanes?openCode=1");
-      } else if (product === "capsule") {
-        toast({
-          title: "El QR se crea con la cápsula",
-          description: "Configura la cápsula y al guardarla tendrás su QR para compartir.",
-        });
-        navigate(`${pathPrefix}/event-form?product=capsule`);
-      } else {
-        setGeneratedRedeem(null);
-        setRedeemGeneratorOpen(true);
-      }
+      setRedeemProduct(product);
+      setGeneratedRedeem(null);
+      setRedeemGeneratorOpen(true);
       return;
     }
 
     if (action === "gift") {
-      if (product === "revelao") {
-        setGiftDialogOpen(true);
-      } else if (product === "captains") {
-        toast({
-          title: "Regalar Capitanes",
-          description: "Genera un código y comparte el enlace de creación con el destinatario.",
-        });
-        navigate("/admin/capitanes?openCode=1");
-      } else {
-        toast({
-          title: "Regalar una cápsula",
-          description: "Crea la cápsula indicando el email de su propietario y comparte su QR.",
-        });
-        navigate(`${pathPrefix}/event-form?product=capsule`);
-      }
+      setGiftProduct(product);
+      setGiftForm(emptyGiftForm(product));
+      setGiftDialogOpen(true);
     }
   };
 
@@ -653,7 +642,8 @@ const EventManagement = () => {
           if (pending?.token) {
             setPendingRedeem({
               token: pending.token,
-              planLabel: pending.plan?.label ?? "evento",
+              planLabel: pending.label ?? pending.plan?.label ?? "evento",
+              product: ["captains", "capsule"].includes(pending.product) ? pending.product : "revelao",
             });
           } else {
             setPendingRedeem(null);
@@ -734,13 +724,16 @@ const EventManagement = () => {
     try {
       setIsGeneratingRedeem(true);
       setGeneratedRedeem(null);
-      const { data, error } = await supabase.functions.invoke("admin-generate-redeem", {
-        body: { planId: redeemPlan },
-      });
-      if (error || !data?.token) {
+      const functionName = redeemProduct === "captains" ? "admin-generate-captains-code" : "admin-generate-redeem";
+      const body = redeemProduct === "captains"
+        ? { tableCount: captainsRedeemTables }
+        : { planId: redeemProduct === "capsule" ? capsuleRedeemPlan : redeemPlan };
+      const { data, error } = await supabase.functions.invoke(functionName, { body });
+      const generatedCode = data?.token || data?.code;
+      if (error || !generatedCode) {
         throw error || new Error("NO_TOKEN");
       }
-      setGeneratedRedeem(data.token);
+      setGeneratedRedeem(generatedCode);
       toast({
         title: "Código generado",
         description: "El código ya está listo para usar.",
@@ -759,7 +752,12 @@ const EventManagement = () => {
 
   const handleCopyRedeem = async () => {
     if (!generatedRedeem) return;
-    const redeemUrl = `${window.location.origin}${pathPrefix}/redeem/${generatedRedeem}`;
+    const redeemPath = redeemProduct === "captains"
+      ? `/nuevoeventocapitanes?code=${encodeURIComponent(generatedRedeem)}&tableCount=${captainsRedeemTables}`
+      : redeemProduct === "capsule"
+        ? `${pathPrefix}/event-form?product=capsule&redeem=${encodeURIComponent(generatedRedeem)}`
+        : `${pathPrefix}/redeem/${generatedRedeem}`;
+    const redeemUrl = `${window.location.origin}${redeemPath}`;
     try {
       await navigator.clipboard.writeText(redeemUrl);
       toast({
@@ -781,7 +779,7 @@ const EventManagement = () => {
     if (!open && !isSendingGift) {
       setGiftExistingConfirmationOpen(false);
       setGiftError(null);
-      setGiftForm(emptyGiftForm());
+      setGiftForm(emptyGiftForm(giftProduct));
     }
   };
 
@@ -805,6 +803,8 @@ const EventManagement = () => {
         supabase.functions.invoke("admin-gift-revelao", {
           body: {
             planId: giftForm.planId,
+            product: giftProduct,
+            tableCount: giftForm.tableCount,
             recipientName,
             email,
             password: giftForm.password,
@@ -822,7 +822,7 @@ const EventManagement = () => {
 
       setGiftExistingConfirmationOpen(false);
       setGiftDialogOpen(false);
-      setGiftForm(emptyGiftForm());
+      setGiftForm(emptyGiftForm(giftProduct));
       toast({
         title: "Regalo enviado",
         description: data.existingAccount
@@ -1744,9 +1744,21 @@ const EventManagement = () => {
       const matchesStatus = captainsStatusFilter === "all"
         || (captainsStatusFilter === "finished" && finished)
         || (captainsStatusFilter === "in_progress" && !finished);
-      return matchesSearch && matchesPhone && matchesStatus;
+      const matchesTab = adminActiveTab === "others"
+        ? !event.admin_event_tab
+        : event.admin_event_tab === adminActiveTab;
+      return matchesSearch && matchesPhone && matchesStatus && matchesTab;
     });
-  }, [captainsEvents, adminSearch, adminPhoneFilter, captainsStatusFilter]);
+  }, [captainsEvents, adminSearch, adminPhoneFilter, captainsStatusFilter, adminActiveTab]);
+
+  const captainsAdminTabCounts = useMemo(() => {
+    const counts: Record<AdminEventTab, number> = { new: 0, upcoming: 0, past: 0, tests: 0, others: 0 };
+    captainsEvents.forEach((event) => {
+      if (event.admin_event_tab) counts[event.admin_event_tab] += 1;
+      else counts.others += 1;
+    });
+    return counts;
+  }, [captainsEvents]);
 
   const captainsStatusCounts = useMemo(() => {
     const now = Date.now();
@@ -1804,6 +1816,14 @@ const EventManagement = () => {
 
   const handleDeleteCaptainsSelection = async () => {
     if (selectedCaptainsIds.size === 0) return;
+    const selectedEvents = captainsEvents.filter((event) => selectedCaptainsIds.has(event.id));
+    for (const event of selectedEvents.filter((candidate) => candidate.deletion_lock_pin)) {
+      const enteredPin = window.prompt(`El evento "${event.name}" está bloqueado. Introduce PIN para eliminarlo:`);
+      if (!enteredPin || enteredPin.trim() !== event.deletion_lock_pin) {
+        toast({ title: "PIN incorrecto", description: "No se pudo eliminar porque el PIN no coincide.", variant: "destructive" });
+        return;
+      }
+    }
     if (!window.confirm(`¿Eliminar ${selectedCaptainsIds.size} evento(s) de Capitanes seleccionados?`)) return;
     try {
       await Promise.all(Array.from(selectedCaptainsIds).map((id) => deleteCaptainsEvent(id)));
@@ -1813,6 +1833,48 @@ const EventManagement = () => {
     } catch (error) {
       console.error("Error deleting captains selection:", error);
       toast({ title: "Error", description: "No hemos podido eliminar la selección.", variant: "destructive" });
+    }
+  };
+
+  const handleMoveCaptainsSelection = async (targetTab: AdminEventTab) => {
+    const ids = Array.from(selectedCaptainsIds);
+    if (ids.length === 0) return;
+    const adminEventTab = targetTab === "others" ? null : targetTab;
+    try {
+      const { error } = await supabase
+        .from("captains_events")
+        .update({ admin_event_tab: adminEventTab } as never)
+        .in("id", ids);
+      if (error) throw error;
+      setCaptainsEvents((current) => current.map((event) => (
+        ids.includes(event.id) ? { ...event, admin_event_tab: adminEventTab } : event
+      )));
+      setSelectedCaptainsIds(new Set());
+      toast({ title: "Eventos movidos", description: `Se han movido ${ids.length} evento(s) de Capitanes.` });
+    } catch (error) {
+      console.error("Error moving captains selection:", error);
+      toast({ title: "No se pudieron mover", description: "Comprueba la configuración de Supabase.", variant: "destructive" });
+    }
+  };
+
+  const handleLockCaptainsSelection = async () => {
+    const ids = Array.from(selectedCaptainsIds);
+    if (ids.length === 0) return;
+    const pin = window.prompt("Introduce un PIN para bloquear los eventos seleccionados:")?.trim();
+    if (!pin) return;
+    try {
+      const { error } = await supabase
+        .from("captains_events")
+        .update({ deletion_lock_pin: pin } as never)
+        .in("id", ids);
+      if (error) throw error;
+      setCaptainsEvents((current) => current.map((event) => (
+        ids.includes(event.id) ? { ...event, deletion_lock_pin: pin } : event
+      )));
+      toast({ title: "Eventos bloqueados", description: `Se aplicó el PIN a ${ids.length} evento(s).` });
+    } catch (error) {
+      console.error("Error locking captains selection:", error);
+      toast({ title: "No se pudo bloquear", description: "Comprueba la configuración de Supabase.", variant: "destructive" });
     }
   };
 
@@ -1842,6 +1904,23 @@ const EventManagement = () => {
             Calendario
           </Button>
         </div>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {ADMIN_EVENT_TABS.filter((tab) => tab.value !== "new" || captainsAdminTabCounts.new > 0).map((tab) => (
+          <button
+            key={tab.value}
+            type="button"
+            onClick={() => setAdminActiveTab(tab.value)}
+            className={`admin-neutral-tab admin-secondary-tab inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm font-medium transition-colors ${
+              adminActiveTab === tab.value
+                ? "!border-foreground !bg-foreground !text-background shadow-sm"
+                : "border-border bg-background text-foreground hover:bg-muted"
+            }`}
+          >
+            {tab.label}
+            <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{captainsAdminTabCounts[tab.value]}</span>
+          </button>
+        ))}
       </div>
       <div className="flex flex-wrap gap-2">
         {([
@@ -1886,9 +1965,28 @@ const EventManagement = () => {
       {selectedCaptainsIds.size > 0 ? (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-muted/50 px-3 py-2">
           <p className="text-xs text-muted-foreground">{selectedCaptainsIds.size} seleccionados</p>
-          <Button variant="destructive" size="sm" onClick={() => void handleDeleteCaptainsSelection()}>
-            Eliminar selección
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1">
+                  <MoveRight className="h-4 w-4" /> Mover a... <ChevronDown className="h-3.5 w-3.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {ADMIN_EVENT_MOVE_TARGETS.map((target) => (
+                  <DropdownMenuItem key={target.value} onClick={() => void handleMoveCaptainsSelection(target.value)}>
+                    {target.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button variant="outline" size="sm" className="gap-1" onClick={() => void handleLockCaptainsSelection()}>
+              <Lock className="h-4 w-4" /> Bloquear
+            </Button>
+            <Button variant="destructive" size="sm" onClick={() => void handleDeleteCaptainsSelection()}>
+              Eliminar selección
+            </Button>
+          </div>
         </div>
       ) : null}
       {adminView === "calendar" ? (
@@ -1935,7 +2033,12 @@ const EventManagement = () => {
                         className="h-4 w-4 accent-primary"
                       />
                     </td>
-                    <td className="py-3 pr-4 font-medium">{event.name}</td>
+                    <td className="py-3 pr-4 font-medium">
+                      <span className="inline-flex items-center gap-1.5">
+                        {event.deletion_lock_pin ? <Lock className="h-3.5 w-3.5" /> : null}
+                        {event.name}
+                      </span>
+                    </td>
                     <td className="py-3 pr-4">
                       <Badge className="rounded-full" variant={finished ? "outline" : "default"}>
                         {finished ? "Terminado" : "En curso"}
@@ -2062,7 +2165,7 @@ const EventManagement = () => {
                   aria-selected={selected}
                   onClick={() => {
                     setActiveProduct(product.value);
-                    if (product.value === "capsule") setAdminActiveTab("others");
+                    if (product.value === "capsule" || product.value === "captains") setAdminActiveTab("others");
                     if (product.value === "revelao") setAdminActiveTab("upcoming");
                     if (product.value === "captains") {
                       setCaptainsStatusFilter("all");
@@ -2093,7 +2196,15 @@ const EventManagement = () => {
               </p>
               <Button
                 className="bg-primary text-primary-foreground hover:bg-primary/90"
-                onClick={() => navigate(`${pathPrefix}/redeem/${pendingRedeem.token}`)}
+                onClick={() => {
+                  if (pendingRedeem.product === "captains") {
+                    navigate(`/nuevoeventocapitanes?code=${encodeURIComponent(pendingRedeem.token)}`);
+                  } else if (pendingRedeem.product === "capsule") {
+                    navigate(`${pathPrefix}/event-form?product=capsule&redeem=${encodeURIComponent(pendingRedeem.token)}`);
+                  } else {
+                    navigate(`${pathPrefix}/redeem/${pendingRedeem.token}`);
+                  }
+                }}
               >
                 Crear evento
               </Button>
@@ -2749,22 +2860,47 @@ const EventManagement = () => {
       <Dialog open={redeemGeneratorOpen} onOpenChange={setRedeemGeneratorOpen}>
         <DialogContent className="admin-demo2-shell max-w-md w-[92vw] sm:w-full">
           <DialogHeader>
-            <DialogTitle>Generar código de Revelao</DialogTitle>
+            <DialogTitle>
+              Generar código de {redeemProduct === "captains" ? "Capitanes" : redeemProduct === "capsule" ? "Cápsula del tiempo" : "Revelao"}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Tipo de evento</label>
-              <select
-                value={redeemPlan}
-                onChange={(e) => setRedeemPlan(e.target.value as any)}
-                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-              >
-                <option value="demo">Demo</option>
-                <option value="small">Start</option>
-                <option value="medium">Plus</option>
-                <option value="xxl">Pro</option>
-              </select>
-            </div>
+            {redeemProduct === "captains" ? (
+              <div className="space-y-2">
+                <label htmlFor="captainsRedeemTables" className="text-sm font-medium text-foreground">Número máximo de mesas</label>
+                <Input
+                  id="captainsRedeemTables"
+                  type="number"
+                  min={1}
+                  max={999}
+                  value={captainsRedeemTables}
+                  onChange={(event) => setCaptainsRedeemTables(Math.max(1, Math.min(999, Math.floor(Number(event.target.value) || 1))))}
+                />
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Plan</label>
+                <select
+                  value={redeemProduct === "capsule" ? capsuleRedeemPlan : redeemPlan}
+                  onChange={(event) => {
+                    if (redeemProduct === "capsule") setCapsuleRedeemPlan(event.target.value as TimeCapsuleRedeemPlanId);
+                    else setRedeemPlan(event.target.value as typeof redeemPlan);
+                  }}
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                >
+                  {redeemProduct === "capsule" ? (
+                    TIME_CAPSULE_REDEEM_PLANS.map((plan) => <option key={plan.id} value={plan.id}>{plan.label}</option>)
+                  ) : (
+                    <>
+                      <option value="demo">Demo</option>
+                      <option value="small">Start</option>
+                      <option value="medium">Plus</option>
+                      <option value="xxl">Pro</option>
+                    </>
+                  )}
+                </select>
+              </div>
+            )}
             <Button
               className="w-full gap-2"
               onClick={handleGenerateRedeem}
@@ -2793,7 +2929,9 @@ const EventManagement = () => {
       <Dialog open={giftDialogOpen} onOpenChange={handleGiftDialogChange}>
         <DialogContent className="admin-demo2-shell max-w-md w-[92vw] sm:w-full">
           <DialogHeader>
-            <DialogTitle>Regalar Revelao</DialogTitle>
+            <DialogTitle>
+              Regalar {giftProduct === "captains" ? "Capitanes" : giftProduct === "capsule" ? "una Cápsula del tiempo" : "Revelao"}
+            </DialogTitle>
           </DialogHeader>
           {giftExistingConfirmationOpen ? (
             <div className="space-y-5">
@@ -2827,21 +2965,45 @@ const EventManagement = () => {
             </div>
           ) : (
           <div className="space-y-4">
-            <div className="space-y-2">
-              <label htmlFor="giftPlan" className="text-sm font-medium text-foreground">Plan</label>
-              <select
-                id="giftPlan"
-                value={giftForm.planId}
-                onChange={(event) => setGiftForm((previous) => ({ ...previous, planId: event.target.value as GiftPlanId }))}
-                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                disabled={isSendingGift}
-              >
-                <option value="demo">Demo</option>
-                <option value="small">Start</option>
-                <option value="medium">Plus</option>
-                <option value="xxl">Pro</option>
-              </select>
-            </div>
+            {giftProduct === "captains" ? (
+              <div className="space-y-2">
+                <label htmlFor="giftTableCount" className="text-sm font-medium text-foreground">Número de mesas</label>
+                <Input
+                  id="giftTableCount"
+                  type="number"
+                  min={1}
+                  max={999}
+                  value={giftForm.tableCount}
+                  onChange={(event) => setGiftForm((previous) => ({
+                    ...previous,
+                    tableCount: Math.max(1, Math.min(999, Math.floor(Number(event.target.value) || 1))),
+                  }))}
+                  disabled={isSendingGift}
+                />
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <label htmlFor="giftPlan" className="text-sm font-medium text-foreground">Plan</label>
+                <select
+                  id="giftPlan"
+                  value={giftForm.planId}
+                  onChange={(event) => setGiftForm((previous) => ({ ...previous, planId: event.target.value as GiftPlanId }))}
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  disabled={isSendingGift}
+                >
+                  {giftProduct === "capsule" ? (
+                    TIME_CAPSULE_REDEEM_PLANS.map((plan) => <option key={plan.id} value={plan.id}>{plan.label}</option>)
+                  ) : (
+                    <>
+                      <option value="demo">Demo</option>
+                      <option value="small">Start</option>
+                      <option value="medium">Plus</option>
+                      <option value="xxl">Pro</option>
+                    </>
+                  )}
+                </select>
+              </div>
+            )}
             <div className="space-y-2">
               <label htmlFor="giftRecipientName" className="text-sm font-medium text-foreground">Nombre</label>
               <Input

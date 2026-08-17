@@ -416,9 +416,13 @@ serve(async (req) => {
   }
 
   if (userEmail) {
-    const redeemUrl = `${APP_ORIGIN}/redeem/${purchase?.redeem_token || redeemToken}`;
+    const finalToken = purchase?.redeem_token || redeemToken;
+    const capsulePath = `/event-form?product=capsule&redeem=${encodeURIComponent(finalToken)}`;
+    const redeemUrl = plan.product === "capsule"
+      ? `${APP_ORIGIN}/admin-login?email=${encodeURIComponent(userEmail)}&redirect=${encodeURIComponent(capsulePath)}`
+      : `${APP_ORIGIN}/redeem/${finalToken}`;
     try {
-      await sendRedeemEmail(userEmail, redeemUrl, plan.label, purchase?.redeem_token || redeemToken);
+      await sendRedeemEmail(userEmail, redeemUrl, plan.label, finalToken);
     } catch (emailError) {
       console.error("stripe-webhook redeem email error:", emailError);
       return json({ error: "EMAIL_SEND_FAILED" }, 500);

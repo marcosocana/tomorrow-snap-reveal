@@ -40,7 +40,21 @@ const allowedApiKeys = () => {
   return keys;
 };
 
-const sendUnlockEmail = async (to: string, eventId: string, eventName: string, password: string) => {
+const getCapsuleYears = (limitsJson: unknown) => {
+  if (!limitsJson || typeof limitsJson !== "object" || Array.isArray(limitsJson)) return 5;
+  const capsule = (limitsJson as Record<string, unknown>).capsule;
+  if (!capsule || typeof capsule !== "object" || Array.isArray(capsule)) return 5;
+  const years = (capsule as Record<string, unknown>).years;
+  return typeof years === "number" && Number.isFinite(years) && years > 0 ? years : 5;
+};
+
+const sendUnlockEmail = async (
+  to: string,
+  eventId: string,
+  eventName: string,
+  password: string,
+  years: number,
+) => {
   const eventUrl = `https://acceso.revelao.cam/event-form/${eventId}`;
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -54,11 +68,12 @@ const sendUnlockEmail = async (to: string, eventId: string, eventName: string, p
           <div style="background:#fff;border-radius:18px;padding:32px;text-align:center;border:1px solid #eadfd7;">
             <img src="${LOGO_URL}" alt="Revelao" style="height:58px;width:auto;margin-bottom:20px;" />
             <h1 style="font-size:25px;margin:0 0 14px;">Tu cápsula ya está lista</h1>
-            <p style="font-size:16px;line-height:1.6;color:#5f514a;margin:0 0 20px;">Ha terminado el evento <strong>${escapeHtml(eventName)}</strong>. Ya puedes ver los vídeos desde el detalle del evento.</p>
+            <p style="font-size:16px;line-height:1.6;color:#5f514a;margin:0 0 14px;">Ha terminado el evento <strong>${escapeHtml(eventName)}</strong>. Ya puedes abrir y descargar todos los vídeos desde el detalle del evento.</p>
+            <p style="font-size:15px;line-height:1.6;color:#5f514a;margin:0 0 20px;">Tú eliges: puedes descargarlos ahora o mantener la sorpresa y esperar los ${years} años previstos para descapsularlos.</p>
             <p style="font-size:13px;color:#8b7b72;margin:0 0 8px;">Contraseña de descapsulamiento</p>
             <div style="display:inline-block;background:#f5eee9;border:1px solid #eadfd7;border-radius:12px;padding:14px 20px;font-family:monospace;font-size:22px;font-weight:700;letter-spacing:3px;margin-bottom:24px;">${escapeHtml(password)}</div><br />
             <a href="${eventUrl}" style="display:inline-block;background:#f06a5f;color:#fff;text-decoration:none;padding:14px 24px;border-radius:999px;font-weight:700;">Abrir mi cápsula</a>
-            <p style="font-size:12px;line-height:1.5;color:#8b7b72;margin:20px 0 0;">Guarda este email: necesitarás la contraseña para volver a acceder al contenido.</p>
+            <p style="font-size:12px;line-height:1.5;color:#8b7b72;margin:20px 0 0;">Guarda este email y la contraseña: podrás acceder al contenido ahora o cuando llegue el momento de abrir vuestra cápsula.</p>
           </div>
         </div></body></html>`,
     }),
@@ -97,7 +112,7 @@ serve(async (req) => {
 
     try {
       const { data: event, error: eventError } = await admin.from("events")
-        .select("id,name,owner_id,upload_end_time,plan_id,type")
+        .select("id,name,owner_id,upload_end_time,plan_id,type,limits_json")
         .eq("id", job.event_id).single();
       if (eventError || !event) throw new Error("EVENT_NOT_FOUND");
       if (event.plan_id !== "capsule" && event.type !== "capsule") throw new Error("NOT_A_CAPSULE");
@@ -106,7 +121,13 @@ serve(async (req) => {
       const { data: userData, error: userError } = await admin.auth.admin.getUserById(event.owner_id);
       const email = userData.user?.email?.trim().toLowerCase();
       if (userError || !email) throw new Error("OWNER_EMAIL_NOT_FOUND");
-      await sendUnlockEmail(email, event.id, event.name, job.unlock_password);
+      await sendUnlockEmail(
+        email,
+        event.id,
+        event.name,
+        job.unlock_password,
+        getCapsuleYears(event.limits_json),
+      );
       await admin.from("time_capsule_unlock_credentials").update({
         status: "sent", sent_at: new Date().toISOString(), last_error: null, updated_at: new Date().toISOString(),
       }).eq("event_id", job.event_id);

@@ -195,6 +195,7 @@ const EventForm = () => {
   const [backgroundAdjustY, setBackgroundAdjustY] = useState(50);
   const [backgroundAdjustZoom, setBackgroundAdjustZoom] = useState(1);
   const requestedProduct = new URLSearchParams(location.search).get("product");
+  const capsuleRedeemToken = new URLSearchParams(location.search).get("redeem");
   const [planType, setPlanType] = useState<PlanType>(requestedProduct === "capsule" ? "capsule" : "demo");
   const [activeFormStep, setActiveFormStep] = useState<EventFormStep>("general");
   const [maxUnlockedFormStep, setMaxUnlockedFormStep] = useState(0);
@@ -506,7 +507,8 @@ const EventForm = () => {
       }
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        navigate(`${pathPrefix}/admin-login`);
+        const returnPath = `${location.pathname}${location.search}`;
+        navigate(`${pathPrefix}/admin-login?redirect=${encodeURIComponent(returnPath)}`);
         return;
       }
       setIsSuperAdmin((session.user?.email || "").toLowerCase() === "revelao.cam@gmail.com");
@@ -518,7 +520,7 @@ const EventForm = () => {
     };
 
     checkAuth();
-  }, [navigate, isDemoMode, isEditing, eventId, adminEventId]);
+  }, [navigate, isDemoMode, isEditing, eventId, adminEventId, location.pathname, location.search, pathPrefix]);
 
   const loadEvent = async () => {
     if (!eventId) return;
@@ -1408,6 +1410,7 @@ const EventForm = () => {
         ownerEmail={ownerEmailInput}
         onOwnerEmailChange={setOwnerEmailInput}
         isSuperAdmin={isSuperAdmin}
+        redeemToken={capsuleRedeemToken}
       />
     );
   }

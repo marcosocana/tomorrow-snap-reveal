@@ -117,7 +117,7 @@ serve(async (req) => {
     }
 
     const plan = getPlanById(purchase.plan_id);
-    if (!plan) {
+    if (!plan || plan.product === "capsule") {
       return json({ error: "INVALID_PLAN" }, 400);
     }
 

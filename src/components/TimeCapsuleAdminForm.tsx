@@ -12,15 +12,19 @@ import { QRCodeSVG } from "qrcode.react";
 import { ArrowLeft, Check, Copy, Download, ImagePlus, Loader2, LockKeyhole, Pencil, RefreshCw, Trash2, Video } from "lucide-react";
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 import { format } from "date-fns";
+import JSZip from "jszip";
 import {
   TIME_CAPSULE_MAX_VIDEO_SECONDS,
   TIME_CAPSULE_DEFAULT_DESCRIPTION,
+  TIME_CAPSULE_DEFAULT_LOGO_LINK,
   TIME_CAPSULE_PLAN_ID,
   TIME_CAPSULE_YEAR_OPTIONS,
   addYears,
   getTimeCapsulePublicUrl,
   getTimeCapsuleSettings,
+  normalizeTimeCapsuleLogoLink,
   withTimeCapsuleSettings,
+  type TimeCapsuleLogoMode,
 } from "@/lib/timeCapsule";
 import type { Json } from "@/integrations/supabase/types";
 import type { EventFontFamily } from "@/lib/eventFonts";
@@ -31,6 +35,7 @@ interface TimeCapsuleAdminFormProps {
   ownerEmail?: string;
   onOwnerEmailChange?: (value: string) => void;
   isSuperAdmin?: boolean;
+  redeemToken?: string | null;
 }
 
 type CapsuleVideo = {
@@ -44,22 +49,43 @@ type CapsuleVideo = {
 
 const TIMEZONE = "Europe/Madrid";
 
+const sanitizeDownloadName = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80) || "capsula";
+
+const getDownloadExtension = (url: string, contentType: string | null) => {
+  const pathname = new URL(url).pathname;
+  const fileName = pathname.split("/").pop() || "";
+  const extension = fileName.includes(".") ? fileName.split(".").pop() : "";
+  if (extension && /^[a-z0-9]+$/i.test(extension)) return extension.toLowerCase();
+  if (contentType?.includes("mp4")) return "mp4";
+  if (contentType?.includes("quicktime")) return "mov";
+  return "webm";
+};
+
 const TimeCapsuleAdminForm = ({
   eventId,
   pathPrefix,
   ownerEmail = "",
   onOwnerEmailChange,
   isSuperAdmin = false,
+  redeemToken = null,
 }: TimeCapsuleAdminFormProps) => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const logoInputRef = useRef<HTMLInputElement | null>(null);
   const qrRef = useRef<HTMLDivElement | null>(null);
 
   const isEditing = !!eventId;
   const [isLoading, setIsLoading] = useState(isEditing);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState(TIME_CAPSULE_DEFAULT_DESCRIPTION);
   const [fontFamily, setFontFamily] = useState<EventFontFamily>("system");
@@ -69,6 +95,9 @@ const TimeCapsuleAdminForm = ({
   const [weddingEndDate, setWeddingEndDate] = useState("");
   const [weddingEndTime, setWeddingEndTime] = useState("");
   const [years, setYears] = useState<number>(5);
+  const [logoMode, setLogoMode] = useState<TimeCapsuleLogoMode>("default");
+  const [logoUrl, setLogoUrl] = useState("");
+  const [logoLink, setLogoLink] = useState(TIME_CAPSULE_DEFAULT_LOGO_LINK);
   const [password, setPassword] = useState("");
   const [limitsJson, setLimitsJson] = useState<Json | null>(null);
   const [savedEventId, setSavedEventId] = useState<string | null>(eventId ?? null);
@@ -84,9 +113,25 @@ const TimeCapsuleAdminForm = ({
   } | null>(null);
   const [unlockPassword, setUnlockPassword] = useState("");
   const [contentLoading, setContentLoading] = useState(false);
+  const [isDownloadingAll, setIsDownloadingAll] = useState(false);
   const [contentUnlocked, setContentUnlocked] = useState(false);
   const [contentError, setContentError] = useState<string | null>(null);
   const [capsuleVideos, setCapsuleVideos] = useState<CapsuleVideo[]>([]);
+  const [superAdminUnlockPassword, setSuperAdminUnlockPassword] = useState("");
+  const [redeemPlanLabel, setRedeemPlanLabel] = useState("");
+
+  useEffect(() => {
+    if (!redeemToken) return;
+    const loadRedeemPlan = async () => {
+      const { data, error } = await supabase.functions.invoke(`redeem-get?token=${encodeURIComponent(redeemToken)}`, { method: "GET" });
+      if (error || data?.product !== "capsule" || !data?.plan) {
+        toast({ title: "Código no válido", description: "Este código de Cápsula no existe o ha caducado.", variant: "destructive" });
+        return;
+      }
+      setRedeemPlanLabel(String(data.plan.label || "Cápsula del tiempo"));
+    };
+    void loadRedeemPlan();
+  }, [redeemToken, toast]);
 
   useEffect(() => {
     if (!eventId) return;
@@ -104,6 +149,9 @@ const TimeCapsuleAdminForm = ({
       setCoverUrl(data.custom_image_url || "");
       setPassword(data.password_hash);
       setYears(settings.years);
+      setLogoMode(settings.logoMode);
+      setLogoUrl(settings.logoUrl || "");
+      setLogoLink(settings.logoLink || "");
       setLimitsJson((data.limits_json as Json) ?? null);
       if (data.upload_start_time) {
         setWeddingStartDate(formatInTimeZone(data.upload_start_time, TIMEZONE, "yyyy-MM-dd"));
@@ -124,12 +172,6 @@ const TimeCapsuleAdminForm = ({
     if (Number.isNaN(base.getTime())) return null;
     return addYears(base, years);
   }, [weddingStartDate, weddingStartTime, years]);
-
-  const capsuleEnded = useMemo(() => {
-    if (!weddingEndDate || !weddingEndTime) return false;
-    const end = fromZonedTime(`${weddingEndDate}T${weddingEndTime}:00`, TIMEZONE);
-    return !Number.isNaN(end.getTime()) && end.getTime() <= Date.now();
-  }, [weddingEndDate, weddingEndTime]);
 
   const loadCapsuleContent = async (passwordOverride?: string) => {
     if (!eventId) return;
@@ -154,19 +196,66 @@ const TimeCapsuleAdminForm = ({
         throw new Error(code);
       }
       setCapsuleVideos((data?.videos ?? []) as CapsuleVideo[]);
+      if (isSuperAdmin && typeof data?.unlockPassword === "string") {
+        setSuperAdminUnlockPassword(data.unlockPassword);
+      }
       setContentUnlocked(true);
     } catch (error) {
       const code = error instanceof Error ? error.message : "UNLOCK_FAILED";
       const messages: Record<string, string> = {
-        CAPSULE_NOT_FINISHED: "La cápsula todavía está recibiendo vídeos. Podrás abrirla cuando termine el evento.",
-        PASSWORD_REQUIRED: "Introduce la contraseña de descapsulamiento que has recibido por email.",
+        PASSWORD_REQUIRED: "Introduce la contraseña de descapsulamiento.",
         INVALID_PASSWORD: "La contraseña de descapsulamiento no es correcta.",
         FORBIDDEN: "No tienes permiso para acceder al contenido de esta cápsula.",
+        CREDENTIAL_UNAVAILABLE: "Todavía no se ha podido recuperar la contraseña de esta cápsula.",
       };
       setContentError(messages[code] || "No se pudo abrir la cápsula. Inténtalo de nuevo.");
       setContentUnlocked(false);
     } finally {
       setContentLoading(false);
+    }
+  };
+
+  const handleDownloadAll = async () => {
+    if (capsuleVideos.length === 0 || isDownloadingAll) return;
+    setIsDownloadingAll(true);
+    try {
+      const zip = new JSZip();
+      for (let index = 0; index < capsuleVideos.length; index += 1) {
+        const capsuleVideo = capsuleVideos[index];
+        const response = await fetch(capsuleVideo.url);
+        if (!response.ok) throw new Error(`VIDEO_DOWNLOAD_FAILED:${response.status}`);
+        const blob = await response.blob();
+        const guest = sanitizeDownloadName(capsuleVideo.guestName || "invitado");
+        const capturedAt = format(new Date(capsuleVideo.capturedAt), "dd-MM-yyyy-HHmmss");
+        const extension = getDownloadExtension(capsuleVideo.url, response.headers.get("content-type"));
+        zip.file(
+          `${String(index + 1).padStart(4, "0")}-${guest}-${capturedAt}.${extension}`,
+          blob,
+        );
+      }
+
+      const content = await zip.generateAsync({ type: "blob" });
+      const downloadUrl = URL.createObjectURL(content);
+      const link = document.createElement("a");
+      link.href = downloadUrl;
+      link.download = `${sanitizeDownloadName(name || "capsula-del-tiempo")}-contenido.zip`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(downloadUrl);
+      toast({
+        title: "Descarga preparada",
+        description: `${capsuleVideos.length} vídeo${capsuleVideos.length === 1 ? "" : "s"} incluido${capsuleVideos.length === 1 ? "" : "s"} en el ZIP.`,
+      });
+    } catch (error) {
+      console.error("Error downloading time capsule content:", error);
+      toast({
+        title: "No se pudo descargar el contenido",
+        description: "Actualiza el contenido y vuelve a intentarlo.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDownloadingAll(false);
     }
   };
 
@@ -198,8 +287,29 @@ const TimeCapsuleAdminForm = ({
     }
   };
 
+  const handleLogoUpload = async (file: File) => {
+    setIsUploadingLogo(true);
+    try {
+      const extension = file.name.split(".").pop() || "png";
+      const filePath = `capsule-logos/${crypto.randomUUID()}.${extension}`;
+      const { error } = await supabase.storage.from("event-photos").upload(filePath, file, {
+        contentType: file.type || undefined,
+        upsert: true,
+      });
+      if (error) throw error;
+      const { data } = supabase.storage.from("event-photos").getPublicUrl(filePath);
+      setLogoUrl(data.publicUrl);
+    } catch (error) {
+      console.error("Error uploading capsule logo:", error);
+      toast({ title: "Error", description: "No se pudo subir el logo.", variant: "destructive" });
+    } finally {
+      setIsUploadingLogo(false);
+    }
+  };
+
   const handleSubmit = async (formEvent: React.FormEvent) => {
     formEvent.preventDefault();
+    const normalizedLogoLink = normalizeTimeCapsuleLogoLink(logoLink);
     if (
       !name.trim() ||
       !weddingStartDate ||
@@ -208,13 +318,21 @@ const TimeCapsuleAdminForm = ({
       !weddingEndTime ||
       !openDate ||
       password.length < 8 ||
-      (!isEditing && !ownerEmail.trim())
+      (!isEditing && !redeemToken && !ownerEmail.trim())
     ) {
       toast({
         title: "Faltan datos",
         description: "Completa todos los campos obligatorios. La contraseña debe contener al menos 8 dígitos.",
         variant: "destructive",
       });
+      return;
+    }
+    if (logoMode === "custom" && !logoUrl) {
+      toast({ title: "Falta el logo", description: "Sube un logo personalizado o elige otra opción.", variant: "destructive" });
+      return;
+    }
+    if (logoMode !== "none" && logoLink.trim() && !normalizedLogoLink) {
+      toast({ title: "Enlace no válido", description: "Introduce un enlace web válido para el logo.", variant: "destructive" });
       return;
     }
 
@@ -259,7 +377,13 @@ const TimeCapsuleAdminForm = ({
         timezone: TIMEZONE,
         country_code: "ES",
         language: "es",
-        limits_json: withTimeCapsuleSettings(limitsJson, { years, coupleNames: name }),
+        limits_json: withTimeCapsuleSettings(limitsJson, {
+          years,
+          coupleNames: name,
+          logoMode,
+          logoUrl,
+          logoLink: normalizedLogoLink,
+        }),
       };
 
       if (isEditing && eventId) {
@@ -268,9 +392,13 @@ const TimeCapsuleAdminForm = ({
         setSavedEventId(eventId);
         toast({ title: "Cápsula actualizada", description: "Los cambios se han guardado." });
       } else {
-        const { data, error } = await supabase.functions.invoke("admin-create-event", {
+        const functionName = redeemToken ? "redeem-create-time-capsule" : "admin-create-event";
+        const body = redeemToken
+          ? { token: redeemToken, event: payload }
+          : { ownerEmail: ownerEmail.trim(), event: payload };
+        const { data, error } = await supabase.functions.invoke(functionName, {
           method: "POST",
-          body: { ownerEmail: ownerEmail.trim(), event: payload },
+          body,
         });
         if (error) {
           let errorCode = error.message || "CREATE_EVENT_FAILED";
@@ -296,14 +424,16 @@ const TimeCapsuleAdminForm = ({
           upload_start_time: created.upload_start_time,
           upload_end_time: created.upload_end_time,
           owner_email: created.owner_email || ownerEmail.trim(),
-          email_sent: data.emailSent === true,
+          email_sent: redeemToken ? true : data.emailSent === true,
         });
         toast({
           title: "Cápsula creada",
-          description: data.emailSent
+          description: redeemToken
+            ? "La cápsula se ha asociado a tu cuenta correctamente."
+            : data.emailSent
             ? "Hemos enviado al propietario el QR y la información del evento."
             : "La cápsula se creó, pero el email no pudo enviarse. Revisa la configuración de correo.",
-          variant: data.emailSent ? "default" : "destructive",
+          variant: redeemToken || data.emailSent ? "default" : "destructive",
         });
       }
     } catch (error) {
@@ -387,7 +517,9 @@ const TimeCapsuleAdminForm = ({
               <h1 className="text-xl font-semibold">Cápsula creada correctamente</h1>
             </div>
             <p className={`text-sm ${createdEvent.email_sent ? "text-muted-foreground" : "font-medium text-destructive"}`}>
-              {createdEvent.email_sent
+              {redeemToken
+                ? "La cápsula ya está asociada a tu cuenta y lista para compartir."
+                : createdEvent.email_sent
                 ? "Se ha enviado al propietario un email con el QR, las fechas y sus credenciales."
                 : "La cápsula está creada, pero el email no se ha podido enviar. Revisa RESEND_API_KEY y FROM_EMAIL en Supabase."}
             </p>
@@ -463,6 +595,12 @@ const TimeCapsuleAdminForm = ({
           </span>
         </div>
 
+        {redeemPlanLabel && !isEditing ? (
+          <Card className="border-rose-200 bg-rose-50/60 p-4 text-sm text-rose-900">
+            Plan canjeado: <span className="font-semibold">{redeemPlanLabel}</span>
+          </Card>
+        ) : null}
+
         <div className={publicUrl ? "grid gap-6 lg:grid-cols-[1fr,280px]" : "grid gap-6"}>
         <Card className="p-6">
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -522,6 +660,78 @@ const TimeCapsuleAdminForm = ({
                   </Button>
                 )}
               </div>
+            </div>
+
+            <div className="space-y-4 rounded-xl border border-border p-4">
+              <div>
+                <h2 className="font-semibold text-foreground">Logo en la vista para invitados</h2>
+                <p className="text-xs text-muted-foreground">
+                  Aparecerá en el espacio donde los invitados dejan sus vídeos.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="capsuleLogoMode">Mostrar</Label>
+                <select
+                  id="capsuleLogoMode"
+                  value={logoMode}
+                  onChange={(selectEvent) => setLogoMode(selectEvent.target.value as TimeCapsuleLogoMode)}
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                >
+                  <option value="default">Logo de Revelao</option>
+                  <option value="custom">Logo personalizado</option>
+                  <option value="none">Sin logo</option>
+                </select>
+              </div>
+
+              {logoMode === "custom" && (
+                <div className="space-y-2">
+                  <Label>Imagen del logo</Label>
+                  <div className="flex flex-wrap items-center gap-3">
+                    {logoUrl ? (
+                      <div className="flex min-h-16 min-w-28 items-center justify-center rounded-xl border border-border bg-white p-3">
+                        <img src={logoUrl} alt="Logo personalizado" className="max-h-12 max-w-40 object-contain" />
+                      </div>
+                    ) : null}
+                    <input
+                      ref={logoInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(inputEvent) => {
+                        const file = inputEvent.target.files?.[0];
+                        if (file) void handleLogoUpload(file);
+                        inputEvent.target.value = "";
+                      }}
+                    />
+                    <Button type="button" variant="outline" onClick={() => logoInputRef.current?.click()} disabled={isUploadingLogo}>
+                      {isUploadingLogo ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ImagePlus className="mr-2 h-4 w-4" />}
+                      {logoUrl ? "Cambiar logo" : "Subir logo"}
+                    </Button>
+                    {logoUrl && (
+                      <Button type="button" variant="ghost" size="icon" onClick={() => setLogoUrl("")} aria-label="Quitar logo personalizado">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {logoMode !== "none" && (
+                <div className="space-y-2">
+                  <Label htmlFor="capsuleLogoLink">Enlace del logo (opcional)</Label>
+                  <Input
+                    id="capsuleLogoLink"
+                    type="text"
+                    inputMode="url"
+                    value={logoLink}
+                    onChange={(inputEvent) => setLogoLink(inputEvent.target.value)}
+                    placeholder={TIME_CAPSULE_DEFAULT_LOGO_LINK}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Por defecto enlaza a www.revelao.cam. Déjalo vacío si no quieres que el logo sea clicable.
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="space-y-4 rounded-xl border border-border p-4">
@@ -598,7 +808,7 @@ const TimeCapsuleAdminForm = ({
               )}
             </div>
 
-            {!isEditing && onOwnerEmailChange && (
+            {!isEditing && !redeemToken && onOwnerEmailChange && (
               <div className="space-y-2">
                 <Label htmlFor="capsuleOwnerEmail">Email</Label>
                 <Input
@@ -667,19 +877,47 @@ const TimeCapsuleAdminForm = ({
                 <p className="mt-1 text-sm text-muted-foreground">
                   {isSuperAdmin
                     ? "Acceso permanente de superadmin, aunque el evento todavía no haya terminado."
-                    : capsuleEnded
-                      ? "Introduce la contraseña de descapsulamiento enviada por email al finalizar el evento."
-                      : "El contenido estará disponible cuando termine el evento. En ese momento recibirás por email la contraseña de descapsulamiento."}
+                    : "Puedes abrir y descargar el contenido en cualquier momento con la contraseña de descapsulamiento. Al finalizar el evento también la recibirás por email."}
                 </p>
+                {isSuperAdmin && (
+                  <div className="mt-4 rounded-xl border border-border bg-muted/30 p-4">
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Contraseña de descapsulamiento</p>
+                    <div className="mt-2 flex flex-wrap items-center gap-3">
+                      <code className="rounded-lg bg-background px-3 py-2 text-base font-semibold tracking-wider">
+                        {superAdminUnlockPassword || (contentLoading ? "Cargando…" : "No disponible")}
+                      </code>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={!superAdminUnlockPassword}
+                        onClick={() => {
+                          void navigator.clipboard.writeText(superAdminUnlockPassword);
+                          toast({ title: "Contraseña copiada" });
+                        }}
+                      >
+                        <Copy className="mr-2 h-4 w-4" /> Copiar
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
               {(isSuperAdmin || contentUnlocked) && (
-                <Button type="button" variant="outline" size="sm" onClick={() => void loadCapsuleContent(isSuperAdmin ? "" : unlockPassword)} disabled={contentLoading}>
-                  <RefreshCw className={`mr-2 h-4 w-4 ${contentLoading ? "animate-spin" : ""}`} /> Actualizar
-                </Button>
+                <div className="flex flex-wrap gap-2">
+                  {contentUnlocked && capsuleVideos.length > 0 && (
+                    <Button type="button" size="sm" className="gap-2" onClick={() => void handleDownloadAll()} disabled={isDownloadingAll}>
+                      {isDownloadingAll ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                      {isDownloadingAll ? "Preparando ZIP…" : "Descargar todo"}
+                    </Button>
+                  )}
+                  <Button type="button" variant="outline" size="sm" onClick={() => void loadCapsuleContent(isSuperAdmin ? "" : unlockPassword)} disabled={contentLoading || isDownloadingAll}>
+                    <RefreshCw className={`mr-2 h-4 w-4 ${contentLoading ? "animate-spin" : ""}`} /> Actualizar
+                  </Button>
+                </div>
               )}
             </div>
 
-            {!isSuperAdmin && capsuleEnded && !contentUnlocked && (
+            {!isSuperAdmin && !contentUnlocked && (
               <form
                 className="mt-5 flex max-w-lg flex-col gap-3 sm:flex-row"
                 onSubmit={(submitEvent) => {

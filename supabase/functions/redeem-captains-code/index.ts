@@ -279,6 +279,10 @@ serve(async (req) => {
     await admin.from("captains_events").delete().eq("id", event.id);
     return json({ error: "CODE_ALREADY_USED" }, 409);
   }
+  await admin.from("purchases").update({
+    status: "redeemed",
+    redeemed_at: new Date().toISOString(),
+  }).eq("redeem_token", code).eq("plan_id", "captains");
   return json({
     event,
     credentials: {

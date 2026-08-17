@@ -70,6 +70,7 @@ serve(async (req) => {
   return json({
     token,
     plan,
+    product: plan?.product === "capsule" ? "capsule" : data.plan_id === "captains" ? "captains" : "revelao",
     status: data.status,
     expiresAt: data.redeem_token_expires_at,
     userEmail: data.user_email ?? null,
