@@ -1038,9 +1038,12 @@ const TimeCapsuleAdminForm = ({
         <aside className="space-y-4">
           <Card className="p-6 space-y-4 text-center lg:sticky lg:top-6">
             <h2 className="text-lg font-semibold">QR para los invitados</h2>
-            <div className="flex justify-center bg-white p-4 rounded-xl w-fit mx-auto">
+            <div ref={qrRef} className="mx-auto flex w-fit justify-center rounded-xl bg-white p-4">
               <QRCodeSVG value={publicUrl} size={200} level="H" />
             </div>
+            <Button type="button" variant="outline" className="gap-2" onClick={() => void downloadQr(name)}>
+              <Download className="h-4 w-4" /> Descargar QR
+            </Button>
             <p className="text-xs text-muted-foreground break-all">{publicUrl}</p>
             <Button type="button" variant="outline" onClick={() => navigator.clipboard.writeText(publicUrl)}>
               <Copy className="w-4 h-4 mr-2" /> Copiar enlace
