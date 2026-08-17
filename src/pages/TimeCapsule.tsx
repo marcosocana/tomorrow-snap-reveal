@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { supabasePublic } from "@/integrations/supabase/publicClient";
 import {
+  TIME_CAPSULE_DEFAULT_DESCRIPTION,
   TIME_CAPSULE_MAX_VIDEO_SECONDS,
   TIME_CAPSULE_DEFAULT_LOGO_URL,
   addYears,
@@ -534,8 +535,7 @@ const TimeCapsule = () => {
       <div className="space-y-6 text-center">
         <h2 className="text-2xl font-bold">Un mensaje para el futuro</h2>
         <p className="text-lg leading-relaxed text-white/85">
-          {event.description?.trim() ||
-            `Graba un vídeo de hasta ${TIME_CAPSULE_MAX_VIDEO_SECONDS} segundos para los novios. Nadie podrá verlo: quedará guardado y sellado hasta el ${openDateLabel}, cuando lo abrirán juntos y volverán a vivir este día.`}
+          {event.description?.trim() || TIME_CAPSULE_DEFAULT_DESCRIPTION}
         </p>
         <div className="h-px bg-white/20" />
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/70">
