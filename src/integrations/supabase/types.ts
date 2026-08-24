@@ -1248,6 +1248,10 @@ export type Database = {
       }
     }
     Functions: {
+      can_manage_revelao_event: {
+        Args: { target_event_id: string }
+        Returns: boolean
+      }
       captains_event_status: {
         Args: { _end: string; _start: string }
         Returns: string
