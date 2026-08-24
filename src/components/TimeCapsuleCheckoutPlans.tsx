@@ -5,7 +5,18 @@ type TimeCapsuleCheckoutPlansProps = {
   customerEmail?: string | null;
 };
 
-const capsulePlans = [
+type CapsulePlan = {
+  name: string;
+  messages: string;
+  price: string;
+  description: string;
+  features: readonly string[];
+  checkoutUrl: string;
+  featured?: boolean;
+  badge?: string;
+};
+
+const capsulePlans: readonly CapsulePlan[] = [
   {
     name: "Evento Basic",
     messages: "Hasta 50 mensajes",
