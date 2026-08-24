@@ -315,7 +315,8 @@ serve(async (req) => {
         expiry_date: expiryDate.toISOString(),
         expiry_redirect_url: event.expiry_redirect_url ?? null,
         allow_photo_deletion: true,
-        show_legal_text: true,
+        show_legal_text: false,
+        legal_text_type: "default",
         owner_id: ownerId,
       })
       .select()
