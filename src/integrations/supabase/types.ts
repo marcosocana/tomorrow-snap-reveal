@@ -1262,6 +1262,14 @@ export type Database = {
         }
         Returns: Json
       }
+      get_event_media_counts: {
+        Args: { target_event_id: string }
+        Returns: {
+          audio_count: number
+          photo_count: number
+          video_count: number
+        }[]
+      }
       schedule_demo_lifecycle_email_cron: { Args: never; Returns: undefined }
       schedule_time_capsule_unlock_cron: { Args: never; Returns: undefined }
     }
