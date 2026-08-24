@@ -487,7 +487,7 @@ const EventForm = () => {
         }
         return;
       }
-      if (planType === "capsule" && capsuleRedeemToken && !isEditing) {
+      if (requestedProduct === "capsule" && capsuleRedeemToken && !isEditing) {
         setIsLoading(false);
         return;
       }
@@ -506,7 +506,7 @@ const EventForm = () => {
     };
 
     checkAuth();
-  }, [navigate, isDemoMode, isEditing, eventId, adminEventId, location.pathname, location.search, pathPrefix, planType, capsuleRedeemToken]);
+  }, [navigate, isDemoMode, isEditing, eventId, adminEventId, location.pathname, location.search, pathPrefix, requestedProduct, capsuleRedeemToken]);
 
   const loadEvent = async () => {
     if (!eventId) return;
