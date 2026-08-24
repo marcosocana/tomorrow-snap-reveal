@@ -533,10 +533,14 @@ const EventForm = () => {
       const qrPasswordSettings = getEventQrPasswordSettings(event.limits_json);
       const resolvedPlanType =
         event.plan_id === TIME_CAPSULE_PLAN_ID || event.type === TIME_CAPSULE_PLAN_ID ? "capsule" :
-        event.plan_id === "demo" || event.max_photos === 10 ? "demo" :
-        event.plan_id === "small" || event.max_photos === 200 ? "small" :
-        event.plan_id === "medium" || event.plan_id === "large" || event.max_photos === 1200 || event.max_photos === 5000 ? "medium" :
+        event.plan_id === "demo" ? "demo" :
+        event.plan_id === "small" ? "small" :
+        event.plan_id === "medium" || event.plan_id === "large" ? "medium" :
         event.plan_id === "xxl" ? "xxl" :
+        event.plan_id === "custom" ? "custom" :
+        event.max_photos === 10 ? "demo" :
+        event.max_photos === 50 || event.max_photos === 200 ? "small" :
+        event.max_photos === 300 || event.max_photos === 1200 || event.max_photos === 5000 ? "medium" :
         event.max_photos == null ? "xxl" :
         "custom";
 
@@ -945,7 +949,9 @@ const EventForm = () => {
             upload_end_time: uploadEndDateTime.toISOString(),
             reveal_time: revealDateTime.toISOString(),
             hide_reveal_date: formData.hideRevealDate,
-            max_photos: isRestrictedAdmin ? 10 : (resolvedMaxPhotos ? parseInt(resolvedMaxPhotos) : null),
+            max_photos: isRestrictedAdmin && !isSuperAdmin
+              ? 10
+              : (resolvedMaxPhotos ? parseInt(resolvedMaxPhotos) : null),
             ...(isSuperAdmin ? getPlanPersistence(planType) : {}),
             custom_image_url: customImageUrl,
             background_image_url: backgroundImageUrl,
@@ -977,12 +983,22 @@ const EventForm = () => {
             header_style: formData.headerStyle,
           } as any)
           .eq("id", eventId)
-          .select("id, hide_reveal_date")
+          .select("id, hide_reveal_date, type, plan_id, is_demo, max_photos, max_videos, max_audios")
           .maybeSingle();
 
         if (error) throw error;
         if (!updatedEvent || updatedEvent.hide_reveal_date !== formData.hideRevealDate) {
           throw new Error("No se pudo guardar la opción de ocultar la fecha de revelado");
+        }
+        if (isSuperAdmin) {
+          const expectedPlan = getPlanPersistence(planType);
+          if (
+            updatedEvent.type !== expectedPlan.type ||
+            updatedEvent.plan_id !== expectedPlan.plan_id ||
+            updatedEvent.is_demo !== expectedPlan.is_demo
+          ) {
+            throw new Error("No se pudo actualizar el tipo de evento");
+          }
         }
 
         toast({

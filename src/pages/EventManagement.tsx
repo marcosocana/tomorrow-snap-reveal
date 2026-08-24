@@ -880,6 +880,11 @@ const EventManagement = () => {
 
   const getPlanType = (maxPhotos?: number | null, planId?: string | null) => {
     if (planId === "capsule") return { label: "Cápsula del tiempo", color: "bg-rose-50 text-rose-700 border-rose-200" };
+    if (planId === "demo") return { label: "Demo", color: "bg-[#f06a5f]/10 text-[#f06a5f] border-[#f06a5f]/30" };
+    if (planId === "small") return { label: "Start", color: "bg-emerald-50 text-emerald-700 border-emerald-200" };
+    if (planId === "medium" || planId === "large") return { label: "Plus", color: "bg-blue-50 text-blue-700 border-blue-200" };
+    if (planId === "xxl") return { label: "Pro", color: "bg-purple-50 text-purple-700 border-purple-200" };
+    if (planId === "custom") return { label: "Personalizado", color: "bg-muted text-muted-foreground border-border" };
     if (maxPhotos === 10) return { label: "Demo", color: "bg-[#f06a5f]/10 text-[#f06a5f] border-[#f06a5f]/30" };
     if (maxPhotos === 50 || maxPhotos === 200) return { label: "Start", color: "bg-emerald-50 text-emerald-700 border-emerald-200" };
     if (maxPhotos === 300 || maxPhotos === 1200 || maxPhotos === 5000) return { label: "Plus", color: "bg-blue-50 text-blue-700 border-blue-200" };
