@@ -15,6 +15,7 @@ import { PricingPreview } from "@/components/PricingPreview";
 import { getTranslations, getEventLanguage, getEventTimezone, getLocalDateInTimezone, Language } from "@/lib/translations";
 import { EventFontFamily, getEventFontFamily } from "@/lib/eventFonts";
 import { clearPersistedGuestEventPassword, getPersistedGuestEventPassword } from "@/lib/guestEventAccess";
+import { getEventMediaCounts } from "@/lib/eventMediaCounts";
 import {
   Dialog,
   DialogContent,
@@ -415,29 +416,13 @@ const Camera = () => {
 
   const loadMediaCounts = async () => {
     if (!eventId) return;
-    const [photosRes, videosRes, audiosRes] = await Promise.all([
-      supabase
-        .from("photos")
-        .select("*", { count: "exact", head: true })
-        .eq("event_id", eventId),
-      supabase
-        .from("videos")
-        .select("*", { count: "exact", head: true })
-        .eq("event_id", eventId),
-      supabase
-        .from("audios")
-        .select("*", { count: "exact", head: true })
-        .eq("event_id", eventId),
-    ]);
-
-    if (!photosRes.error) {
-      setPhotoCount(photosRes.count || 0);
-    }
-    if (!videosRes.error) {
-      setVideoCount(videosRes.count || 0);
-    }
-    if (!audiosRes.error) {
-      setAudioCount(audiosRes.count || 0);
+    try {
+      const counts = await getEventMediaCounts(eventId);
+      setPhotoCount(counts.photos);
+      setVideoCount(counts.videos);
+      setAudioCount(counts.audios);
+    } catch (error) {
+      console.error("Error loading event media counts:", error);
     }
   };
 
@@ -1019,12 +1004,17 @@ const Camera = () => {
     const durationSeconds =
       recordingDuration || (recordingMode === "video" ? videoDurationSeconds : audioDurationSeconds);
     setIsUploadingMedia(true);
+    let uploaded = false;
     try {
-      await uploadMediaFile(recordingBlob, recordingMode, durationSeconds, recordingMimeTypeRef.current);
+      uploaded = Boolean(
+        await uploadMediaFile(recordingBlob, recordingMode, durationSeconds, recordingMimeTypeRef.current)
+      );
     } finally {
       setIsUploadingMedia(false);
     }
-    closeRecordingOverlay();
+    if (uploaded) {
+      closeRecordingOverlay();
+    }
   };
 
   const getSelectedFiles = (files: FileList | null, maxFiles = MAX_ATTACHMENT_FILES) => {
@@ -1118,6 +1108,12 @@ const Camera = () => {
 
       if (options?.trackRateLimit !== false) {
         registerDirectCaptureUpload(mode);
+      }
+
+      if (mode === "video") {
+        setVideoCount((current) => current + 1);
+      } else {
+        setAudioCount((current) => current + 1);
       }
 
       const description =

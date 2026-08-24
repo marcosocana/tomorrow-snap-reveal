@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { getEventMediaCounts } from "@/lib/eventMediaCounts";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -442,20 +443,12 @@ const EventManagement = () => {
     }
 
     const countMediaForEvent = async (eventId: string) => {
-      const [photosRes, videosRes, audiosRes] = await Promise.all([
-        supabase.from("photos").select("id", { count: "exact", head: true }).eq("event_id", eventId),
-        supabase.from("videos").select("id", { count: "exact", head: true }).eq("event_id", eventId),
-        supabase.from("audios").select("id", { count: "exact", head: true }).eq("event_id", eventId),
-      ]);
-
-      return {
-        eventId,
-        counts: {
-          photos: photosRes.error ? fallbackCounts[eventId]?.photos ?? 0 : photosRes.count ?? 0,
-          videos: videosRes.error ? fallbackCounts[eventId]?.videos ?? 0 : videosRes.count ?? 0,
-          audios: audiosRes.error ? fallbackCounts[eventId]?.audios ?? 0 : audiosRes.count ?? 0,
-        },
-      };
+      try {
+        return { eventId, counts: await getEventMediaCounts(eventId) };
+      } catch (error) {
+        console.error(`Error loading media counts for event ${eventId}:`, error);
+        return { eventId, counts: fallbackCounts[eventId] ?? { photos: 0, videos: 0, audios: 0 } };
+      }
     };
 
     const batchSize = 12;

@@ -24,6 +24,7 @@ import { Language, getLanguageByCode } from "@/lib/translations";
 import { getCountryByCode, getTimezoneOffset } from "@/lib/countries";
 import { EventFontFamily, getEventFontFamily } from "@/lib/eventFonts";
 import { FilterType, FILTER_ORDER, getFilterClass, getGrainClass } from "@/lib/photoFilters";
+import { getEventMediaCounts } from "@/lib/eventMediaCounts";
 import { hashPassword } from "@/lib/hashPassword";
 import { getEventQrPasswordSettings, withEventQrPasswordSettings } from "@/lib/eventQrPassword";
 import { notifyAdminNewEvent } from "@/lib/adminEventNotification";
@@ -430,26 +431,7 @@ const EventForm = () => {
 
   const loadEventMediaCounts = async (id: string) => {
     try {
-      const [photosRes, videosRes, audiosRes] = await Promise.all([
-        supabase
-          .from("photos")
-          .select("id", { count: "exact", head: true })
-          .eq("event_id", id),
-        supabase
-          .from("videos")
-          .select("id", { count: "exact", head: true })
-          .eq("event_id", id),
-        supabase
-          .from("audios")
-          .select("id", { count: "exact", head: true })
-          .eq("event_id", id),
-      ]);
-
-      setMediaCounts({
-        photos: photosRes.error ? 0 : Number(photosRes.count ?? 0),
-        videos: videosRes.error ? 0 : Number(videosRes.count ?? 0),
-        audios: audiosRes.error ? 0 : Number(audiosRes.count ?? 0),
-      });
+      setMediaCounts(await getEventMediaCounts(id));
     } catch (error) {
       console.error("Error loading event media counts:", error);
       setMediaCounts({ photos: 0, videos: 0, audios: 0 });
