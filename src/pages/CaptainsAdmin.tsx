@@ -32,6 +32,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import DeferredVideo from "@/components/DeferredVideo";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
@@ -2851,7 +2852,6 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
 
 const EvidencePreview = ({ evidence }: { evidence: CaptainsEvidence }) => {
   const [url, setUrl] = useState("");
-  const [videoPoster, setVideoPoster] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -2865,34 +2865,6 @@ const EvidencePreview = ({ evidence }: { evidence: CaptainsEvidence }) => {
     };
   }, [evidence.file_url]);
 
-  useEffect(() => {
-    if (!url || evidence.evidence_type !== "video") return;
-    let active = true;
-    const video = document.createElement("video");
-    video.crossOrigin = "anonymous";
-    video.preload = "metadata";
-    video.muted = true;
-    video.playsInline = true;
-    const capture = () => {
-      if (!active || !video.videoWidth || !video.videoHeight) return;
-      const canvas = document.createElement("canvas");
-      const scale = Math.min(1, 640 / video.videoWidth);
-      canvas.width = Math.round(video.videoWidth * scale);
-      canvas.height = Math.round(video.videoHeight * scale);
-      const context = canvas.getContext("2d");
-      if (!context) return;
-      try {
-        context.drawImage(video, 0, 0, canvas.width, canvas.height);
-        setVideoPoster(canvas.toDataURL("image/jpeg", 0.7));
-      } catch { setVideoPoster(""); }
-    };
-    video.addEventListener("loadeddata", capture, { once: true });
-    video.addEventListener("loadedmetadata", () => { try { video.currentTime = 0.1; } catch { /* no-op */ } }, { once: true });
-    video.addEventListener("seeked", capture, { once: true });
-    video.src = url;
-    return () => { active = false; video.removeAttribute("src"); video.load(); };
-  }, [evidence.evidence_type, url]);
-
   if (!url) {
     return <div className="flex aspect-video items-center justify-center rounded-md bg-muted text-xs text-muted-foreground">Preview</div>;
   }
@@ -2901,7 +2873,7 @@ const EvidencePreview = ({ evidence }: { evidence: CaptainsEvidence }) => {
     return <img src={url} alt="" className="max-h-[75vh] w-full rounded-md bg-black object-contain" />;
   }
   if (evidence.evidence_type === "video") {
-    return <video src={url} poster={videoPoster || undefined} controls playsInline preload="metadata" className="max-h-[75vh] w-full rounded-md bg-black object-contain" />;
+    return <DeferredVideo source={url} controls playsInline className="max-h-[75vh] w-full rounded-md bg-black object-contain" />;
   }
   return <div className="flex aspect-video items-center justify-center rounded-md bg-muted text-xs text-muted-foreground">Sin preview</div>;
 };

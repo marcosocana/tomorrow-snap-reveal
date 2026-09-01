@@ -51,8 +51,10 @@ interface Photo {
 interface VideoItem {
   id: string;
   video_url: string;
+  thumbnail_url?: string | null;
   captured_at: string;
   signedUrl?: string;
+  thumbnailUrl?: string;
 }
 
 interface AudioItem {
@@ -148,22 +150,26 @@ export const GalleryPreviewModal = ({
     try {
       const { data, error } = await supabase
         .from("videos")
-        .select("id, video_url, captured_at")
+        .select("id, video_url, thumbnail_url, captured_at")
         .eq("event_id", eventId)
         .order("captured_at", { ascending: true });
       if (error) throw error;
 
-      const withUrls = await Promise.all(
-        (data || []).map(async (video) => {
-          const { data: signedData } = await supabase.storage
-            .from("event-videos")
-            .createSignedUrl(video.video_url, 3600);
-          return {
-            ...video,
-            signedUrl: signedData?.signedUrl || "",
-          };
-        })
-      );
+      const videoRows = data || [];
+      const thumbnailPaths = videoRows.flatMap((video) => video.thumbnail_url ? [video.thumbnail_url] : []);
+      const [{ data: signedVideos }, { data: signedThumbnails }] = await Promise.all([
+        supabase.storage.from("event-videos").createSignedUrls(videoRows.map((video) => video.video_url), 3600),
+        thumbnailPaths.length > 0
+          ? supabase.storage.from("event-videos").createSignedUrls(thumbnailPaths, 3600)
+          : Promise.resolve({ data: [] }),
+      ]);
+      const videoUrlsByPath = new Map((signedVideos || []).map((item) => [item.path, item.signedUrl || ""]));
+      const thumbnailUrlsByPath = new Map((signedThumbnails || []).map((item) => [item.path, item.signedUrl || ""]));
+      const withUrls = videoRows.map((video) => ({
+        ...video,
+        signedUrl: videoUrlsByPath.get(video.video_url) || "",
+        thumbnailUrl: video.thumbnail_url ? thumbnailUrlsByPath.get(video.thumbnail_url) || "" : "",
+      }));
 
       setVideos(withUrls as VideoItem[]);
       setTotalVideos((withUrls || []).length);
@@ -930,7 +936,7 @@ export const GalleryPreviewModal = ({
                       className="relative aspect-square rounded-lg overflow-hidden cursor-pointer group bg-black"
                       onClick={() => setSelectedVideo(video)}
                     >
-                      <video src={video.signedUrl || ""} className="w-full h-full object-cover" muted playsInline preload="metadata" />
+                      <video poster={video.thumbnailUrl || undefined} className="w-full h-full object-cover" muted playsInline preload="none" />
                       <div className="absolute inset-0 bg-black/20 group-hover:bg-black/35 transition-colors" />
                     </div>
                   ))}
@@ -1116,6 +1122,7 @@ export const GalleryPreviewModal = ({
                 controls
                 autoPlay
                 playsInline
+                preload="none"
                 className="w-full max-h-[70vh] bg-black object-contain"
               />
             </div>

@@ -28,6 +28,7 @@ import {
 } from "@/lib/timeCapsule";
 import type { Json } from "@/integrations/supabase/types";
 import type { EventFontFamily } from "@/lib/eventFonts";
+import DeferredVideo from "@/components/DeferredVideo";
 
 interface TimeCapsuleAdminFormProps {
   eventId?: string;
@@ -1141,12 +1142,11 @@ const TimeCapsuleAdminForm = ({
                 <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
                   {capsuleVideos.map((capsuleVideo) => (
                     <article key={capsuleVideo.id} className="overflow-hidden rounded-xl border border-border bg-muted/20">
-                      <video
-                        src={capsuleVideo.url}
+                      <DeferredVideo
+                        source={capsuleVideo.url}
                         poster={capsuleVideo.thumbnailUrl || undefined}
                         controls
                         playsInline
-                        preload="metadata"
                         className="aspect-[9/16] max-h-[520px] w-full bg-black object-contain"
                       />
                       <div className="space-y-1 p-3 text-sm">

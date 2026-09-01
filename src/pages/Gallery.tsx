@@ -45,6 +45,7 @@ interface Photo {
 interface VideoItem {
   id: string;
   video_url: string;
+  thumbnail_url?: string | null;
   captured_at: string;
   duration_seconds?: number | null;
   signedUrl?: string;
@@ -227,70 +228,6 @@ const Gallery = () => {
     return format(localDate, formatStr, { locale: dateLocale });
   };
 
-  const createVideoThumbnail = useCallback(async (videoUrl: string): Promise<string | null> => {
-    return new Promise((resolve) => {
-      const video = document.createElement("video");
-      video.crossOrigin = "anonymous";
-      video.muted = true;
-      video.playsInline = true;
-      video.preload = "metadata";
-
-      const cleanup = () => {
-        video.pause();
-        video.removeAttribute("src");
-        video.load();
-      };
-
-      const fail = () => {
-        cleanup();
-        resolve(null);
-      };
-
-      const capture = () => {
-        try {
-          if (!video.videoWidth || !video.videoHeight) {
-            fail();
-            return;
-          }
-          const canvas = document.createElement("canvas");
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
-          const context = canvas.getContext("2d");
-          if (!context) {
-            fail();
-            return;
-          }
-          context.drawImage(video, 0, 0, canvas.width, canvas.height);
-          const dataUrl = canvas.toDataURL("image/jpeg", 0.82);
-          cleanup();
-          resolve(dataUrl);
-        } catch (error) {
-          console.error("Error generating video thumbnail:", error);
-          fail();
-        }
-      };
-
-      const timeoutId = window.setTimeout(fail, 5000);
-
-      video.onloadeddata = () => {
-        window.clearTimeout(timeoutId);
-        const onSeeked = () => {
-          video.onseeked = null;
-          capture();
-        };
-        video.onseeked = onSeeked;
-        try {
-          video.currentTime = 0.01;
-        } catch {
-          capture();
-        }
-      };
-      video.onerror = fail;
-      video.src = videoUrl;
-      video.load();
-    });
-  }, []);
-
   const loadPhotos = useCallback(async (pageNum: number) => {
     if (!eventId) return;
 
@@ -375,7 +312,7 @@ const Gallery = () => {
     try {
       const { data, error } = await supabase
         .from("videos")
-        .select("id,video_url,captured_at,duration_seconds")
+        .select("id,video_url,thumbnail_url,captured_at,duration_seconds")
         .eq("event_id", eventId)
         .order("captured_at", { ascending: true });
       if (error) throw error;
@@ -392,22 +329,23 @@ const Gallery = () => {
       }, {});
       const likedVideos = JSON.parse(localStorage.getItem("likedVideos") || "[]");
 
-      const enriched = await Promise.all(
-        (data || []).map(async (video) => {
-          const { data: signedData } = await supabase.storage
-            .from("event-videos")
-            .createSignedUrl(video.video_url, 3600);
-          const signedUrl = signedData?.signedUrl || "";
-          const thumbnailUrl = signedUrl ? await createVideoThumbnail(signedUrl) : null;
-          return {
-            ...video,
-            signedUrl,
-            thumbnailUrl: thumbnailUrl || "",
-            likeCount: likeCounts[video.id] || 0,
-            hasLiked: likedVideos.includes(video.id),
-          };
-        })
-      );
+      const videoRows = data || [];
+      const thumbnailPaths = videoRows.flatMap((video) => video.thumbnail_url ? [video.thumbnail_url] : []);
+      const [{ data: signedVideos }, { data: signedThumbnails }] = await Promise.all([
+        supabase.storage.from("event-videos").createSignedUrls(videoRows.map((video) => video.video_url), 3600),
+        thumbnailPaths.length > 0
+          ? supabase.storage.from("event-videos").createSignedUrls(thumbnailPaths, 3600)
+          : Promise.resolve({ data: [] }),
+      ]);
+      const videoUrlsByPath = new Map((signedVideos || []).map((item) => [item.path, item.signedUrl || ""]));
+      const thumbnailUrlsByPath = new Map((signedThumbnails || []).map((item) => [item.path, item.signedUrl || ""]));
+      const enriched = videoRows.map((video) => ({
+        ...video,
+        signedUrl: videoUrlsByPath.get(video.video_url) || "",
+        thumbnailUrl: video.thumbnail_url ? thumbnailUrlsByPath.get(video.thumbnail_url) || "" : "",
+        likeCount: likeCounts[video.id] || 0,
+        hasLiked: likedVideos.includes(video.id),
+      }));
 
       setVideos(enriched as VideoItem[]);
       setTotalVideos((enriched || []).length);
@@ -560,12 +498,12 @@ const Gallery = () => {
       return (
         <div className="relative h-full w-full bg-black">
           <video
-            src={item.signedUrl || ""}
+            poster={item.thumbnailUrl || undefined}
             muted
             playsInline
             autoPlay
             loop
-            preload={view === "grid" ? "metadata" : "auto"}
+            preload="none"
             className="w-full h-full object-cover bg-black"
           />
         </div>
@@ -1298,20 +1236,20 @@ const Gallery = () => {
         })
       );
 
-      const videosWithUrls = await Promise.all(
-        (allVideos || []).map(async (video) => {
-          const { data: signedData } = await supabase.storage
-            .from("event-videos")
-            .createSignedUrl(video.video_url, 3600);
-          return {
-            ...video,
-            signedUrl: signedData?.signedUrl || "",
-            likeCount: videoLikeCounts[video.id] || 0,
-            hasLiked: likedVideos.includes(video.id),
-            type: "video" as const,
-          };
-        })
+      const storyVideoRows = allVideos || [];
+      const { data: signedStoryVideos } = await supabase.storage
+        .from("event-videos")
+        .createSignedUrls(storyVideoRows.map((video) => video.video_url), 3600);
+      const storyVideoUrlsByPath = new Map(
+        (signedStoryVideos || []).map((item) => [item.path, item.signedUrl || ""]),
       );
+      const videosWithUrls = storyVideoRows.map((video) => ({
+        ...video,
+        signedUrl: storyVideoUrlsByPath.get(video.video_url) || "",
+        likeCount: videoLikeCounts[video.id] || 0,
+        hasLiked: likedVideos.includes(video.id),
+        type: "video" as const,
+      }));
 
       const audiosWithUrls = await Promise.all(
         visibleAudios.map(async (audio) => {
@@ -2360,6 +2298,7 @@ const Gallery = () => {
                   controls
                   autoPlay
                   playsInline
+                  preload="none"
                   className="w-full h-auto max-h-[70vh] rounded-lg bg-black object-contain"
                 />
               ) : (

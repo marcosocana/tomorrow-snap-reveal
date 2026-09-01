@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import DeferredVideo from "@/components/DeferredVideo";
 import {
   completeCaptainsQuestionChallenge,
   expireCaptainsTableChallenge,
@@ -1006,50 +1007,6 @@ const LoadingScreen = () => (
   </CaptainsShell>
 );
 
-const useVideoPoster = (url: string) => {
-  const [poster, setPoster] = useState("");
-  useEffect(() => {
-    if (!url || url.startsWith("data:image")) {
-      setPoster("");
-      return;
-    }
-    let cancelled = false;
-    const video = document.createElement("video");
-    video.crossOrigin = "anonymous";
-    video.preload = "auto";
-    video.muted = true;
-    video.playsInline = true;
-    const capture = () => {
-      if (cancelled || !video.videoWidth || !video.videoHeight) return;
-      const canvas = document.createElement("canvas");
-      const scale = Math.min(1, 720 / video.videoWidth);
-      canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
-      canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
-      const context = canvas.getContext("2d");
-      if (!context) return;
-      try {
-        context.drawImage(video, 0, 0, canvas.width, canvas.height);
-        if (!cancelled) setPoster(canvas.toDataURL("image/jpeg", 0.78));
-      } catch {
-        if (!cancelled) setPoster("");
-      }
-    };
-    video.addEventListener("loadeddata", capture, { once: true });
-    video.addEventListener("loadedmetadata", () => {
-      try { video.currentTime = Math.min(0.1, Math.max(0, video.duration / 2)); } catch { /* Safari can delay seeking. */ }
-    }, { once: true });
-    video.addEventListener("seeked", capture, { once: true });
-    video.src = url;
-    video.load();
-    return () => {
-      cancelled = true;
-      video.removeAttribute("src");
-      video.load();
-    };
-  }, [url]);
-  return poster;
-};
-
 const SignedEvidenceMedia = ({
   evidence,
   onPhotoOpen,
@@ -1058,7 +1015,6 @@ const SignedEvidenceMedia = ({
   onPhotoOpen?: (url: string) => void;
 }) => {
   const [url, setUrl] = useState("");
-  const videoPoster = useVideoPoster(evidence.evidence_type === "video" ? url : "");
 
   useEffect(() => {
     let active = true;
@@ -1098,7 +1054,7 @@ const SignedEvidenceMedia = ({
     if (url.startsWith("data:image")) {
       return <img src={url} alt="" loading="lazy" className="aspect-[4/3] w-full rounded-[8px] bg-black object-contain" />;
     }
-    return <video src={url} poster={videoPoster || undefined} controls playsInline preload="auto" className="aspect-[4/3] w-full rounded-[8px] bg-black object-contain" />;
+    return <DeferredVideo source={url} controls playsInline className="aspect-[4/3] w-full rounded-[8px] bg-black object-contain" />;
   }
 
   return null;
@@ -1106,7 +1062,6 @@ const SignedEvidenceMedia = ({
 
 const SummaryFullScreenEvidence = ({ evidence }: { evidence?: CaptainsEvidence }) => {
   const [url, setUrl] = useState("");
-  const videoPoster = useVideoPoster(evidence?.evidence_type === "video" ? url : "");
 
   useEffect(() => {
     let active = true;
@@ -1141,7 +1096,7 @@ const SummaryFullScreenEvidence = ({ evidence }: { evidence?: CaptainsEvidence }
   }
 
   if (evidence.evidence_type === "video" && !url.startsWith("data:image")) {
-    return <video src={url} poster={videoPoster || undefined} controls playsInline preload="auto" className="absolute inset-0 h-full w-full bg-black object-contain" />;
+    return <DeferredVideo source={url} controls playsInline className="absolute inset-0 h-full w-full bg-black object-contain" />;
   }
 
   return <img src={url} alt="" loading="lazy" className="absolute inset-0 h-full w-full bg-black object-contain" />;
@@ -2259,7 +2214,7 @@ export default function CaptainsPublic() {
                           poster={evidenceVideoPoster || undefined}
                           controls
                           playsInline
-                          preload="auto"
+                          preload="none"
                           className="max-h-[70svh] w-full bg-black object-contain"
                         />
                       )}

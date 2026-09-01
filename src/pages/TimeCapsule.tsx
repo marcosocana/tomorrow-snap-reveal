@@ -595,7 +595,7 @@ const TimeCapsule = () => {
           poster={recordedThumbnail || undefined}
           controls
           playsInline
-          preload="metadata"
+          preload="none"
           className="absolute inset-x-0 top-0 h-[calc(100%-7rem)] w-full bg-black object-contain"
         />
       ) : (

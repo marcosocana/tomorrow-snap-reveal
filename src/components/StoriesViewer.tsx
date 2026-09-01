@@ -178,6 +178,7 @@ const StoriesViewer = ({
                 controls
                 autoPlay
                 playsInline
+                preload="none"
                 className="max-h-full max-w-full object-contain"
               />
             ) : (
