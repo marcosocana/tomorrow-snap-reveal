@@ -1274,6 +1274,15 @@ export type Database = {
           video_count: number
         }[]
       }
+      get_event_media_counts_batch: {
+        Args: { target_event_ids: string[] }
+        Returns: {
+          audio_count: number
+          event_id: string
+          photo_count: number
+          video_count: number
+        }[]
+      }
       schedule_demo_lifecycle_email_cron: { Args: never; Returns: undefined }
       schedule_time_capsule_unlock_cron: { Args: never; Returns: undefined }
     }
