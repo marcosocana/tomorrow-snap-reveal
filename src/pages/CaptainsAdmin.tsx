@@ -33,6 +33,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import DeferredVideo from "@/components/DeferredVideo";
+import DeferredImage from "@/components/DeferredImage";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
@@ -274,7 +275,7 @@ const CaptainPhotoPreview = ({
     .join("") || String(table.table_number || "?");
 
   return table.captain_photo_url ? (
-    <img src={table.captain_photo_url} alt="" className={`${scale} shrink-0 rounded-full border border-border object-cover`} />
+    <DeferredImage src={table.captain_photo_url} alt="" className={`${scale} shrink-0 rounded-full border border-border object-cover`} />
   ) : (
     <div className={`${scale} flex shrink-0 items-center justify-center rounded-full border border-dashed border-border bg-muted text-sm font-semibold text-muted-foreground`}>
       {initials}

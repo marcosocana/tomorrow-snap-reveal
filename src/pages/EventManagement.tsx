@@ -24,6 +24,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { FilterType } from "@/lib/photoFilters";
 import { getEventStatus } from "@/lib/eventStatus";
 import GalleryPreviewModal from "@/components/GalleryPreviewModal";
+import DeferredImage from "@/components/DeferredImage";
 import FolderCard, { EventFolder } from "@/components/FolderCard";
 import SortableEventList from "@/components/SortableEventList";
 import { useAdminI18n } from "@/lib/adminI18n";
@@ -1496,7 +1497,7 @@ const EventManagement = () => {
                 }}
               >
                 {qrStorageUrl ? (
-                  <img
+                  <DeferredImage
                     src={qrStorageUrl}
                     alt={t("events.qrAlt")}
                     className="w-[120px] h-[120px]"

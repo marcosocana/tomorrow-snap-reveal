@@ -31,6 +31,8 @@ import { hashPassword } from "@/lib/hashPassword";
 import { Skeleton } from "@/components/ui/skeleton";
 import { compressImage } from "@/lib/imageCompression";
 import { getSignedUrlCached, getSignedUrlsCached } from "@/lib/signedUrlCache";
+import DeferredImage from "@/components/DeferredImage";
+import DeferredPosterVideo from "@/components/DeferredPosterVideo";
 import logoRevelao from "@/assets/logo__revelao.png";
 
 interface Photo {
@@ -498,7 +500,7 @@ const Gallery = () => {
   const renderMediaPreview = (item: MixedMediaItem, view: "grid" | "list") => {
     if (item.type === "photo") {
       return (
-        <img
+        <DeferredImage
           src={item.thumbnailUrl || (item as any).fullQualityUrl}
           alt={language === "en" ? "Event photo" : language === "it" ? "Foto evento" : "Foto del evento"}
           className={`w-full h-full object-cover ${getFilterClass(filterType)} transition-transform duration-300 ${
@@ -512,7 +514,7 @@ const Gallery = () => {
     if (item.type === "video") {
       return (
         <div className="relative h-full w-full bg-black">
-          <video
+          <DeferredPosterVideo
             poster={item.thumbnailUrl || undefined}
             muted
             playsInline

@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import DeferredVideo from "@/components/DeferredVideo";
+import DeferredImage from "@/components/DeferredImage";
 import {
   completeCaptainsQuestionChallenge,
   expireCaptainsTableChallenge,
@@ -941,10 +942,9 @@ const PixelTableMap = ({
             <div className="relative mt-5 flex h-28 items-center justify-center bg-transparent">
               {table.captain_photo_url ? (
                 <>
-                  <img
+                  <DeferredImage
                     src={table.captain_photo_url}
                     alt=""
-                    loading="lazy"
                     className="aspect-square h-28 w-28 shrink-0 rounded-full border-3 border-[#151515] object-cover"
                   />
                   <div className="absolute -bottom-3 right-2 px-1">
@@ -1015,11 +1015,36 @@ const SignedEvidenceMedia = ({
   onPhotoOpen?: (url: string) => void;
 }) => {
   const [url, setUrl] = useState("");
+  const visibilityRef = useRef<HTMLDivElement>(null);
+  const [isNearViewport, setIsNearViewport] = useState(false);
+
+  useEffect(() => {
+    const target = visibilityRef.current;
+    if (!target || typeof IntersectionObserver === "undefined") {
+      setIsNearViewport(true);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) return;
+        setIsNearViewport(true);
+        observer.disconnect();
+      },
+      { rootMargin: "600px 0px" },
+    );
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     let active = true;
     if (evidence.file_url.startsWith("blob:") || evidence.file_url.startsWith("data:")) {
       setUrl(evidence.file_url);
+      return () => {
+        active = false;
+      };
+    }
+    if (!isNearViewport) {
       return () => {
         active = false;
       };
@@ -1032,11 +1057,11 @@ const SignedEvidenceMedia = ({
     return () => {
       active = false;
     };
-  }, [evidence.file_url]);
+  }, [evidence.file_url, isNearViewport]);
 
   if (!url) {
     return (
-      <div className="flex aspect-[4/3] items-center justify-center border-2 border-[#151515] bg-white text-[#151515]/45">
+      <div ref={visibilityRef} className="flex aspect-[4/3] items-center justify-center border-2 border-[#151515] bg-white text-[#151515]/45">
         <EvidenceIcon type={evidence.evidence_type} className="h-10 w-10" />
       </div>
     );
@@ -1045,14 +1070,14 @@ const SignedEvidenceMedia = ({
   if (evidence.evidence_type === "photo") {
     return (
       <button type="button" className="block w-full" onClick={() => onPhotoOpen?.(url)}>
-        <img src={url} alt="" loading="lazy" className="aspect-[4/3] w-full rounded-[8px] bg-black object-contain" />
+        <DeferredImage src={url} alt="" className="aspect-[4/3] w-full rounded-[8px] bg-black object-contain" />
       </button>
     );
   }
 
   if (evidence.evidence_type === "video") {
     if (url.startsWith("data:image")) {
-      return <img src={url} alt="" loading="lazy" className="aspect-[4/3] w-full rounded-[8px] bg-black object-contain" />;
+      return <DeferredImage src={url} alt="" className="aspect-[4/3] w-full rounded-[8px] bg-black object-contain" />;
     }
     return <DeferredVideo source={url} controls playsInline className="aspect-[4/3] w-full rounded-[8px] bg-black object-contain" />;
   }

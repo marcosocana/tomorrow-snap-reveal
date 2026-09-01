@@ -8,6 +8,8 @@ import { getFontById, loadGoogleFont, getEventFontFamily, EventFontFamily } from
 import { getFilterClass, FilterType } from "@/lib/photoFilters";
 import { useAdminI18n } from "@/lib/adminI18n";
 import { getSignedUrlCached, getSignedUrlsCached } from "@/lib/signedUrlCache";
+import DeferredImage from "@/components/DeferredImage";
+import DeferredPosterVideo from "@/components/DeferredPosterVideo";
 import JSZip from "jszip";
 import {
   DropdownMenu,
@@ -937,7 +939,7 @@ export const GalleryPreviewModal = ({
                       className="relative aspect-square rounded-lg overflow-hidden cursor-pointer group"
                       onClick={() => setSelectedPhoto(photo)}
                     >
-                      <img
+                      <DeferredImage
                         src={photo.thumbnailUrl || photo.fullQualityUrl}
                         alt=""
                         className={`w-full h-full object-cover ${getFilterClass(filterType)}`}
@@ -959,7 +961,7 @@ export const GalleryPreviewModal = ({
                       className="relative aspect-square rounded-lg overflow-hidden cursor-pointer group bg-black"
                       onClick={() => setSelectedVideo(video)}
                     >
-                      <video poster={video.thumbnailUrl || undefined} className="w-full h-full object-cover" muted playsInline preload="none" />
+                      <DeferredPosterVideo poster={video.thumbnailUrl || undefined} className="w-full h-full object-cover" muted playsInline preload="none" />
                       <div className="absolute inset-0 bg-black/20 group-hover:bg-black/35 transition-colors" />
                     </div>
                   ))}
