@@ -506,7 +506,6 @@ const Gallery = () => {
           className={`w-full h-full object-cover ${getFilterClass(filterType)} transition-transform duration-300 ${
             view === "list" ? "group-hover:scale-105" : ""
           }`}
-          loading="lazy"
           onError={(e) => (e.currentTarget.style.display = "none")}
         />
       );
