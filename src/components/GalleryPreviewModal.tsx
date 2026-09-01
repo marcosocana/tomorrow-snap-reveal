@@ -952,7 +952,6 @@ export const GalleryPreviewModal = ({
                         src={photo.thumbnailUrl || photo.fullQualityUrl}
                         alt=""
                         className={`w-full h-full object-cover ${getFilterClass(filterType)}`}
-                        loading="lazy"
                       />
                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
                       {(photo.likeCount || 0) > 0 && (

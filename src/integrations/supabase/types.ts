@@ -1266,6 +1266,25 @@ export type Database = {
         }
         Returns: Json
       }
+      claim_demo_lifecycle_email_jobs: {
+        Args: { batch_limit?: number; stale_before: string; worker_now: string }
+        Returns: {
+          attempts: number
+          dedupe_key: string
+          email_type: string
+          event_id: string
+          id: string
+          user_id: string
+        }[]
+      }
+      claim_time_capsule_unlock_jobs: {
+        Args: { batch_limit?: number; stale_before: string; worker_now: string }
+        Returns: {
+          attempts: number
+          event_id: string
+          unlock_password: string
+        }[]
+      }
       get_event_media_counts: {
         Args: { target_event_id: string }
         Returns: {
