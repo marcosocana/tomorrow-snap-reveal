@@ -94,22 +94,15 @@ serve(async (req) => {
   });
   const now = new Date().toISOString();
   const stale = new Date(Date.now() - 15 * 60_000).toISOString();
-  await admin.from("time_capsule_unlock_credentials").update({
-    status: "pending", last_error: "Recovered stale processing job", updated_at: now,
-  }).eq("status", "processing").lt("updated_at", stale);
-
-  const { data, error } = await admin.from("time_capsule_unlock_credentials")
-    .select("event_id,unlock_password,attempts")
-    .eq("status", "pending").lte("due_at", now).order("due_at").limit(50);
+  const { data, error } = await admin.rpc("claim_time_capsule_unlock_jobs", {
+    worker_now: now,
+    stale_before: stale,
+    batch_limit: 50,
+  });
   if (error) return json({ error: error.message }, 500);
 
   const results: Array<{ eventId: string; status: string; error?: string }> = [];
   for (const job of (data ?? []) as UnlockJob[]) {
-    const { data: claimed } = await admin.from("time_capsule_unlock_credentials")
-      .update({ status: "processing", attempts: job.attempts + 1, updated_at: new Date().toISOString() })
-      .eq("event_id", job.event_id).eq("status", "pending").select("event_id").maybeSingle();
-    if (!claimed) continue;
-
     try {
       const { data: event, error: eventError } = await admin.from("events")
         .select("id,name,owner_id,upload_end_time,plan_id,type,limits_json")

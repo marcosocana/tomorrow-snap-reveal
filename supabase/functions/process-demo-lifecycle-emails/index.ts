@@ -148,31 +148,16 @@ serve(async (req) => {
   const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
-  const staleProcessing = new Date(Date.now() - 15 * 60_000).toISOString();
-  await admin.from("demo_lifecycle_email_jobs")
-    .update({ status: "pending", last_error: "Recovered stale processing job", updated_at: new Date().toISOString() })
-    .eq("status", "processing")
-    .lt("updated_at", staleProcessing);
-
-  const { data, error } = await admin.from("demo_lifecycle_email_jobs")
-    .select("id,dedupe_key,email_type,event_id,user_id,attempts")
-    .eq("status", "pending")
-    .lte("due_at", new Date().toISOString())
-    .order("due_at", { ascending: true })
-    .limit(50);
+  const workerNow = new Date();
+  const { data, error } = await admin.rpc("claim_demo_lifecycle_email_jobs", {
+    worker_now: workerNow.toISOString(),
+    stale_before: new Date(workerNow.getTime() - 15 * 60_000).toISOString(),
+    batch_limit: 50,
+  });
   if (error) return json({ error: error.message }, 500);
 
   const results: Array<{ id: string; status: string; error?: string }> = [];
   for (const job of (data ?? []) as LifecycleJob[]) {
-    const claimedAt = new Date().toISOString();
-    const { data: claimed } = await admin.from("demo_lifecycle_email_jobs")
-      .update({ status: "processing", attempts: job.attempts + 1, updated_at: claimedAt })
-      .eq("id", job.id)
-      .eq("status", "pending")
-      .select("id")
-      .maybeSingle();
-    if (!claimed) continue;
-
     try {
       const { data: event, error: eventError } = await admin.from("events")
         .select("id,name,password_hash,language")
@@ -214,4 +199,3 @@ serve(async (req) => {
 
   return json({ processed: results.length, results });
 });
-
