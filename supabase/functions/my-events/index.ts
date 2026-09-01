@@ -68,9 +68,9 @@ serve(async (req) => {
 
     const events = data ?? [];
     const eventIds = events.map((e) => e.id);
-    let photoCounts: Record<string, number> = {};
-    let videoCounts: Record<string, number> = {};
-    let audioCounts: Record<string, number> = {};
+    const photoCounts: Record<string, number> = {};
+    const videoCounts: Record<string, number> = {};
+    const audioCounts: Record<string, number> = {};
 
     if (eventIds.length > 0) {
       const { data: countsData, error: countsError } = await supabaseAdmin.rpc(
@@ -90,7 +90,7 @@ serve(async (req) => {
       }
     }
 
-    const enriched = events.map((event: any) => ({
+    const enriched = events.map((event) => ({
       ...event,
       photo_count: photoCounts[event.id] ?? 0,
       video_count: videoCounts[event.id] ?? 0,

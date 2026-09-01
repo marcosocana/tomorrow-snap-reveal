@@ -77,11 +77,11 @@ serve(async (req) => {
       new Set((events || []).map((e) => e.owner_id).filter(Boolean)),
     ) as string[];
 
-    let emailsById: Record<string, string> = {};
-    let phonesById: Record<string, string | null> = {};
-    let photoCounts: Record<string, number> = {};
-    let videoCounts: Record<string, number> = {};
-    let audioCounts: Record<string, number> = {};
+    const emailsById: Record<string, string> = {};
+    const phonesById: Record<string, string | null> = {};
+    const photoCounts: Record<string, number> = {};
+    const videoCounts: Record<string, number> = {};
+    const audioCounts: Record<string, number> = {};
     if (ownerIds.length > 0) {
       const { data: usersData, error: usersError } =
         await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
@@ -97,7 +97,7 @@ serve(async (req) => {
         .select("id,phone")
         .in("id", ownerIds);
 
-      (profiles || []).forEach((p: any) => {
+      (profiles || []).forEach((p) => {
         phonesById[p.id] = p.phone ?? null;
       });
     }

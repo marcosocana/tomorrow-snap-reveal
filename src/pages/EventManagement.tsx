@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { getEventMediaCounts } from "@/lib/eventMediaCounts";
+import { getEventMediaCountsBatch } from "@/lib/eventMediaCounts";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -421,8 +421,11 @@ const EventManagement = () => {
     didChooseInitialProduct.current = true;
   }, [isLoading, isSuperAdmin, orderedProductSections, productCounts]);
 
-  const loadMediaCounts = async (eventsList: Event[]) => {
-    const eventIds = eventsList.map((event) => event.id).filter(Boolean);
+  const applyMediaCounts = (
+    eventsList: Event[],
+    liveCounts: Record<string, { photos: number; videos: number; audios: number }> = {},
+  ) => {
+    const eventIds = Array.from(new Set(eventsList.map((event) => event.id).filter(Boolean)));
     if (eventIds.length === 0) {
       setEventMediaCounts({});
       setEventPhotoCounts({});
@@ -439,25 +442,9 @@ const EventManagement = () => {
     }
     const baseCounts: Record<string, { photos: number; videos: number; audios: number }> = {};
     for (const eventId of eventIds) {
-      baseCounts[eventId] = fallbackCounts[eventId] ?? { photos: 0, videos: 0, audios: 0 };
-    }
-
-    const countMediaForEvent = async (eventId: string) => {
-      try {
-        return { eventId, counts: await getEventMediaCounts(eventId) };
-      } catch (error) {
-        console.error(`Error loading media counts for event ${eventId}:`, error);
-        return { eventId, counts: fallbackCounts[eventId] ?? { photos: 0, videos: 0, audios: 0 } };
-      }
-    };
-
-    const batchSize = 12;
-    for (let index = 0; index < eventIds.length; index += batchSize) {
-      const batch = eventIds.slice(index, index + batchSize);
-      const results = await Promise.all(batch.map((eventId) => countMediaForEvent(eventId)));
-      for (const result of results) {
-        baseCounts[result.eventId] = result.counts;
-      }
+      baseCounts[eventId] = liveCounts[eventId]
+        ?? fallbackCounts[eventId]
+        ?? { photos: 0, videos: 0, audios: 0 };
     }
 
     const photoCounts: Record<string, number> = {};
@@ -467,6 +454,17 @@ const EventManagement = () => {
 
     setEventMediaCounts(baseCounts);
     setEventPhotoCounts(photoCounts);
+  };
+
+  const loadMediaCounts = async (eventsList: Event[]) => {
+    const eventIds = Array.from(new Set(eventsList.map((event) => event.id).filter(Boolean)));
+    try {
+      const liveCounts = await getEventMediaCountsBatch(eventIds);
+      applyMediaCounts(eventsList, liveCounts);
+    } catch (error) {
+      console.error("Error loading event media counts:", error);
+      applyMediaCounts(eventsList);
+    }
   };
 
   useEffect(() => {
@@ -657,7 +655,9 @@ const EventManagement = () => {
           setFolders([]);
         }
 
-        await loadMediaCounts(fetchedEvents);
+        // Both event-list Edge Functions return counts from the batch RPC.
+        // Reuse them instead of issuing a second database request.
+        applyMediaCounts(fetchedEvents);
       }
     } catch (error) {
       console.error("Error loading data:", error);
