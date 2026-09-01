@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { getFontById, loadGoogleFont, getEventFontFamily, EventFontFamily } from "@/lib/eventFonts";
 import { getFilterClass, FilterType } from "@/lib/photoFilters";
 import { useAdminI18n } from "@/lib/adminI18n";
+import { getSignedUrlCached, getSignedUrlsCached } from "@/lib/signedUrlCache";
 import JSZip from "jszip";
 import {
   DropdownMenu,
@@ -157,14 +158,20 @@ export const GalleryPreviewModal = ({
 
       const videoRows = data || [];
       const thumbnailPaths = videoRows.flatMap((video) => video.thumbnail_url ? [video.thumbnail_url] : []);
-      const [{ data: signedVideos }, { data: signedThumbnails }] = await Promise.all([
-        supabase.storage.from("event-videos").createSignedUrls(videoRows.map((video) => video.video_url), 3600),
+      const [videoUrlsByPath, thumbnailUrlsByPath] = await Promise.all([
+        getSignedUrlsCached({
+          bucket: "event-videos",
+          paths: videoRows.map((video) => video.video_url),
+          expiresInSeconds: 3600,
+        }),
         thumbnailPaths.length > 0
-          ? supabase.storage.from("event-videos").createSignedUrls(thumbnailPaths, 3600)
-          : Promise.resolve({ data: [] }),
+          ? getSignedUrlsCached({
+              bucket: "event-videos",
+              paths: thumbnailPaths,
+              expiresInSeconds: 3600,
+            })
+          : Promise.resolve(new Map<string, string>()),
       ]);
-      const videoUrlsByPath = new Map((signedVideos || []).map((item) => [item.path, item.signedUrl || ""]));
-      const thumbnailUrlsByPath = new Map((signedThumbnails || []).map((item) => [item.path, item.signedUrl || ""]));
       const withUrls = videoRows.map((video) => ({
         ...video,
         signedUrl: videoUrlsByPath.get(video.video_url) || "",
@@ -189,12 +196,14 @@ export const GalleryPreviewModal = ({
 
       const withUrls = await Promise.all(
         (data || []).map(async (audio) => {
-          const { data: signedData } = await supabase.storage
-            .from("event-audios")
-            .createSignedUrl(audio.audio_url, 3600);
+          const signedUrl = await getSignedUrlCached({
+            bucket: "event-audios",
+            path: audio.audio_url,
+            expiresInSeconds: 3600,
+          });
           return {
             ...audio,
-            signedUrl: signedData?.signedUrl || "",
+            signedUrl,
           };
         })
       );
@@ -249,20 +258,24 @@ export const GalleryPreviewModal = ({
         // Generate signed URLs
         const photosWithUrls = await Promise.all(
           paginatedPhotos.map(async (photo) => {
-            const { data: thumbnailData } = await supabase.storage
-              .from("event-photos")
-              .createSignedUrl(photo.image_url, 3600, {
-                transform: { width: 400, height: 400, quality: 60 }
-              });
-
-            const { data: fullQualityData } = await supabase.storage
-              .from("event-photos")
-              .createSignedUrl(photo.image_url, 3600);
+            const [thumbnailUrl, fullQualityUrl] = await Promise.all([
+              getSignedUrlCached({
+                bucket: "event-photos",
+                path: photo.image_url,
+                expiresInSeconds: 3600,
+                options: { transform: { width: 400, height: 400, quality: 60 } },
+              }),
+              getSignedUrlCached({
+                bucket: "event-photos",
+                path: photo.image_url,
+                expiresInSeconds: 3600,
+              }),
+            ]);
 
             return {
               ...photo,
-              thumbnailUrl: thumbnailData?.signedUrl || "",
-              fullQualityUrl: fullQualityData?.signedUrl || "",
+              thumbnailUrl,
+              fullQualityUrl,
             };
           })
         );
@@ -301,20 +314,24 @@ export const GalleryPreviewModal = ({
         // Generate signed URLs for each photo
         const photosWithUrls = await Promise.all(
           (data || []).map(async (photo) => {
-            const { data: thumbnailData } = await supabase.storage
-              .from("event-photos")
-              .createSignedUrl(photo.image_url, 3600, {
-                transform: { width: 400, height: 400, quality: 60 }
-              });
-
-            const { data: fullQualityData } = await supabase.storage
-              .from("event-photos")
-              .createSignedUrl(photo.image_url, 3600);
+            const [thumbnailUrl, fullQualityUrl] = await Promise.all([
+              getSignedUrlCached({
+                bucket: "event-photos",
+                path: photo.image_url,
+                expiresInSeconds: 3600,
+                options: { transform: { width: 400, height: 400, quality: 60 } },
+              }),
+              getSignedUrlCached({
+                bucket: "event-photos",
+                path: photo.image_url,
+                expiresInSeconds: 3600,
+              }),
+            ]);
 
             return {
               ...photo,
-              thumbnailUrl: thumbnailData?.signedUrl || "",
-              fullQualityUrl: fullQualityData?.signedUrl || "",
+              thumbnailUrl,
+              fullQualityUrl,
               likeCount: likeCounts[photo.id] || 0,
             };
           })
@@ -633,12 +650,14 @@ export const GalleryPreviewModal = ({
 
       for (let i = 0; i < (allPhotos || []).length; i++) {
         const photo = allPhotos![i];
-        const { data: signedUrlData } = await supabase.storage
-          .from("event-photos")
-          .createSignedUrl(photo.image_url, 3600);
+        const signedUrl = await getSignedUrlCached({
+          bucket: "event-photos",
+          path: photo.image_url,
+          expiresInSeconds: 3600,
+        });
 
-        if (signedUrlData?.signedUrl) {
-          const response = await fetch(signedUrlData.signedUrl);
+        if (signedUrl) {
+          const response = await fetch(signedUrl);
           if (!response.ok) throw new Error(`Photo download failed: ${response.status}`);
           const blob = await response.blob();
           const extension = getExtensionFromStoragePath(photo.image_url, "jpg");
@@ -650,12 +669,14 @@ export const GalleryPreviewModal = ({
 
       for (let i = 0; i < (allVideos || []).length; i++) {
         const video = allVideos![i];
-        const { data: signedUrlData } = await supabase.storage
-          .from("event-videos")
-          .createSignedUrl(video.video_url, 3600);
+        const signedUrl = await getSignedUrlCached({
+          bucket: "event-videos",
+          path: video.video_url,
+          expiresInSeconds: 3600,
+        });
 
-        if (signedUrlData?.signedUrl) {
-          const response = await fetch(signedUrlData.signedUrl);
+        if (signedUrl) {
+          const response = await fetch(signedUrl);
           if (!response.ok) throw new Error(`Video download failed: ${response.status}`);
           const blob = await response.blob();
           const extension = getExtensionFromStoragePath(video.video_url, "webm");
@@ -667,12 +688,14 @@ export const GalleryPreviewModal = ({
 
       for (let i = 0; i < (allAudios || []).length; i++) {
         const audio = allAudios![i];
-        const { data: signedUrlData } = await supabase.storage
-          .from("event-audios")
-          .createSignedUrl(audio.audio_url, 3600);
+        const signedUrl = await getSignedUrlCached({
+          bucket: "event-audios",
+          path: audio.audio_url,
+          expiresInSeconds: 3600,
+        });
 
-        if (signedUrlData?.signedUrl) {
-          const response = await fetch(signedUrlData.signedUrl);
+        if (signedUrl) {
+          const response = await fetch(signedUrl);
           if (!response.ok) throw new Error(`Audio download failed: ${response.status}`);
           const blob = await response.blob();
           const extension = getExtensionFromStoragePath(audio.audio_url, "webm");

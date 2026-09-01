@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { supabasePublic } from "@/integrations/supabase/publicClient";
 import { captainsDefaultChallengeCatalog } from "@/lib/captainsDefaultChallengeCatalog";
+import { getSignedUrlCached } from "@/lib/signedUrlCache";
 import {
   calculateCaptainsAutomaticScore,
   getCaptainsPublicUrl,
@@ -606,12 +607,14 @@ export const getCaptainsTableChallengesForTable = async (eventId: string, tableI
 };
 
 export const getCaptainsEvidenceSignedUrl = async (filePath: string) => {
-  const { data, error } = await supabasePublic.storage.from(CAPTAINS_EVIDENCE_BUCKET).createSignedUrl(
-    filePath,
-    3600,
-  );
-  ensureNoError(error);
-  return data?.signedUrl || "";
+  const signedUrl = await getSignedUrlCached({
+    bucket: CAPTAINS_EVIDENCE_BUCKET,
+    path: filePath,
+    expiresInSeconds: 3600,
+    clientScope: "public",
+  });
+  if (!signedUrl) throw new Error("Unable to create evidence signed URL");
+  return signedUrl;
 };
 
 export const saveCaptainForTable = async (tableId: string, captainName: string) => {

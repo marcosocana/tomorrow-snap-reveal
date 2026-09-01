@@ -3,6 +3,7 @@
 // anonymous client via `supabasePublic`). Sign the user out silently and
 // remove local storage remnants; do NOT retry infinitely.
 import { supabase } from "@/integrations/supabase/client";
+import { clearSignedUrlCache } from "@/lib/signedUrlCache";
 
 const INVALID_REFRESH_MATCHERS = [
   "invalid refresh token",
@@ -35,10 +36,13 @@ export const installSupabaseAuthGuard = () => {
   if (installed) return;
   installed = true;
 
-  supabase.auth.onAuthStateChange((event) => {
-    if (event === "SIGNED_OUT" || event === "TOKEN_REFRESHED") {
-      // nothing to do
+  let activeUserId: string | null = null;
+  supabase.auth.onAuthStateChange((event, session) => {
+    const nextUserId = session?.user.id ?? null;
+    if (event === "SIGNED_OUT" || activeUserId !== nextUserId) {
+      clearSignedUrlCache("authenticated");
     }
+    activeUserId = nextUserId;
   });
 
   // Try to hydrate the session once. If the refresh token is invalid, drop it.
