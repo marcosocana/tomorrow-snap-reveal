@@ -497,9 +497,10 @@ const EventForm = () => {
         navigate(`${pathPrefix}/admin-login?redirect=${encodeURIComponent(returnPath)}`);
         return;
       }
-      setIsSuperAdmin((session.user?.email || "").toLowerCase() === "revelao.cam@gmail.com");
+      const isAdminUser = (session.user?.email || "").toLowerCase() === "revelao.cam@gmail.com";
+      setIsSuperAdmin(isAdminUser);
       if (isEditing) {
-        loadEvent();
+        loadEvent(isAdminUser);
       } else {
         setIsLoading(false);
       }
@@ -508,7 +509,7 @@ const EventForm = () => {
     checkAuth();
   }, [navigate, isDemoMode, isEditing, eventId, adminEventId, location.pathname, location.search, pathPrefix, requestedProduct, capsuleRedeemToken]);
 
-  const loadEvent = async () => {
+  const loadEvent = async (knownIsSuperAdmin?: boolean) => {
     if (!eventId) return;
     
     try {
@@ -603,7 +604,9 @@ const EventForm = () => {
       setPlanType(resolvedPlanType);
       setSavedEditSnapshot(getEditSnapshot(loadedFormData, resolvedPlanType));
 
-      if ((await supabase.auth.getSession()).data.session?.user?.email?.toLowerCase() === "revelao.cam@gmail.com") {
+      const shouldLoadOwner = knownIsSuperAdmin
+        ?? ((await supabase.auth.getSession()).data.session?.user?.email?.toLowerCase() === "revelao.cam@gmail.com");
+      if (shouldLoadOwner) {
         try {
           const { data: ownerPayload } = await supabase.functions.invoke(`admin-events?eventId=${eventId}`, {
             method: "GET",

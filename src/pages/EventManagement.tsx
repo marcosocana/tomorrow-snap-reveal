@@ -35,6 +35,7 @@ import { deleteCaptainsEvent } from "@/lib/captainsService";
 import { CaptainsCheckoutCard } from "@/components/CaptainsCheckoutCard";
 import { TimeCapsuleCheckoutPlans } from "@/components/TimeCapsuleCheckoutPlans";
 import { TIME_CAPSULE_REDEEM_PLANS, type TimeCapsuleRedeemPlanId } from "@/lib/timeCapsule";
+import type { Session } from "@supabase/supabase-js";
 
 interface Event {
   id: string;
@@ -498,7 +499,7 @@ const EventManagement = () => {
           .eq("id", user.id)
           .maybeSingle();
         setMarketingOptIn(profile?.marketing_opt_in ?? true);
-        await loadData();
+        await loadData(session);
       } catch (error) {
         console.error("Error checking authentication:", error);
         setLoadError(true);
@@ -564,7 +565,7 @@ const EventManagement = () => {
     }
   }, [location, navigate]);
 
-  const loadData = async () => {
+  const loadData = async (knownSession?: Session | null) => {
     try {
       setLoadError(false);
       // If we have an adminEventId, only load that specific event
@@ -587,10 +588,10 @@ const EventManagement = () => {
           setEventPhotoCounts({});
         }
     } else {
-        const { data: { session } } = await withInitialLoadTimeout(
+        const session = knownSession ?? (await withInitialLoadTimeout(
           supabase.auth.getSession(),
           "Restoring the session",
-        );
+        )).data.session;
         if (!session) {
           navigate(`${pathPrefix}/admin-login`);
           return;

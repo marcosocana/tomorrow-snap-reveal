@@ -144,10 +144,19 @@ export const GalleryPreviewModal = ({
       setCurrentPage(0);
       setActiveTab("photos");
       loadPhotos(0, sortBy);
+    }
+    // The loader is intentionally keyed by the visible modal inputs below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, eventId, sortBy]);
+
+  useEffect(() => {
+    if (open && eventId) {
       loadVideos();
       loadAudios();
     }
-  }, [open, eventId, sortBy]);
+    // Sorting photos must not refetch the unchanged video/audio collections.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, eventId]);
 
   const loadVideos = async () => {
     try {

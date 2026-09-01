@@ -21,6 +21,10 @@ export const captainsQueryKeys = {
     ["captains", "evidence", eventId, status] as const,
 };
 
+// The challenge catalog is shared by several admin views and changes only
+// through controlled catalogue maintenance, not through these screens.
+const CAPTAINS_CATALOG_STALE_TIME_MS = 30_000;
+
 export const useCaptainsEvents = () =>
   useQuery({
     queryKey: captainsQueryKeys.events(),
@@ -38,6 +42,7 @@ export const useCaptainsChallengeCatalog = (activeOnly = true) =>
   useQuery({
     queryKey: captainsQueryKeys.catalog(activeOnly),
     queryFn: () => getCaptainsChallengeCatalog(activeOnly),
+    staleTime: CAPTAINS_CATALOG_STALE_TIME_MS,
   });
 
 export const useCaptainsRanking = (eventId: string | null | undefined) =>
