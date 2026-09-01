@@ -11,7 +11,7 @@ import { getEventQrPasswordSettings, shouldRequestQrPassword } from "@/lib/event
 import logoRevelao from "@/assets/logo__revelao.png";
 
 type AccessChallenge = {
-  event: EventRow;
+  event: EventAccessRow;
   actualPassword: string;
   isBulkMode: boolean;
   demoEnvEnabled: boolean;
@@ -19,6 +19,7 @@ type AccessChallenge = {
 };
 
 type EventRow = Database["public"]["Tables"]["events"]["Row"];
+type EventAccessRow = Pick<EventRow, "id" | "name" | "language" | "timezone" | "reveal_time" | "limits_json">;
 const EVENT_ACCESS_COLUMNS = "id,name,language,timezone,reveal_time,limits_json" as const;
 
 const EventAccess = () => {
@@ -31,7 +32,7 @@ const EventAccess = () => {
   const [qrPasswordError, setQrPasswordError] = useState("");
 
   const completeGuestAccess = useCallback((
-    event: EventRow,
+    event: EventAccessRow,
     actualPassword: string,
     isBulkMode: boolean,
     demoEnvEnabled: boolean,
