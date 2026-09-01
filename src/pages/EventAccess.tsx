@@ -32,7 +32,7 @@ const EventAccess = () => {
   const [qrPasswordError, setQrPasswordError] = useState("");
 
   const completeGuestAccess = useCallback((
-    event: EventRow,
+    event: EventAccessRow,
     actualPassword: string,
     isBulkMode: boolean,
     demoEnvEnabled: boolean,
