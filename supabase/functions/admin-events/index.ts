@@ -104,34 +104,20 @@ serve(async (req) => {
 
     const eventIds = (events || []).map((e) => e.id);
     if (eventIds.length > 0) {
-      const [photoResult, videoResult, audioResult] = await Promise.all([
-        supabaseAdmin.from("photos").select("event_id").in("event_id", eventIds),
-        supabaseAdmin.from("videos").select("event_id").in("event_id", eventIds),
-        supabaseAdmin.from("audios").select("event_id").in("event_id", eventIds),
-      ]);
+      const { data: countsData, error: countsError } = await supabaseAdmin.rpc(
+        "get_event_media_counts_batch",
+        { target_event_ids: eventIds },
+      );
 
-      if (!photoResult.error && photoResult.data) {
-        photoCounts = photoResult.data.reduce<Record<string, number>>((acc, row: any) => {
-          const id = row.event_id as string;
-          acc[id] = (acc[id] || 0) + 1;
-          return acc;
-        }, {});
+      if (countsError) {
+        return json({ error: "LOAD_COUNTS_FAILED", detail: countsError.message }, 500);
       }
 
-      if (!videoResult.error && videoResult.data) {
-        videoCounts = videoResult.data.reduce<Record<string, number>>((acc, row: any) => {
-          const id = row.event_id as string;
-          acc[id] = (acc[id] || 0) + 1;
-          return acc;
-        }, {});
-      }
-
-      if (!audioResult.error && audioResult.data) {
-        audioCounts = audioResult.data.reduce<Record<string, number>>((acc, row: any) => {
-          const id = row.event_id as string;
-          acc[id] = (acc[id] || 0) + 1;
-          return acc;
-        }, {});
+      for (const row of countsData || []) {
+        const id = row.event_id as string;
+        photoCounts[id] = Number(row.photo_count ?? 0);
+        videoCounts[id] = Number(row.video_count ?? 0);
+        audioCounts[id] = Number(row.audio_count ?? 0);
       }
     }
 
