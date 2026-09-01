@@ -19,6 +19,7 @@ type AccessChallenge = {
 };
 
 type EventRow = Database["public"]["Tables"]["events"]["Row"];
+const EVENT_ACCESS_COLUMNS = "id,name,language,timezone,reveal_time,limits_json" as const;
 
 const EventAccess = () => {
   const { password } = useParams<{ password: string }>();
@@ -108,7 +109,7 @@ const EventAccess = () => {
         // Check for event admin password
         const { data: adminEvents, error: adminError } = await supabase
           .from("events")
-          .select("*")
+          .select(EVENT_ACCESS_COLUMNS)
           .eq("admin_password", actualPassword)
           .limit(1);
 
@@ -131,7 +132,7 @@ const EventAccess = () => {
         // Normal user flow
         const { data: events, error } = await supabase
           .from("events")
-          .select("*")
+          .select(EVENT_ACCESS_COLUMNS)
           .eq("password_hash", actualPassword)
           .limit(1);
 

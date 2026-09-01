@@ -108,67 +108,72 @@ serve(async (req) => {
     if (action === "table") tablesQuery = tablesQuery.eq("id", requestedTableId);
     const { data: tables, error: tablesError } = await tablesQuery.order("table_number", { ascending: true });
     if (tablesError) return json({ error: "LOAD_TABLES_FAILED", detail: tablesError.message }, 500);
+    const tableIds = (tables || []).map((table) => table.id);
+    if (tableIds.length === 0) return json({ success: true, resetTableIds: [] });
 
-    for (const table of tables || []) {
-      const { data: evidence, error: evidenceError } = await admin
-        .from("captains_evidence")
-        .select("id,file_url")
-        .eq("table_id", table.id);
-      if (evidenceError) return json({ error: "LOAD_EVIDENCE_FAILED", detail: evidenceError.message }, 500);
+    const [{ data: evidence, error: evidenceError }, { data: challenges, error: challengesError }] = await Promise.all([
+      admin.from("captains_evidence").select("id,file_url").in("table_id", tableIds),
+      admin.from("captains_table_challenges")
+        .select("id,table_id,randomized_order_index")
+        .in("table_id", tableIds)
+        .order("randomized_order_index", { ascending: true }),
+    ]);
+    if (evidenceError) return json({ error: "LOAD_EVIDENCE_FAILED", detail: evidenceError.message }, 500);
+    if (challengesError) return json({ error: "LOAD_CHALLENGES_FAILED", detail: challengesError.message }, 500);
 
-      const storagePaths = [...new Set((evidence || [])
-        .map((row) => storagePathFromValue(row.file_url))
-        .filter((path): path is string => Boolean(path)))];
-      if (storagePaths.length) {
-        const { error: storageError } = await admin.storage.from(EVIDENCE_BUCKET).remove(storagePaths);
-        if (storageError) return json({ error: "DELETE_STORAGE_FAILED", detail: storageError.message }, 500);
-      }
-
-      const { error: deleteEvidenceError } = await admin.from("captains_evidence").delete().eq("table_id", table.id);
-      if (deleteEvidenceError) return json({ error: "DELETE_EVIDENCE_FAILED", detail: deleteEvidenceError.message }, 500);
-
-      const { data: challenges, error: challengesError } = await admin
-        .from("captains_table_challenges")
-        .select("id")
-        .eq("table_id", table.id)
-        .order("randomized_order_index", { ascending: true });
-      if (challengesError) return json({ error: "LOAD_CHALLENGES_FAILED", detail: challengesError.message }, 500);
-      const challengeIds = (challenges || []).map((row) => row.id);
-      if (challengeIds.length) {
-        const { error: resetError } = await admin.from("captains_table_challenges").update({
-          status: "pending",
-          points_awarded: 0,
-          started_at: null,
-          submitted_at: null,
-          elapsed_seconds: null,
-          remaining_seconds: null,
-          question_answer: null,
-          is_time_expired: false,
-          automatic_score_calculated: false,
-          reviewed_at: null,
-        }).in("id", challengeIds);
-        if (resetError) return json({ error: "RESET_CHALLENGES_FAILED", detail: resetError.message }, 500);
-        const { error: readyError } = await admin
-          .from("captains_table_challenges")
-          .update({ status: "ready" })
-          .eq("id", challengeIds[0]);
-        if (readyError) return json({ error: "READY_FIRST_CHALLENGE_FAILED", detail: readyError.message }, 500);
-      }
-
-      const { error: resetTableError } = await admin.from("captains_tables").update({
-        total_points: 0,
-        completed_challenges: 0,
-        failed_challenges: 0,
-        current_challenge_id: null,
-        completed_at: null,
-        last_activity_at: null,
-        claimed_at: null,
-        claim_device_hash: null,
-      }).eq("id", table.id);
-      if (resetTableError) return json({ error: "RESET_TABLE_FAILED", detail: resetTableError.message }, 500);
+    const storagePaths = [...new Set((evidence || [])
+      .map((row) => storagePathFromValue(row.file_url))
+      .filter((path): path is string => Boolean(path)))];
+    for (let offset = 0; offset < storagePaths.length; offset += 100) {
+      const { error: storageError } = await admin.storage
+        .from(EVIDENCE_BUCKET)
+        .remove(storagePaths.slice(offset, offset + 100));
+      if (storageError) return json({ error: "DELETE_STORAGE_FAILED", detail: storageError.message }, 500);
     }
 
-    return json({ success: true, resetTableIds: (tables || []).map((table) => table.id) });
+    const { error: deleteEvidenceError } = await admin.from("captains_evidence").delete().in("table_id", tableIds);
+    if (deleteEvidenceError) return json({ error: "DELETE_EVIDENCE_FAILED", detail: deleteEvidenceError.message }, 500);
+
+    const challengeIds = (challenges || []).map((row) => row.id);
+    if (challengeIds.length > 0) {
+      const { error: resetError } = await admin.from("captains_table_challenges").update({
+        status: "pending",
+        points_awarded: 0,
+        started_at: null,
+        submitted_at: null,
+        elapsed_seconds: null,
+        remaining_seconds: null,
+        question_answer: null,
+        is_time_expired: false,
+        automatic_score_calculated: false,
+        reviewed_at: null,
+      }).in("id", challengeIds);
+      if (resetError) return json({ error: "RESET_CHALLENGES_FAILED", detail: resetError.message }, 500);
+
+      const firstChallengeIds = Array.from((challenges || []).reduce((firstByTable, challenge) => {
+        if (!firstByTable.has(challenge.table_id)) firstByTable.set(challenge.table_id, challenge.id);
+        return firstByTable;
+      }, new Map<string, string>()).values());
+      const { error: readyError } = await admin
+        .from("captains_table_challenges")
+        .update({ status: "ready" })
+        .in("id", firstChallengeIds);
+      if (readyError) return json({ error: "READY_FIRST_CHALLENGE_FAILED", detail: readyError.message }, 500);
+    }
+
+    const { error: resetTableError } = await admin.from("captains_tables").update({
+      total_points: 0,
+      completed_challenges: 0,
+      failed_challenges: 0,
+      current_challenge_id: null,
+      completed_at: null,
+      last_activity_at: null,
+      claimed_at: null,
+      claim_device_hash: null,
+    }).in("id", tableIds);
+    if (resetTableError) return json({ error: "RESET_TABLE_FAILED", detail: resetTableError.message }, 500);
+
+    return json({ success: true, resetTableIds: tableIds });
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
     console.error("reset-captains-tables unexpected error:", error);

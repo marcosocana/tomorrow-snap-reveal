@@ -166,12 +166,13 @@ serve(async (req) => {
       if (eventError || !event) throw new Error("EVENT_NOT_FOUND");
 
       if (job.email_type === "demo_conversion_24h") {
-        const { count, error: paidError } = await admin.from("events")
-          .select("id", { count: "exact", head: true })
+        const { data: paidEvents, error: paidError } = await admin.from("events")
+          .select("id")
           .eq("owner_id", job.user_id)
-          .or("is_demo.eq.false,type.eq.paid");
+          .or("is_demo.eq.false,type.eq.paid")
+          .limit(1);
         if (paidError) throw paidError;
-        if ((count ?? 0) > 0) {
+        if ((paidEvents?.length ?? 0) > 0) {
           await admin.from("demo_lifecycle_email_jobs").update({
             status: "skipped", last_error: "User already has a paid event", updated_at: new Date().toISOString(),
           }).eq("id", job.id);

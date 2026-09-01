@@ -189,20 +189,25 @@ export const listCaptainsEvents = async () => {
   const events = (data || []) as CaptainsEvent[];
   if (events.length === 0) return [] as CaptainsEventListItem[];
 
-  const enriched = await Promise.all(
-    events.map(async (event) => {
-      const [tablesRes, challengesRes] = await Promise.all([
-        db.from("captains_tables").select("id", { count: "exact", head: true }).eq("event_id", event.id),
-        db.from("captains_event_challenges").select("id", { count: "exact", head: true }).eq("event_id", event.id),
-      ]);
+  const eventIds = events.map((event) => event.id);
+  const [tablesRes, challengesRes] = await Promise.all([
+    db.from("captains_tables").select("event_id").in("event_id", eventIds),
+    db.from("captains_event_challenges").select("event_id").in("event_id", eventIds),
+  ]);
+  const tableCounts = new Map<string, number>();
+  const challengeCounts = new Map<string, number>();
+  for (const row of tablesRes.data || []) {
+    tableCounts.set(row.event_id, (tableCounts.get(row.event_id) || 0) + 1);
+  }
+  for (const row of challengesRes.data || []) {
+    challengeCounts.set(row.event_id, (challengeCounts.get(row.event_id) || 0) + 1);
+  }
 
-      return {
-        ...event,
-        table_count: tablesRes.error ? 0 : tablesRes.count ?? 0,
-        challenge_count: challengesRes.error ? 0 : challengesRes.count ?? 0,
-      } as CaptainsEventListItem;
-    }),
-  );
+  const enriched = events.map((event) => ({
+    ...event,
+    table_count: tablesRes.error ? 0 : tableCounts.get(event.id) || 0,
+    challenge_count: challengesRes.error ? 0 : challengeCounts.get(event.id) || 0,
+  } as CaptainsEventListItem));
 
   return enriched;
 };

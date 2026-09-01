@@ -63,25 +63,29 @@ serve(async (req) => {
     .eq("event_id", event.id).order("captured_at", { ascending: true });
   if (videosError) return json({ error: "VIDEOS_UNAVAILABLE" }, 500);
 
-  const signedVideos = await Promise.all((videos ?? []).map(async (video) => {
-    const [{ data: videoSigned }, { data: thumbnailSigned }] = await Promise.all([
-      admin.storage.from("event-videos").createSignedUrl(video.video_url, 3600),
-      video.thumbnail_url
-        ? admin.storage.from("event-videos").createSignedUrl(video.thumbnail_url, 3600)
-        : Promise.resolve({ data: null }),
-    ]);
+  const videoPaths = Array.from(new Set((videos ?? []).flatMap((video) => [
+    video.video_url,
+    ...(video.thumbnail_url ? [video.thumbnail_url] : []),
+  ])));
+  const { data: signedRows, error: signedError } = videoPaths.length > 0
+    ? await admin.storage.from("event-videos").createSignedUrls(videoPaths, 3600)
+    : { data: [], error: null };
+  if (signedError) return json({ error: "VIDEOS_UNAVAILABLE" }, 500);
+  const signedUrls = new Map((signedRows ?? []).map((row) => [row.path, row.signedUrl]));
+
+  const signedVideos = (videos ?? []).map((video) => {
     const metadata = video.metadata && typeof video.metadata === "object" && !Array.isArray(video.metadata)
       ? video.metadata as Record<string, unknown>
       : {};
     return {
       id: video.id,
-      url: videoSigned?.signedUrl ?? null,
-      thumbnailUrl: thumbnailSigned?.signedUrl ?? null,
+      url: signedUrls.get(video.video_url) ?? null,
+      thumbnailUrl: video.thumbnail_url ? signedUrls.get(video.thumbnail_url) ?? null : null,
       durationSeconds: video.duration_seconds,
       capturedAt: video.captured_at,
       guestName: typeof metadata.guest_name === "string" ? metadata.guest_name : null,
     };
-  }));
+  });
 
   return json({
     unlocked: true,

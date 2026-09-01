@@ -205,25 +205,43 @@ export const GalleryPreviewModal = ({
         .order("captured_at", { ascending: true });
       if (error) throw error;
 
-      const withUrls = await Promise.all(
-        (data || []).map(async (audio) => {
-          const signedUrl = await getSignedUrlCached({
-            bucket: "event-audios",
-            path: audio.audio_url,
-            expiresInSeconds: 3600,
-          });
-          return {
-            ...audio,
-            signedUrl,
-          };
-        })
-      );
+      const audioRows = data || [];
+      const audioUrls = await getSignedUrlsCached({
+        bucket: "event-audios",
+        paths: audioRows.map((audio) => audio.audio_url),
+        expiresInSeconds: 3600,
+      });
+      const withUrls = audioRows.map((audio) => ({
+        ...audio,
+        signedUrl: audioUrls.get(audio.audio_url) || "",
+      }));
 
       setAudios(withUrls as AudioItem[]);
       setTotalAudios((withUrls || []).length);
     } catch (error) {
       console.error("Error loading audios:", error);
     }
+  };
+
+  const addPhotoUrls = async (rows: Photo[]): Promise<Photo[]> => {
+    const [fullQualityUrls, thumbnailUrls] = await Promise.all([
+      getSignedUrlsCached({
+        bucket: "event-photos",
+        paths: rows.map((photo) => photo.image_url),
+        expiresInSeconds: 3600,
+      }),
+      Promise.all(rows.map((photo) => getSignedUrlCached({
+        bucket: "event-photos",
+        path: photo.image_url,
+        expiresInSeconds: 3600,
+        options: { transform: { width: 400, height: 400, quality: 60 } },
+      }))),
+    ]);
+    return rows.map((photo, index) => ({
+      ...photo,
+      thumbnailUrl: thumbnailUrls[index],
+      fullQualityUrl: fullQualityUrls.get(photo.image_url) || "",
+    }));
   };
 
   const loadPhotos = async (page: number, sort: SortBy = "chronological") => {
@@ -247,10 +265,9 @@ export const GalleryPreviewModal = ({
 
         // Get like counts for all photos
         const photoIds = (allPhotos || []).map(p => p.id);
-        const { data: likesData } = await supabase
-          .from("photo_likes")
-          .select("photo_id")
-          .in("photo_id", photoIds);
+        const { data: likesData } = photoIds.length > 0
+          ? await supabase.from("photo_likes").select("photo_id").in("photo_id", photoIds)
+          : { data: [] };
 
         const likeCounts: Record<string, number> = (likesData || []).reduce((acc: Record<string, number>, like: any) => {
           acc[like.photo_id] = (acc[like.photo_id] || 0) + 1;
@@ -267,29 +284,7 @@ export const GalleryPreviewModal = ({
         const paginatedPhotos = sortedPhotos.slice(from, from + PHOTOS_PER_PAGE);
 
         // Generate signed URLs
-        const photosWithUrls = await Promise.all(
-          paginatedPhotos.map(async (photo) => {
-            const [thumbnailUrl, fullQualityUrl] = await Promise.all([
-              getSignedUrlCached({
-                bucket: "event-photos",
-                path: photo.image_url,
-                expiresInSeconds: 3600,
-                options: { transform: { width: 400, height: 400, quality: 60 } },
-              }),
-              getSignedUrlCached({
-                bucket: "event-photos",
-                path: photo.image_url,
-                expiresInSeconds: 3600,
-              }),
-            ]);
-
-            return {
-              ...photo,
-              thumbnailUrl,
-              fullQualityUrl,
-            };
-          })
-        );
+        const photosWithUrls = await addPhotoUrls(paginatedPhotos);
 
         setPhotos(photosWithUrls);
       } else {
@@ -312,10 +307,9 @@ export const GalleryPreviewModal = ({
 
         // Get like counts for current page photos
         const photoIds = (data || []).map(p => p.id);
-        const { data: likesData } = await supabase
-          .from("photo_likes")
-          .select("photo_id")
-          .in("photo_id", photoIds);
+        const { data: likesData } = photoIds.length > 0
+          ? await supabase.from("photo_likes").select("photo_id").in("photo_id", photoIds)
+          : { data: [] };
 
         const likeCounts: Record<string, number> = (likesData || []).reduce((acc: Record<string, number>, like: any) => {
           acc[like.photo_id] = (acc[like.photo_id] || 0) + 1;
@@ -323,30 +317,10 @@ export const GalleryPreviewModal = ({
         }, {});
 
         // Generate signed URLs for each photo
-        const photosWithUrls = await Promise.all(
-          (data || []).map(async (photo) => {
-            const [thumbnailUrl, fullQualityUrl] = await Promise.all([
-              getSignedUrlCached({
-                bucket: "event-photos",
-                path: photo.image_url,
-                expiresInSeconds: 3600,
-                options: { transform: { width: 400, height: 400, quality: 60 } },
-              }),
-              getSignedUrlCached({
-                bucket: "event-photos",
-                path: photo.image_url,
-                expiresInSeconds: 3600,
-              }),
-            ]);
-
-            return {
-              ...photo,
-              thumbnailUrl,
-              fullQualityUrl,
-              likeCount: likeCounts[photo.id] || 0,
-            };
-          })
-        );
+        const photosWithUrls = await addPhotoUrls((data || []).map((photo) => ({
+          ...photo,
+          likeCount: likeCounts[photo.id] || 0,
+        })));
 
         setPhotos(photosWithUrls);
       }

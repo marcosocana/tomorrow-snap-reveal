@@ -349,7 +349,7 @@ const Camera = () => {
   useEffect(() => {
     if (!eventId) return;
     const interval = window.setInterval(() => {
-      loadEventData();
+      if (document.visibilityState === "visible") loadEventData();
     }, 15000);
     return () => window.clearInterval(interval);
   }, [eventId, loadEventData]);

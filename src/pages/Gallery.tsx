@@ -240,7 +240,7 @@ const Gallery = () => {
 
       const { data, error, count } = await supabase
         .from("photos")
-        .select("*", { count: 'exact' })
+        .select("id,image_url,captured_at", { count: 'exact' })
         .eq("event_id", eventId)
         .order("captured_at", { ascending: true })
         .range(from, to);
@@ -249,10 +249,9 @@ const Gallery = () => {
 
       // Get like counts for each photo
       const photoIds = (data || []).map(p => p.id);
-      const { data: likesData } = await supabase
-        .from("photo_likes")
-        .select("photo_id")
-        .in("photo_id", photoIds);
+      const { data: likesData } = photoIds.length > 0
+        ? await supabase.from("photo_likes").select("photo_id").in("photo_id", photoIds)
+        : { data: [] };
 
       const likeCounts = (likesData || []).reduce((acc: any, like: any) => {
         acc[like.photo_id] = (acc[like.photo_id] || 0) + 1;
@@ -263,37 +262,33 @@ const Gallery = () => {
       const likedPhotos = JSON.parse(localStorage.getItem("likedPhotos") || "[]");
 
       // Get signed URLs for thumbnails and full quality
-      const photosWithUrls = await Promise.all(
-        (data || []).map(async (photo) => {
-          const [thumbnailUrl, fullQualityUrl] = await Promise.all([
-            getSignedUrlCached({
-              bucket: "event-photos",
-              path: photo.image_url,
-              expiresInSeconds: 3600,
-              options: {
-                transform: {
-                  width: 560,
-                  height: 560,
-                  quality: 75
-                }
-              },
-            }),
-            getSignedUrlCached({
-              bucket: "event-photos",
-              path: photo.image_url,
-              expiresInSeconds: 3600,
-            }),
-          ]);
-
-          return {
-            ...photo,
-            thumbnailUrl,
-            fullQualityUrl,
-            likeCount: likeCounts[photo.id] || 0,
-            hasLiked: likedPhotos.includes(photo.id),
-          };
-        })
-      );
+      const photoRows = data || [];
+      const [fullQualityUrls, thumbnailUrls] = await Promise.all([
+        getSignedUrlsCached({
+          bucket: "event-photos",
+          paths: photoRows.map((photo) => photo.image_url),
+          expiresInSeconds: 3600,
+        }),
+        Promise.all(photoRows.map((photo) => getSignedUrlCached({
+            bucket: "event-photos",
+            path: photo.image_url,
+            expiresInSeconds: 3600,
+            options: {
+              transform: {
+                width: 560,
+                height: 560,
+                quality: 75
+              }
+            },
+          }))),
+      ]);
+      const photosWithUrls = photoRows.map((photo, index) => ({
+        ...photo,
+        thumbnailUrl: thumbnailUrls[index],
+        fullQualityUrl: fullQualityUrls.get(photo.image_url) || "",
+        likeCount: likeCounts[photo.id] || 0,
+        hasLiked: likedPhotos.includes(photo.id),
+      }));
 
       // Sort photos by captured_at to ensure correct order (oldest first)
       const sortedPhotos = photosWithUrls.sort((a, b) => 
@@ -327,10 +322,9 @@ const Gallery = () => {
       if (error) throw error;
 
       const videoIds = (data || []).map((v) => v.id);
-      const { data: likesData } = await supabase
-        .from("video_likes" as any)
-        .select("video_id")
-        .in("video_id", videoIds);
+      const { data: likesData } = videoIds.length > 0
+        ? await supabase.from("video_likes" as any).select("video_id").in("video_id", videoIds)
+        : { data: [] };
 
       const likeCounts = (likesData || []).reduce((acc: any, like: any) => {
         acc[like.video_id] = (acc[like.video_id] || 0) + 1;
@@ -385,10 +379,9 @@ const Gallery = () => {
       if (error) throw error;
 
       const audioIds = (data || []).map((a) => a.id);
-      const { data: likesData } = await supabase
-        .from("audio_likes" as any)
-        .select("audio_id")
-        .in("audio_id", audioIds);
+      const { data: likesData } = audioIds.length > 0
+        ? await supabase.from("audio_likes" as any).select("audio_id").in("audio_id", audioIds)
+        : { data: [] };
 
       const likeCounts = (likesData || []).reduce((acc: any, like: any) => {
         acc[like.audio_id] = (acc[like.audio_id] || 0) + 1;
@@ -695,9 +688,16 @@ const Gallery = () => {
   useEffect(() => {
     if (!eventId) return;
     const interval = window.setInterval(() => {
-      loadEventData();
+      if (document.visibilityState === "visible") loadEventData();
     }, 15000);
-    return () => window.clearInterval(interval);
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") loadEventData();
+    };
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+    };
   }, [eventId, loadEventData]);
 
   useEffect(() => {
@@ -1180,7 +1180,7 @@ const Gallery = () => {
       const [{ data: allPhotos, error: photosError }, { data: allVideos, error: videosError }, { data: allAudios, error: audiosError }] = await Promise.all([
         supabase
         .from("photos")
-        .select("*")
+        .select("id,image_url,captured_at")
         .eq("event_id", eventId)
         .order("captured_at", { ascending: true }),
         supabase
@@ -1201,10 +1201,9 @@ const Gallery = () => {
       const visibleAudios = allowAudioRecording ? (allAudios || []) : [];
 
       const photoIds = (allPhotos || []).map(p => p.id);
-      const { data: likesData } = await supabase
-        .from("photo_likes")
-        .select("photo_id")
-        .in("photo_id", photoIds);
+      const { data: likesData } = photoIds.length > 0
+        ? await supabase.from("photo_likes").select("photo_id").in("photo_id", photoIds)
+        : { data: [] };
 
       const likeCounts = (likesData || []).reduce((acc: any, like: any) => {
         acc[like.photo_id] = (acc[like.photo_id] || 0) + 1;
@@ -1236,23 +1235,18 @@ const Gallery = () => {
         return acc;
       }, {});
 
-      const photosWithUrls = await Promise.all(
-        (allPhotos || []).map(async (photo) => {
-          const fullQualityUrl = await getSignedUrlCached({
-            bucket: "event-photos",
-            path: photo.image_url,
-            expiresInSeconds: 3600,
-          });
-
-          return {
-            ...photo,
-            fullQualityUrl,
-            likeCount: likeCounts[photo.id] || 0,
-            hasLiked: likedPhotos.includes(photo.id),
-            type: "photo" as const,
-          };
-        })
-      );
+      const storyPhotoUrls = await getSignedUrlsCached({
+        bucket: "event-photos",
+        paths: (allPhotos || []).map((photo) => photo.image_url),
+        expiresInSeconds: 3600,
+      });
+      const photosWithUrls = (allPhotos || []).map((photo) => ({
+        ...photo,
+        fullQualityUrl: storyPhotoUrls.get(photo.image_url) || "",
+        likeCount: likeCounts[photo.id] || 0,
+        hasLiked: likedPhotos.includes(photo.id),
+        type: "photo" as const,
+      }));
 
       const storyVideoRows = allVideos || [];
       const storyVideoUrlsByPath = await getSignedUrlsCached({

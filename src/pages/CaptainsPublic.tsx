@@ -1920,8 +1920,28 @@ export default function CaptainsPublic() {
   useEffect(() => {
     if (!["live", "resumen"].includes(step) || !event) return;
     refreshLive();
-    const id = window.setInterval(refreshLive, 8000);
-    return () => window.clearInterval(id);
+    let intervalId: number | null = null;
+    const startPolling = () => {
+      if (intervalId === null) intervalId = window.setInterval(refreshLive, 8000);
+    };
+    const stopPolling = () => {
+      if (intervalId !== null) window.clearInterval(intervalId);
+      intervalId = null;
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        refreshLive();
+        startPolling();
+      } else {
+        stopPolling();
+      }
+    };
+    if (document.visibilityState === "visible") startPolling();
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      stopPolling();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, [step, event?.id]);
 
   useEffect(() => {

@@ -25,7 +25,7 @@ const Login = () => {
       // Check for event admin password (ver fotos antes del revelado)
       const { data: adminEvents, error: adminError } = await supabase
         .from("events")
-        .select("*")
+        .select("id,name,language,timezone")
         .eq("admin_password", actualPassword)
         .limit(1);
 
@@ -48,7 +48,7 @@ const Login = () => {
       // Normal user flow
       const { data: events, error } = await supabase
         .from("events")
-        .select("*")
+        .select("id,name,language,timezone,reveal_time")
         .eq("password_hash", actualPassword)
         .limit(1);
 
