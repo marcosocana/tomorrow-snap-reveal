@@ -69,25 +69,32 @@ serve(async (req) => {
     const events = data ?? [];
     const eventIds = events.map((e) => e.id);
     let photoCounts: Record<string, number> = {};
+    let videoCounts: Record<string, number> = {};
+    let audioCounts: Record<string, number> = {};
 
     if (eventIds.length > 0) {
-      const { data: photos, error: photosError } = await supabaseAdmin
-        .from("photos")
-        .select("event_id")
-        .in("event_id", eventIds);
+      const { data: countsData, error: countsError } = await supabaseAdmin.rpc(
+        "get_event_media_counts_batch",
+        { target_event_ids: eventIds },
+      );
 
-      if (!photosError && photos) {
-        photoCounts = photos.reduce<Record<string, number>>((acc, row: any) => {
-          const id = row.event_id as string;
-          acc[id] = (acc[id] || 0) + 1;
-          return acc;
-        }, {});
+      if (countsError) {
+        return json({ error: "LOAD_COUNTS_FAILED", detail: countsError.message }, 500);
+      }
+
+      for (const row of countsData || []) {
+        const id = row.event_id as string;
+        photoCounts[id] = Number(row.photo_count ?? 0);
+        videoCounts[id] = Number(row.video_count ?? 0);
+        audioCounts[id] = Number(row.audio_count ?? 0);
       }
     }
 
     const enriched = events.map((event: any) => ({
       ...event,
       photo_count: photoCounts[event.id] ?? 0,
+      video_count: videoCounts[event.id] ?? 0,
+      audio_count: audioCounts[event.id] ?? 0,
     }));
 
     const { data: captainsEvents, error: captainsError } = await supabaseAdmin
