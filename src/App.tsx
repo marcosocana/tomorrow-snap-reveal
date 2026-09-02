@@ -166,6 +166,7 @@ const App = () => {
             <Routes>
               <Route path="/" element={<AdminLogin />} />
               <Route path="/login" element={<AdminLogin />} />
+              <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
               <Route path="/logout" element={<Logout />} />
               <Route path="/event-login" element={<Login />} />
               <Route path="/camera" element={<Camera />} />
