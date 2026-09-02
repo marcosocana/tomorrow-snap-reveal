@@ -1052,6 +1052,7 @@ export type Database = {
           custom_privacy_text: string | null
           custom_terms_text: string | null
           description: string | null
+          event_id: string
           expiry_date: string | null
           expiry_redirect_url: string | null
           filter_type: string | null
@@ -1061,7 +1062,6 @@ export type Database = {
           gallery_view_mode: string | null
           header_style: string | null
           hide_reveal_date: boolean
-          id: string
           is_demo: boolean
           language: string | null
           legal_text_type: string | null
@@ -1074,6 +1074,8 @@ export type Database = {
           max_videos: number
           name: string
           plan_id: string | null
+          qr_password_required_camera: boolean
+          qr_password_required_gallery: boolean
           reveal_time: string
           show_legal_text: boolean
           timezone: string | null
@@ -1095,6 +1097,7 @@ export type Database = {
           custom_privacy_text?: string | null
           custom_terms_text?: string | null
           description?: string | null
+          event_id: string
           expiry_date?: string | null
           expiry_redirect_url?: string | null
           filter_type?: string | null
@@ -1104,7 +1107,6 @@ export type Database = {
           gallery_view_mode?: string | null
           header_style?: string | null
           hide_reveal_date?: boolean
-          id: string
           is_demo?: boolean
           language?: string | null
           legal_text_type?: string | null
@@ -1117,6 +1119,8 @@ export type Database = {
           max_videos?: number
           name: string
           plan_id?: string | null
+          qr_password_required_camera?: boolean
+          qr_password_required_gallery?: boolean
           reveal_time: string
           show_legal_text?: boolean
           timezone?: string | null
@@ -1138,6 +1142,7 @@ export type Database = {
           custom_privacy_text?: string | null
           custom_terms_text?: string | null
           description?: string | null
+          event_id?: string
           expiry_date?: string | null
           expiry_redirect_url?: string | null
           filter_type?: string | null
@@ -1147,7 +1152,6 @@ export type Database = {
           gallery_view_mode?: string | null
           header_style?: string | null
           hide_reveal_date?: boolean
-          id?: string
           is_demo?: boolean
           language?: string | null
           legal_text_type?: string | null
@@ -1160,6 +1164,8 @@ export type Database = {
           max_videos?: number
           name?: string
           plan_id?: string | null
+          qr_password_required_camera?: boolean
+          qr_password_required_gallery?: boolean
           reveal_time?: string
           show_legal_text?: boolean
           timezone?: string | null
@@ -1168,7 +1174,15 @@ export type Database = {
           upload_end_time?: string | null
           upload_start_time?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "public_event_configs_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: true
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       purchases: {
         Row: {
@@ -1435,10 +1449,15 @@ export type Database = {
         }[]
       }
       resolve_public_event_access: {
-        Args: { access_password: string }
+        Args: { candidate_password: string }
         Returns: {
-          access_role: string
-          event_id: string
+          id: string
+          language: string
+          name: string
+          qr_password_required_camera: boolean
+          qr_password_required_gallery: boolean
+          reveal_time: string
+          timezone: string
         }[]
       }
       sanitize_public_event_limits: { Args: { raw: Json }; Returns: Json }
@@ -1447,8 +1466,8 @@ export type Database = {
       verify_event_qr_password: {
         Args: {
           candidate_password: string
-          target: string
           target_event_id: string
+          target_scope: string
         }
         Returns: boolean
       }
