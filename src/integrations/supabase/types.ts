@@ -1038,6 +1038,138 @@ export type Database = {
           },
         ]
       }
+      public_event_configs: {
+        Row: {
+          allow_audio_recording: boolean
+          allow_image_attachment: boolean
+          allow_photo_deletion: boolean
+          allow_photo_sharing: boolean
+          allow_video_attachment: boolean
+          allow_video_recording: boolean
+          background_image_url: string | null
+          country_code: string | null
+          custom_image_url: string | null
+          custom_privacy_text: string | null
+          custom_terms_text: string | null
+          description: string | null
+          expiry_date: string | null
+          expiry_redirect_url: string | null
+          filter_type: string | null
+          folder_id: string | null
+          font_family: string | null
+          font_size: string | null
+          gallery_view_mode: string | null
+          header_style: string | null
+          hide_reveal_date: boolean
+          id: string
+          is_demo: boolean
+          language: string | null
+          legal_text_type: string | null
+          like_counting_enabled: boolean
+          limits_json: Json | null
+          max_audio_duration: number
+          max_audios: number
+          max_photos: number | null
+          max_video_duration: number
+          max_videos: number
+          name: string
+          plan_id: string | null
+          reveal_time: string
+          show_legal_text: boolean
+          timezone: string | null
+          type: string | null
+          updated_at: string
+          upload_end_time: string | null
+          upload_start_time: string | null
+        }
+        Insert: {
+          allow_audio_recording?: boolean
+          allow_image_attachment?: boolean
+          allow_photo_deletion?: boolean
+          allow_photo_sharing?: boolean
+          allow_video_attachment?: boolean
+          allow_video_recording?: boolean
+          background_image_url?: string | null
+          country_code?: string | null
+          custom_image_url?: string | null
+          custom_privacy_text?: string | null
+          custom_terms_text?: string | null
+          description?: string | null
+          expiry_date?: string | null
+          expiry_redirect_url?: string | null
+          filter_type?: string | null
+          folder_id?: string | null
+          font_family?: string | null
+          font_size?: string | null
+          gallery_view_mode?: string | null
+          header_style?: string | null
+          hide_reveal_date?: boolean
+          id: string
+          is_demo?: boolean
+          language?: string | null
+          legal_text_type?: string | null
+          like_counting_enabled?: boolean
+          limits_json?: Json | null
+          max_audio_duration?: number
+          max_audios?: number
+          max_photos?: number | null
+          max_video_duration?: number
+          max_videos?: number
+          name: string
+          plan_id?: string | null
+          reveal_time: string
+          show_legal_text?: boolean
+          timezone?: string | null
+          type?: string | null
+          updated_at?: string
+          upload_end_time?: string | null
+          upload_start_time?: string | null
+        }
+        Update: {
+          allow_audio_recording?: boolean
+          allow_image_attachment?: boolean
+          allow_photo_deletion?: boolean
+          allow_photo_sharing?: boolean
+          allow_video_attachment?: boolean
+          allow_video_recording?: boolean
+          background_image_url?: string | null
+          country_code?: string | null
+          custom_image_url?: string | null
+          custom_privacy_text?: string | null
+          custom_terms_text?: string | null
+          description?: string | null
+          expiry_date?: string | null
+          expiry_redirect_url?: string | null
+          filter_type?: string | null
+          folder_id?: string | null
+          font_family?: string | null
+          font_size?: string | null
+          gallery_view_mode?: string | null
+          header_style?: string | null
+          hide_reveal_date?: boolean
+          id?: string
+          is_demo?: boolean
+          language?: string | null
+          legal_text_type?: string | null
+          like_counting_enabled?: boolean
+          limits_json?: Json | null
+          max_audio_duration?: number
+          max_audios?: number
+          max_photos?: number | null
+          max_video_duration?: number
+          max_videos?: number
+          name?: string
+          plan_id?: string | null
+          reveal_time?: string
+          show_legal_text?: boolean
+          timezone?: string | null
+          type?: string | null
+          updated_at?: string
+          upload_end_time?: string | null
+          upload_start_time?: string | null
+        }
+        Relationships: []
+      }
       purchases: {
         Row: {
           created_at: string | null
@@ -1302,8 +1434,24 @@ export type Database = {
           video_count: number
         }[]
       }
+      resolve_public_event_access: {
+        Args: { access_password: string }
+        Returns: {
+          access_role: string
+          event_id: string
+        }[]
+      }
+      sanitize_public_event_limits: { Args: { raw: Json }; Returns: Json }
       schedule_demo_lifecycle_email_cron: { Args: never; Returns: undefined }
       schedule_time_capsule_unlock_cron: { Args: never; Returns: undefined }
+      verify_event_qr_password: {
+        Args: {
+          candidate_password: string
+          target: string
+          target_event_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never
