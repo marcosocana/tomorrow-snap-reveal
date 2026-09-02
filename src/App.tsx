@@ -29,6 +29,7 @@ import { CaptainsAdminDetail, CaptainsAdminForm, CaptainsAdminList, CaptainsOnbo
 import CaptainsPublic from "./pages/CaptainsPublic";
 import LiveSlideshow from "./pages/LiveSlideshow";
 import TimeCapsule from "./pages/TimeCapsule";
+import OAuthConsent from "./pages/OAuthConsent";
 
 const queryClient = new QueryClient();
 
@@ -165,6 +166,7 @@ const App = () => {
             <Routes>
               <Route path="/" element={<AdminLogin />} />
               <Route path="/login" element={<AdminLogin />} />
+              <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
               <Route path="/logout" element={<Logout />} />
               <Route path="/event-login" element={<Login />} />
               <Route path="/camera" element={<Camera />} />

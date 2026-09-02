@@ -1,0 +1,145 @@
+{
+  "version": 1,
+  "sdk_version": "1.0.0",
+  "path": "/functions/v1/mcp",
+  "auth": {
+    "type": "oauth",
+    "issuer": "https://towysccybgjyojcxkbkp.supabase.co/auth/v1",
+    "accepted_audiences": [
+      "authenticated"
+    ]
+  },
+  "mcp": {
+    "server": {
+      "name": "tomorrow-s-album",
+      "version": "0.1.0",
+      "title": "Tomorrow's Album"
+    },
+    "tools": [
+      {
+        "name": "list_events",
+        "title": "List my events",
+        "description": "List the Revelao events owned by the signed-in account, newest first, with schedule and plan limits.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "description": "Maximum number of events to return."
+            },
+            "search": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Optional case-insensitive filter on the event name."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_event",
+        "title": "Get event details",
+        "description": "Get the full configuration of one event owned by the signed-in account. Never returns event or admin passwords.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "event_id": {
+              "type": "string",
+              "format": "uuid",
+              "description": "UUID of the event."
+            }
+          },
+          "required": [
+            "event_id"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_event_media_counts",
+        "title": "Get event media counts",
+        "description": "Count the photos, videos and audios uploaded to one event owned by the signed-in account, even before the reveal.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "event_id": {
+              "type": "string",
+              "format": "uuid",
+              "description": "UUID of the event."
+            }
+          },
+          "required": [
+            "event_id"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "update_event_schedule",
+        "title": "Update event schedule",
+        "description": "Update the upload window and/or the reveal time of an event owned by the signed-in account. Timestamps must be ISO 8601 with timezone offset.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "event_id": {
+              "type": "string",
+              "format": "uuid",
+              "description": "UUID of the event."
+            },
+            "upload_start_time": {
+              "type": "string",
+              "format": "date-time",
+              "description": "New upload window start."
+            },
+            "upload_end_time": {
+              "type": "string",
+              "format": "date-time",
+              "description": "New upload window end."
+            },
+            "reveal_time": {
+              "type": "string",
+              "format": "date-time",
+              "description": "New reveal time."
+            }
+          },
+          "required": [
+            "event_id"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}
