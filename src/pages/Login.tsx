@@ -46,21 +46,26 @@ const Login = () => {
       }
 
       // Normal user flow
-      const { data: events, error } = await supabase
-        .from("events")
-        .select("id,name,language,timezone,reveal_time")
-        .eq("password_hash", actualPassword)
-        .limit(1);
+      const { data: events, error } = await supabase.rpc("resolve_public_event_access" as never, {
+        candidate_password: actualPassword,
+      } as never);
 
       if (error) throw error;
 
-      if (events && events.length > 0) {
+      const publicEvents = events as unknown as Array<{
+        id: string;
+        name: string;
+        language: string | null;
+        timezone: string | null;
+        reveal_time: string;
+      }> | null;
+      if (publicEvents && publicEvents.length > 0) {
         // Store event ID in localStorage
         persistGuestEventPassword(actualPassword);
-        localStorage.setItem("eventId", events[0].id);
-        localStorage.setItem("eventName", events[0].name);
-        localStorage.setItem("eventLanguage", events[0].language || "es");
-        localStorage.setItem("eventTimezone", events[0].timezone || "Europe/Madrid");
+        localStorage.setItem("eventId", publicEvents[0].id);
+        localStorage.setItem("eventName", publicEvents[0].name);
+        localStorage.setItem("eventLanguage", publicEvents[0].language || "es");
+        localStorage.setItem("eventTimezone", publicEvents[0].timezone || "Europe/Madrid");
         localStorage.removeItem("isAdmin");
         
         if (isBulkMode) {
@@ -70,7 +75,7 @@ const Login = () => {
         }
         
         // Check if reveal time has passed
-        const revealTime = new Date(events[0].reveal_time);
+        const revealTime = new Date(publicEvents[0].reveal_time);
         const now = new Date();
         
         if (now >= revealTime) {

@@ -26,14 +26,13 @@ import { getTranslations, getEventLanguage, getEventTimezone, getLocalDateInTime
 import { EventFontFamily, getEventFontFamily } from "@/lib/eventFonts";
 import { getDeviceId } from "@/lib/deviceId";
 import { clearPersistedGuestEventPassword, getPersistedGuestEventPassword } from "@/lib/guestEventAccess";
-import { shouldRequestQrPassword } from "@/lib/eventQrPassword";
-import { hashPassword } from "@/lib/hashPassword";
 import { Skeleton } from "@/components/ui/skeleton";
 import { compressImage } from "@/lib/imageCompression";
 import { getSignedUrlCached, getSignedUrlsCached } from "@/lib/signedUrlCache";
 import DeferredImage from "@/components/DeferredImage";
 import DeferredPosterVideo from "@/components/DeferredPosterVideo";
 import logoRevelao from "@/assets/logo__revelao.png";
+import { useLiveEventConfig } from "@/hooks/useLiveEventConfig";
 
 interface Photo {
   id: string;
@@ -174,7 +173,7 @@ const Gallery = () => {
   const { toast } = useToast();
   const eventId = localStorage.getItem("eventId");
   const [eventName, setEventName] = useState<string>(() => localStorage.getItem("eventName") || "");
-  const [eventPassword, setEventPassword] = useState<string>("");
+  const [eventPassword] = useState<string>(() => getPersistedGuestEventPassword() || "");
   const [eventLimitsJson, setEventLimitsJson] = useState<unknown>(null);
   const [filterType, setFilterType] = useState<FilterType>("vintage");
   const [showShareDialog, setShowShareDialog] = useState(false);
@@ -205,19 +204,15 @@ const Gallery = () => {
   const [allowImageAttachment, setAllowImageAttachment] = useState(false);
   const [allowVideoAttachment, setAllowVideoAttachment] = useState(false);
   const [isUploadingAttachments, setIsUploadingAttachments] = useState(false);
-  const [maxPhotos, setMaxPhotos] = useState<number | null>(null);
-  const [maxVideos, setMaxVideos] = useState<number | null>(null);
   const [videoDurationSeconds, setVideoDurationSeconds] = useState(15);
-  const [uploadStartTime, setUploadStartTime] = useState<string>("");
-  const [uploadEndTime, setUploadEndTime] = useState<string>("");
   const [revealTime, setRevealTime] = useState<string>("");
   const [eventConfigReady, setEventConfigReady] = useState(false);
   const [galleryAccessStatus, setGalleryAccessStatus] = useState<"checking" | "granted" | "challenge">("checking");
-  const [galleryPasswordHash, setGalleryPasswordHash] = useState("");
   const [galleryPasswordInput, setGalleryPasswordInput] = useState("");
   const [galleryPasswordError, setGalleryPasswordError] = useState("");
   const [headerStyle, setHeaderStyle] = useState<"gradient" | "modern">("modern");
   const [isDemoEvent, setIsDemoEvent] = useState(false);
+  const { config: liveEventConfig, isReady: isLiveEventConfigReady, transitionRevision } = useLiveEventConfig(eventId, "gallery");
 
   // Get translations and timezone
   const language = getEventLanguage();
@@ -531,82 +526,65 @@ const Gallery = () => {
     }
   }, [isDemoEnvironmentFromQuery]);
 
-  const loadEventData = useCallback(async () => {
-    if (!eventId) return;
-    try {
-      const { data } = await supabase
-        .from("events")
-      .select("name, password_hash, filter_type, custom_image_url, description, background_image_url, upload_start_time, upload_end_time, reveal_time, expiry_date, expiry_redirect_url, font_family, font_size, allow_photo_deletion, allow_photo_sharing, like_counting_enabled, allow_video_recording, allow_audio_recording, allow_image_attachment, allow_video_attachment, max_photos, max_videos, max_video_duration, header_style, is_demo, limits_json")
-        .eq("id", eventId)
-        .maybeSingle();
-      if (data) {
-        setEventName(data.name || "");
-        localStorage.setItem("eventName", data.name || "");
-        setEventPassword(data.password_hash);
-        setEventLimitsJson((data as any).limits_json || null);
-        setFilterType((data.filter_type as FilterType) || "vintage");
-        setEventCustomImage(data.custom_image_url);
-        setEventDescription(data.description);
-        setEventBackgroundImage(data.background_image_url);
-        setEventFontFamily(((data as any).font_family as EventFontFamily) || "system");
-        setEventFontSize((data as any).font_size || "text-3xl");
-        setAllowPhotoDeletion((data as any).allow_photo_deletion !== false);
-        setAllowPhotoSharing((data as any).allow_photo_sharing !== false);
-        setAllowVideoRecording((data as any).allow_video_recording === true);
-        setAllowAudioRecording((data as any).allow_audio_recording === true);
-        setAllowImageAttachment((data as any).allow_image_attachment === true);
-        setAllowVideoAttachment((data as any).allow_video_attachment === true);
-        setMaxPhotos(data.max_photos ?? null);
-        setUploadStartTime(data.upload_start_time || "");
-        setUploadEndTime(data.upload_end_time || "");
-        setRevealTime(data.reveal_time || "");
-        const rawMaxVideos = Number((data as any).max_videos);
-        const rawVideoDuration = Number((data as any).max_video_duration);
-        setMaxVideos(Number.isFinite(rawMaxVideos) && rawMaxVideos > 0 ? rawMaxVideos : null);
-        setVideoDurationSeconds(Number.isFinite(rawVideoDuration) && rawVideoDuration > 0 ? rawVideoDuration : 15);
-        setHeaderStyle(((data as any).header_style || "modern") as "gradient" | "modern");
-        setIsDemoEvent((data as any).is_demo === true);
-        setLikeCountingEnabled((data as any).like_counting_enabled === true);
-        const locationState = location.state as
-          | { qrPasswordGrantedForEventId?: string; qrPasswordGrantedTarget?: string }
-          | null;
-        const hasNavigationGrant =
-          locationState?.qrPasswordGrantedForEventId === eventId &&
-          locationState?.qrPasswordGrantedTarget === "gallery";
-        const shouldProtectGallery =
-          localStorage.getItem("isAdmin") !== "true" &&
-          shouldRequestQrPassword((data as any).limits_json, "gallery");
-        if (shouldProtectGallery && !hasNavigationGrant && !galleryAccessGrantedRef.current) {
-          const limits = ((data as any).limits_json || {}) as Record<string, unknown>;
-          setGalleryPasswordHash(typeof limits.qr_password_hash === "string" ? limits.qr_password_hash : "");
-          setGalleryAccessStatus("challenge");
-        } else {
-          galleryAccessGrantedRef.current = true;
-          setGalleryPasswordHash("");
-          setGalleryAccessStatus("granted");
-        }
-        setIsExpired(false);
-        setExpiryRedirectUrl(null);
-        
-        // Check if event is expired
-        if (data.expiry_date) {
-          const expiryDate = new Date(data.expiry_date);
-          const now = new Date();
-          if (now > expiryDate) {
-            setIsExpired(true);
-            setExpiryRedirectUrl(data.expiry_redirect_url);
-          }
-        }
+  useEffect(() => {
+    if (liveEventConfig) {
+      setEventName(liveEventConfig.name || "");
+      localStorage.setItem("eventName", liveEventConfig.name || "");
+      setEventLimitsJson(liveEventConfig.limits_json || null);
+      setFilterType((liveEventConfig.filter_type as FilterType) || "vintage");
+      setEventCustomImage(liveEventConfig.custom_image_url);
+      setEventDescription(liveEventConfig.description);
+      setEventBackgroundImage(liveEventConfig.background_image_url);
+      setEventFontFamily((liveEventConfig.font_family as EventFontFamily) || "system");
+      setEventFontSize(liveEventConfig.font_size || "text-3xl");
+      setAllowPhotoDeletion(liveEventConfig.allow_photo_deletion !== false);
+      setAllowPhotoSharing(liveEventConfig.allow_photo_sharing !== false);
+      setAllowVideoRecording(liveEventConfig.allow_video_recording === true);
+      setAllowAudioRecording(liveEventConfig.allow_audio_recording === true);
+      setAllowImageAttachment(liveEventConfig.allow_image_attachment === true);
+      setAllowVideoAttachment(liveEventConfig.allow_video_attachment === true);
+      setRevealTime(liveEventConfig.reveal_time || "");
+      const rawVideoDuration = Number(liveEventConfig.max_video_duration);
+      setVideoDurationSeconds(Number.isFinite(rawVideoDuration) && rawVideoDuration > 0 ? rawVideoDuration : 15);
+      setHeaderStyle((liveEventConfig.header_style || "modern") as "gradient" | "modern");
+      setIsDemoEvent(liveEventConfig.is_demo === true);
+      setLikeCountingEnabled(liveEventConfig.like_counting_enabled === true);
+
+      const locationState = location.state as
+        | { qrPasswordGrantedForEventId?: string; qrPasswordGrantedTarget?: string }
+        | null;
+      const hasNavigationGrant =
+        locationState?.qrPasswordGrantedForEventId === eventId &&
+        locationState?.qrPasswordGrantedTarget === "gallery";
+      const shouldProtectGallery =
+        localStorage.getItem("isAdmin") !== "true" &&
+        liveEventConfig.qr_password_required_gallery;
+      if (shouldProtectGallery && !hasNavigationGrant && !galleryAccessGrantedRef.current) {
+        setGalleryAccessStatus("challenge");
+      } else {
+        galleryAccessGrantedRef.current = true;
+        setGalleryAccessStatus("granted");
       }
-    } finally {
-      setEventConfigReady(true);
+
+      const expiryAt = liveEventConfig.expiry_date
+        ? new Date(liveEventConfig.expiry_date).getTime()
+        : Number.NaN;
+      const expired = Number.isFinite(expiryAt) && Date.now() > expiryAt;
+      setIsExpired(expired);
+      setExpiryRedirectUrl(expired ? liveEventConfig.expiry_redirect_url : null);
     }
-  }, [eventId, location.state]);
+    setEventConfigReady(isLiveEventConfigReady);
+  }, [eventId, isLiveEventConfigReady, liveEventConfig, location.state, transitionRevision]);
 
   const handleGalleryPasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const enteredPasswordHash = await hashPassword(galleryPasswordInput.trim());
-    if (enteredPasswordHash !== galleryPasswordHash) {
+    if (!eventId) return;
+    const { data: isValid, error } = await supabase.rpc("verify_event_qr_password" as never, {
+      target_event_id: eventId,
+      target_scope: "gallery",
+      candidate_password: galleryPasswordInput.trim(),
+    } as never);
+    if (error || isValid !== true) {
       setGalleryPasswordError("Contraseña incorrecta");
       return;
     }
@@ -646,8 +624,7 @@ const Gallery = () => {
     setEventConfigReady(false);
     galleryAccessGrantedRef.current = false;
     setGalleryAccessStatus("checking");
-    loadEventData();
-  }, [eventId, isDemoEnvironmentFromQuery, navigate, loadEventData]);
+  }, [eventId, isDemoEnvironmentFromQuery, navigate]);
 
   useEffect(() => {
     if (!eventId || !eventConfigReady || galleryAccessStatus !== "granted") return;
@@ -684,21 +661,6 @@ const Gallery = () => {
     loadVideos();
     loadAudios();
   }, [eventId, eventConfigReady, galleryAccessStatus, loadPhotos, loadVideos, loadAudios]);
-
-  useEffect(() => {
-    if (!eventId) return;
-    const interval = window.setInterval(() => {
-      if (document.visibilityState === "visible") loadEventData();
-    }, 15000);
-    const refreshWhenVisible = () => {
-      if (document.visibilityState === "visible") loadEventData();
-    };
-    document.addEventListener("visibilitychange", refreshWhenVisible);
-    return () => {
-      window.clearInterval(interval);
-      document.removeEventListener("visibilitychange", refreshWhenVisible);
-    };
-  }, [eventId, loadEventData]);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(min-width: 1024px)");

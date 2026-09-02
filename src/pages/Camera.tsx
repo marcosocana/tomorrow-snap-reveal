@@ -16,6 +16,7 @@ import { getTranslations, getEventLanguage, getEventTimezone, getLocalDateInTime
 import { EventFontFamily, getEventFontFamily } from "@/lib/eventFonts";
 import { clearPersistedGuestEventPassword, getPersistedGuestEventPassword } from "@/lib/guestEventAccess";
 import { getEventMediaCounts } from "@/lib/eventMediaCounts";
+import { useLiveEventConfig } from "@/hooks/useLiveEventConfig";
 import {
   Dialog,
   DialogContent,
@@ -175,7 +176,7 @@ const Camera = () => {
   const { toast } = useToast();
   const eventId = localStorage.getItem("eventId");
   const [eventName, setEventName] = useState<string>(() => localStorage.getItem("eventName") || "");
-  const [eventPassword, setEventPassword] = useState<string>("");
+  const [eventPassword] = useState<string>(() => getPersistedGuestEventPassword() || "");
   const [eventLimitsJson, setEventLimitsJson] = useState<unknown>(null);
   const [searchParams] = useSearchParams();
   const isDemoEnvironmentFromQuery = searchParams.get("demo_env") === "1";
@@ -184,6 +185,12 @@ const Camera = () => {
     return initial === "video" || initial === "audio" ? initial : null;
   });
   const [eventConfigReady, setEventConfigReady] = useState(false);
+  const {
+    config: liveEventConfig,
+    isReady: isLiveEventConfigReady,
+    refresh: refreshEventConfig,
+    transitionRevision,
+  } = useLiveEventConfig(eventId, "camera");
   
   // Get translations and timezone
   const language = getEventLanguage();
@@ -263,52 +270,40 @@ const Camera = () => {
     }
   }, [searchParams]);
 
-  const loadEventData = useCallback(async () => {
-    if (!eventId) return;
-    try {
-      const { data, error } = await supabase
-        .from("events")
-        .select("name, reveal_time, hide_reveal_date, upload_start_time, upload_end_time, password_hash, max_photos, custom_image_url, background_image_url, description, font_family, font_size, show_legal_text, legal_text_type, allow_video_recording, max_videos, max_video_duration, allow_audio_recording, max_audios, max_audio_duration, allow_image_attachment, allow_video_attachment, header_style, is_demo, limits_json")
-        .eq("id", eventId)
-        .single();
-      if (data && !error) {
-        const rawMaxVideos = Number((data as any).max_videos);
-        const rawVideoDuration = Number((data as any).max_video_duration);
-        const rawMaxAudios = Number((data as any).max_audios);
-        const rawAudioDuration = Number((data as any).max_audio_duration);
-
-        setEventName(data.name || "");
-        localStorage.setItem("eventName", data.name || "");
-        setRevealTime(data.reveal_time);
-        setHideRevealDate(data.hide_reveal_date === true);
-        setUploadStartTime(data.upload_start_time || "");
-        setUploadEndTime(data.upload_end_time || "");
-        setMaxPhotos(data.max_photos ?? null);
-        setEventPassword(data.password_hash || "");
-        setEventLimitsJson((data as any).limits_json || null);
-        setCustomImageUrl(data.custom_image_url || "");
-        setBackgroundImageUrl(data.background_image_url || "");
-        setEventDescription(data.description || "");
-        setEventFontFamily(((data as any).font_family as EventFontFamily) || "system");
-        setEventFontSize((data as any).font_size || "text-3xl");
-        setShowLegalText((data as any).show_legal_text === true);
-        setLegalTextType((data as any).legal_text_type || "default");
-        setAllowVideoRecording((data as any).allow_video_recording === true);
-        setMaxVideos(Number.isFinite(rawMaxVideos) && rawMaxVideos > 0 ? rawMaxVideos : null);
-        setVideoDurationSeconds(Number.isFinite(rawVideoDuration) && rawVideoDuration > 0 ? rawVideoDuration : 15);
-        setAllowAudioRecording((data as any).allow_audio_recording === true);
-        setMaxAudios(Number.isFinite(rawMaxAudios) && rawMaxAudios > 0 ? rawMaxAudios : null);
-        setAudioDurationSeconds(Number.isFinite(rawAudioDuration) && rawAudioDuration > 0 ? rawAudioDuration : 30);
-        setAllowImageAttachment((data as any).allow_image_attachment === true);
-        setAllowVideoAttachment((data as any).allow_video_attachment === true);
-        setHeaderStyle(((data as any).header_style || "modern") as "gradient" | "modern");
-        setIsDemoEvent((data as any).is_demo === true);
-        
-      }
-    } finally {
-      setEventConfigReady(true);
+  useEffect(() => {
+    if (liveEventConfig) {
+      const rawMaxVideos = Number(liveEventConfig.max_videos);
+      const rawVideoDuration = Number(liveEventConfig.max_video_duration);
+      const rawMaxAudios = Number(liveEventConfig.max_audios);
+      const rawAudioDuration = Number(liveEventConfig.max_audio_duration);
+      setEventName(liveEventConfig.name || "");
+      localStorage.setItem("eventName", liveEventConfig.name || "");
+      setRevealTime(liveEventConfig.reveal_time);
+      setHideRevealDate(liveEventConfig.hide_reveal_date === true);
+      setUploadStartTime(liveEventConfig.upload_start_time || "");
+      setUploadEndTime(liveEventConfig.upload_end_time || "");
+      setMaxPhotos(liveEventConfig.max_photos ?? null);
+      setEventLimitsJson(liveEventConfig.limits_json || null);
+      setCustomImageUrl(liveEventConfig.custom_image_url || "");
+      setBackgroundImageUrl(liveEventConfig.background_image_url || "");
+      setEventDescription(liveEventConfig.description || "");
+      setEventFontFamily((liveEventConfig.font_family as EventFontFamily) || "system");
+      setEventFontSize(liveEventConfig.font_size || "text-3xl");
+      setShowLegalText(liveEventConfig.show_legal_text === true);
+      setLegalTextType(liveEventConfig.legal_text_type || "default");
+      setAllowVideoRecording(liveEventConfig.allow_video_recording === true);
+      setMaxVideos(Number.isFinite(rawMaxVideos) && rawMaxVideos > 0 ? rawMaxVideos : null);
+      setVideoDurationSeconds(Number.isFinite(rawVideoDuration) && rawVideoDuration > 0 ? rawVideoDuration : 15);
+      setAllowAudioRecording(liveEventConfig.allow_audio_recording === true);
+      setMaxAudios(Number.isFinite(rawMaxAudios) && rawMaxAudios > 0 ? rawMaxAudios : null);
+      setAudioDurationSeconds(Number.isFinite(rawAudioDuration) && rawAudioDuration > 0 ? rawAudioDuration : 30);
+      setAllowImageAttachment(liveEventConfig.allow_image_attachment === true);
+      setAllowVideoAttachment(liveEventConfig.allow_video_attachment === true);
+      setHeaderStyle((liveEventConfig.header_style || "modern") as "gradient" | "modern");
+      setIsDemoEvent(liveEventConfig.is_demo === true);
     }
-  }, [eventId]);
+    setEventConfigReady(isLiveEventConfigReady);
+  }, [isLiveEventConfigReady, liveEventConfig, transitionRevision]);
 
   useEffect(() => {
     if (!eventId) {
@@ -326,33 +321,9 @@ const Camera = () => {
       navigate("/event-login", { replace: true });
       return;
     }
-    loadEventData();
     loadMediaCounts();
     window.scrollTo(0, 0);
-  }, [eventId, isDemoEnvironmentFromQuery, loadEventData, navigate]);
-
-  useEffect(() => {
-    const refreshVisibleEventConfig = () => {
-      if (document.visibilityState === "visible") {
-        loadEventData();
-      }
-    };
-
-    window.addEventListener("focus", refreshVisibleEventConfig);
-    document.addEventListener("visibilitychange", refreshVisibleEventConfig);
-    return () => {
-      window.removeEventListener("focus", refreshVisibleEventConfig);
-      document.removeEventListener("visibilitychange", refreshVisibleEventConfig);
-    };
-  }, [loadEventData]);
-
-  useEffect(() => {
-    if (!eventId) return;
-    const interval = window.setInterval(() => {
-      if (document.visibilityState === "visible") loadEventData();
-    }, 15000);
-    return () => window.clearInterval(interval);
-  }, [eventId, loadEventData]);
+  }, [eventId, isDemoEnvironmentFromQuery, navigate]);
 
   // Helper to format date in local timezone
   const formatLocalDate = (dateStr: string, formatStr: string) => {
@@ -676,7 +647,7 @@ const Camera = () => {
       }
 
       if (!options?.skipReload) {
-        await loadEventData();
+        await refreshEventConfig();
         await loadMediaCounts();
       }
       return true;
@@ -1253,7 +1224,7 @@ const Camera = () => {
         }
       }
 
-      await loadEventData();
+      await refreshEventConfig();
       await loadMediaCounts();
     } finally {
       const remainingLockTime = ATTACHMENT_BUTTON_LOCK_MS - (Date.now() - attachmentLockStartedAt);

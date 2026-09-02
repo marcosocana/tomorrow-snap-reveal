@@ -12,6 +12,7 @@
     "test:captains:remote": "node scripts/audit-captains-public.mjs --remote",
     "test:demo-credentials": "node scripts/audit-demo-event-credentials.mjs",
     "test:gifts": "node scripts/audit-revelao-gifts.mjs",
+    "test:event-polling": "node scripts/audit-event-polling.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

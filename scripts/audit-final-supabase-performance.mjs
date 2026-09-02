@@ -6,6 +6,8 @@ const assert = (condition, message) => {
 };
 
 const gallery = read("src/pages/Gallery.tsx");
+const camera = read("src/pages/Camera.tsx");
+const liveEventConfig = read("src/hooks/useLiveEventConfig.ts");
 const galleryPreview = read("src/components/GalleryPreviewModal.tsx");
 const captainsService = read("src/lib/captainsService.ts");
 const signedUrlCache = read("src/lib/signedUrlCache.ts");
@@ -37,7 +39,14 @@ assert(
 );
 
 assert(slideshow.includes("supabasePublic.removeChannel(channel)"), "Slideshow Realtime channel is not released");
-assert(gallery.includes('document.visibilityState === "visible"'), "Gallery polling continues in background tabs");
+assert(!gallery.includes("15000") && !camera.includes("15000"), "Event config still polls every 15 seconds");
+assert(
+  liveEventConfig.includes('document.visibilityState === "visible"')
+    && liveEventConfig.includes('window.addEventListener("online", refresh)')
+    && liveEventConfig.includes("public-event-config-${eventId}")
+    && liveEventConfig.includes("supabase.removeChannel(channel)"),
+  "Event config does not revalidate on resume/network or clean up its Realtime channel",
+);
 assert(
   unlockCapsule.includes("createSignedUrls(videoPaths, 3600)") && !unlockCapsule.includes("createSignedUrl(video.video_url"),
   "Time capsule unlock still signs each video separately",

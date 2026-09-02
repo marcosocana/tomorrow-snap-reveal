@@ -6,8 +6,6 @@ import { useToast } from "@/hooks/use-toast";
 import { persistGuestEventPassword } from "@/lib/guestEventAccess";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { hashPassword } from "@/lib/hashPassword";
-import { getEventQrPasswordSettings, shouldRequestQrPassword } from "@/lib/eventQrPassword";
 import logoRevelao from "@/assets/logo__revelao.png";
 
 type AccessChallenge = {
@@ -19,8 +17,11 @@ type AccessChallenge = {
 };
 
 type EventRow = Database["public"]["Tables"]["events"]["Row"];
-type EventAccessRow = Pick<EventRow, "id" | "name" | "language" | "timezone" | "reveal_time" | "limits_json">;
-const EVENT_ACCESS_COLUMNS = "id,name,language,timezone,reveal_time,limits_json" as const;
+type EventAccessRow = Pick<EventRow, "id" | "name" | "language" | "timezone" | "reveal_time"> & {
+  qr_password_required_camera: boolean;
+  qr_password_required_gallery: boolean;
+};
+const EVENT_ACCESS_COLUMNS = "id,name,language,timezone,reveal_time" as const;
 
 const EventAccess = () => {
   const { password } = useParams<{ password: string }>();
@@ -70,9 +71,12 @@ const EventAccess = () => {
     e.preventDefault();
     if (!accessChallenge) return;
 
-    const expectedPasswordHash = getEventQrPasswordSettings(accessChallenge.event.limits_json).hash;
-    const enteredPasswordHash = await hashPassword(qrPassword.trim());
-    if (enteredPasswordHash !== expectedPasswordHash) {
+    const { data: isValid, error } = await supabase.rpc("verify_event_qr_password" as never, {
+      target_event_id: accessChallenge.event.id,
+      target_scope: accessChallenge.target,
+      candidate_password: qrPassword.trim(),
+    } as never);
+    if (error || isValid !== true) {
       setQrPasswordError("Contraseña incorrecta");
       return;
     }
@@ -131,19 +135,21 @@ const EventAccess = () => {
         }
 
         // Normal user flow
-        const { data: events, error } = await supabase
-          .from("events")
-          .select(EVENT_ACCESS_COLUMNS)
-          .eq("password_hash", actualPassword)
-          .limit(1);
+        const { data: events, error } = await supabase.rpc("resolve_public_event_access" as never, {
+          candidate_password: actualPassword,
+        } as never);
 
         if (error) throw error;
 
-        if (events && events.length > 0) {
-          const event = events[0];
+        const publicEvents = events as unknown as EventAccessRow[] | null;
+        if (publicEvents && publicEvents.length > 0) {
+          const event = publicEvents[0];
           const revealTime = new Date(event.reveal_time);
           const target = isBulkMode || new Date() < revealTime ? "camera" : "gallery";
-          if (shouldRequestQrPassword(event.limits_json, target)) {
+          const shouldRequestQrPassword = target === "camera"
+            ? event.qr_password_required_camera
+            : event.qr_password_required_gallery;
+          if (shouldRequestQrPassword) {
             setAccessChallenge({ event, actualPassword, isBulkMode, demoEnvEnabled, target });
             setQrPassword("");
             setQrPasswordError("");
