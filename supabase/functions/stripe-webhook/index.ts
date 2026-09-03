@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import Stripe from "npm:stripe@22.4.0";
 import { getPlanById, getPlanByPriceId } from "../_shared/planConfig.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
@@ -7,429 +8,258 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "
 const STRIPE_SECRET_KEY = Deno.env.get("STRIPE_SECRET_KEY") ?? "";
 const STRIPE_WEBHOOK_SECRET = Deno.env.get("STRIPE_WEBHOOK_SECRET") ?? "";
 const APP_ORIGIN = Deno.env.get("APP_ORIGIN") ?? "https://acceso.revelao.cam";
-const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
-const FROM_EMAIL = Deno.env.get("FROM_EMAIL") ?? "";
-const LOGO_URL = Deno.env.get("LOGO_URL") ?? "";
 
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
+const stripe = new Stripe(STRIPE_SECRET_KEY, {
+  apiVersion: "2026-07-29.dahlia",
+  httpClient: Stripe.createFetchHttpClient(),
+});
 
-const sendRedeemEmail = async (to: string, redeemUrl: string, planLabel: string, redeemCode: string) => {
-  if (!RESEND_API_KEY || !FROM_EMAIL) {
-    throw new Error("Missing RESEND_API_KEY or FROM_EMAIL");
-  }
-
-  const html = `
-    <div style="font-family:sans-serif;max-width:480px;margin:auto;padding:24px;">
-      ${LOGO_URL ? `<p style="text-align:center;"><img src="${LOGO_URL}" alt="Logo" style="height:48px;" /></p>` : ""}
-      <h2 style="text-align:center;">Tu plan ${planLabel} ya está listo</h2>
-      <p style="text-align:center;">
-        Puedes crear tu evento usando el siguiente enlace:
-      </p>
-      <p style="text-align:center;">
-        <a href="${redeemUrl}" style="display:inline-block;background:#f06a5f;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;">
-          Crear mi evento
-        </a>
-      </p>
-      <div style="background:#f5f5f5;border-radius:8px;padding:16px;margin-top:24px;text-align:center;">
-        <p style="margin:0 0 4px;font-size:13px;color:#888;">Código de canje</p>
-        <p style="margin:0;font-size:20px;font-weight:bold;letter-spacing:2px;">${redeemCode}</p>
-        <p style="margin:8px 0 0;font-size:12px;color:#888;">Guarda este código por si necesitas acceder de nuevo.</p>
-      </div>
-      <p style="text-align:center;font-size:12px;color:#aaa;margin-top:24px;">
-        Si no solicitaste esto, ignora este correo.
-      </p>
-    </div>
-  `;
-
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${RESEND_API_KEY}`,
-    },
-    body: JSON.stringify({
-      from: FROM_EMAIL,
-      to,
-      subject: "Tu enlace para crear el evento",
-      html,
-    }),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Resend error (${response.status}): ${errorText}`);
-  }
-};
-
-const sendCaptainsCheckoutEmail = async (
-  to: string,
-  onboardingUrl: string,
-  creationCode: string,
-  tableCount: number,
-  captainPack: boolean,
-  totalAmount: number | null,
-  currency: string | null,
-) => {
-  if (!RESEND_API_KEY || !FROM_EMAIL) {
-    throw new Error("Missing RESEND_API_KEY or FROM_EMAIL");
-  }
-
-  const formattedTotal = typeof totalAmount === "number"
-    ? new Intl.NumberFormat("es-ES", {
-        style: "currency",
-        currency: (currency || "eur").toUpperCase(),
-      }).format(totalAmount / 100)
-    : null;
-  const html = `
-    <div style="font-family:sans-serif;max-width:520px;margin:auto;padding:24px;">
-      ${LOGO_URL ? `<p style="text-align:center;"><img src="${LOGO_URL}" alt="Logo" style="height:48px;" /></p>` : ""}
-      <h2 style="text-align:center;">Tu compra de Capitanes está lista</h2>
-      <p style="text-align:center;color:#444;">
-        Ya puedes crear tu juego de Capitanes con la configuración comprada. Inicia sesión con la misma cuenta utilizada para realizar la compra.
-      </p>
-      <div style="background:#f5f5f5;border-radius:12px;padding:16px;margin:20px 0;">
-        <p style="margin:0 0 8px;"><strong>Mesas:</strong> ${tableCount}</p>
-        <p style="margin:0 0 8px;"><strong>Pack Capitán:</strong> ${captainPack ? "Sí" : "No"}</p>
-        ${formattedTotal ? `<p style="margin:0;"><strong>Total pagado:</strong> ${formattedTotal}</p>` : ""}
-      </div>
-      <p style="text-align:center;">
-        <a href="${onboardingUrl}" style="display:inline-block;background:#f06a5f;color:#fff;padding:12px 24px;border-radius:999px;text-decoration:none;font-weight:700;">
-          Crear mi juego de Capitanes
-        </a>
-      </p>
-      <div style="background:#f5f5f5;border-radius:12px;padding:16px;margin:20px 0;text-align:center;">
-        <p style="margin:0 0 5px;font-size:13px;color:#777;">Código de acceso</p>
-        <p style="margin:0;font-size:22px;font-weight:800;letter-spacing:3px;">${creationCode}</p>
-        <p style="margin:8px 0 0;font-size:12px;color:#777;">Este código permite crear el evento y volver a editarlo después.</p>
-      </div>
-      <p style="font-size:12px;color:#777;text-align:center;margin-top:18px;">
-        También puedes acceder desde este enlace:<br />
-        <a href="${onboardingUrl}">${onboardingUrl}</a>
-      </p>
-    </div>
-  `;
-
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${RESEND_API_KEY}`,
-    },
-    body: JSON.stringify({
-      from: FROM_EMAIL,
-      to,
-      subject: "Tu enlace para crear Capitanes",
-      html,
-    }),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Resend error (${response.status}): ${errorText}`);
-  }
-};
+const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
+  status,
+  headers: { "Content-Type": "application/json" },
+});
 
 const generateRedeemToken = (length = 16) => {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   const values = new Uint8Array(length);
   crypto.getRandomValues(values);
-  let token = "";
-  for (let i = 0; i < length; i++) {
-    token += alphabet[values[i] % alphabet.length];
-  }
-  return token;
+  return Array.from(values, (value) => alphabet[value % alphabet.length]).join("");
 };
 
-type SupabaseAdminClient = ReturnType<typeof createClient>;
+type SupabaseAdminClient = ReturnType<typeof createClient<any>>;
 
-const findUserIdByEmail = async (supabaseAdmin: SupabaseAdminClient, email: string) => {
-  const normalizedEmail = email.trim().toLowerCase();
-  if (!normalizedEmail) return null;
-  const { data, error } = await supabaseAdmin
-    .schema("auth")
-    .from("users")
-    .select("id")
-    .eq("email", normalizedEmail)
-    .maybeSingle();
-  if (error) {
-    console.error("stripe-webhook auth user lookup error:", error.message);
-    return null;
-  }
-  return data?.id ?? null;
+type PurchaseRow = {
+  id: string;
+  user_id: string | null;
+  user_email: string | null;
+  redeem_token: string;
+  status: string;
 };
 
-const fetchStripeJson = async (path: string) => {
-  const response = await fetch(`https://api.stripe.com/v1/${path}`, {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${STRIPE_SECRET_KEY}`,
-    },
-  });
-  const data = await response.json();
-  if (!response.ok) {
-    console.error("Stripe API error:", data);
-    return null;
-  }
-  return data;
+const resolveCustomerEmail = async (session: Stripe.Checkout.Session) => {
+  const directEmail = session.customer_details?.email || session.customer_email;
+  if (directEmail) return directEmail.trim().toLowerCase();
+  if (typeof session.customer !== "string") return null;
+  const customer = await stripe.customers.retrieve(session.customer);
+  if (customer.deleted || !customer.email) return null;
+  return customer.email.trim().toLowerCase();
 };
 
-async function verifyStripeSignature(rawBody: string, signatureHeader: string, secret: string) {
-  const parts = signatureHeader.split(",").reduce((acc, part) => {
-    const [k, v] = part.split("=");
-    acc[k.trim()] = v;
-    return acc;
-  }, {} as Record<string, string>);
+const recordWebhookEvent = async (
+  admin: SupabaseAdminClient,
+  event: Stripe.Event,
+  sessionId: string | null,
+  status: "processing" | "processed" | "ignored" | "failed",
+  lastError: string | null = null,
+) => {
+  const { error } = await admin.from("stripe_webhook_events").upsert({
+    event_id: event.id,
+    event_type: event.type,
+    stripe_session_id: sessionId,
+    status,
+    last_error: lastError?.slice(0, 1000) ?? null,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: "event_id" });
+  if (error) console.error("stripe-webhook event ledger error:", error.message);
+};
 
-  const timestamp = parts["t"];
-  const sig = parts["v1"];
-  if (!timestamp || !sig) return false;
+const ensurePurchase = async (
+  admin: SupabaseAdminClient,
+  values: {
+    user_id: string | null;
+    user_email: string;
+    stripe_session_id: string;
+    plan_id: string;
+    redeem_token: string;
+    redeem_token_expires_at: string;
+  },
+) => {
+  const { error: insertError } = await admin.from("purchases")
+    .upsert({ ...values, status: "paid" }, { onConflict: "stripe_session_id", ignoreDuplicates: true });
+  if (insertError) throw new Error(`PURCHASE_INSERT_FAILED:${insertError.message}`);
 
-  const signedPayload = `${timestamp}.${rawBody}`;
-  const key = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
-  const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(signedPayload));
-  const expected = Array.from(new Uint8Array(signature)).map((b) => b.toString(16).padStart(2, "0")).join("");
-  return expected === sig;
-}
+  const { data, error: readError } = await admin.from("purchases")
+    .select("id,user_id,user_email,redeem_token,status")
+    .eq("stripe_session_id", values.stripe_session_id).single();
+  if (readError || !data) throw new Error(`PURCHASE_READ_FAILED:${readError?.message ?? "not found"}`);
+  const purchase = data as PurchaseRow;
 
-serve(async (req) => {
-  if (req.method !== "POST") {
-    return json({ error: "Method not allowed" }, 405);
+  if ((values.user_id && !purchase.user_id) || (!purchase.user_email && values.user_email)) {
+    const { error: patchError } = await admin.from("purchases").update({
+      user_id: purchase.user_id || values.user_id,
+      user_email: purchase.user_email || values.user_email,
+    }).eq("id", purchase.id);
+    if (patchError) throw new Error(`PURCHASE_PATCH_FAILED:${patchError.message}`);
   }
+  return purchase;
+};
 
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !STRIPE_SECRET_KEY || !STRIPE_WEBHOOK_SECRET) {
-    return json({ error: "Missing env" }, 500);
-  }
+const enqueueEmail = async (
+  admin: SupabaseAdminClient,
+  values: {
+    stripe_event_id: string;
+    stripe_session_id: string;
+    purchase_id: string;
+    email_type: "revelao_purchase" | "captains_purchase";
+    recipient: string;
+    payload: Record<string, unknown>;
+  },
+) => {
+  const { error } = await admin.from("purchase_email_outbox")
+    .upsert(values, { onConflict: "stripe_session_id,email_type", ignoreDuplicates: true });
+  if (error) throw new Error(`EMAIL_ENQUEUE_FAILED:${error.message}`);
+};
 
-  const signature = req.headers.get("stripe-signature");
-  if (!signature) {
-    return json({ error: "Missing signature" }, 400);
-  }
+const fulfillPaidSession = async (
+  admin: SupabaseAdminClient,
+  event: Stripe.Event,
+  session: Stripe.Checkout.Session,
+) => {
+  if (session.payment_status !== "paid") return "waiting_for_payment";
 
-  const rawBody = await req.text();
-  const isValid = await verifyStripeSignature(rawBody, signature, STRIPE_WEBHOOK_SECRET);
-  if (!isValid) {
-    return json({ error: "Invalid signature" }, 400);
-  }
-
-  const event = JSON.parse(rawBody);
-
-  if (event.type !== "checkout.session.completed") {
-    return json({ received: true });
-  }
-
-  const session = event.data.object;
-  if (session.payment_status !== "paid") {
-    return json({ received: true });
-  }
+  const userEmail = await resolveCustomerEmail(session);
+  if (!userEmail) throw new Error("CUSTOMER_EMAIL_NOT_FOUND");
+  const userId = session.metadata?.userId || null;
 
   const planId = session.metadata?.planId || "";
-  const userEmail = session.customer_email || session.customer_details?.email || null;
-  let userId = session.metadata?.userId || null;
-  const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-  if (!userId && userEmail) {
-    userId = await findUserIdByEmail(supabaseAdmin, userEmail);
-  }
-
   if (planId === "captains") {
-    const tableCount = Math.max(1, Math.floor(Number(session.metadata?.tableCount || 1)));
+    const requestedTableCount = Number(session.metadata?.tableCount || 1);
+    const tableCount = Number.isFinite(requestedTableCount)
+      ? Math.max(1, Math.min(999, Math.floor(requestedTableCount)))
+      : 1;
     const captainPack = session.metadata?.captainPack === "true";
+    const redeemToken = generateRedeemToken(16);
+    const redeemExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60_000).toISOString();
+    const purchase = await ensurePurchase(admin, {
+      user_id: userId,
+      user_email: userEmail,
+      stripe_session_id: session.id,
+      plan_id: "captains",
+      redeem_token: redeemToken,
+      redeem_token_expires_at: redeemExpiresAt,
+    });
+    const creationCode = purchase.redeem_token;
 
-    const { data: existingPurchase, error: existingPurchaseError } = await supabaseAdmin
-      .from("purchases")
-      .select("id,user_id,user_email,redeem_token,status")
-      .eq("stripe_session_id", session.id)
-      .maybeSingle();
+    const { error: codeInsertError } = await admin.from("captains_creation_codes").upsert({
+      code: creationCode,
+      created_by: null,
+      account_owner_id: userId,
+      expires_at: redeemExpiresAt,
+      max_tables: tableCount,
+    }, { onConflict: "code", ignoreDuplicates: true });
+    if (codeInsertError) throw new Error(`CAPTAINS_CODE_FAILED:${codeInsertError.message}`);
 
-    if (existingPurchaseError) {
-      console.error("Find captains purchase error:", existingPurchaseError);
-      return json({ error: "DB error" }, 500);
+    if (userId) {
+      const { error: ownerError } = await admin.from("captains_creation_codes")
+        .update({ account_owner_id: userId }).eq("code", creationCode).is("account_owner_id", null);
+      if (ownerError) throw new Error(`CAPTAINS_OWNER_FAILED:${ownerError.message}`);
     }
 
-    const redeemToken = existingPurchase?.redeem_token ?? generateRedeemToken(16);
-    const redeemExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-    let purchase = existingPurchase;
-
-    if (!purchase) {
-      const { data: inserted, error } = await supabaseAdmin
-        .from("purchases")
-        .insert({
-          user_id: userId,
-          user_email: userEmail,
-          stripe_session_id: session.id,
-          plan_id: "captains",
-          status: "paid",
-          redeem_token: redeemToken,
-          redeem_token_expires_at: redeemExpiresAt,
-        })
-        .select("id,user_id,user_email,redeem_token,status")
-        .maybeSingle();
-
-      if (error || !inserted?.id) {
-        console.error("Insert captains purchase error:", error);
-        return json({ error: "DB error" }, 500);
-      }
-
-      purchase = inserted;
-    }
-
-    if (userId && purchase && !purchase.user_id) {
-      const { error: userPatchError } = await supabaseAdmin
-        .from("purchases")
-        .update({ user_id: userId })
-        .eq("id", purchase.id);
-      if (userPatchError) {
-        console.error("stripe-webhook captains purchase user patch error:", userPatchError.message);
-      }
-    }
-
-    const creationCode = purchase?.redeem_token || redeemToken;
-    const { data: existingCreationCode, error: creationCodeReadError } = await supabaseAdmin
-      .from("captains_creation_codes")
-      .select("id,account_owner_id")
-      .eq("code", creationCode)
-      .maybeSingle();
-    if (creationCodeReadError) {
-      console.error("stripe-webhook captains creation code lookup error:", creationCodeReadError);
-      return json({ error: "DB error" }, 500);
-    }
-    if (!existingCreationCode) {
-      const { error: creationCodeInsertError } = await supabaseAdmin
-        .from("captains_creation_codes")
-        .insert({
-          code: creationCode,
-          created_by: null,
-          account_owner_id: userId,
-          expires_at: redeemExpiresAt,
-          max_tables: tableCount,
-        });
-      if (creationCodeInsertError) {
-        console.error("stripe-webhook captains creation code insert error:", creationCodeInsertError);
-        return json({ error: "DB error" }, 500);
-      }
-    } else if (userId && !existingCreationCode.account_owner_id) {
-      const { error: ownerLinkError } = await supabaseAdmin
-        .from("captains_creation_codes")
-        .update({ account_owner_id: userId })
-        .eq("id", existingCreationCode.id)
-        .is("account_owner_id", null);
-      if (ownerLinkError) {
-        console.error("stripe-webhook captains account link error:", ownerLinkError);
-        return json({ error: "DB error" }, 500);
-      }
-    }
-
-    if (userEmail) {
-      const onboardingParams = new URLSearchParams({
-        code: creationCode,
-        tableCount: String(tableCount),
-        captainPack: captainPack ? "1" : "0",
-      });
-      const onboardingPath = `/nuevoeventocapitanes?${onboardingParams.toString()}`;
-      const onboardingUrl = `${APP_ORIGIN}/admin-login?redirect=${encodeURIComponent(onboardingPath)}`;
-      try {
-        await sendCaptainsCheckoutEmail(
-          userEmail,
-          onboardingUrl,
-          creationCode,
-          tableCount,
-          captainPack,
-          typeof session.amount_total === "number" ? session.amount_total : null,
-          session.currency ?? null,
-        );
-      } catch (emailError) {
-        console.error("stripe-webhook captains email error:", emailError);
-        return json({ error: "EMAIL_SEND_FAILED" }, 500);
-      }
-    } else {
-      console.error("stripe-webhook missing captains customer email for session:", session.id);
-    }
-
-    return json({ received: true });
+    const onboardingParams = new URLSearchParams({
+      code: creationCode,
+      tableCount: String(tableCount),
+      captainPack: captainPack ? "1" : "0",
+    });
+    const onboardingPath = `/nuevoeventocapitanes?${onboardingParams.toString()}`;
+    await enqueueEmail(admin, {
+      stripe_event_id: event.id,
+      stripe_session_id: session.id,
+      purchase_id: purchase.id,
+      email_type: "captains_purchase",
+      recipient: userEmail,
+      payload: {
+        onboardingUrl: `${APP_ORIGIN}/admin-login?redirect=${encodeURIComponent(onboardingPath)}`,
+        creationCode,
+        tableCount,
+        captainPack,
+        totalAmount: session.amount_total,
+        currency: session.currency,
+      },
+    });
+    return "captains_enqueued";
   }
 
   let plan = getPlanById(planId);
   if (!plan) {
-    const lineItems = await fetchStripeJson(`checkout/sessions/${session.id}/line_items?limit=1`);
-    const priceId = lineItems?.data?.[0]?.price?.id ?? null;
-    plan = getPlanByPriceId(priceId, session.livemode);
+    const lineItems = await stripe.checkout.sessions.listLineItems(session.id, { limit: 1 });
+    plan = getPlanByPriceId(lineItems.data[0]?.price?.id ?? null, session.livemode);
   }
-  if (!plan) {
-    return json({ error: "Unknown plan" }, 400);
+  if (!plan) throw new Error("UNKNOWN_PLAN");
+
+  const redeemToken = generateRedeemToken(16);
+  const redeemExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60_000).toISOString();
+  const purchase = await ensurePurchase(admin, {
+    user_id: userId,
+    user_email: userEmail,
+    stripe_session_id: session.id,
+    plan_id: plan.id,
+    redeem_token: redeemToken,
+    redeem_token_expires_at: redeemExpiresAt,
+  });
+  const finalToken = purchase.redeem_token;
+  const capsulePath = `/event-form?product=capsule&redeem=${encodeURIComponent(finalToken)}`;
+  const redeemUrl = plan.product === "capsule"
+    ? `${APP_ORIGIN}/admin-login?email=${encodeURIComponent(userEmail)}&redirect=${encodeURIComponent(capsulePath)}`
+    : `${APP_ORIGIN}/redeem/${finalToken}`;
+  await enqueueEmail(admin, {
+    stripe_event_id: event.id,
+    stripe_session_id: session.id,
+    purchase_id: purchase.id,
+    email_type: "revelao_purchase",
+    recipient: userEmail,
+    payload: { redeemUrl, planLabel: plan.label, redeemCode: finalToken },
+  });
+  return "revelao_enqueued";
+};
+
+serve(async (req) => {
+  if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !STRIPE_SECRET_KEY || !STRIPE_WEBHOOK_SECRET) {
+    return json({ error: "Missing env" }, 500);
   }
+  const signature = req.headers.get("stripe-signature");
+  if (!signature) return json({ error: "Missing signature" }, 400);
 
-  const { data: existingPurchase, error: existingPurchaseError } = await supabaseAdmin
-    .from("purchases")
-    .select("id,user_id,user_email,redeem_token,status")
-    .eq("stripe_session_id", session.id)
-    .maybeSingle();
-
-  if (existingPurchaseError) {
-    console.error("Find purchase error:", existingPurchaseError);
-    return json({ error: "DB error" }, 500);
-  }
-
-  const redeemToken = existingPurchase?.redeem_token ?? generateRedeemToken(16);
-  const redeemExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-
-  let purchase = existingPurchase;
-  if (!purchase) {
-    const { data: inserted, error } = await supabaseAdmin
-      .from("purchases")
-      .insert({
-        user_id: userId,
-        user_email: userEmail,
-        stripe_session_id: session.id,
-        plan_id: plan.id,
-        status: "paid",
-        redeem_token: redeemToken,
-        redeem_token_expires_at: redeemExpiresAt,
-      })
-      .select("id,user_id,user_email,redeem_token,status")
-      .maybeSingle();
-
-    if (error || !inserted?.id) {
-      console.error("Insert purchase error:", error);
-      return json({ error: "DB error" }, 500);
-    }
-
-    purchase = inserted;
-  }
-
-  if (userId && purchase && !purchase.user_id) {
-    const { error: userPatchError } = await supabaseAdmin
-      .from("purchases")
-      .update({ user_id: userId })
-      .eq("id", purchase.id);
-    if (userPatchError) {
-      console.error("stripe-webhook purchase user patch error:", userPatchError.message);
-    }
+  let event: Stripe.Event;
+  try {
+    event = await stripe.webhooks.constructEventAsync(
+      await req.text(),
+      signature,
+      STRIPE_WEBHOOK_SECRET,
+      300,
+      Stripe.createSubtleCryptoProvider(),
+    );
+  } catch (error) {
+    console.error("stripe-webhook invalid signature:", error instanceof Error ? error.message : error);
+    return json({ error: "Invalid signature" }, 400);
   }
 
-  if (userEmail) {
-    const finalToken = purchase?.redeem_token || redeemToken;
-    const capsulePath = `/event-form?product=capsule&redeem=${encodeURIComponent(finalToken)}`;
-    const redeemUrl = plan.product === "capsule"
-      ? `${APP_ORIGIN}/admin-login?email=${encodeURIComponent(userEmail)}&redirect=${encodeURIComponent(capsulePath)}`
-      : `${APP_ORIGIN}/redeem/${finalToken}`;
-    try {
-      await sendRedeemEmail(userEmail, redeemUrl, plan.label, finalToken);
-    } catch (emailError) {
-      console.error("stripe-webhook redeem email error:", emailError);
-      return json({ error: "EMAIL_SEND_FAILED" }, 500);
-    }
-  } else {
-    console.error("stripe-webhook missing customer email for session:", session.id);
+  const handledTypes = new Set([
+    "checkout.session.completed",
+    "checkout.session.async_payment_succeeded",
+    "checkout.session.async_payment_failed",
+  ]);
+  if (!handledTypes.has(event.type)) return json({ received: true, ignored: true });
+
+  const session = event.data.object as Stripe.Checkout.Session;
+  const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  await recordWebhookEvent(admin, event, session.id, "processing");
+
+  if (event.type === "checkout.session.async_payment_failed") {
+    await recordWebhookEvent(admin, event, session.id, "ignored", "ASYNC_PAYMENT_FAILED");
+    return json({ received: true, payment: "failed" });
   }
 
-  return json({ received: true });
+  try {
+    const result = await fulfillPaidSession(admin, event, session);
+    await recordWebhookEvent(admin, event, session.id, result === "waiting_for_payment" ? "ignored" : "processed", result);
+    return json({ received: true, result });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("stripe-webhook fulfillment error:", message);
+    await recordWebhookEvent(admin, event, session.id, "failed", message);
+    return json({ error: "FULFILLMENT_FAILED" }, 500);
+  }
 });
