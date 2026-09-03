@@ -1184,6 +1184,68 @@ export type Database = {
           },
         ]
       }
+      purchase_email_outbox: {
+        Row: {
+          attempts: number
+          created_at: string
+          email_type: string
+          id: string
+          last_error: string | null
+          next_attempt_at: string
+          payload: Json
+          provider_message_id: string | null
+          purchase_id: string
+          recipient: string
+          sent_at: string | null
+          status: string
+          stripe_event_id: string
+          stripe_session_id: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          email_type: string
+          id?: string
+          last_error?: string | null
+          next_attempt_at?: string
+          payload: Json
+          provider_message_id?: string | null
+          purchase_id: string
+          recipient: string
+          sent_at?: string | null
+          status?: string
+          stripe_event_id: string
+          stripe_session_id: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          email_type?: string
+          id?: string
+          last_error?: string | null
+          next_attempt_at?: string
+          payload?: Json
+          provider_message_id?: string | null
+          purchase_id?: string
+          recipient?: string
+          sent_at?: string | null
+          status?: string
+          stripe_event_id?: string
+          stripe_session_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_email_outbox_purchase_id_fkey"
+            columns: ["purchase_id"]
+            isOneToOne: false
+            referencedRelation: "purchases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       purchases: {
         Row: {
           created_at: string | null
@@ -1226,6 +1288,39 @@ export type Database = {
           stripe_session_id?: string | null
           user_email?: string | null
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      stripe_webhook_events: {
+        Row: {
+          created_at: string
+          event_id: string
+          event_type: string
+          id: string
+          last_error: string | null
+          status: string
+          stripe_session_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          event_type: string
+          id?: string
+          last_error?: string | null
+          status: string
+          stripe_session_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          event_type?: string
+          id?: string
+          last_error?: string | null
+          status?: string
+          stripe_session_id?: string | null
+          updated_at?: string
         }
         Relationships: []
       }
@@ -1423,6 +1518,32 @@ export type Database = {
           user_id: string
         }[]
       }
+      claim_purchase_email_jobs: {
+        Args: { batch_limit?: number; stale_before: string; worker_now: string }
+        Returns: {
+          attempts: number
+          created_at: string
+          email_type: string
+          id: string
+          last_error: string | null
+          next_attempt_at: string
+          payload: Json
+          provider_message_id: string | null
+          purchase_id: string
+          recipient: string
+          sent_at: string | null
+          status: string
+          stripe_event_id: string
+          stripe_session_id: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "purchase_email_outbox"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       claim_time_capsule_unlock_jobs: {
         Args: { batch_limit?: number; stale_before: string; worker_now: string }
         Returns: {
@@ -1462,6 +1583,7 @@ export type Database = {
       }
       sanitize_public_event_limits: { Args: { raw: Json }; Returns: Json }
       schedule_demo_lifecycle_email_cron: { Args: never; Returns: undefined }
+      schedule_purchase_email_outbox_cron: { Args: never; Returns: undefined }
       schedule_time_capsule_unlock_cron: { Args: never; Returns: undefined }
       verify_event_qr_password: {
         Args: {
