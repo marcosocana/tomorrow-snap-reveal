@@ -874,6 +874,13 @@ const Gallery = () => {
 
     const photoFiles = files.filter((file) => file.type.startsWith("image/"));
     const videoFiles = files.filter((file) => file.type.startsWith("video/"));
+    const { data: limitsData } = await supabase
+      .from("events")
+      .select("max_photos, max_videos")
+      .eq("id", eventId)
+      .maybeSingle();
+    const maxPhotos = limitsData?.max_photos ?? null;
+    const maxVideos = limitsData?.max_videos ?? null;
     const remainingPhotoSlots = maxPhotos !== null ? Math.max(0, maxPhotos - totalPhotos) : null;
     const remainingVideoSlots = maxVideos !== null ? Math.max(0, maxVideos - totalVideos) : null;
     const uploadablePhotoFiles =
