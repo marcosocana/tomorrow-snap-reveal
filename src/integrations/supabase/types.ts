@@ -1048,6 +1048,7 @@ export type Database = {
           gallery_visibility: string
           logo_path: string | null
           logo_url: string | null
+          max_strips: number | null
           photo_count: number
           photo_mode: string
           slug: string
@@ -1065,6 +1066,7 @@ export type Database = {
           gallery_visibility?: string
           logo_path?: string | null
           logo_url?: string | null
+          max_strips?: number | null
           photo_count?: number
           photo_mode?: string
           slug: string
@@ -1082,6 +1084,7 @@ export type Database = {
           gallery_visibility?: string
           logo_path?: string | null
           logo_url?: string | null
+          max_strips?: number | null
           photo_count?: number
           photo_mode?: string
           slug?: string
@@ -1680,6 +1683,36 @@ export type Database = {
           id: string
           user_id: string
         }[]
+      }
+      claim_photostrip_participation: {
+        Args: {
+          target_access_token_hash: string
+          target_event_id: string
+          target_mode: string
+          target_participant_id: string
+        }
+        Returns: {
+          access_token_hash: string
+          completed_at: string | null
+          created_at: string
+          deleted_at: string | null
+          download_count: number
+          event_id: string
+          id: string
+          is_visible: boolean
+          mode: string
+          participant_id: string
+          status: string
+          strip_path: string | null
+          thumbnail_path: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "photostrip_participations"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       claim_purchase_email_jobs: {
         Args: { batch_limit?: number; stale_before: string; worker_now: string }
