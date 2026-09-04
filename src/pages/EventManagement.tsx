@@ -5,7 +5,7 @@ import { getEventMediaCountsBatch } from "@/lib/eventMediaCounts";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,7 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, CalendarDays, List, Plus, Edit, Copy, Download, Eye, LogOut, ArrowLeft, User, Lock, Camera, Video, Mic, MoveRight, ChevronDown, MessageSquareText, KeyRound, Gamepad2, Gift, RefreshCw, ExternalLink, Hourglass } from "lucide-react";
+import { Calendar, CalendarDays, List, Plus, Edit, Copy, Download, Eye, LogOut, ArrowLeft, User, Lock, Camera, Video, Mic, MoveRight, ChevronDown, MessageSquareText, KeyRound, Gamepad2, Gift, RefreshCw, ExternalLink, Hourglass, Images } from "lucide-react";
 import { format } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 import { getCountryByCode } from "@/lib/countries";
@@ -36,6 +36,7 @@ import { CaptainsCheckoutCard } from "@/components/CaptainsCheckoutCard";
 import { TimeCapsuleCheckoutPlans } from "@/components/TimeCapsuleCheckoutPlans";
 import { TIME_CAPSULE_REDEEM_PLANS, type TimeCapsuleRedeemPlanId } from "@/lib/timeCapsule";
 import type { Session } from "@supabase/supabase-js";
+import { PhotostripDashboardSection } from "@/pages/PhotostripAdmin";
 
 interface Event {
   id: string;
@@ -102,13 +103,14 @@ interface CaptainsManagedEvent {
 
 type AdminEventTab = "new" | "upcoming" | "past" | "tests" | "others";
 type ManualAdminEventTab = Exclude<AdminEventTab, "others">;
-type ProductSection = "revelao" | "captains" | "capsule";
+type ProductSection = "revelao" | "captains" | "capsule" | "photostrip";
 type ProductAction = "new" | "code" | "gift";
 
 const PRODUCT_SECTIONS: Array<{ value: ProductSection; label: string }> = [
   { value: "revelao", label: "Revelao" },
   { value: "captains", label: "Capitanes" },
   { value: "capsule", label: "Cápsula del tiempo" },
+  { value: "photostrip", label: "Photostrip" },
 ];
 
 const ADMIN_EVENT_TAB_KEY = "admin_event_tab";
@@ -358,7 +360,10 @@ const EventManagement = () => {
     if (product === "captains" || product === "capsule") setAdminActiveTab("others");
 
     if (action === "new") {
-      if (product === "captains") {
+      if (product === "photostrip") {
+        navigate("/admin/photostrip/new");
+      }
+      else if (product === "captains") {
         if (isSuperAdmin) navigate("/admin/capitanes/onboarding");
         else setCaptainsCheckoutOpen(true);
       }
@@ -390,20 +395,27 @@ const EventManagement = () => {
 
   const isCapsuleEvent = (event: Event) =>
     event.plan_id === "capsule" || event.type === "capsule";
+  const isPhotostripEvent = (event: Event) =>
+    event.plan_id === "photostrip" || event.type === "photostrip";
 
   const revelaoEvents = useMemo(
-    () => events.filter((event) => !isCapsuleEvent(event)),
+    () => events.filter((event) => !isCapsuleEvent(event) && !isPhotostripEvent(event)),
     [events],
   );
   const capsuleEvents = useMemo(
     () => events.filter(isCapsuleEvent),
     [events],
   );
+  const photostripEvents = useMemo(
+    () => events.filter(isPhotostripEvent),
+    [events],
+  );
   const productCounts = useMemo<Record<ProductSection, number>>(() => ({
     revelao: revelaoEvents.length,
     captains: captainsEvents.length,
     capsule: capsuleEvents.length,
-  }), [revelaoEvents.length, captainsEvents.length, capsuleEvents.length]);
+    photostrip: photostripEvents.length,
+  }), [revelaoEvents.length, captainsEvents.length, capsuleEvents.length, photostripEvents.length]);
   const orderedProductSections = useMemo(() => {
     if (isSuperAdmin) return PRODUCT_SECTIONS;
     return [...PRODUCT_SECTIONS].sort((left, right) => {
@@ -412,7 +424,7 @@ const EventManagement = () => {
       return rightHasEvents - leftHasEvents;
     });
   }, [isSuperAdmin, productCounts]);
-  const productEvents = activeProduct === "capsule" ? capsuleEvents : revelaoEvents;
+  const productEvents = activeProduct === "capsule" ? capsuleEvents : activeProduct === "photostrip" ? photostripEvents : revelaoEvents;
 
   useEffect(() => {
     if (isLoading || isSuperAdmin || didChooseInitialProduct.current) return;
@@ -2174,7 +2186,7 @@ const EventManagement = () => {
             </div>
           </div>
 
-          <div role="tablist" aria-label="Tipo de producto" className="grid grid-cols-3 rounded-xl border border-border bg-muted/30 p-1">
+          <div role="tablist" aria-label="Tipo de producto" className="grid grid-cols-2 md:grid-cols-4 rounded-xl border border-border bg-muted/30 p-1">
             {orderedProductSections.map((product) => {
               const selected = activeProduct === product.value;
               const count = productCounts[product.value];
@@ -2187,7 +2199,7 @@ const EventManagement = () => {
                   onClick={() => {
                     setActiveProduct(product.value);
                     if (product.value === "capsule" || product.value === "captains") setAdminActiveTab("others");
-                    if (product.value === "revelao") setAdminActiveTab("upcoming");
+                    if (product.value === "revelao" || product.value === "photostrip") setAdminActiveTab("upcoming");
                     if (product.value === "captains") {
                       setCaptainsStatusFilter("all");
                       setAdminView("list");
@@ -2234,7 +2246,9 @@ const EventManagement = () => {
           </Card>
         ) : null}
 
-        {isSuperAdmin ? activeProduct === "captains" ? renderCaptainsAdminView() : (
+        {activeProduct === "photostrip" ? (
+          <PhotostripDashboardSection events={photostripEvents} />
+        ) : isSuperAdmin ? activeProduct === "captains" ? renderCaptainsAdminView() : (
           <Card className="p-4 space-y-4">
             <div className="flex items-center justify-between gap-3 border-b border-border pb-3">
               <p className="text-sm font-semibold text-foreground">Vista de eventos</p>
@@ -2669,7 +2683,7 @@ const EventManagement = () => {
           </Card>
         ) : null}
 
-        <section aria-label="Descubre las experiencias Revelao" className="grid gap-4 pt-2 md:grid-cols-3">
+        <section aria-label="Descubre las experiencias Revelao" className="grid gap-4 pt-2 md:grid-cols-2 xl:grid-cols-4">
           <a
             href="https://revelao.cam"
             target="_blank"
@@ -2721,6 +2735,22 @@ const EventManagement = () => {
             </p>
             <span className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-amber-700">
               Descubrir la Cápsula <ExternalLink className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+            </span>
+          </a>
+
+          <a
+            href="/admin/photostrip/new"
+            className="group flex min-h-56 flex-col rounded-2xl border border-rose-300/50 bg-gradient-to-br from-rose-50 to-background p-6 shadow-sm transition hover:-translate-y-1 hover:border-rose-400/70 hover:shadow-lg"
+          >
+            <span className="mb-5 flex h-11 w-11 items-center justify-center rounded-xl bg-[#dc6258] text-white shadow-sm">
+              <Images className="h-5 w-5" />
+            </span>
+            <h2 className="text-xl font-bold text-foreground">Photostrip</h2>
+            <p className="mt-2 flex-1 text-sm leading-relaxed text-muted-foreground">
+              Un fotomatón digital para que tus invitados creen y compartan su propia tira de fotos.
+            </p>
+            <span className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-[#c45148]">
+              Crear Photostrip <MoveRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
             </span>
           </a>
         </section>
@@ -2889,9 +2919,10 @@ const EventManagement = () => {
                   ? "¿Para qué producto quieres generar el código?"
                   : "¿Qué producto quieres regalar?"}
             </DialogTitle>
+            <DialogDescription className="sr-only">Selecciona uno de los productos de Revelao para continuar.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-3">
-            {PRODUCT_SECTIONS.map((product) => (
+            {PRODUCT_SECTIONS.filter((product) => productAction === "new" || product.value !== "photostrip").map((product) => (
               <button
                 key={product.value}
                 type="button"

@@ -947,6 +947,165 @@ export type Database = {
           },
         ]
       }
+      photostrip_event_configs: {
+        Row: {
+          countdown_seconds: number
+          created_at: string
+          enabled: boolean
+          event_id: string
+          gallery_views: number
+          gallery_visibility: string
+          logo_path: string | null
+          logo_url: string | null
+          photo_count: number
+          photo_mode: string
+          slug: string
+          strip_display_name: string | null
+          strip_footer_text: string | null
+          strip_template: string
+          updated_at: string
+        }
+        Insert: {
+          countdown_seconds?: number
+          created_at?: string
+          enabled?: boolean
+          event_id: string
+          gallery_views?: number
+          gallery_visibility?: string
+          logo_path?: string | null
+          logo_url?: string | null
+          photo_count?: number
+          photo_mode?: string
+          slug: string
+          strip_display_name?: string | null
+          strip_footer_text?: string | null
+          strip_template?: string
+          updated_at?: string
+        }
+        Update: {
+          countdown_seconds?: number
+          created_at?: string
+          enabled?: boolean
+          event_id?: string
+          gallery_views?: number
+          gallery_visibility?: string
+          logo_path?: string | null
+          logo_url?: string | null
+          photo_count?: number
+          photo_mode?: string
+          slug?: string
+          strip_display_name?: string | null
+          strip_footer_text?: string | null
+          strip_template?: string
+          updated_at?: string
+        }
+        Relationships: [{
+          foreignKeyName: "photostrip_event_configs_event_id_fkey"
+          columns: ["event_id"]
+          isOneToOne: true
+          referencedRelation: "events"
+          referencedColumns: ["id"]
+        }]
+      }
+      photostrip_participations: {
+        Row: {
+          access_token_hash: string
+          completed_at: string | null
+          created_at: string
+          deleted_at: string | null
+          download_count: number
+          event_id: string
+          id: string
+          is_visible: boolean
+          mode: string
+          participant_id: string
+          status: string
+          strip_path: string | null
+          thumbnail_path: string | null
+          updated_at: string
+        }
+        Insert: {
+          access_token_hash: string
+          completed_at?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          download_count?: number
+          event_id: string
+          id?: string
+          is_visible?: boolean
+          mode: string
+          participant_id: string
+          status?: string
+          strip_path?: string | null
+          thumbnail_path?: string | null
+          updated_at?: string
+        }
+        Update: {
+          access_token_hash?: string
+          completed_at?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          download_count?: number
+          event_id?: string
+          id?: string
+          is_visible?: boolean
+          mode?: string
+          participant_id?: string
+          status?: string
+          strip_path?: string | null
+          thumbnail_path?: string | null
+          updated_at?: string
+        }
+        Relationships: [{
+          foreignKeyName: "photostrip_participations_event_id_fkey"
+          columns: ["event_id"]
+          isOneToOne: false
+          referencedRelation: "events"
+          referencedColumns: ["id"]
+        }]
+      }
+      photostrip_photos: {
+        Row: {
+          created_at: string
+          event_id: string
+          id: string
+          image_path: string
+          participation_id: string
+          position: number
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          id?: string
+          image_path: string
+          participation_id: string
+          position: number
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          id?: string
+          image_path?: string
+          participation_id?: string
+          position?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "photostrip_photos_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "photostrip_photos_participation_id_fkey"
+            columns: ["participation_id"]
+            isOneToOne: false
+            referencedRelation: "photostrip_participations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       password_resets: {
         Row: {
           created_at: string
@@ -1489,6 +1648,24 @@ export type Database = {
       }
     }
     Functions: {
+      complete_photostrip_participation: {
+        Args: {
+          target_event_id: string
+          target_participation_id: string
+          target_photo_paths: string[]
+          target_strip_path: string
+          target_thumbnail_path: string
+        }
+        Returns: Database["public"]["Tables"]["photostrip_participations"]["Row"]
+      }
+      increment_photostrip_gallery_views: {
+        Args: { target_event_id: string }
+        Returns: undefined
+      }
+      get_photostrip_admin_metrics: {
+        Args: { target_event_id: string }
+        Returns: Json
+      }
       can_manage_revelao_event: {
         Args: { target_event_id: string }
         Returns: boolean

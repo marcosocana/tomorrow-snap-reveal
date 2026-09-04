@@ -30,6 +30,8 @@ import CaptainsPublic from "./pages/CaptainsPublic";
 import LiveSlideshow from "./pages/LiveSlideshow";
 import TimeCapsule from "./pages/TimeCapsule";
 import OAuthConsent from "./pages/OAuthConsent";
+import PhotostripPublic from "./pages/PhotostripPublic";
+import { PhotostripAdminDetail, PhotostripAdminForm } from "./pages/PhotostripAdmin";
 
 const queryClient = new QueryClient();
 
@@ -204,6 +206,11 @@ const App = () => {
               <Route path="/capitanes/:eventSlug/final" element={<CaptainsPublic />} />
               <Route path="/capitanes/:eventSlug/live" element={<CaptainsPublic />} />
               <Route path="/capitanes/:eventSlug/resumen" element={<CaptainsPublic />} />
+              <Route path="/photostrip/:eventSlug" element={<PhotostripPublic />} />
+              <Route path="/photostrip/:eventSlug/gallery" element={<PhotostripPublic />} />
+              <Route path="/admin/photostrip/new" element={<PhotostripAdminForm />} />
+              <Route path="/admin/photostrip/:eventId" element={<PhotostripAdminDetail />} />
+              <Route path="/admin/photostrip/:eventId/edit" element={<PhotostripAdminForm edit />} />
 
               {/* Admin translations via URL prefix */}
               <Route path="/en/login" element={<AdminLogin />} />

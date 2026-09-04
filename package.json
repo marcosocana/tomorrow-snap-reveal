@@ -13,6 +13,7 @@
     "test:demo-credentials": "node scripts/audit-demo-event-credentials.mjs",
     "test:gifts": "node scripts/audit-revelao-gifts.mjs",
     "test:event-polling": "node scripts/audit-event-polling.mjs",
+    "test:photostrip": "node scripts/audit-photostrip.mjs",
     "test:stripe-emails": "node scripts/audit-stripe-purchase-emails.mjs",
     "preview": "vite preview"
   },
