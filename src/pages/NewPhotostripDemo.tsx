@@ -127,7 +127,7 @@ const NewPhotostripDemo = () => {
       toast({
         title: code.includes("INVALID_CREDENTIALS") ? "Este usuario ya existe" : "No se pudo crear la demo",
         description: code.includes("INVALID_CREDENTIALS")
-          ? "Introduce la contraseña de esa cuenta o recupérala desde el acceso."
+          ? <span>La contraseña no es correcta. Inténtalo de nuevo o <a href="/reset-password" className="font-semibold underline underline-offset-2">recupera tu contraseña</a>.</span>
           : "Comprueba los datos y vuelve a intentarlo.",
         variant: "destructive",
       });
@@ -171,6 +171,7 @@ const NewPhotostripDemo = () => {
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
               <Button variant="outline" onClick={() => void copyUrl()}><Copy className="mr-2 h-4 w-4" />Copiar enlace</Button>
               <Button variant="outline" onClick={downloadQr}>Descargar QR</Button>
+              <Button asChild variant="outline" className="sm:col-span-2"><a href={`/admin/photostrip/${created.event.id}/edit`}>Editar evento</a></Button>
               <Button asChild className="sm:col-span-2 bg-[#f06a5f] text-white hover:bg-[#f06a5f]/90"><a href={created.eventUrl}><Camera className="mr-2 h-4 w-4" />Entrar y hacer la primera tira</a></Button>
             </div>
           </div>

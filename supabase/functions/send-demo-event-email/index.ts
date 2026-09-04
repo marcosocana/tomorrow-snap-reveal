@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 
 type DemoEvent = {
+  id?: string;
   name: string;
   password_hash: string;
   admin_password: string;
@@ -61,7 +62,7 @@ serve(async (req) => {
     event?: DemoEvent;
     contactInfo?: ContactInfo;
     qrUrl?: string | null;
-    eventType?: "demo" | "paid" | "capsule";
+    eventType?: "demo" | "paid" | "capsule" | "photostrip";
     planLabel?: string | null;
     lang?: EmailLang;
     publicUrl?: string | null;
@@ -75,7 +76,9 @@ serve(async (req) => {
   const pathPrefix = emailLang === "es" ? "" : `/${emailLang}`;
   const eventUrl = publicUrl?.trim() || `https://acceso.revelao.cam/events/${event.password_hash}`;
   const credentialEmail = contactInfo.email.trim().toLowerCase();
-  const adminUrl = `https://acceso.revelao.cam${pathPrefix}/admin-login?email=${encodeURIComponent(credentialEmail)}`;
+  const isPhotostrip = eventType === "photostrip";
+  const editPath = isPhotostrip && event.id ? `/admin/photostrip/${event.id}/edit` : `${pathPrefix}/event-management`;
+  const adminUrl = `https://acceso.revelao.cam${pathPrefix}/admin-login?email=${encodeURIComponent(credentialEmail)}&redirect=${encodeURIComponent(editPath)}`;
   const planUrl = "https://www.revelao.cam";
   const eventTz = event.timezone || "Europe/Madrid";
   const resolvedQrUrl =
@@ -113,9 +116,11 @@ serve(async (req) => {
       subjectDemo: "Tu evento de prueba en Revelao",
       subjectPaid: "Tu evento en Revelao",
       subjectCapsule: "Tu cápsula del tiempo en Revelao",
+      subjectPhotostrip: "Tu Photostrip demo está listo",
       introDemo: "Tu evento de prueba está listo",
       introPaid: "Tu evento está listo",
       introCapsule: "Tu cápsula del tiempo está lista",
+      introPhotostrip: "Tu Photostrip demo está listo",
       howTitle: "Cómo funciona",
       howStep1: "Comparte el QR con tus invitados para que puedan acceder al evento.",
       howStep2: "Tus invitados suben fotos durante el periodo de subida.",
@@ -123,6 +128,9 @@ serve(async (req) => {
       capsuleStep1: "Comparte el QR con tus invitados durante la celebración.",
       capsuleStep2: "Cada invitado indica su nombre y graba un mensaje en vídeo.",
       capsuleStep3: "Los vídeos quedan guardados dentro de vuestra cápsula.",
+      photostripStep1: "Comparte el QR para que los invitados entren desde su móvil.",
+      photostripStep2: "Cada participación crea una tira automática de cuatro fotografías.",
+      photostripStep3: "Pueden descargar su tira y ver las fotos de los demás en la galería común.",
       summary: "Fechas del evento",
       qrTitle: "Información de tu evento",
       qrLabel: "Código QR",
@@ -150,9 +158,11 @@ serve(async (req) => {
       subjectDemo: "Your Revelao demo event",
       subjectPaid: "Your Revelao event",
       subjectCapsule: "Your Revelao time capsule",
+      subjectPhotostrip: "Your Photostrip demo is ready",
       introDemo: "Your demo event is ready",
       introPaid: "Your event is ready",
       introCapsule: "Your time capsule is ready",
+      introPhotostrip: "Your Photostrip demo is ready",
       howTitle: "How it works",
       howStep1: "Share the QR with your guests so they can access the event.",
       howStep2: "Your guests upload photos during the upload period.",
@@ -160,6 +170,9 @@ serve(async (req) => {
       capsuleStep1: "Share the QR with your guests during the celebration.",
       capsuleStep2: "Each guest enters their name and records a video message.",
       capsuleStep3: "The videos are safely stored inside your time capsule.",
+      photostripStep1: "Share the QR so guests can open it from their phone.",
+      photostripStep2: "Each session automatically creates a four-photo strip.",
+      photostripStep3: "Guests can download their strip and open the shared gallery.",
       summary: "Event dates",
       qrTitle: "Your event information",
       qrLabel: "QR code",
@@ -187,9 +200,11 @@ serve(async (req) => {
       subjectDemo: "Il tuo evento demo su Revelao",
       subjectPaid: "Il tuo evento su Revelao",
       subjectCapsule: "La tua capsula del tempo su Revelao",
+      subjectPhotostrip: "La tua demo Photostrip è pronta",
       introDemo: "Il tuo evento demo è pronto",
       introPaid: "Il tuo evento è pronto",
       introCapsule: "La tua capsula del tempo è pronta",
+      introPhotostrip: "La tua demo Photostrip è pronta",
       howTitle: "Come funziona",
       howStep1: "Condividi il QR con gli invitati per accedere all’evento.",
       howStep2: "Gli invitati caricano foto durante il periodo di caricamento.",
@@ -197,6 +212,9 @@ serve(async (req) => {
       capsuleStep1: "Condividi il QR con gli invitati durante la celebrazione.",
       capsuleStep2: "Ogni invitato inserisce il nome e registra un videomessaggio.",
       capsuleStep3: "I video restano custoditi nella vostra capsula del tempo.",
+      photostripStep1: "Condividi il QR per far accedere gli invitati dal telefono.",
+      photostripStep2: "Ogni sessione crea automaticamente una striscia di quattro foto.",
+      photostripStep3: "Gli invitati possono scaricarla e aprire la galleria condivisa.",
       summary: "Date dell’evento",
       qrTitle: "Informazioni sul tuo evento",
       qrLabel: "Codice QR",
@@ -222,7 +240,9 @@ serve(async (req) => {
     },
   }[emailLang];
 
-  const howSteps = isCapsule
+  const howSteps = isPhotostrip
+    ? [t.photostripStep1, t.photostripStep2, t.photostripStep3]
+    : isCapsule
     ? [t.capsuleStep1, t.capsuleStep2, t.capsuleStep3]
     : [t.howStep1, t.howStep2, t.howStep3];
 
@@ -231,7 +251,7 @@ serve(async (req) => {
       <div style="text-align: center; padding: 8px 0 16px;">
         <img src="${logoSrc}" alt="Revelao" style="height: 96px; width: auto; display: inline-block;" />
       </div>
-      <p style="font-size: 13px; margin: 0 0 4px;">${isCapsule ? t.introCapsule : isDemo ? t.introDemo : t.introPaid}</p>
+      <p style="font-size: 13px; margin: 0 0 4px;">${isPhotostrip ? t.introPhotostrip : isCapsule ? t.introCapsule : isDemo ? t.introDemo : t.introPaid}</p>
       <p style="font-size: 20px; font-weight: 700; margin: 0 0 16px;">${event.name}</p>
       <p style="font-weight: 700; margin: 0 0 8px;">${t.howTitle}</p>
       <ul style="margin: 0 0 16px; padding-left: 20px; color: #444;">
@@ -251,8 +271,8 @@ serve(async (req) => {
         <p style="font-weight: 700; margin: 12px 0 6px;">${t.summary}</p>
         <p style="margin: 6px 0 0;">${t.uploadStart}: ${formatDate(event.upload_start_time)}</p>
         <p style="margin: 6px 0 0;">${t.uploadEnd}: ${formatDate(event.upload_end_time)}</p>
-        ${isCapsule ? "" : `<p style="margin: 6px 0 0;">${t.reveal}: ${formatDate(event.reveal_time)}</p>`}
-        ${isCapsule ? "" : `<p style="margin: 6px 0 0;">${t.maxPhotos}: ${event.max_photos}</p>`}
+        ${isCapsule || isPhotostrip ? "" : `<p style="margin: 6px 0 0;">${t.reveal}: ${formatDate(event.reveal_time)}</p>`}
+        ${isCapsule || isPhotostrip ? "" : `<p style="margin: 6px 0 0;">${t.maxPhotos}: ${event.max_photos}</p>`}
         <p style="margin: 6px 0 0;">${t.timezone}: ${eventTz}</p>
       </div>
       <div style="margin: 16px 0 20px; padding: 16px; background: #fef9c3; border: 1px solid #fde68a; border-radius: 12px;">
@@ -290,7 +310,7 @@ serve(async (req) => {
   const payload = {
     from: FROM_EMAIL,
     to: contactInfo.email,
-    subject: isCapsule ? t.subjectCapsule : isDemo ? t.subjectDemo : t.subjectPaid,
+    subject: isPhotostrip ? t.subjectPhotostrip : isCapsule ? t.subjectCapsule : isDemo ? t.subjectDemo : t.subjectPaid,
     html,
   };
 

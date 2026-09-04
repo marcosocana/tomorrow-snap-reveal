@@ -59,6 +59,19 @@ const notifyAdmin = async (event: unknown) => {
   }
 };
 
+const sendConfirmation = async (event: unknown, email: string, phone: string, eventUrl: string) => {
+  try {
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/send-demo-event-email`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${SUPABASE_ANON_KEY}`, apikey: SUPABASE_ANON_KEY },
+      body: JSON.stringify({ event, contactInfo: { email, phone }, eventType: "photostrip", planLabel: "Demo · 3 tiras", lang: "es", publicUrl: eventUrl }),
+    });
+    if (!response.ok) console.error("create-photostrip-demo email error:", await response.text());
+  } catch (error) {
+    console.error("create-photostrip-demo email error:", error instanceof Error ? error.message : "unknown");
+  }
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "METHOD_NOT_ALLOWED" }, 405);
@@ -138,7 +151,7 @@ serve(async (req) => {
         created_from: "nuevophotostripdemo",
         demo_contact: { name: contactName, email, phone: contactPhone },
       },
-    }).select("id,name,upload_start_time,upload_end_time,timezone,is_demo,type,plan_id").single();
+    }).select("id,name,password_hash,admin_password,reveal_time,upload_start_time,upload_end_time,timezone,max_photos,is_demo,type,plan_id").single();
     if (eventError || !event) return json({ error: "CREATE_EVENT_FAILED", detail: eventError?.message }, 500);
     createdEventId = event.id;
 
@@ -164,8 +177,9 @@ serve(async (req) => {
       return json({ error: "CREATE_CONFIG_FAILED", detail: configError.message }, 500);
     }
 
-    await notifyAdmin(event);
-    return json({ event, slug, eventUrl: `https://acceso.revelao.cam/photostrip/${slug}`, maxStrips: 3 });
+    const eventUrl = `https://acceso.revelao.cam/photostrip/${slug}`;
+    await Promise.all([notifyAdmin(event), sendConfirmation(event, email, contactPhone, eventUrl)]);
+    return json({ event: { id: event.id, name: event.name }, slug, eventUrl, maxStrips: 3 });
   } catch (error) {
     if (createdEventId) await admin.from("events").delete().eq("id", createdEventId);
     console.error("create-photostrip-demo error:", error instanceof Error ? error.message : "unknown");

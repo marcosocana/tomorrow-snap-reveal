@@ -263,6 +263,40 @@ export const PhotostripAdminDetail = () => {
   </main></div>;
 };
 
-export const PhotostripDashboardSection = ({ events }: { events: Array<{ id: string; name: string; upload_start_time: string | null; upload_end_time: string | null }> }) => (
-  events.length ? <div className="grid gap-4 md:grid-cols-2">{events.map((event) => <Card key={event.id} className="p-5"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.15em] text-[#dc6258]">Photostrip</p><h3 className="mt-1 text-lg font-semibold">{event.name}</h3><p className="mt-2 text-sm text-muted-foreground">{event.upload_start_time ? new Date(event.upload_start_time).toLocaleString("es-ES") : "Sin fecha"}</p></div><Button asChild size="sm"><Link to={`/admin/photostrip/${event.id}`}>Gestionar</Link></Button></div></Card>)}</div> : <Card className="p-12 text-center"><ImageIcon className="mx-auto mb-4 h-12 w-12 text-muted-foreground" /><p className="font-medium">Todavía no tienes ningún Photostrip</p><p className="mt-1 text-sm text-muted-foreground">Crea tu primer fotomatón móvil.</p><Button asChild className="mt-5"><Link to="/admin/photostrip/new">Crear Photostrip</Link></Button></Card>
-);
+type PhotostripDashboardEvent = {
+  id: string;
+  name: string;
+  upload_start_time: string | null;
+  upload_end_time: string | null;
+  timezone?: string | null;
+  created_at?: string | null;
+  is_demo?: boolean | null;
+  plan_id?: string | null;
+  event_number?: number | null;
+  owner_email?: string | null;
+};
+
+export const PhotostripDashboardSection = ({ events }: { events: PhotostripDashboardEvent[] }) => {
+  const navigate = useNavigate();
+  if (!events.length) return <Card className="p-12 text-center"><ImageIcon className="mx-auto mb-4 h-12 w-12 text-muted-foreground" /><p className="font-medium">Todavía no tienes ningún Photostrip</p><p className="mt-1 text-sm text-muted-foreground">Crea tu primer fotomatón móvil.</p><Button asChild className="mt-5"><Link to="/admin/photostrip/new">Crear Photostrip</Link></Button></Card>;
+
+  return (
+    <Card className="space-y-4 p-4">
+      <div className="flex items-center justify-between gap-3 border-b pb-3"><div><p className="text-sm font-semibold">Vista de eventos</p><p className="text-xs text-muted-foreground">Photostrip creados y demos.</p></div><Button asChild size="sm"><Link to="/admin/photostrip/new">Crear Photostrip</Link></Button></div>
+      <div className="overflow-x-auto">
+        <table className="min-w-[980px] w-full text-sm">
+          <thead><tr className="border-b text-left text-muted-foreground"><th className="py-3 pr-4 font-medium">ID</th><th className="py-3 pr-4 font-medium">Evento</th><th className="py-3 pr-4 font-medium">Tipo</th><th className="py-3 pr-4 font-medium">Creación</th><th className="py-3 pr-4 font-medium">Email</th><th className="py-3 pr-4 font-medium">Estado</th><th className="py-3 pr-4 font-medium">Tiras</th><th className="py-3 pr-4 font-medium">Inicio</th><th className="py-3 font-medium">Fin</th></tr></thead>
+          <tbody>{events.map((event) => {
+            const now = Date.now();
+            const upcoming = Boolean(event.upload_start_time && new Date(event.upload_start_time).getTime() > now);
+            const finished = Boolean(event.upload_end_time && new Date(event.upload_end_time).getTime() < now);
+            const status = upcoming ? "Próximo" : finished ? "Finalizado" : "En curso";
+            const timezone = event.timezone || "Europe/Madrid";
+            const isDemo = Boolean(event.is_demo || event.plan_id === "photostrip-demo");
+            return <tr key={event.id} role="link" tabIndex={0} className="cursor-pointer border-b transition-colors hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none last:border-0" onClick={() => navigate(`/admin/photostrip/${event.id}`)} onKeyDown={(keyboardEvent) => { if (keyboardEvent.key === "Enter") navigate(`/admin/photostrip/${event.id}`); }}><td className="py-3 pr-4 text-muted-foreground">{event.event_number ?? "—"}</td><td className="py-3 pr-4 font-medium">{event.name}</td><td className="py-3 pr-4"><span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${isDemo ? "bg-amber-100 text-amber-800" : "bg-rose-100 text-rose-800"}`}>{isDemo ? "DEMO" : "PHOTOSTRIP"}</span></td><td className="py-3 pr-4">{event.created_at ? new Date(event.created_at).toLocaleDateString("es-ES") : "—"}</td><td className="max-w-[190px] truncate py-3 pr-4">{event.owner_email || "—"}</td><td className="py-3 pr-4">{status}</td><td className="py-3 pr-4">{isDemo ? "3" : "Ilimitadas"}</td><td className="py-3 pr-4">{event.upload_start_time ? formatInTimeZone(new Date(event.upload_start_time), timezone, "dd/MM/yyyy HH:mm") : "—"}</td><td className="py-3">{event.upload_end_time ? formatInTimeZone(new Date(event.upload_end_time), timezone, "dd/MM/yyyy HH:mm") : "—"}</td></tr>;
+          })}</tbody>
+        </table>
+      </div>
+    </Card>
+  );
+};

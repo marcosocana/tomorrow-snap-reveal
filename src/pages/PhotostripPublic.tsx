@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
-import { Camera, Check, Download, Images, RefreshCw, X } from "lucide-react";
+import { Camera, Download, Images, X } from "lucide-react";
 import { PhotoboothShell } from "@/components/photostrip/PhotoboothShell";
 import { captureVideoFrame, generatePhotostrip } from "@/lib/generatePhotostrip";
 import {
@@ -13,7 +13,7 @@ import {
   type PublicPhotostripEvent,
 } from "@/lib/photostrip";
 
-type Stage = "loading" | "landing" | "mode" | "camera" | "capturing" | "preview" | "saving" | "result" | "removed" | "error";
+type Stage = "loading" | "landing" | "mode" | "camera" | "capturing" | "saving" | "result" | "removed" | "error";
 
 const wait = (milliseconds: number) => new Promise((resolve) => window.setTimeout(resolve, milliseconds));
 
@@ -113,20 +113,14 @@ const PhotostripGallery = ({ slug }: { slug: string }) => {
 const PhotostripExperience = ({ slug }: { slug: string }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const photosRef = useRef<Blob[]>([]);
-  const photoUrlsRef = useRef<string[]>([]);
-  const stripObjectUrlRef = useRef<string | null>(null);
   const [event, setEvent] = useState<PublicPhotostripEvent | null>(null);
   const [stage, setStage] = useState<Stage>("loading");
   const [mode, setMode] = useState<PhotostripMode>("color");
   const [countdown, setCountdown] = useState<number | null>(null);
   const [captureIndex, setCaptureIndex] = useState(0);
-  const [photoUrls, setPhotoUrls] = useState<string[]>([]);
-  const [stripPreview, setStripPreview] = useState<string | null>(null);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [flash, setFlash] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [retakeIndex, setRetakeIndex] = useState<number | null>(null);
   const identityRef = useRef(getPhotostripIdentity(slug));
 
   const stopCamera = useCallback(() => {
@@ -134,26 +128,6 @@ const PhotostripExperience = ({ slug }: { slug: string }) => {
     streamRef.current = null;
     if (videoRef.current) videoRef.current.srcObject = null;
   }, []);
-
-  const replacePhotoState = (blobs: Blob[]) => {
-    photoUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
-    photosRef.current = blobs;
-    photoUrlsRef.current = blobs.map((blob) => URL.createObjectURL(blob));
-    setPhotoUrls([...photoUrlsRef.current]);
-  };
-
-  const buildPreview = async (blobs: Blob[], selectedMode: PhotostripMode, currentEvent: PublicPhotostripEvent) => {
-    const strip = await generatePhotostrip(blobs, {
-      mode: selectedMode,
-      eventName: currentEvent.stripDisplayName,
-      eventDate: currentEvent.startsAt,
-      footerText: currentEvent.stripFooterText,
-      logoUrl: currentEvent.logoUrl,
-    });
-    if (stripObjectUrlRef.current) URL.revokeObjectURL(stripObjectUrlRef.current);
-    stripObjectUrlRef.current = URL.createObjectURL(strip);
-    setStripPreview(stripObjectUrlRef.current);
-  };
 
   useEffect(() => {
     let active = true;
@@ -179,11 +153,6 @@ const PhotostripExperience = ({ slug }: { slug: string }) => {
     })();
     return () => { active = false; stopCamera(); };
   }, [slug, stopCamera]);
-
-  useEffect(() => () => {
-    photoUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
-    if (stripObjectUrlRef.current) URL.revokeObjectURL(stripObjectUrlRef.current);
-  }, []);
 
   const openCamera = async (selectedMode: PhotostripMode) => {
     if (!event) return;
@@ -251,41 +220,22 @@ const PhotostripExperience = ({ slug }: { slug: string }) => {
         captured.push(await captureOne());
         if (index < 3) await wait(550);
       }
-      replacePhotoState(captured);
-      await buildPreview(captured, mode, event);
-      setStage("preview");
+      await finalize(captured);
     } catch (captureError) {
       setError(humanError(captureError));
       setStage("camera");
     }
   };
 
-  const retake = async () => {
-    if (retakeIndex === null || !event) return;
-    try {
-      setStage("capturing");
-      const replacement = await captureOne();
-      const next = [...photosRef.current];
-      next[retakeIndex] = replacement;
-      replacePhotoState(next);
-      await buildPreview(next, mode, event);
-      setRetakeIndex(null);
-      setStage("preview");
-    } catch (retakeError) {
-      setError(humanError(retakeError));
-      setStage("preview");
-    }
-  };
-
-  const finalize = async () => {
-    if (!event || photosRef.current.length !== 4) return;
+  const finalize = async (capturedPhotos: Blob[]) => {
+    if (!event || capturedPhotos.length !== 4) return;
     try {
       setStage("saving");
-      const strip = await generatePhotostrip(photosRef.current, {
+      const strip = await generatePhotostrip(capturedPhotos, {
         mode, eventName: event.stripDisplayName, eventDate: event.startsAt,
         footerText: event.stripFooterText, logoUrl: event.logoUrl,
       });
-      const thumbnail = await generatePhotostrip(photosRef.current, {
+      const thumbnail = await generatePhotostrip(capturedPhotos, {
         mode, eventName: event.stripDisplayName, eventDate: event.startsAt,
         footerText: event.stripFooterText, logoUrl: event.logoUrl, thumbnail: true,
       });
@@ -294,7 +244,7 @@ const PhotostripExperience = ({ slug }: { slug: string }) => {
       form.set("slug", slug);
       form.set("participantId", identity.id);
       form.set("participantToken", identity.token);
-      photosRef.current.forEach((photo, index) => form.set(`photo${index + 1}`, photo, `photo-${index + 1}.webp`));
+      capturedPhotos.forEach((photo, index) => form.set(`photo${index + 1}`, photo, `photo-${index + 1}.webp`));
       form.set("strip", strip, "strip.webp");
       form.set("thumbnail", thumbnail, "thumbnail.webp");
       const response = await photostripApi<{ stripUrl: string }>(form);
@@ -304,7 +254,7 @@ const PhotostripExperience = ({ slug }: { slug: string }) => {
       setStage("result");
     } catch (saveError) {
       setError(humanError(saveError));
-      setStage("preview");
+      setStage("camera");
     }
   };
 
@@ -360,22 +310,7 @@ const PhotostripExperience = ({ slug }: { slug: string }) => {
             {stage === "capturing" ? <span className="photostrip-progress">FOTO {captureIndex + 1} / 4</span> : null}
             {flash ? <span className="photostrip-flash" /> : null}
           </div>
-          {stage === "camera" ? <button className="photostrip-ink-button" onClick={() => void captureSequence()}><Camera /> START</button> : <p className="photostrip-message">NO TE MUEVAS...</p>}
-        </div>
-      ) : null}
-
-      {stage === "preview" ? (
-        <div className="photostrip-preview-stage">
-          <div><p className="photostrip-kicker">TU TIRA</p><h1>¿LA IMPRIMIMOS?</h1></div>
-          {stripPreview ? <img className="photostrip-strip-preview" src={stripPreview} alt="Vista previa de tu tira" /> : null}
-          <div className="photostrip-thumbnails" aria-label="Selecciona una foto para repetirla">
-            {photoUrls.map((url, index) => <button key={url} className={retakeIndex === index ? "selected" : ""} onClick={() => setRetakeIndex(index)}><img src={url} alt={`Foto ${index + 1}`} /></button>)}
-          </div>
-          {error ? <p className="photostrip-error">{error}</p> : null}
-          <div className="photostrip-preview-actions">
-            <button className="photostrip-ink-button" onClick={() => void finalize()}><Check /> IMPRIMIR</button>
-            <button className="photostrip-secondary-button" disabled={retakeIndex === null} onClick={() => void retake()}><RefreshCw /> REPETIR FOTO</button>
-          </div>
+          {stage === "camera" ? <button className="photostrip-ink-button" onClick={() => void captureSequence()}><Camera /> EMPEZAR</button> : <p className="photostrip-message">NO TE MUEVAS...</p>}
         </div>
       ) : null}
 
@@ -385,8 +320,10 @@ const PhotostripExperience = ({ slug }: { slug: string }) => {
         <div className="photostrip-result">
           <p className="photostrip-kicker">TU PHOTOSTRIP</p><h1>RECIÉN REVELADO</h1>
           <img className="photostrip-strip-preview" src={resultUrl} alt="Tu Photostrip terminado" />
-          <button className="photostrip-ink-button" onClick={() => void downloadOwnStrip()}><Download /> DESCARGAR TIRA</button>
-          {event.galleryAllowed ? <Link className="photostrip-secondary-button" to={`/photostrip/${slug}/gallery`}><Images /> VER FOTOS DE OTROS INVITADOS</Link> : null}
+          <div className="photostrip-result-actions">
+            <button className="photostrip-ink-button" onClick={() => void downloadOwnStrip()}><Download /> DESCARGAR</button>
+            {event.galleryAllowed ? <Link className="photostrip-secondary-button" to={`/photostrip/${slug}/gallery`}><Images /> VER FOTOS DE OTROS INVITADOS</Link> : null}
+          </div>
         </div>
       ) : null}
     </PhotoboothShell>

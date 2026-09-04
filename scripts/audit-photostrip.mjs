@@ -14,6 +14,8 @@ const migration = read("supabase/migrations/20260904120000_add_photostrip_produc
 const demoMigration = read("supabase/migrations/20260905120000_add_photostrip_demo_limits_and_branding.sql");
 const demoFunction = read("supabase/functions/create-photostrip-demo/index.ts");
 const demoPage = read("src/pages/NewPhotostripDemo.tsx");
+const demoEmail = read("supabase/functions/send-demo-event-email/index.ts");
+const styles = read("src/index.css");
 
 for (const route of [
   "/photostrip/:eventSlug",
@@ -33,7 +35,7 @@ expect("Photostrip is excluded from Revelao events", dashboard.includes("!isPhot
 expect("anonymous identity uses UUID", publicPage.includes("getPhotostripIdentity") && read("src/lib/photostrip.ts").includes("crypto.randomUUID()"));
 expect("camera requested after explicit action", publicPage.includes("onClick={() => event.photoMode") && publicPage.includes("navigator.mediaDevices.getUserMedia"));
 expect("automated four-photo sequence", publicPage.includes("index < 4") && publicPage.includes("captured.push(await captureOne())"));
-expect("retake replaces one photo", publicPage.includes("next[retakeIndex] = replacement"));
+expect("capture finalizes automatically", publicPage.includes("await finalize(captured)") && !publicPage.includes('stage === "preview"'));
 expect("Canvas emits WebP", generator.includes('"image/webp"') && generator.includes("photos.length !== 4"));
 expect("individual photos resized", generator.includes("const outputWidth = 1400") && generator.includes("const outputHeight = 1050"));
 expect("public gallery is paginated", api.includes("Math.min(24") && publicPage.includes("CARGAR MÁS"));
@@ -55,6 +57,13 @@ expect("cover image reaches the public experience", api.includes("coverImageUrl:
 expect("result links to guest gallery", publicPage.includes("VER FOTOS DE OTROS INVITADOS"));
 expect("demo wizard creates through protected function", demoPage.includes('invoke("create-photostrip-demo"') && demoPage.includes("3 tiras"));
 expect("Photostrip demo skips delayed reveal email", demoMigration.includes("IF NEW.type <> 'photostrip'"));
+expect("wrong password offers recovery", demoPage.includes("recupera tu contraseña") && demoPage.includes('href="/reset-password"'));
+expect("demo sends confirmation email", demoFunction.includes("sendConfirmation") && demoEmail.includes('eventType === "photostrip"'));
+expect("confirmation email opens event editor", demoEmail.includes("/admin/photostrip/${event.id}/edit"));
+expect("public experience has no scrolling", styles.includes(".photostrip-screen") && styles.includes("overflow: hidden;") && styles.includes(".photostrip-gallery-page"));
+expect("camera action says Empezar", publicPage.includes("EMPEZAR") && !publicPage.includes("> START<"));
+expect("result only exposes download and guest gallery", publicPage.includes("photostrip-result-actions") && publicPage.includes("> DESCARGAR</button>") && publicPage.includes("VER FOTOS DE OTROS INVITADOS"));
+expect("Photostrip admin uses Revelao-style table", adminPage.includes("PhotostripDashboardEvent") && adminPage.includes("<table") && adminPage.includes('"DEMO"'));
 
 for (const check of checks) console.log(`${check.pass ? "PASS" : "FAIL"}  ${check.name}`);
 const failed = checks.filter((check) => !check.pass);
