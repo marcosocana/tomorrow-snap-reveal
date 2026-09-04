@@ -108,7 +108,7 @@ const isUserExistsError = (message: string) => {
 };
 
 const findUserIdByEmail = async (
-  supabaseAdmin: ReturnType<typeof createClient>,
+  supabaseAdmin: ReturnType<typeof createClient<any>>,
   ownerEmail: string,
 ): Promise<string | null> => {
   const normalizedEmail = ownerEmail.trim().toLowerCase();
@@ -196,6 +196,9 @@ serve(async (req) => {
     }
     if (!event?.name || !event.password_hash || !event.admin_password) {
       return json({ error: "INVALID_EVENT" }, 400);
+    }
+    if (event.description && Array.from(event.description).length > 200) {
+      return json({ error: "INVALID_DESCRIPTION", detail: "Description cannot exceed 200 characters" }, 400);
     }
     const isCapsule = event.plan_id === "capsule" || event.type === "capsule";
     const ownerPassword = event.admin_password;

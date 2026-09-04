@@ -838,6 +838,16 @@ const EventForm = () => {
     setIsSubmitting(true);
 
     try {
+      if (Array.from(formData.description).length > 200) {
+        toast({
+          title: t("form.errorTitle"),
+          description: t("form.descriptionTooLong"),
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
       if (isSuperAdmin && !isEditing && !ownerEmailInput.trim()) {
         toast({
           title: t("form.errorTitle"),
@@ -1816,10 +1826,14 @@ const EventForm = () => {
                 }
                 placeholder={t("form.descriptionPlaceholder")}
                 rows={3}
+                maxLength={200}
               />
-              <p className="text-xs text-muted-foreground">
-                {t("form.descriptionHint")}
-              </p>
+              <div className="flex items-start justify-between gap-3 text-xs text-muted-foreground">
+                <p>{t("form.descriptionHint")}</p>
+                <span className="shrink-0" aria-live="polite">
+                  {Array.from(formData.description).length}/200
+                </span>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
