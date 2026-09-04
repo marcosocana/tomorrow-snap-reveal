@@ -11,6 +11,9 @@ const adminPage = read("src/pages/PhotostripAdmin.tsx");
 const generator = read("src/lib/generatePhotostrip.ts");
 const api = read("supabase/functions/photostrip-api/index.ts");
 const migration = read("supabase/migrations/20260904120000_add_photostrip_product.sql");
+const demoMigration = read("supabase/migrations/20260905120000_add_photostrip_demo_limits_and_branding.sql");
+const demoFunction = read("supabase/functions/create-photostrip-demo/index.ts");
+const demoPage = read("src/pages/NewPhotostripDemo.tsx");
 
 for (const route of [
   "/photostrip/:eventSlug",
@@ -19,6 +22,7 @@ for (const route of [
   "/admin/photostrip/:eventId",
   "/admin/photostrip/:eventId/edit",
 ]) expect(`route ${route}`, app.includes(`path="${route}"`));
+expect("public Photostrip demo route", app.includes('path="/nuevophotostripdemo"'));
 
 for (const legacyRoute of ["/camera", "/gallery", "/events/:password", "/capsula/:eventId", "/capitanes/:eventSlug"]) {
   expect(`legacy route preserved ${legacyRoute}`, app.includes(`path="${legacyRoute}"`));
@@ -43,6 +47,14 @@ expect("Realtime publication enabled", migration.includes("ALTER PUBLICATION sup
 expect("admin ownership is enforced", api.includes("await canManage(req, event)"));
 expect("QR exports PNG and SVG", adminPage.includes("downloadPng") && adminPage.includes("downloadSvg"));
 expect("no microphone request", publicPage.includes("audio: false") && !publicPage.includes("getUserMedia({ audio: true"));
+expect("demo creation is limited to three strips", demoFunction.includes("max_strips: 3") && demoMigration.includes("PHOTOSTRIP_LIMIT_REACHED"));
+expect("demo limit is claimed atomically", api.includes('rpc("claim_photostrip_participation"') && demoMigration.includes("FOR UPDATE"));
+expect("regular Photostrips remain unlimited", demoMigration.includes("ADD COLUMN IF NOT EXISTS max_strips integer") && demoMigration.includes("max_strips IS NULL"));
+expect("Revelao logo is the default", demoFunction.includes("LogoMiniRevelao.svg") && demoMigration.includes("ALTER COLUMN logo_url SET DEFAULT"));
+expect("cover image reaches the public experience", api.includes("coverImageUrl: event.background_image_url") && publicPage.includes("event.coverImageUrl"));
+expect("result links to guest gallery", publicPage.includes("VER FOTOS DE OTROS INVITADOS"));
+expect("demo wizard creates through protected function", demoPage.includes('invoke("create-photostrip-demo"') && demoPage.includes("3 tiras"));
+expect("Photostrip demo skips delayed reveal email", demoMigration.includes("IF NEW.type <> 'photostrip'"));
 
 for (const check of checks) console.log(`${check.pass ? "PASS" : "FAIL"}  ${check.name}`);
 const failed = checks.filter((check) => !check.pass);

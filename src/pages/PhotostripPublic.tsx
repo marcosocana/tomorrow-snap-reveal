@@ -22,6 +22,7 @@ const humanError = (error: unknown) => {
   if (code.includes("NotAllowedError") || code === "CAMERA_DENIED") return "Necesitamos permiso para usar la cámara. Actívalo en los ajustes del navegador e inténtalo de nuevo.";
   if (code.includes("NotFoundError") || code.includes("NotReadableError") || code === "CAMERA_NOT_READY" || code === "CAMERA_UNAVAILABLE") return "No hemos encontrado una cámara disponible. Revisa que ninguna otra aplicación la esté usando.";
   if (code === "EVENT_NOT_ACTIVE") return "El fotomatón no está disponible en este momento.";
+  if (code === "PHOTOSTRIP_LIMIT_REACHED") return "La demo ya ha utilizado sus 3 tiras disponibles.";
   if (code === "PARTICIPATION_ALREADY_CLAIMED") return "Esta participación ya está asociada a otra sesión.";
   if (code === "SAVE_FAILED" || code === "Failed to fetch") return "No hemos podido guardar tu tira. Comprueba la conexión y vuelve a intentarlo.";
   return "Algo no ha salido bien. Vuelve a intentarlo.";
@@ -325,14 +326,19 @@ const PhotostripExperience = ({ slug }: { slug: string }) => {
   return (
     <PhotoboothShell>
       {stage === "landing" ? (
-        <div className="photostrip-center-copy">
-          {event.logoUrl ? <img className="photostrip-event-logo" src={event.logoUrl} alt="" /> : null}
+        <div
+          className={`photostrip-center-copy photostrip-cover${event.coverImageUrl ? " has-background" : ""}`}
+          style={event.coverImageUrl ? { backgroundImage: `linear-gradient(rgba(24,18,15,.48), rgba(24,18,15,.72)), url("${event.coverImageUrl}")` } : undefined}
+        >
+          <div className="photostrip-cover-content">
+          {event.logoUrl ? <img className="photostrip-event-logo" src={event.logoUrl} alt="Revelao" /> : null}
           <p className="photostrip-kicker">PHOTOSTRIP</p>
           <h1>{event.name}</h1>
           <p>4 fotos. {event.countdownSeconds} segundos entre cada una.<br />Una tira para recordar esta noche.</p>
           {error ? <p className="photostrip-error">{error}</p> : null}
           <button className="photostrip-ink-button" onClick={() => event.photoMode === "both" ? setStage("mode") : void openCamera(event.photoMode)}>ENTRAR AL FOTOMATÓN</button>
-          {event.galleryAllowed ? <Link className="photostrip-text-link" to={`/photostrip/${slug}/gallery`}>VER EL MURO</Link> : null}
+          {event.galleryAllowed ? <Link className="photostrip-text-link" to={`/photostrip/${slug}/gallery`}>VER FOTOS DE OTROS INVITADOS</Link> : null}
+          </div>
         </div>
       ) : null}
 
@@ -380,7 +386,7 @@ const PhotostripExperience = ({ slug }: { slug: string }) => {
           <p className="photostrip-kicker">TU PHOTOSTRIP</p><h1>RECIÉN REVELADO</h1>
           <img className="photostrip-strip-preview" src={resultUrl} alt="Tu Photostrip terminado" />
           <button className="photostrip-ink-button" onClick={() => void downloadOwnStrip()}><Download /> DESCARGAR TIRA</button>
-          {event.galleryAllowed ? <Link className="photostrip-secondary-button" to={`/photostrip/${slug}/gallery`}><Images /> VER GALERÍA</Link> : null}
+          {event.galleryAllowed ? <Link className="photostrip-secondary-button" to={`/photostrip/${slug}/gallery`}><Images /> VER FOTOS DE OTROS INVITADOS</Link> : null}
         </div>
       ) : null}
     </PhotoboothShell>

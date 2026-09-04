@@ -32,6 +32,7 @@ import TimeCapsule from "./pages/TimeCapsule";
 import OAuthConsent from "./pages/OAuthConsent";
 import PhotostripPublic from "./pages/PhotostripPublic";
 import { PhotostripAdminDetail, PhotostripAdminForm } from "./pages/PhotostripAdmin";
+import NewPhotostripDemo from "./pages/NewPhotostripDemo";
 
 const queryClient = new QueryClient();
 
@@ -189,6 +190,7 @@ const App = () => {
               <Route path="/privacy" element={<PrivacyPolicy />} />
               <Route path="/nuevoeventodemo" element={<PublicDemoEventForm />} />
               <Route path="/nuevoeventodemo2" element={<PublicDemoEventWizard />} />
+              <Route path="/nuevophotostripdemo" element={<NewPhotostripDemo />} />
               <Route path="/nuevoeventocapitanes" element={<CaptainsOnboarding />} />
               <Route path="/nuevoeventodemo/resumen" element={<DemoEventSummary />} />
               <Route path="/evento-pago/resumen" element={<PaidEventSummary />} />

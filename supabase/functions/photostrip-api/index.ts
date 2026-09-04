@@ -37,6 +37,7 @@ type PhotostripConfig = {
   strip_footer_text: string | null;
   logo_path: string | null;
   logo_url: string | null;
+  max_strips: number | null;
 };
 type RevelaoEvent = {
   id: string;
@@ -46,6 +47,7 @@ type RevelaoEvent = {
   timezone: string | null;
   type: string | null;
   owner_id: string | null;
+  background_image_url: string | null;
 };
 type Participation = {
   id: string;
@@ -82,13 +84,13 @@ const timingSafeEqual = (left: string, right: string) => {
 
 const loadEvent = async (slug: string) => {
   const { data: configData, error: configError } = await admin.from("photostrip_event_configs")
-    .select("event_id,slug,enabled,photo_count,countdown_seconds,photo_mode,gallery_visibility,strip_template,strip_display_name,strip_footer_text,logo_path,logo_url")
+    .select("event_id,slug,enabled,photo_count,countdown_seconds,photo_mode,gallery_visibility,strip_template,strip_display_name,strip_footer_text,logo_path,logo_url,max_strips")
     .eq("slug", slug).maybeSingle();
   if (configError) throw new Error("EVENT_LOOKUP_FAILED");
   if (!configData) return null;
   const config = configData as PhotostripConfig;
   const { data: eventData, error: eventError } = await admin.from("events")
-    .select("id,name,upload_start_time,upload_end_time,timezone,type,owner_id")
+    .select("id,name,upload_start_time,upload_end_time,timezone,type,owner_id,background_image_url")
     .eq("id", config.event_id).maybeSingle();
   if (eventError) throw new Error("EVENT_LOOKUP_FAILED");
   if (!eventData || eventData.type !== "photostrip") return null;
@@ -139,6 +141,8 @@ const publicEventPayload = async (event: RevelaoEvent, config: PhotostripConfig)
   stripDisplayName: config.strip_display_name || event.name,
   stripFooterText: config.strip_footer_text,
   logoUrl: config.logo_path ? await signedUrl(config.logo_path) : config.logo_url,
+  coverImageUrl: event.background_image_url,
+  maxStrips: config.max_strips,
 });
 
 const getUser = async (req: Request) => {
@@ -200,14 +204,16 @@ const handleJson = async (req: Request, body: JsonBody) => {
       return json({ error: "MODE_NOT_ALLOWED" }, 400);
     }
     const tokenHash = await hashToken(participantToken);
-    const { error: insertError } = await admin.from("photostrip_participations").insert({
-      event_id: event.id,
-      participant_id: participantId,
-      access_token_hash: tokenHash,
-      mode: requestedMode,
-      status: "started",
+    const { error: claimError } = await admin.rpc("claim_photostrip_participation", {
+      target_event_id: event.id,
+      target_participant_id: participantId,
+      target_access_token_hash: tokenHash,
+      target_mode: requestedMode,
     });
-    if (insertError && insertError.code !== "23505") throw new Error("PARTICIPATION_CREATE_FAILED");
+    if (claimError?.message.includes("PHOTOSTRIP_LIMIT_REACHED")) {
+      return json({ error: "PHOTOSTRIP_LIMIT_REACHED" }, 409);
+    }
+    if (claimError) throw new Error("PARTICIPATION_CREATE_FAILED");
     const participation = await verifyParticipant(event.id, participantId, participantToken);
     if (!participation) return json({ error: "PARTICIPATION_ALREADY_CLAIMED" }, 409);
     if (participation.status === "completed") {

@@ -52,6 +52,7 @@ const slugify = (value: string) => value.toLowerCase().normalize("NFD").replace(
   .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60);
 const toLocalInput = (value: string | null, timezone: string) => value ? formatInTimeZone(new Date(value), timezone, "yyyy-MM-dd'T'HH:mm") : "";
 const publicUrl = (slug: string) => `${window.location.origin}/photostrip/${slug}`;
+const DEFAULT_PHOTOSTRIP_LOGO_URL = "https://acceso.revelao.cam/LogoMiniRevelao.svg";
 
 const AdminHeader = ({ title }: { title: string }) => (
   <header className="border-b border-border bg-background">
@@ -70,10 +71,12 @@ export const PhotostripAdminForm = ({ edit = false }: { edit?: boolean }) => {
   const [saving, setSaving] = useState(false);
   const [slugTouched, setSlugTouched] = useState(edit);
   const [logo, setLogo] = useState<File | null>(null);
+  const [backgroundImage, setBackgroundImage] = useState<File | null>(null);
+  const [backgroundPreview, setBackgroundPreview] = useState("");
   const [form, setForm] = useState({
     name: "", slug: "", startsAt: "", endsAt: "", timezone: "Europe/Madrid", enabled: true,
     photoMode: "both" as Config["photo_mode"], galleryVisibility: "participants" as Config["gallery_visibility"],
-    stripDisplayName: "", stripFooterText: "", logoUrl: "",
+    stripDisplayName: "", stripFooterText: "", logoUrl: DEFAULT_PHOTOSTRIP_LOGO_URL,
   });
 
   useEffect(() => {
@@ -81,7 +84,7 @@ export const PhotostripAdminForm = ({ edit = false }: { edit?: boolean }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { navigate("/admin-login"); return; }
       if (!edit || !eventId) { setLoading(false); return; }
-      const { data: event, error: eventError } = await supabase.from("events").select("id,name,upload_start_time,upload_end_time,timezone").eq("id", eventId).single();
+      const { data: event, error: eventError } = await supabase.from("events").select("id,name,upload_start_time,upload_end_time,timezone,background_image_url").eq("id", eventId).single();
       const { data: config, error: configError } = await supabase.from("photostrip_event_configs").select("*").eq("event_id", eventId).single();
       if (eventError || configError || !event || !config) {
         toast({ title: "No se pudo abrir el evento", variant: "destructive" }); navigate("/event-management"); return;
@@ -91,11 +94,16 @@ export const PhotostripAdminForm = ({ edit = false }: { edit?: boolean }) => {
         name: event.name, slug: savedConfig.slug, startsAt: toLocalInput(event.upload_start_time, event.timezone || "Europe/Madrid"), endsAt: toLocalInput(event.upload_end_time, event.timezone || "Europe/Madrid"),
         timezone: event.timezone || "Europe/Madrid", enabled: savedConfig.enabled, photoMode: savedConfig.photo_mode,
         galleryVisibility: savedConfig.gallery_visibility, stripDisplayName: savedConfig.strip_display_name || "",
-        stripFooterText: savedConfig.strip_footer_text || "", logoUrl: savedConfig.logo_url || "",
+        stripFooterText: savedConfig.strip_footer_text || "", logoUrl: savedConfig.logo_url || DEFAULT_PHOTOSTRIP_LOGO_URL,
       });
+      setBackgroundPreview(event.background_image_url || "");
       setLoading(false);
     })();
   }, [edit, eventId, navigate, toast]);
+
+  useEffect(() => () => {
+    if (backgroundPreview.startsWith("blob:")) URL.revokeObjectURL(backgroundPreview);
+  }, [backgroundPreview]);
 
   const update = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => setForm((current) => ({ ...current, [key]: value }));
   const save = async (event: React.FormEvent) => {
@@ -115,6 +123,7 @@ export const PhotostripAdminForm = ({ edit = false }: { edit?: boolean }) => {
         name: form.name.trim(), upload_start_time: startsAt.toISOString(), upload_end_time: endsAt.toISOString(),
         reveal_time: endsAt.toISOString(), timezone: form.timezone, type: "photostrip", plan_id: "photostrip",
         is_demo: false, max_photos: 0, allow_video_recording: false, allow_audio_recording: false,
+        ...(!backgroundImage ? { background_image_url: backgroundPreview || null } : {}),
       };
       if (edit && eventId) {
         const { error } = await supabase.from("events").update(eventValues).eq("id", eventId); if (error) throw error;
@@ -124,6 +133,16 @@ export const PhotostripAdminForm = ({ edit = false }: { edit?: boolean }) => {
         targetId = data.id; createdId = data.id;
       }
       if (!targetId) throw new Error("MISSING_EVENT");
+      if (backgroundImage) {
+        if (backgroundImage.size > 5_242_880 || !["image/png", "image/jpeg", "image/webp"].includes(backgroundImage.type)) throw new Error("La portada debe ser PNG, JPG o WebP y pesar menos de 5 MB.");
+        const extension = (backgroundImage.name.split(".").pop() || "jpg").replace(/[^a-z0-9]/gi, "").toLowerCase();
+        const backgroundPath = `event-images/photostrip-${targetId}-${crypto.randomUUID()}.${extension}`;
+        const { error: backgroundError } = await supabase.storage.from("event-photos").upload(backgroundPath, backgroundImage, { contentType: backgroundImage.type });
+        if (backgroundError) throw backgroundError;
+        const backgroundUrl = supabase.storage.from("event-photos").getPublicUrl(backgroundPath).data.publicUrl;
+        const { error: backgroundUpdateError } = await supabase.from("events").update({ background_image_url: backgroundUrl }).eq("id", targetId);
+        if (backgroundUpdateError) throw backgroundUpdateError;
+      }
       let logoPath: string | undefined;
       if (logo) {
         if (logo.size > 5_242_880 || !["image/png", "image/jpeg", "image/webp"].includes(logo.type)) throw new Error("El logo debe ser PNG, JPG o WebP y pesar menos de 5 MB.");
@@ -135,7 +154,7 @@ export const PhotostripAdminForm = ({ edit = false }: { edit?: boolean }) => {
       const configValues = {
         slug: form.slug, enabled: form.enabled, photo_count: 4, countdown_seconds: 3, photo_mode: form.photoMode,
         gallery_visibility: form.galleryVisibility, strip_template: "classic", strip_display_name: form.stripDisplayName.trim() || null,
-        strip_footer_text: form.stripFooterText.trim() || null, logo_url: form.logoUrl.trim() || null,
+        strip_footer_text: form.stripFooterText.trim() || null, logo_url: form.logoUrl.trim() || DEFAULT_PHOTOSTRIP_LOGO_URL,
         ...(logoPath ? { logo_path: logoPath } : {}),
       };
       const query = supabase.from("photostrip_event_configs");
@@ -161,7 +180,8 @@ export const PhotostripAdminForm = ({ edit = false }: { edit?: boolean }) => {
       <div className="grid gap-4 sm:grid-cols-2"><label className="space-y-2 text-sm font-medium">Acabado<select className="h-10 w-full rounded-md border bg-background px-3" value={form.photoMode} onChange={(e) => update("photoMode", e.target.value as Config["photo_mode"])}><option value="both">Color o B&amp;W</option><option value="color">Solo color</option><option value="bw">Solo B&amp;W</option></select></label><label className="space-y-2 text-sm font-medium">Galería<select className="h-10 w-full rounded-md border bg-background px-3" value={form.galleryVisibility} onChange={(e) => update("galleryVisibility", e.target.value as Config["gallery_visibility"])}><option value="public">Pública</option><option value="participants">Visible para participantes</option><option value="admin_only">Solo administración</option></select></label></div>
       <label className="block space-y-2 text-sm font-medium">Nombre impreso en la tira<Input maxLength={80} placeholder={form.name || "Nombre del evento"} value={form.stripDisplayName} onChange={(e) => update("stripDisplayName", e.target.value)} /></label>
       <label className="block space-y-2 text-sm font-medium">Texto del pie<Textarea maxLength={120} placeholder="La noche que no olvidaremos" value={form.stripFooterText} onChange={(e) => update("stripFooterText", e.target.value)} /></label>
-      <div className="grid gap-4 sm:grid-cols-2"><label className="space-y-2 text-sm font-medium">Logo (opcional)<Input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => setLogo(e.target.files?.[0] || null)} /><span className="block text-xs font-normal text-muted-foreground">PNG, JPG o WebP, máximo 5 MB.</span></label><label className="space-y-2 text-sm font-medium">O URL externa del logo<Input type="url" placeholder="https://…" value={form.logoUrl} onChange={(e) => update("logoUrl", e.target.value)} /></label></div>
+      <label className="block space-y-2 text-sm font-medium">Foto de portada (opcional){backgroundPreview ? <img src={backgroundPreview} alt="Vista previa de la portada" className="aspect-video w-full rounded-md border object-cover" /> : null}<Input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => { const file = e.target.files?.[0] || null; setBackgroundImage(file); if (file) setBackgroundPreview(URL.createObjectURL(file)); }} /><span className="block text-xs font-normal text-muted-foreground">Puede ser una foto de los novios. PNG, JPG o WebP, máximo 5 MB.</span></label>
+      <div className="grid gap-4 sm:grid-cols-2"><label className="space-y-2 text-sm font-medium">Logo personalizado (opcional)<Input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => setLogo(e.target.files?.[0] || null)} /><span className="block text-xs font-normal text-muted-foreground">Se usa el logo de Revelao por defecto.</span></label><label className="space-y-2 text-sm font-medium">O URL externa del logo<Input type="url" placeholder="https://…" value={form.logoUrl} onChange={(e) => update("logoUrl", e.target.value)} /></label></div>
       <label className="flex items-center gap-3 text-sm font-medium"><input type="checkbox" checked={form.enabled} onChange={(e) => update("enabled", e.target.checked)} />Photostrip activo</label>
       <div className="flex flex-wrap justify-end gap-3"><Button type="button" variant="outline" onClick={() => navigate(-1)}>Cancelar</Button><Button disabled={saving}>{saving ? "Guardando…" : "Guardar Photostrip"}</Button></div>
     </Card></form></main></div>;

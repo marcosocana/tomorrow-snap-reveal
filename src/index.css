@@ -167,6 +167,12 @@ All colors MUST be HSL.
 .photostrip-preview-stage h1,
 .photostrip-result h1 { max-width: 370px; margin: 0; font: 900 clamp(25px, 8vw, 40px)/0.98 Georgia, serif; text-transform: uppercase; }
 .photostrip-center-copy p { margin: 0; max-width: 330px; font-size: 13px; line-height: 1.55; }
+.photostrip-cover { width: 100%; min-height: 100%; background-position: center; background-size: cover; }
+.photostrip-cover-content { display: flex; width: 100%; min-width: 0; flex-direction: column; align-items: center; gap: 18px; }
+.photostrip-cover.has-background { color: white; text-shadow: 0 2px 12px rgba(0,0,0,.7); }
+.photostrip-cover.has-background .photostrip-kicker { color: #fff4df; }
+.photostrip-cover.has-background .photostrip-text-link { color: white; }
+.photostrip-cover.has-background .photostrip-event-logo { padding: 6px; border-radius: 6px; background: rgba(255,253,246,.88); filter: none; }
 .photostrip-kicker { margin: 0; font-size: 10px !important; font-weight: 900; letter-spacing: 0.24em; color: #7a332e; }
 .photostrip-event-logo { width: 90px; height: 70px; object-fit: contain; filter: contrast(0.95) saturate(0.8); }
 

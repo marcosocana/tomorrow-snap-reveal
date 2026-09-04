@@ -21,6 +21,8 @@ export type PublicPhotostripEvent = {
   stripDisplayName: string;
   stripFooterText: string | null;
   logoUrl: string | null;
+  coverImageUrl: string | null;
+  maxStrips: number | null;
 };
 
 export type PhotostripParticipationResult = {
