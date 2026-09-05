@@ -27,6 +27,7 @@ import PaidEventSummary from "./pages/PaidEventSummary";
 import Register from "./pages/Register";
 import { CaptainsAdminDetail, CaptainsAdminForm, CaptainsAdminList, CaptainsOnboarding } from "./pages/CaptainsAdmin";
 import CaptainsPublic from "./pages/CaptainsPublic";
+import CaptainsDemoV2 from "./pages/CaptainsDemoV2";
 import LiveSlideshow from "./pages/LiveSlideshow";
 import TimeCapsule from "./pages/TimeCapsule";
 import OAuthConsent from "./pages/OAuthConsent";
@@ -201,6 +202,7 @@ const App = () => {
               <Route path="/admin/capitanes/:eventId" element={<CaptainsAdminDetail />} />
               <Route path="/admin/capitanes/:eventId/edit" element={<CaptainsAdminForm edit />} />
               <Route path="/capitanes/onboarding" element={<CaptainsOnboarding />} />
+              <Route path="/capitanes/demo-capitanes-v2" element={<CaptainsDemoV2 />} />
               <Route path="/capitanes/:eventSlug" element={<CaptainsPublic />} />
               <Route path="/capitanes/:eventSlug/start" element={<CaptainsPublic />} />
               <Route path="/capitanes/:eventSlug/play" element={<CaptainsPublic />} />
