@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { Camera, Film, RotateCcw } from "lucide-react";
 
-export default function MediaCapture({ kind, file, onChange, disabled }: {
+export default function MediaCapture({ kind, file, onChange, onPreparingChange, disabled }: {
   kind: "photo" | "video";
   file: File | null;
   onChange: (file: File | null) => void;
+  onPreparingChange?: (preparing: boolean) => void;
   disabled: boolean;
 }) {
   const [url, setUrl] = useState("");
@@ -32,12 +33,16 @@ export default function MediaCapture({ kind, file, onChange, disabled }: {
       setError("El archivo debe tener contenido y ocupar menos de 100 MB."); return;
     }
     setChecking(true);
+    onPreparingChange?.(true);
     const preview = URL.createObjectURL(candidate);
     try {
       await new Promise<void>((resolve, reject) => {
         const media = kind === "photo" ? new Image() : document.createElement("video");
-        const timer = window.setTimeout(() => finish(false), 15000);
+        const timer = window.setTimeout(() => finish(false), kind === "video" ? 30000 : 15000);
+        let settled = false;
         const finish = (valid: boolean) => {
+          if (settled) return;
+          settled = true;
           clearTimeout(timer);
           media.removeAttribute("src");
           if (media instanceof HTMLVideoElement) media.load();
@@ -47,7 +52,11 @@ export default function MediaCapture({ kind, file, onChange, disabled }: {
         media.onerror = () => finish(false);
         if (media instanceof HTMLVideoElement) {
           media.preload = "metadata";
-          media.onloadedmetadata = () => finish(media.videoWidth > 0 && media.duration > 0);
+          // Safari/iPhone can report duration 0 or Infinity while a freshly recorded
+          // video is already decodable. Dimensions are the reliable validity signal.
+          const validateVideo = () => finish(media.videoWidth > 0 && media.videoHeight > 0);
+          media.onloadedmetadata = validateVideo;
+          media.onloadeddata = validateVideo;
         } else media.onload = () => finish(media.naturalWidth > 0);
         media.src = preview;
       });
@@ -56,14 +65,17 @@ export default function MediaCapture({ kind, file, onChange, disabled }: {
       if (request.current === version) setError(cause instanceof Error ? cause.message : "No se pudo abrir el archivo.");
     } finally {
       URL.revokeObjectURL(preview);
-      if (request.current === version) setChecking(false);
+      if (request.current === version) {
+        setChecking(false);
+        onPreparingChange?.(false);
+      }
     }
   };
   return <div className="cv2-capture">
     {url && (kind === "photo" ? <img className="cv2-capture-preview" src={url} alt="Foto que vas a enviar" /> : <video className="cv2-capture-preview" src={url} controls playsInline preload="metadata" />)}
     <input ref={camera} className="sr-only" tabIndex={-1} aria-label={kind === "photo" ? "Hacer una foto" : "Grabar un vídeo"} type="file" accept={kind === "photo" ? "image/*" : "video/*"} capture="environment" disabled={disabled || checking} onChange={event => { void selectFile(event.target.files?.[0]); event.target.value = ""; }} />
     <button className="cv2-secondary cv2-camera-button" disabled={disabled || checking} onClick={() => { if (file) onChange(null); else camera.current?.click(); }}>{file ? <RotateCcw size={19} /> : kind === "photo" ? <Camera size={19} /> : <Film size={19} />}{file ? "Repetir" : kind === "photo" ? "Hacer una foto" : "Grabar un vídeo"}</button>
-    {checking && <p role="status">Preparando archivo…</p>}
+    {checking && <p role="status">Preparando {kind === "photo" ? "la foto" : "el vídeo"}…</p>}
     {error && <p role="alert" className="cv2-error">{error}</p>}
   </div>;
 }

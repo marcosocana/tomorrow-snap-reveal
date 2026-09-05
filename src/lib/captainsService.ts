@@ -2,6 +2,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { supabasePublic } from "@/integrations/supabase/publicClient";
 import { captainsDefaultChallengeCatalog } from "@/lib/captainsDefaultChallengeCatalog";
 import { getSignedUrlCached } from "@/lib/signedUrlCache";
+import { compressImage } from "@/lib/imageCompression";
+import { Upload } from "tus-js-client";
 import {
   calculateCaptainsAutomaticScore,
   getCaptainsPublicUrl,
@@ -37,6 +39,7 @@ const db = supabase as any;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const pdb = supabasePublic as any;
 const CAPTAINS_EVIDENCE_BUCKET = "captains-evidence";
+const CAPTAINS_RESUMABLE_THRESHOLD = 6 * 1024 * 1024;
 export const CAPTAINS_MAX_CHALLENGES = 25;
 
 const isUuid = (value: string) =>
@@ -59,6 +62,58 @@ const ensureCaptainsEventIsOpen = async (eventId: string) => {
   if (data?.status === "finished" || endedByDate) {
     throw new Error("El juego ha finalizado y ya no admite nuevos retos completados.");
   }
+};
+
+const uploadCaptainsEvidenceFile = async (
+  filePath: string,
+  file: File,
+  onProgress?: (percentage: number) => void,
+) => {
+  const readableUploadError = (cause: unknown) => {
+    const message = cause instanceof Error ? cause.message : String(cause || "");
+    if (/413|too large|maximum|exceed|payload/i.test(message)) {
+      return new Error("El archivo supera el tamaño admitido. Graba un vídeo más corto y vuelve a intentarlo.");
+    }
+    return new Error("La subida se ha interrumpido. Mantendremos el archivo para que puedas pulsar Enviar de nuevo.");
+  };
+  onProgress?.(0);
+  if (file.size <= CAPTAINS_RESUMABLE_THRESHOLD) {
+    const { error } = await supabasePublic.storage.from(CAPTAINS_EVIDENCE_BUCKET).upload(filePath, file);
+    if (error) throw readableUploadError(error);
+    onProgress?.(100);
+    return;
+  }
+
+  const supabaseUrl = new URL(import.meta.env.VITE_SUPABASE_URL);
+  const directHostname = supabaseUrl.hostname.endsWith(".supabase.co")
+    ? `${supabaseUrl.hostname.split(".")[0]}.storage.supabase.co`
+    : supabaseUrl.host;
+  const endpoint = `${supabaseUrl.protocol}//${directHostname}/storage/v1/upload/resumable`;
+  const authorization = `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`;
+
+  await new Promise<void>((resolve, reject) => {
+    const upload = new Upload(file, {
+      endpoint,
+      retryDelays: [0, 1000, 3000, 5000, 10000, 20000],
+      headers: { authorization, apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
+      uploadDataDuringCreation: true,
+      removeFingerprintOnSuccess: true,
+      chunkSize: CAPTAINS_RESUMABLE_THRESHOLD,
+      metadata: {
+        bucketName: CAPTAINS_EVIDENCE_BUCKET,
+        objectName: filePath,
+        contentType: file.type || "application/octet-stream",
+        cacheControl: "3600",
+      },
+      onProgress: (uploaded, total) => onProgress?.(total > 0 ? Math.round((uploaded / total) * 100) : 0),
+      onError: cause => reject(readableUploadError(cause)),
+      onSuccess: () => { onProgress?.(100); resolve(); },
+    });
+    void upload.findPreviousUploads().then(previous => {
+      if (previous.length) upload.resumeFromPreviousUpload(previous[0]);
+      upload.start();
+    }).catch(reject);
+  });
 };
 
 const getCaptainsEvidenceStoragePath = (value?: string | null) => {
@@ -1189,6 +1244,7 @@ export const uploadCaptainsEvidence = async ({
   elapsedSeconds,
   remainingSeconds,
   scoringMode = "manual",
+  onProgress,
 }: {
   eventId: string;
   tableId: string;
@@ -1199,21 +1255,38 @@ export const uploadCaptainsEvidence = async ({
   elapsedSeconds?: number | null;
   remainingSeconds?: number | null;
   scoringMode?: CaptainsScoringMode;
+  onProgress?: (percentage: number) => void;
 }) => {
   await ensureCaptainsEventIsOpen(eventId);
-  const fileId = crypto.randomUUID();
-  const fileName = sanitizeCaptainsFileName(file.name || `${evidenceType}-${fileId}`);
-  const filePath = `${eventId}/${tableId}/${tableChallengeId}/${fileId}-${fileName}`;
-
-  const { error: uploadError } = await supabasePublic.storage.from(CAPTAINS_EVIDENCE_BUCKET).upload(filePath, file);
-  ensureNoError(uploadError);
-
   const { data: tableChallenge, error: challengeError } = await pdb
     .from("captains_table_challenges")
     .select("*, captains_event_challenges(*)")
     .eq("id", tableChallengeId)
     .single();
   ensureNoError(challengeError);
+  if (
+    tableChallenge?.event_id !== eventId ||
+    tableChallenge?.table_id !== tableId ||
+    tableChallenge?.status !== "in_progress"
+  ) {
+    throw new Error("El estado del reto ha cambiado. Vuelve a abrirlo.");
+  }
+
+  let uploadFile = file;
+  if (evidenceType === "photo") {
+    try {
+      uploadFile = await compressImage(file, 1.5);
+    } catch {
+      // Some mobile image formats cannot be redrawn by every browser. The
+      // original camera file is still valid and can be uploaded unchanged.
+      uploadFile = file;
+    }
+  }
+  const fileId = crypto.randomUUID();
+  const fileName = sanitizeCaptainsFileName(uploadFile.name || `${evidenceType}-${fileId}`);
+  const filePath = `${eventId}/${tableId}/${tableChallengeId}/${fileId}-${fileName}`;
+
+  await uploadCaptainsEvidenceFile(filePath, uploadFile, onProgress);
 
   const challenge = tableChallenge?.captains_event_challenges as CaptainsEventChallenge | undefined;
   const pointsAwarded =
@@ -1310,6 +1383,13 @@ export const completeCaptainsQuestionChallenge = async ({
     .eq("id", tableChallengeId)
     .single();
   ensureNoError(challengeError);
+  if (
+    tableChallenge?.event_id !== eventId ||
+    tableChallenge?.table_id !== tableId ||
+    tableChallenge?.status !== "in_progress"
+  ) {
+    throw new Error("El estado del reto ha cambiado. Vuelve a abrirlo.");
+  }
 
   const challenge = tableChallenge?.captains_event_challenges as CaptainsEventChallenge | undefined;
   const correct = Boolean(challenge?.question_correct_option && answer === challenge.question_correct_option);

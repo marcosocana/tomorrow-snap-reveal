@@ -174,24 +174,69 @@ serve(async (req) => {
       const { data: oldTables } = await admin.from("captains_tables").select("id").eq("event_id", access.event_id);
       const incomingTableIds = body.tables.map((table: Record<string, unknown>) => table.id).filter(isUuid);
       const removedTableIds = (oldTables || []).map((row: { id: string }) => row.id).filter((id: string) => !incomingTableIds.includes(id));
-      if (removedTableIds.length) await admin.from("captains_tables").delete().in("id", removedTableIds);
+      if (removedTableIds.length) {
+        const { error } = await admin.from("captains_tables").delete().in("id", removedTableIds);
+        if (error) return json({ error: "UPDATE_TABLES_FAILED", detail: error.message }, 500);
+      }
       for (let index = 0; index < body.tables.length; index += 1) {
         const table = body.tables[index] as Record<string, unknown>;
         const row = { ...pick(table, ["table_name", "captain_name", "captain_photo_url", "captain_sprite", "captain_sprite_config"]), active_captain_name: table.captain_name || null, event_id: access.event_id, table_number: index + 1 };
-        if (isUuid(table.id)) await admin.from("captains_tables").update(row).eq("id", table.id).eq("event_id", access.event_id);
-        else await admin.from("captains_tables").insert(row);
+        const { error } = isUuid(table.id)
+          ? await admin.from("captains_tables").update(row).eq("id", table.id).eq("event_id", access.event_id)
+          : await admin.from("captains_tables").insert(row);
+        if (error) return json({ error: "UPDATE_TABLES_FAILED", detail: error.message }, 500);
       }
 
       const { data: oldChallenges } = await admin.from("captains_event_challenges").select("id").eq("event_id", access.event_id);
       const incomingChallengeIds = body.challenges.map((challenge: Record<string, unknown>) => challenge.id).filter(isUuid);
       const removedChallengeIds = (oldChallenges || []).map((row: { id: string }) => row.id).filter((id: string) => !incomingChallengeIds.includes(id));
-      if (removedChallengeIds.length) await admin.from("captains_event_challenges").delete().in("id", removedChallengeIds);
+      if (removedChallengeIds.length) {
+        const { error } = await admin.from("captains_event_challenges").delete().in("id", removedChallengeIds);
+        if (error) return json({ error: "UPDATE_CHALLENGES_FAILED", detail: error.message }, 500);
+      }
       for (let index = 0; index < body.challenges.length; index += 1) {
         const challenge = body.challenges[index] as Record<string, unknown>;
         const hasTimeLimit = challenge.has_time_limit === true;
         const row = { ...pick(challenge, ["catalog_challenge_id", "title", "description", "evidence_type", "points", "category", "difficulty", "question_options", "question_correct_option"]), catalog_challenge_id: isUuid(challenge.catalog_challenge_id) ? challenge.catalog_challenge_id : null, has_time_limit: hasTimeLimit, time_limit_seconds: hasTimeLimit ? Number(challenge.time_limit_seconds) || 60 : null, is_required: typeof challenge.is_required === "boolean" ? challenge.is_required : true, event_id: access.event_id, order_index: index + 1 };
-        if (isUuid(challenge.id)) await admin.from("captains_event_challenges").update(row).eq("id", challenge.id).eq("event_id", access.event_id);
-        else await admin.from("captains_event_challenges").insert(row);
+        const { error } = isUuid(challenge.id)
+          ? await admin.from("captains_event_challenges").update(row).eq("id", challenge.id).eq("event_id", access.event_id)
+          : await admin.from("captains_event_challenges").insert(row);
+        if (error) return json({ error: "UPDATE_CHALLENGES_FAILED", detail: error.message }, 500);
+      }
+
+      // Editing an already redeemed event can add tables or challenges. Keep the
+      // progress matrix complete so every table receives every current challenge.
+      const [tablesResult, challengesResult, progressResult] = await Promise.all([
+        admin.from("captains_tables").select("id").eq("event_id", access.event_id),
+        admin.from("captains_event_challenges").select("id,order_index").eq("event_id", access.event_id).order("order_index"),
+        admin.from("captains_table_challenges").select("table_id,challenge_id,randomized_order_index,status").eq("event_id", access.event_id),
+      ]);
+      const detailError = tablesResult.error || challengesResult.error || progressResult.error;
+      if (detailError) return json({ error: "SYNC_CHALLENGES_FAILED", detail: detailError.message }, 500);
+      const progress = progressResult.data || [];
+      const missingAssignments: Array<Record<string, unknown>> = [];
+      for (const table of tablesResult.data || []) {
+        const tableProgress = progress.filter((item: { table_id: string }) => item.table_id === table.id);
+        const assigned = new Set(tableProgress.map((item: { challenge_id: string }) => item.challenge_id));
+        let nextOrder = tableProgress.reduce((max: number, item: { randomized_order_index: number }) => Math.max(max, item.randomized_order_index || 0), 0);
+        const hasPlayable = tableProgress.some((item: { status: string }) => ["ready", "in_progress", "pending_review"].includes(item.status));
+        let firstMissing = true;
+        for (const challenge of challengesResult.data || []) {
+          if (assigned.has(challenge.id)) continue;
+          nextOrder += 1;
+          missingAssignments.push({
+            event_id: access.event_id,
+            table_id: table.id,
+            challenge_id: challenge.id,
+            randomized_order_index: nextOrder,
+            status: !hasPlayable && firstMissing ? "ready" : "pending",
+          });
+          firstMissing = false;
+        }
+      }
+      if (missingAssignments.length) {
+        const { error } = await admin.from("captains_table_challenges").upsert(missingAssignments, { onConflict: "table_id,challenge_id", ignoreDuplicates: true });
+        if (error) return json({ error: "SYNC_CHALLENGES_FAILED", detail: error.message }, 500);
       }
       return json({ event: updatedEvent, mode: "edit" });
     }

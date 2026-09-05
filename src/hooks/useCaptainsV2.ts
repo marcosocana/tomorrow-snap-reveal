@@ -80,7 +80,7 @@ export function useCaptainsV2(eventSlug = CAPTAINS_V2_SLUG) {
     setNow(Date.now());
     return true;
   });
-  const submit = (rowId: string, file: File | null, answer: string | null) => run(async () => {
+  const submit = (rowId: string, file: File | null, answer: string | null, onProgress?: (percentage: number) => void) => run(async () => {
     if (!data || !tableId) return;
     const fresh = await getCaptainsTableChallenges(data.event.id);
     const row = fresh.find(item => item.id === rowId);
@@ -99,7 +99,7 @@ export function useCaptainsV2(eventSlug = CAPTAINS_V2_SLUG) {
       result = await completeCaptainsQuestionChallenge({ eventId: data.event.id, tableId, tableChallengeId: row.id, answer, elapsedSeconds, remainingSeconds });
     } else {
       if (!file || !file.type.startsWith(item.evidence_type === "photo" ? "image/" : "video/")) throw new Error("Añade el archivo del reto antes de enviarlo.");
-      const evidence = await uploadCaptainsEvidence({ eventId: data.event.id, tableId, tableChallengeId: row.id, captainName: data.tables[selected]?.captain_name, evidenceType: item.evidence_type, file, elapsedSeconds, remainingSeconds, scoringMode: "automatic" });
+      const evidence = await uploadCaptainsEvidence({ eventId: data.event.id, tableId, tableChallengeId: row.id, captainName: data.tables[selected]?.captain_name, evidenceType: item.evidence_type, file, elapsedSeconds, remainingSeconds, scoringMode: "automatic", onProgress });
       result = { correct: true, pointsAwarded: evidence.points_awarded };
     }
     await query.refetch();
@@ -109,7 +109,7 @@ export function useCaptainsV2(eventSlug = CAPTAINS_V2_SLUG) {
     if (!data || !tableId) return false;
     const fresh = await getCaptainsTableChallenges(data.event.id);
     const row = fresh.find(item => item.id === rowId);
-    if (!row || !["ready", "in_progress"].includes(row.status)) {
+    if (!row || !["pending", "ready", "in_progress"].includes(row.status)) {
       await query.refetch();
       throw new Error("El estado del reto ha cambiado. Hemos actualizado la partida.");
     }
@@ -141,5 +141,25 @@ export function useCaptainsV2(eventSlug = CAPTAINS_V2_SLUG) {
     setTableId(null);
     try { localStorage.removeItem(sessionKey); } catch { /* No persistent identity. */ }
   };
-  return { data, selected: selected < 0 ? null : selected, rows, completed, finished, currentRow, remaining, busy, error: error || (query.error ? errorMessage(query.error) : ""), loading: query.isPending, refresh: () => { setError(""); return query.refetch(); }, join, start, submit, reject, leave, gallery };
+  return {
+    data,
+    selected: selected < 0 ? null : selected,
+    rows,
+    completed,
+    finished,
+    currentRow,
+    remaining,
+    busy,
+    error,
+    connectionError: query.error ? errorMessage(query.error) : "",
+    loading: query.isPending,
+    clearError: () => setError(""),
+    refresh: () => { setError(""); return query.refetch(); },
+    join,
+    start,
+    submit,
+    reject,
+    leave,
+    gallery,
+  };
 }

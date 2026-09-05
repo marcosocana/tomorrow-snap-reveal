@@ -7,6 +7,7 @@ const debuggerOrigin=process.env.CAPTAINS_V2_CDP || 'http://127.0.0.1:9237';
 const eventSlug=process.env.CAPTAINS_V2_SLUG || 'demo-capitanes-v2';
 const experienceVersion=process.env.CAPTAINS_EXPERIENCE_VERSION || 'v2';
 const firstChallengeStatus=process.env.CAPTAINS_FIRST_CHALLENGE_PENDING==='1'?'pending':'ready';
+const largeVideo=process.env.CAPTAINS_LARGE_VIDEO==='1';
 const eventId='de100000-0000-4000-8000-000000000001';
 const titles=['Brindis de mesa','Pregunta de pareja','Mensaje secreto','Aliados de otra mesa','Coreografía exprés'];
 const event={id:eventId,name:'Capitanes · Revelao',slug:eventSlug,status:'active',experience_version:experienceVersion,start_time:'2026-01-01T00:00:00Z',end_time:'2099-12-31T00:00:00Z'};
@@ -19,7 +20,7 @@ const socket=new WebSocket(target.webSocketDebuggerUrl);await new Promise(r=>soc
 let id=0;const pending=new Map();
 const send=(method,params={})=>new Promise((resolve,reject)=>{pending.set(++id,{resolve,reject});socket.send(JSON.stringify({id,method,params}));});
 const mock=async params=>{
- const {request,requestId}=params;const url=new URL(request.url);let result={};let status=200;
+ const {request,requestId}=params;const url=new URL(request.url);let result={};let status=200;const extraHeaders=[];
  if(request.method==='OPTIONS'){result={};}
  else if(url.pathname.includes('/rest/v1/')){
   const table=url.pathname.split('/').at(-1); const all={captains_events:[event],captains_tables:tables,captains_event_challenges:challenges,captains_table_challenges:rows,captains_evidence:evidence,captains_table_accesses:[]}[table]??[];
@@ -28,13 +29,16 @@ const mock=async params=>{
   if(request.method==='POST'){const payload=JSON.parse(request.postData);all.push(payload);matching=[payload];}
   if(url.searchParams.get('select')?.includes('captains_event_challenges('))matching=matching.map(item=>({...item,captains_event_challenges:challenges.find(c=>c.id===item.challenge_id)}));
   result=Object.entries(request.headers).some(([key,value])=>key.toLowerCase()==='accept'&&value.includes('vnd.pgrst.object'))?(matching[0]??null):matching;
+ }else if(url.pathname.includes('/storage/v1/upload/resumable')){
+  status=201;uploads.push(url.pathname);const total=request.headers['upload-length']||request.headers['Upload-Length']||'0';
+  extraHeaders.push({name:'Location',value:`${url.origin}/storage/v1/upload/resumable/audit-upload-${uploads.length}`},{name:'Tus-Resumable',value:'1.0.0'},{name:'Upload-Offset',value:total},{name:'Access-Control-Expose-Headers',value:'Location,Tus-Resumable,Upload-Offset'});
  }else if(url.pathname.includes('/storage/v1/object/sign/')){result={signedURL:`/object/public/captains-evidence/fixture.png`};}
  else if(url.pathname.includes('/storage/v1/object/public/')){await send('Fetch.fulfillRequest',{requestId,responseCode:200,responseHeaders:[{name:'Content-Type',value:'image/png'}],body:'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII='});return;}
  else if(url.pathname.includes('/storage/v1/object/')){
   if(rejectUpload){status=503;result={message:'Conexión interrumpida',error:'ServiceUnavailable',statusCode:'503'};rejectUpload=false;}
   else{uploads.push(url.pathname);result={Key:url.pathname,Id:'upload-id'};}
  }
- await send('Fetch.fulfillRequest',{requestId,responseCode:status,responseHeaders:[{name:'Content-Type',value:'application/json'},{name:'Access-Control-Allow-Origin',value:'*'},{name:'Access-Control-Allow-Headers',value:'*'},{name:'Access-Control-Allow-Methods',value:'GET,POST,PATCH,OPTIONS'}],body:Buffer.from(JSON.stringify(result)).toString('base64')});
+ await send('Fetch.fulfillRequest',{requestId,responseCode:status,responseHeaders:[{name:'Content-Type',value:'application/json'},{name:'Access-Control-Allow-Origin',value:'*'},{name:'Access-Control-Allow-Headers',value:'*'},{name:'Access-Control-Allow-Methods',value:'GET,POST,PATCH,OPTIONS'},...extraHeaders],body:Buffer.from(JSON.stringify(result)).toString('base64')});
 };
 socket.addEventListener('message',e=>{const m=JSON.parse(e.data);if(m.id){const p=pending.get(m.id);pending.delete(m.id);m.error?p?.reject(m.error):p?.resolve(m.result);}if(m.method==='Fetch.requestPaused')mock(m.params).catch(error=>{console.error(error);process.exitCode=1;});if(m.method==='Runtime.exceptionThrown')exceptions.push(m.params.exceptionDetails.text);});
 const evaluate=async expression=>{const r=await send('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true});if(r.exceptionDetails)throw Error(r.exceptionDetails.text);return r.result.value;};
@@ -77,7 +81,7 @@ const attach=async kind=>{
  const canvas=document.createElement('canvas');canvas.width=120;canvas.height=120;const ctx=canvas.getContext('2d');ctx.fillStyle='#f06a5f';ctx.fillRect(0,0,120,120);
  let blob;
  if(${JSON.stringify(kind)}==='photo')blob=await new Promise(r=>canvas.toBlob(r,'image/png'));
- else{const stream=canvas.captureStream(10);const recorder=new MediaRecorder(stream,{mimeType:'video/webm'});const chunks=[];blob=await new Promise(r=>{recorder.ondataavailable=e=>chunks.push(e.data);recorder.onstop=()=>r(new Blob(chunks,{type:'video/webm'}));recorder.start();setTimeout(()=>{ctx.fillStyle='white';ctx.fillRect(0,0,30,30);},100);setTimeout(()=>recorder.stop(),600);});stream.getTracks().forEach(t=>t.stop());}
+ else{const stream=canvas.captureStream(10);const recorder=new MediaRecorder(stream,{mimeType:'video/webm'});const chunks=[];blob=await new Promise(r=>{recorder.ondataavailable=e=>chunks.push(e.data);recorder.onstop=()=>r(new Blob(chunks,{type:'video/webm'}));recorder.start();setTimeout(()=>{ctx.fillStyle='white';ctx.fillRect(0,0,30,30);},100);setTimeout(()=>recorder.stop(),600);});stream.getTracks().forEach(t=>t.stop());if(${largeVideo})blob=new Blob([blob,new Uint8Array(7*1024*1024)],{type:'video/webm'});}
  const input=document.querySelector('.cv2-capture input');const dt=new DataTransfer();dt.items.add(new File([blob],${JSON.stringify(kind)}==='photo'?'brindis.png':'mensaje.webm',{type:blob.type}));input.files=dt.files;input.dispatchEvent(new Event('change',{bubbles:true}));
  })()`);
  await wait(`!!document.querySelector('.cv2-capture-preview') && !document.querySelector('.cv2-mobile-dialog .cv2-primary').disabled`);
@@ -132,4 +136,4 @@ for(const kind of ['photo','video']){
 assert.equal(await evaluate(`document.querySelector('.cv2-bottom-nav').textContent.includes('Resultados')`),true);
 await click('.cv2-bottom-nav button:nth-child(3)');await wait(`document.querySelectorAll('.cv2-result-card').length===4`);
 assert.equal(await evaluate(`document.body.innerText.includes('Mensaje secreto')`),false);
-assert.deepEqual(exceptions,[]);console.log('PASS with mocked backend: identity, real image/video file decoding and preview, upload failure/retry, sequential completion, server score, reload persistence, shared table ranking, gallery only after finish, no demo text, 320–1440px, no JS exceptions.');socket.close();
+assert.deepEqual(exceptions,[]);console.log(`PASS with mocked backend: identity, real image/video file decoding and preview, ${largeVideo?'resumable large-video uploads, ':''}upload failure/retry, sequential completion, server score, reload persistence, shared table ranking, gallery only after finish, no demo text, 320–1440px, no JS exceptions.`);socket.close();

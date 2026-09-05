@@ -9,6 +9,7 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "test:captains": "node scripts/audit-captains-public.mjs",
+    "test:captains:v2": "node scripts/audit-captains-v2.mjs",
     "test:captains:remote": "node scripts/audit-captains-public.mjs --remote",
     "test:demo-credentials": "node scripts/audit-demo-event-credentials.mjs",
     "test:gifts": "node scripts/audit-revelao-gifts.mjs",
@@ -76,6 +77,7 @@
     "sonner": "^1.7.4",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
+    "tus-js-client": "^4.3.1",
     "vaul": "^0.9.9",
     "vercel": "^50.26.1",
     "zod": "^3.25.76"

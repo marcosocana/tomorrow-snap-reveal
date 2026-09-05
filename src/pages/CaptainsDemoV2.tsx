@@ -93,6 +93,8 @@ export default function CaptainsDemoV2({ eventSlug: requestedEventSlug }: { even
   const [result, setResult] = useState({ correct: true, pointsAwarded: 0 });
   const [answer, setAnswer] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
+  const [mediaPreparing, setMediaPreparing] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [galleryTable, setGalleryTable] = useState("mine");
   const [rejecting, setRejecting] = useState(false);
   const [previewMedia, setPreviewMedia] = useState<{ url: string; type: "photo" | "video"; title: string } | null>(null);
@@ -129,11 +131,12 @@ export default function CaptainsDemoV2({ eventSlug: requestedEventSlug }: { even
     const id = game.currentRow.id;
     const index = completed;
     if (!await game.start()) return;
-    setRowId(id); setMission(index); setCelebrating(false); setAnswer(null); setFile(null);
+    setRowId(id); setMission(index); setCelebrating(false); setAnswer(null); setFile(null); setMediaPreparing(false); setUploadProgress(0);
   };
   const completeMission = async () => {
     if (!rowId) return;
-    const outcome = await game.submit(rowId, file, answer);
+    setUploadProgress(0);
+    const outcome = await game.submit(rowId, file, answer, setUploadProgress);
     if (outcome) { setResult(outcome); setFile(null); setCelebrating(true); }
   };
   const rejectMission = async () => {
@@ -146,7 +149,7 @@ export default function CaptainsDemoV2({ eventSlug: requestedEventSlug }: { even
   useEffect(() => {
     if (rowId && !game.busy && !celebrating && game.currentRow?.id !== rowId) setMission(null);
   }, [rowId, game.busy, game.currentRow?.id, celebrating]);
-  const leave = () => { game.leave(); setChoice(null); setView("quests"); setMission(null); setFile(null); };
+  const leave = () => { game.leave(); setChoice(null); setView("quests"); setMission(null); setFile(null); setMediaPreparing(false); };
   const navigate = (next: View) => { setView(next); window.scrollTo({ top: 0, behavior: "instant" }); };
 
   return <div className="cv2 cv2-mobile" style={{ "--team": team?.color ?? "#f06a5f" } as CSSProperties}>
@@ -154,7 +157,7 @@ export default function CaptainsDemoV2({ eventSlug: requestedEventSlug }: { even
       <Link to={`/capitanes/${eventSlug}`} className="cv2-brand" aria-label="Capitanes"><img src="/capitanes-logo.svg" alt="Capitanes" className="cv2-revelao-logo" /></Link>
     </header>
     <main className="cv2-mobile-main">
-      {started && game.error && <div className="cv2-connection-error" role="alert"><p>{game.error}</p><button className="cv2-secondary" disabled={game.busy} onClick={() => void game.refresh()}>Volver a conectar <RotateCcw size={16} /></button></div>}
+      {started && game.connectionError && <div className="cv2-connection-error" role="alert"><p>{game.connectionError}</p><button className="cv2-secondary" disabled={game.busy} onClick={() => void game.refresh()}>Volver a conectar <RotateCcw size={16} /></button></div>}
       {!started ? <section className="cv2-welcome" aria-labelledby="cv2-welcome-title">
         <div className="cv2-welcome-art" aria-hidden="true"><span className="cv2-welcome-orbit" /><span className="cv2-quest-object cv2-armband-object"><CaptainArmband /><span>✦</span></span></div>
         <h1 id="cv2-welcome-title">{game.data?.event.name ?? "Capitanes"}</h1>
@@ -177,7 +180,7 @@ export default function CaptainsDemoV2({ eventSlug: requestedEventSlug }: { even
           <h2 id="cv2-quests-title" className="sr-only">Retos</h2>
           {finished ? <div className="cv2-finish"><VictoryCup /><span className="cv2-eyebrow">MISIÓN CUMPLIDA</span><h2>¡Lo habéis dado todo!</h2><p>{missions.length} retos, {points} puntos y una historia que ya es vuestra.</p><button className="cv2-primary cv2-centered-action" onClick={() => navigate("ranking")}>Ver nuestra posición</button><button className="cv2-secondary cv2-centered-action" onClick={() => navigate("memories")}>Revivir los recuerdos</button></div> : current ? <article className="cv2-active-quest">
             <div className="cv2-card-top"><span className="cv2-eyebrow"><span className="cv2-status-dot" /> RETO 0{completed + 1} DESBLOQUEADO</span><span className="cv2-points">{current.points} puntos</span></div><div className="cv2-quest-object"><current.icon size={52} strokeWidth={1.3} /><span>✦</span></div><span className="cv2-mission-type">{current.type}</span><h2>{current.title}</h2><p>{current.description}</p><button className="cv2-primary cv2-centered-action" disabled={game.busy} onClick={openMission}>{game.busy ? "Abriendo…" : game.currentRow?.status === "in_progress" ? "Continuar reto" : "Aceptar reto"}</button><button className="cv2-secondary cv2-reject-button" disabled={game.busy} onClick={() => setRejecting(true)}>Rechazar reto</button>
-            {game.currentRow?.status === "in_progress" && game.remaining !== null && <span className="cv2-timer"><Clock3 size={14} /> {game.remaining} s restantes</span>}<small className="cv2-unlock-hint"><LockKeyhole size={12} /> Termínalo para descubrir el siguiente</small>
+            {game.error && <p className="cv2-error" role="alert">{game.error}</p>}{game.currentRow?.status === "in_progress" && game.remaining !== null && <span className="cv2-timer"><Clock3 size={14} /> {game.remaining} s restantes</span>}<small className="cv2-unlock-hint"><LockKeyhole size={12} /> Termínalo para descubrir el siguiente</small>
           </article> : <p role="status">Preparando los retos de vuestra mesa…</p>}
           {!finished && <div className="cv2-mission-path" aria-label="Próximos retos">{missions.map((item, index) => ({ item, index })).filter(({ index }) => index > completed).map(({ item, index }) => {
             return <div key={item.id} className="cv2-locked-quest" aria-label={`Reto ${index + 1} bloqueado. Completa el reto anterior para descubrirlo.`}><span className="cv2-path-number">0{index + 1}</span><div className="cv2-locked-content" aria-hidden="true"><item.icon size={26} /><div><strong>{item.title}</strong><small>{item.type}</small></div></div><span className="cv2-lock-label"><LockKeyhole size={16} /> Reto sorpresa<span>Completa el anterior</span></span></div>;
@@ -209,8 +212,8 @@ export default function CaptainsDemoV2({ eventSlug: requestedEventSlug }: { even
     <Dialog open={mission !== null} onOpenChange={open => { if (!open && !game.busy) { setMission(null); setFile(null); } }}><DialogContent className="cv2-dialog cv2-mobile-dialog">
       {activeMission && <><span className="cv2-eyebrow">{team?.table_name} · RETO 0{mission! + 1}</span><span className="cv2-dialog-icon">{celebrating ? result.correct ? <Check size={38} /> : <XCircle size={38} /> : <Flag size={38} />}</span><DialogTitle className="cv2-dialog-title">{celebrating ? result.correct ? isQuestion ? "¡Respuesta correcta!" : "¡Reto superado!" : "Respuesta incorrecta" : activeMission.title}</DialogTitle><DialogDescription>{celebrating ? `${result.correct ? `Sumáis ${result.pointsAwarded} puntos.` : "Esta vez la respuesta no era correcta. No sumáis puntos."} ${finished ? "¡Habéis completado toda la aventura!" : "El siguiente reto ya os está esperando."}` : activeMission.description}</DialogDescription>
         {celebrating ? <><div className="cv2-celebration-points">+{result.pointsAwarded}<span>puntos para vuestra mesa</span></div><button className="cv2-primary" onClick={() => { setMission(null); window.scrollTo({ top: 0, behavior: "instant" }); }}>{finished ? "Ver nuestra victoria" : "Descubrir siguiente reto"}<ArrowRight size={18} /></button></> : <>
-          {isQuestion ? <div className="cv2-answer-options" role="group" aria-label="Elige una respuesta">{(activeMission.question_options ?? []).map(option => <button key={option} disabled={game.busy} onClick={() => setAnswer(option)} aria-pressed={answer === option}>{option}{answer === option && <Check size={17} />}</button>)}</div> : <MediaCapture key={rowId} kind={activeMission.evidence_type === "photo" ? "photo" : "video"} file={file} onChange={setFile} disabled={game.busy} />}
-          <div className="cv2-dialog-detail"><span>{activeMission.type}</span><strong>{activeMission.points} puntos</strong></div>{game.remaining !== null && <span className="cv2-timer" role="timer"><Clock3 size={15} /> {game.remaining} s restantes</span>}{game.error && <p className="cv2-error" role="alert">{game.error}</p>}<button className="cv2-primary" disabled={game.busy || !canSubmit || game.remaining === 0} onClick={completeMission}>{game.busy ? "Enviando…" : isQuestion ? "Continuar" : activeMission.evidence_type === "photo" ? "Enviar foto" : "Enviar vídeo"}{game.busy ? <Loader2 size={18} className="animate-spin" /> : <ChevronRight size={18} />}</button>
+          {isQuestion ? <div className="cv2-answer-options" role="group" aria-label="Elige una respuesta">{(activeMission.question_options ?? []).map(option => <button key={option} disabled={game.busy} onClick={() => { game.clearError(); setAnswer(option); }} aria-pressed={answer === option}>{option}{answer === option && <Check size={17} />}</button>)}</div> : <MediaCapture key={rowId} kind={activeMission.evidence_type === "photo" ? "photo" : "video"} file={file} onChange={value => { game.clearError(); setFile(value); }} onPreparingChange={setMediaPreparing} disabled={game.busy} />}
+          <div className="cv2-dialog-detail"><span>{activeMission.type}</span><strong>{activeMission.points} puntos</strong></div>{game.remaining !== null && <span className="cv2-timer" role="timer"><Clock3 size={15} /> {game.remaining} s restantes</span>}{game.error && <p className="cv2-error" role="alert">{game.error}</p>}<button className="cv2-primary" aria-busy={game.busy || mediaPreparing} disabled={game.busy || mediaPreparing || !canSubmit || game.remaining === 0} onClick={completeMission}>{mediaPreparing ? `Preparando ${activeMission.evidence_type === "photo" ? "foto" : "vídeo"}…` : game.busy ? (isQuestion ? "Comprobando…" : `${activeMission.evidence_type === "photo" ? "Subiendo foto" : "Subiendo vídeo"}${uploadProgress > 0 ? ` · ${uploadProgress}%` : "…"}`) : isQuestion ? "Continuar" : activeMission.evidence_type === "photo" ? "Enviar foto" : "Enviar vídeo"}{game.busy || mediaPreparing ? <Loader2 size={18} className="animate-spin" /> : <ChevronRight size={18} />}</button>
         </>}
       </>}
     </DialogContent></Dialog>
