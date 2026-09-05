@@ -372,104 +372,12 @@
   font-weight:400;
 }
 .cv2-captain {
-  position:absolute;
-  height:100px;
-  width:60px;
-  top:15px;
-  left:30px;
-  filter:drop-shadow(5px 8px 3px #432c2930);
-}
-.cv2-captain i {
-  position:absolute;
-  display:block;
-}
-.cv2-head {
-  width:31px;
-  height:32px;
-  top:10px;
-  left:15px;
-  border-radius:12px 12px 13px 13px;
-  background:radial-gradient(circle at 34% 52%,#3e332b 1.6px,transparent 2px),radial-gradient(circle at 70% 52%,#3e332b 1.6px,transparent 2px),linear-gradient(110deg,var(--skin),color-mix(in srgb,var(--skin) 70%,#985c40));
-  box-shadow:inset -3px -3px 5px #854c3025;
-  z-index:3;
-}
-.cv2-hair {
-  width:35px;
-  height:26px;
-  top:5px;
-  left:13px;
-  background:linear-gradient(120deg,#645043,#302b29);
-  border-radius:14px 14px 5px 5px;
-  z-index:4;
-  clip-path:polygon(0 0,100% 0,100% 100%,84% 77%,80% 44%,35% 60%,8% 53%,6% 100%,0 100%);
-}
-.cv2-body {
-  width:34px;
-  height:38px;
-  top:40px;
-  left:13px;
-  background:linear-gradient(100deg,color-mix(in srgb,var(--outfit) 65%,white),var(--outfit));
-  border-radius:12px 12px 7px 7px;
-  z-index:2;
-  box-shadow:inset -4px 0 4px #0002;
-}
-.cv2-body:after {
-  content:"";
-  position:absolute;
-  width:7px;
-  height:17px;
-  top:0;
-  left:14px;
-  background:var(--accent,#f2dfdd);
-  clip-path:polygon(0 0,100% 0,50% 100%);
-}
-.cv2-arm {
-  width:11px;
-  height:34px;
-  top:44px;
-  border-radius:8px;
-  background:linear-gradient(var(--outfit) 75%,var(--skin) 75%);
-}
-.cv2-arm.left {
-  left:5px;
-  transform:rotate(12deg);
-}
-.cv2-arm.right {
-  right:4px;
-  transform:rotate(-17deg);
-}
-.cv2-leg {
-  width:12px;
-  height:24px;
-  top:74px;
-  border-radius:0 0 5px 5px;
-  background:linear-gradient(var(--legs,var(--outfit)) 75%,#3a3534 75%);
-}
-.cv2-leg.left {
-  left:15px;
-}
-.cv2-leg.right {
-  right:14px;
-}
-.cv2-captain.is-dress .cv2-body {
-  width:40px;
-  left:10px;
-  height:43px;
-  border-radius:12px 12px 16px 16px;
-  clip-path:polygon(15% 0,85% 0,100% 100%,0 100%);
-}
-.cv2-captain.is-dress .cv2-body:after { display:none; }
-.cv2-captain.has-long-hair .cv2-photo-head { box-shadow:0 0 0 5px var(--hair),2px 4px 7px #392c3040; }
-.cv2-captain-1 .cv2-hair {
-  height:44px;
-}
-.cv2-captain-1 .cv2-body {
-  border-radius:10px 10px 2px 2px;
-  width:39px;
-  left:11px;
-}
-.cv2-captain-4 {
-  opacity:.55;
+  position: absolute;
+  display: block;
+  width: 90px;
+  height: 120px;
+  top: 6px;
+  left: 15px;
 }
 .cv2-captain-name {
   position:absolute;
@@ -883,8 +791,10 @@
   width:26%;
 }
 .cv2-podium .cv2-captain {
-  top:-93px;
-  left:calc(50% - 30px);
+  top:-108px;
+  left:calc(50% - 42px);
+  width:84px;
+  height:112px;
 }
 .cv2-podium-step {
   background:linear-gradient(115deg,#f9f1f0,var(--island));
@@ -1350,7 +1260,7 @@
 .cv2-pick-check { position: absolute; top: 10px; right: 10px; width: 22px; height: 22px; border: 1px solid #d0bebc; border-radius: 50%; display: grid; place-items: center; }
 .cv2-pick.is-selected .cv2-pick-check { background: #684a47; border-color: #684a47; color: white; }
 .cv2-pick-stage { display: block; position: relative; width: 120px; height: 123px; margin: 0 auto 3px; transform: scale(.86); transform-origin: center center; }
-.cv2-pick-stage .cv2-platform { top: 69px; }
+.cv2-pick-stage .cv2-platform { top: 92px; }
 .cv2-pick-stage .cv2-captain { top: 6px; }
 .cv2-pick > strong { display: block; font-size: 14px; font-weight: 650; }
 .cv2-pick > small { display: block; color: #87706d; font-size: 11px; margin-top: 3px; }
@@ -1366,7 +1276,7 @@
 .cv2-mobile button:disabled, .cv2-mobile-dialog button:disabled { cursor: not-allowed; opacity: .45; }
 .cv2-player-strip { display: flex; align-items: center; gap: 12px; }
 .cv2-player-avatar { display: block; position: relative; width: 58px; height: 64px; background: color-mix(in srgb, var(--island) 25%, #f9f1f0); border-radius: 17px; overflow: hidden; }
-.cv2-player-avatar .cv2-captain { left: -1px; top: 0; transform: scale(.65); transform-origin: center top; }
+.cv2-player-avatar .cv2-captain { left: 7px; top: 3px; transform: scale(.49); transform-origin: left top; }
 .cv2-player-strip small { font-size: 8px; letter-spacing: 1px; color: #876c69; }
 .cv2-player-strip h1 { font-size: 26px; margin: 4px 0 0; letter-spacing: -.7px; }
 .cv2-player-points { margin-left: auto; text-align: right; }
@@ -1448,8 +1358,6 @@
   .cv2-active-quest h2 { font-size: 26px; }
   .cv2-onboarding-note { font-size: 10px; }
 }
-.cv2-mobile .cv2-captain-1 .cv2-hair { height: 26px; }
-.cv2-mobile .cv2-captain-1::before { content: ""; position: absolute; top: 6px; left: 11px; width: 39px; height: 49px; border-radius: 15px 15px 7px 7px; background: linear-gradient(120deg, #645043, #302b29); }
 @media (max-width: 520px) {
   .cv2-active-quest { padding: 19px; }
   .cv2-quest-object { width: 80px; height: 80px; border-radius: 24px; margin: 18px auto 23px; }
@@ -1508,18 +1416,13 @@
 .cv2-welcome-art { position: relative; height: clamp(116px, 19dvh, 145px); display: grid; place-items: center; }
 .cv2-welcome-art .cv2-quest-object { width: 96px; height: 96px; margin: 0; }
 .cv2-welcome-orbit { position: absolute; width: 220px; height: 115px; border: 1px dashed #e4cbc4; border-radius: 50%; transform: rotate(-20deg); }
-.cv2-photo-captain .cv2-photo-head { position: absolute; z-index: 5; top: -4px; left: 7px; width: 46px; height: 46px; overflow: hidden; border-radius: 50%; border: 2px solid #fff9f6; display: grid; place-items: center; background: #ecdfd9; color: #a68c83; box-shadow: 2px 3px 5px #392c302b; }
-.cv2-photo-head > img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center; border-radius: 50%; image-rendering: auto; }
-.cv2-mobile .cv2-photo-captain::before { display: none; }
-.cv2-mobile .cv2-photo-captain.cv2-captain-4 { opacity: 1; }
 .cv2-mobile .cv2-pick { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; min-width: 0; padding: 14px 10px 17px; }
 .cv2-mobile .cv2-pick.is-selected { padding: 13px 9px 16px; }
-.cv2-mobile .cv2-pick-stage { flex: 0 0 126px; width: 120px; height: 126px; margin: 0; transform: scale(.88); transform-origin: center top; }
+.cv2-mobile .cv2-pick-stage { flex: 0 0 148px; width: 120px; height: 148px; margin: 0; transform: scale(.88); transform-origin: center top; }
 .cv2-pick-label { display: flex; flex-direction: column; gap: 4px; width: 100%; margin-top: 5px; min-height: 42px; }
 .cv2-pick-label > strong { font-size: 14px; font-weight: 650; line-height: 1.35; overflow-wrap: anywhere; }
 .cv2-pick-label > small { font-size: 11px; color: #87706d; line-height: 1.4; overflow-wrap: anywhere; }
 .cv2-mobile .cv2-player-avatar { overflow: visible; flex-shrink: 0; }
-.cv2-mobile .cv2-player-avatar .cv2-photo-captain { top: 5px; }
 
 .cv2-player-name { min-width: 0; flex: 1; }
 .cv2-player-name h1 { max-width: 100%; line-height: 1.08; overflow-wrap: anywhere; }

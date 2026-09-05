@@ -1,7 +1,8 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowRight, Camera, Check, ChevronRight, Crown, Film, Flag, HelpCircle, LockKeyhole, RotateCcw, Trophy, Users, Clock3, Loader2, UserRound, XCircle } from "lucide-react";
+import { ArrowRight, Camera, Check, ChevronRight, Crown, Film, Flag, HelpCircle, LockKeyhole, RotateCcw, Trophy, Users, Clock3, Loader2, XCircle } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import CaptainModel from "@/components/captains-v2/CaptainModel";
 import MediaCapture from "@/components/captains-v2/MediaCapture";
 import { useCaptainsV2 } from "@/hooks/useCaptainsV2";
 import { getCaptainsEvidenceSignedUrl, rankCaptainsTables } from "@/lib/captainsService";
@@ -17,14 +18,9 @@ const teams = [
   { color: "#8db9cc", outfit: "#4d7a8a", skin: "#ecc29f" },
 ];
 function Captain({ index, photoUrl, sprite, config }: { index: number; photoUrl?: string | null; sprite?: CaptainsSpriteStyle | null; config?: CaptainsSpriteConfig | null }) {
-  const [failedPhoto, setFailedPhoto] = useState<string | null>(null);
-  const hasPhoto = Boolean(photoUrl && photoUrl !== failedPhoto);
   const visual = getCaptainSpriteVisual(sprite, config);
-  return <span className={`cv2-captain cv2-captain-${index} cv2-photo-captain ${visual.dressLike ? "is-dress" : "is-suit"} ${visual.longHair ? "has-long-hair" : ""}`} style={getCaptainSpriteCss(sprite, config)} aria-hidden="true">
-    <span className="cv2-photo-head">
-      {hasPhoto ? <img src={photoUrl!} alt="" onError={() => setFailedPhoto(photoUrl!)} /> : <UserRound size={25} strokeWidth={1.5} />}
-    </span>
-    <i className="cv2-body" /><i className="cv2-arm left" /><i className="cv2-arm right" /><i className="cv2-leg left" /><i className="cv2-leg right" />
+  return <span className={`cv2-captain ${visual.dressLike ? "is-dress" : "is-suit"}`} data-captain-index={index} aria-hidden="true">
+    <CaptainModel sprite={sprite} config={config} photoUrl={photoUrl} />
   </span>;
 }
 

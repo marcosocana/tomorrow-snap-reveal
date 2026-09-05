@@ -71,7 +71,7 @@ import {
   updateCaptainsTables,
 } from "@/lib/captainsService";
 import { normalizeCaptainsPublicUrl, resolveCaptainsQrImageUrl } from "@/lib/captainsUtils";
-import { getCaptainSpriteVisual } from "@/lib/captainsSprite";
+import CaptainModel from "@/components/captains-v2/CaptainModel";
 import type {
   CaptainsChallengeInput,
   CaptainsChallengeCatalogItem,
@@ -156,28 +156,12 @@ const captainSpriteOptions: Array<{
 
 const getDefaultCaptainSprite = (index: number) => captainSpriteOptions[index % captainSpriteOptions.length].value;
 
-const getSpriteColors = (value?: CaptainsSpriteStyle | null, config?: CaptainsSpriteConfig | null) => {
-  return getCaptainSpriteVisual(value, config);
-};
-
-const CaptainSpritePreview = ({ value, config, size = "md" }: { value?: CaptainsSpriteStyle | null; config?: CaptainsSpriteConfig | null; size?: "sm" | "md" }) => {
-  const option = getSpriteColors(value, config);
-  const scale = size === "sm" ? "h-14 w-11" : "h-24 w-[72px]";
-  return (
-    <div className={`relative shrink-0 drop-shadow-[4px_7px_4px_rgba(48,36,34,.22)] ${scale}`}>
-      {option.longHair ? <div className="absolute left-[18%] top-[5%] h-[42%] w-[64%] rounded-[48%_48%_34%_34%]" style={{ background: `linear-gradient(115deg, ${option.hair}, color-mix(in srgb, ${option.hair} 58%, black))` }} /> : null}
-      <div className="absolute left-[25%] top-[5%] z-20 h-[28%] w-[50%] rounded-[48%] border border-white/50" style={{ background: `radial-gradient(circle at 32% 38%, white 0 3%, transparent 4%), linear-gradient(125deg, ${option.skin}, color-mix(in srgb, ${option.skin} 70%, #8a4d35))` }} />
-      <div className="absolute left-[22%] top-[2%] z-30 h-[15%] w-[56%] rounded-[55%_55%_25%_25%]" style={{ background: `linear-gradient(120deg, ${option.hair}, color-mix(in srgb, ${option.hair} 55%, black))` }} />
-      <div className={`absolute left-[24%] top-[34%] z-10 w-[52%] shadow-[inset_-5px_-2px_7px_rgba(0,0,0,.18)] ${option.dressLike ? "h-[42%] rounded-[35%_35%_22%_22%] [clip-path:polygon(14%_0,86%_0,100%_100%,0_100%)]" : "h-[36%] rounded-[30%_30%_16%_16%]"}`} style={{ background: `linear-gradient(110deg, color-mix(in srgb, ${option.outfit} 70%, white), ${option.outfit})` }}>
-        {!option.dressLike ? <span className="absolute left-[42%] top-0 h-[48%] w-[16%] [clip-path:polygon(0_0,100%_0,50%_100%)]" style={{ backgroundColor: option.accent }} /> : null}
-      </div>
-      <div className="absolute left-[9%] top-[38%] h-[33%] w-[16%] rotate-[12deg] rounded-full" style={{ background: `linear-gradient(${option.outfit} 70%, ${option.skin} 70%)` }} />
-      <div className="absolute right-[9%] top-[38%] h-[33%] w-[16%] -rotate-[12deg] rounded-full" style={{ background: `linear-gradient(${option.outfit} 70%, ${option.skin} 70%)` }} />
-      <div className="absolute bottom-[4%] left-[28%] h-[29%] w-[17%] rounded-b-full" style={{ background: `linear-gradient(${option.legs} 77%, #292526 77%)` }} />
-      <div className="absolute bottom-[4%] right-[28%] h-[29%] w-[17%] rounded-b-full" style={{ background: `linear-gradient(${option.legs} 77%, #292526 77%)` }} />
-    </div>
-  );
-};
+const CaptainSpritePreview = ({ value, config, photoUrl, size = "md" }: {
+  value?: CaptainsSpriteStyle | null;
+  config?: CaptainsSpriteConfig | null;
+  photoUrl?: string | null;
+  size?: "sm" | "md";
+}) => <CaptainModel sprite={value} config={config} photoUrl={photoUrl} className={`captain-model-admin ${size === "sm" ? "is-small" : ""}`} />;
 
 const CaptainPhotoPreview = ({
   table,
@@ -1438,7 +1422,7 @@ export const CaptainsOnboarding = () => {
 	                      onClick={() => setEditingTableIndex(index)}
                       aria-label={`Editar detalles de la mesa ${index + 1}`}
                     >
-                      <CaptainSpritePreview value={table.captain_sprite} config={table.captain_sprite_config} size="sm" />
+                      <CaptainSpritePreview value={table.captain_sprite} config={table.captain_sprite_config} photoUrl={table.captain_photo_url} size="sm" />
                     </button>
                     <div>
                       <p className="text-sm font-semibold">Mesa {index + 1}</p>
@@ -1731,7 +1715,7 @@ export const CaptainsOnboarding = () => {
         {editingTable && editingTableIndex !== null ? (
           <div className="space-y-5">
             <div className="flex justify-center">
-              <CaptainSpritePreview value={editingTable.captain_sprite} config={editingTable.captain_sprite_config} />
+              <CaptainSpritePreview value={editingTable.captain_sprite} config={editingTable.captain_sprite_config} photoUrl={editingTable.captain_photo_url} />
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="space-y-1">
@@ -2394,7 +2378,7 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
                     <div className="flex items-center gap-4">
                       <div className="flex items-center gap-3">
                         <CaptainPhotoPreview table={table} />
-                        <CaptainSpritePreview value={table.captain_sprite} config={table.captain_sprite_config} />
+                        <CaptainSpritePreview value={table.captain_sprite} config={table.captain_sprite_config} photoUrl={table.captain_photo_url} />
                       </div>
                       <div>
                         <p className="text-sm font-semibold">Mesa {index + 1}</p>
@@ -3911,7 +3895,7 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
 		            <div className="space-y-4">
 		              <div className="flex flex-wrap items-center justify-center gap-5 rounded-2xl border border-border bg-muted/20 p-4">
 		                <CaptainPhotoPreview table={tableDraft} />
-		                <CaptainSpritePreview value={tableDraft.captain_sprite} config={tableDraft.captain_sprite_config} />
+		                <CaptainSpritePreview value={tableDraft.captain_sprite} config={tableDraft.captain_sprite_config} photoUrl={tableDraft.captain_photo_url} />
 		              </div>
 		              <div className="grid gap-3 sm:grid-cols-2">
 		                <label className="space-y-1">
@@ -4288,7 +4272,7 @@ const RankingCard = ({
                 <td className="px-3 py-4">
                   <div className="flex items-center gap-2">
                     <CaptainPhotoPreview table={table} size="sm" />
-                    <CaptainSpritePreview value={table.captain_sprite} config={table.captain_sprite_config} size="sm" />
+                    <CaptainSpritePreview value={table.captain_sprite} config={table.captain_sprite_config} photoUrl={table.captain_photo_url} size="sm" />
                     {table.captain_sprite_config?.outfit_type === "dress" ? "Vestido" : "Traje"}
                   </div>
                 </td>
@@ -4377,7 +4361,7 @@ const ProgressCard = ({
                   <td className="border-y border-border px-3 py-4">
                     <div className="flex items-center gap-2">
                       <CaptainPhotoPreview table={table} size="sm" />
-                      <CaptainSpritePreview value={table.captain_sprite} config={table.captain_sprite_config} size="sm" />
+                      <CaptainSpritePreview value={table.captain_sprite} config={table.captain_sprite_config} photoUrl={table.captain_photo_url} size="sm" />
                       {table.captain_sprite_config?.outfit_type === "dress" ? "Vestido" : "Traje"}
                     </div>
                   </td>
