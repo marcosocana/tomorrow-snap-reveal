@@ -48,7 +48,34 @@ function VictoryCup() {
 }
 
 function CaptainArmband() {
-  return <span className="cv2-armband" aria-hidden="true"><i /><b>C</b><span>CAPITÁN</span></span>;
+  return <svg className="cv2-armband" viewBox="8 10 134 104" aria-hidden="true">
+    <defs>
+      <linearGradient id="cv2-armband-main" x1="18" y1="16" x2="126" y2="102" gradientUnits="userSpaceOnUse">
+        <stop stopColor="#ffaaa0" /><stop offset=".48" stopColor="#f06a5f" /><stop offset="1" stopColor="#b9443c" />
+      </linearGradient>
+      <linearGradient id="cv2-armband-edge" x1="105" y1="25" x2="134" y2="92" gradientUnits="userSpaceOnUse">
+        <stop stopColor="#d5554c" /><stop offset="1" stopColor="#8f332e" />
+      </linearGradient>
+      <radialGradient id="cv2-armband-badge" cx="35%" cy="28%" r="75%">
+        <stop stopColor="#fffdf7" /><stop offset="1" stopColor="#f4dfce" />
+      </radialGradient>
+      <filter id="cv2-armband-shadow" x="-35%" y="-35%" width="180%" height="200%">
+        <feDropShadow dx="5" dy="8" stdDeviation="6" floodColor="#6d3730" floodOpacity=".28" />
+      </filter>
+    </defs>
+    <ellipse cx="75" cy="103" rx="48" ry="9" fill="#6d3730" opacity=".13" />
+    <g filter="url(#cv2-armband-shadow)" transform="rotate(-7 75 57)">
+      <path d="M34 26C17 34 15 78 36 91l16-13c-10-12-9-35 1-47L34 26Z" fill="#9c3a34" />
+      <path d="M35 22c27-9 69-4 91 11l-8 61C93 80 61 77 34 88l1-66Z" fill="url(#cv2-armband-main)" stroke="#81322e" strokeWidth="3" strokeLinejoin="round" />
+      <path d="M126 33c8 8 8 47-8 61l-9-8 7-58 10 5Z" fill="url(#cv2-armband-edge)" stroke="#81322e" strokeWidth="3" strokeLinejoin="round" />
+      <path d="M43 31c22-6 51-3 70 7M41 78c22-7 48-5 69 4" fill="none" stroke="#ffd0ca" strokeWidth="2" strokeLinecap="round" strokeDasharray="3 5" opacity=".9" />
+      <path d="M42 27c22-7 49-4 68 3" fill="none" stroke="#fff" strokeWidth="5" strokeLinecap="round" opacity=".23" />
+      <circle cx="76" cy="57" r="25" fill="url(#cv2-armband-badge)" stroke="#9f4039" strokeWidth="3" />
+      <circle cx="76" cy="57" r="20" fill="none" stroke="#e7bba9" strokeWidth="1.5" strokeDasharray="2 3" />
+      <text x="76" y="67" textAnchor="middle" fill="#d45148" fontSize="30" fontWeight="850">C</text>
+      <text x="76" y="86" textAnchor="middle" fill="#fff7f2" fontSize="6" fontWeight="800" letterSpacing="2">CAPITÁN</text>
+    </g>
+  </svg>;
 }
 
 export default function CaptainsDemoV2({ eventSlug: requestedEventSlug }: { eventSlug?: string } = {}) {
@@ -59,7 +86,6 @@ export default function CaptainsDemoV2({ eventSlug: requestedEventSlug }: { even
   const [choice, setChoice] = useState<number | null>(null);
   const selected = game.selected ?? choice;
   const joined = game.selected !== null;
-  const [captainName, setCaptainName] = useState("");
   const [view, setView] = useState<View>("quests");
   const [mission, setMission] = useState<number | null>(null);
   const [rowId, setRowId] = useState<string | null>(null);
@@ -71,10 +97,10 @@ export default function CaptainsDemoV2({ eventSlug: requestedEventSlug }: { even
   const [rejecting, setRejecting] = useState(false);
   const [previewMedia, setPreviewMedia] = useState<{ url: string; type: "photo" | "video"; title: string } | null>(null);
   const liveTeams = (game.data?.tables ?? []).map((table, index) => ({
-    ...teams[index % teams.length], ...table, name: table.captain_name || "Sin capitán", points: table.total_points,
+    ...teams[index % teams.length], ...table, name: table.captain_name?.trim() || "Sin nombre", points: table.total_points,
   }));
   const team = selected === null ? null : liveTeams[selected];
-  const name = joined ? team?.name : team?.name === "Sin capitán" ? captainName.trim() : team?.name;
+  const name = team?.name;
   const missions = (game.rows.length ? game.rows.map(row => game.data!.challenges.find(item => item.id === row.challenge_id)!) : game.data?.challenges ?? []).map(item => ({
     ...item, type: `${item.evidence_type === "photo" ? "Foto" : item.evidence_type === "video" ? "Vídeo" : "Pregunta"}${item.has_time_limit ? ` · ${item.time_limit_seconds} s` : ""}`,
     icon: item.evidence_type === "photo" ? Camera : item.evidence_type === "video" ? Film : HelpCircle,
@@ -85,7 +111,7 @@ export default function CaptainsDemoV2({ eventSlug: requestedEventSlug }: { even
   const points = team?.total_points ?? 0;
   const ranking = rankCaptainsTables(game.data?.tables ?? [], game.data?.rows ?? []).map(table => {
     const index = game.data!.tables.findIndex(item => item.id === table.id);
-    return { ...teams[index % teams.length], ...table, name: table.captain_name || "Sin capitán", points: table.total_points, index };
+    return { ...teams[index % teams.length], ...table, name: table.captain_name?.trim() || "Sin nombre", points: table.total_points, index };
   });
   const position = ranking.findIndex(item => item.index === selected) + 1;
   const galleryTableId = galleryTable === "mine" ? team?.id : galleryTable;
@@ -139,9 +165,8 @@ export default function CaptainsDemoV2({ eventSlug: requestedEventSlug }: { even
         <section className="cv2-identity" aria-labelledby="cv2-identity-title">
           <div className="cv2-identity-heading"><h2 id="cv2-identity-title" className="sr-only">Capitanes disponibles</h2></div>
           <div className="cv2-captain-picker">{liveTeams.map((item, index) => <button key={item.id} className={`cv2-pick ${selected === index ? "is-selected" : ""}`} style={captainStyle(index)} onClick={() => setChoice(index)} disabled={game.busy} aria-pressed={selected === index} aria-label={`${item.name}, ${item.table_name}`}>
-            <span className="cv2-pick-check">{selected === index && <Check size={14} />}</span><span className="cv2-pick-stage"><span className="cv2-platform"><i /><i /><i /></span><Captain index={index} photoUrl={item.captain_photo_url} /></span><span className="cv2-pick-label"><strong>{item.name === "Sin capitán" ? "Aquí faltas tú" : item.name}</strong><small>{item.table_name}</small></span>
+            <span className="cv2-pick-check">{selected === index && <Check size={14} />}</span><span className="cv2-pick-stage"><span className="cv2-platform"><i /><i /><i /></span><Captain index={index} photoUrl={item.captain_photo_url} /></span><span className="cv2-pick-label"><strong>{item.name}</strong><small>{item.table_name}</small></span>
           </button>)}<div className="cv2-pick-message"><Crown size={26} strokeWidth={1.3} /><p>¡Confiamos en ti!</p></div></div>
-          {team?.name === "Sin capitán" && <label className="cv2-name-label">Tu nombre<input autoComplete="given-name" maxLength={40} value={captainName} onChange={event => setCaptainName(event.target.value)} placeholder="¿Cómo te llamas?" /></label>}
         </section>
         <p className="cv2-onboarding-note"><LockKeyhole size={15} /> {missions.length} retos sorpresa. Se descubren uno a uno.</p>
         <div className="cv2-join-bar"><button className="cv2-primary" disabled={game.busy || selected === null || !name} onClick={join}>{game.busy ? "Entrando…" : "Continuar"}<ArrowRight size={18} /></button></div>

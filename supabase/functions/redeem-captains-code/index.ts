@@ -300,7 +300,7 @@ serve(async (req) => {
       table_id: table.id,
       challenge_id: challenge.id,
       randomized_order_index: index + 1,
-      status: "pending",
+      status: index === 0 ? "ready" : "pending",
     })),
   );
   if (tableChallenges.length) {

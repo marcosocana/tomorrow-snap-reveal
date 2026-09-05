@@ -3,6 +3,7 @@ import fs from "node:fs";
 
 const read = (path) => fs.readFileSync(path, "utf8");
 const migration = read("supabase/migrations/20260905160000_add_captains_experience_version.sql");
+const unlockMigration = read("supabase/migrations/20260905173000_unlock_first_challenge_for_captains_v2.sql");
 const app = read("src/App.tsx");
 const router = read("src/pages/CaptainsExperience.tsx");
 const service = read("src/lib/captainsService.ts");
@@ -21,6 +22,9 @@ assert.match(router, /return <CaptainsPublic \/>/);
 
 assert.match(service, /experience_version: input\.experience_version \?\? "v2"/);
 assert.match(redeem, /experience_version: "v2"/);
+assert.match(redeem, /status: index === 0 \? "ready" : "pending"/);
+assert.match(unlockMigration, /event\.experience_version = 'v2'/);
+assert.match(unlockMigration, /SET status = 'ready'/);
 assert.match(onboarding, /!editingEventId \? \{ experience_version: "v2" as const \} : \{\}/);
 assert.match(onboarding, /event: \{ \.\.\.eventPayload, experience_version: "v2" \}/);
 assert.match(v2Hook, /sessionKeyForEvent\(eventSlug\)/);

@@ -1524,13 +1524,8 @@
 .cv2-victory-spark.one { top: 23px; left: 10px; }
 .cv2-victory-spark.two { top: 51px; right: 5px; font-size: 17px; }
 .cv2-armband-object { overflow: visible; }
-.cv2-armband { position: relative; display: grid; place-items: center; width: 76px; height: 55px; border-radius: 8px 20px 20px 8px; color: #fff; background: linear-gradient(145deg, #ff958b 0%, #f06a5f 48%, #bf4941 100%); box-shadow: 7px 8px 0 #a8403a, 13px 15px 18px #6d373028, inset 4px 4px 6px #ffc2bb88; transform: rotate(-10deg) skewY(2deg); }
-.cv2-armband::before, .cv2-armband::after { content: ""; position: absolute; left: -8px; width: 14px; height: 23px; border-radius: 8px 2px 2px 8px; background: linear-gradient(90deg, #8d3733, #d75c53); }
-.cv2-armband::before { top: 2px; }
-.cv2-armband::after { bottom: 2px; }
-.cv2-armband > i { position: absolute; inset: 6px; border: 1px solid #ffd3cd88; border-radius: 5px 14px 14px 5px; }
-.cv2-armband > b { position: relative; z-index: 1; font-size: 27px; line-height: 1; text-shadow: 1px 2px 0 #9d3c36; }
-.cv2-armband > span { position: absolute; z-index: 1; bottom: 5px; font-size: 5px; font-weight: 800; letter-spacing: 1.5px; }
+.cv2-armband { display: block; width: 148px; height: 116px; max-width: none; overflow: visible; transform: rotate(2deg); }
+.cv2-welcome-art .cv2-quest-object > .cv2-armband { width: 148px; height: 116px; }
 .cv2-ranking-rule { display: flex; align-items: flex-start; gap: 7px; margin-top: 12px; padding: 10px 12px; border-radius: 11px; background: #f6e8e5; color: #755f62 !important; font-size: 11px !important; line-height: 1.5 !important; }
 .cv2-ranking-rule svg { flex: 0 0 auto; margin-top: 1px; color: #c75d53; }
 .cv2-confirm-dialog { width: min(calc(100% - 24px), 440px); padding: 32px 24px; text-align: center; border-radius: 23px; }
@@ -1541,3 +1536,21 @@
 .cv2-media-dialog { width: min(calc(100% - 20px), 720px); max-height: calc(100dvh - 24px); padding: 50px 12px 12px; border-radius: 20px; overflow: hidden; }
 .cv2-media-dialog .cv2-dialog-title { padding: 0 10px; font-size: 18px; }
 .cv2-media-dialog > img, .cv2-media-dialog > video { display: block; width: 100%; max-height: calc(100dvh - 110px); object-fit: contain; border-radius: 12px; background: #2f292d; image-rendering: auto; }
+
+/* The brand bar and the welcome action remain visible while the content scrolls. */
+.cv2-mobile .cv2-header {
+  position: fixed;
+  z-index: 40;
+  top: 0;
+  left: 50%;
+  width: min(100%, 520px);
+  height: calc(42px + env(safe-area-inset-top));
+  padding-top: env(safe-area-inset-top);
+  transform: translateX(-50%);
+  background: rgba(255, 255, 255, .94);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+.cv2-mobile-main { padding-top: calc(67px + env(safe-area-inset-top)); }
+.cv2-welcome { min-height: calc(100dvh - 67px - env(safe-area-inset-top)); padding-bottom: calc(92px + env(safe-area-inset-bottom)); }
+.cv2-welcome .cv2-join-bar { z-index: 45; }

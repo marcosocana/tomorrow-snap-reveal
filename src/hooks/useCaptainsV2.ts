@@ -71,7 +71,7 @@ export function useCaptainsV2(eventSlug = CAPTAINS_V2_SLUG) {
     return true;
   });
   const start = () => run(async () => {
-    if (!currentRow || !data || !["ready", "in_progress"].includes(currentRow.status)) throw new Error("Este reto aún no está disponible.");
+    if (!currentRow || !data || !["pending", "ready", "in_progress"].includes(currentRow.status)) throw new Error("Este reto aún no está disponible.");
     const fresh = await getCaptainsTableChallenges(data.event.id);
     const row = fresh.find(item => item.id === currentRow.id);
     if (!row || isFinishedRow(row)) { await query.refetch(); throw new Error("Tu mesa ya ha terminado este reto. Hemos actualizado la partida."); }

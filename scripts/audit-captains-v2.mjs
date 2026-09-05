@@ -6,12 +6,13 @@ const origin=process.env.CAPTAINS_V2_ORIGIN || 'http://127.0.0.1:5185';
 const debuggerOrigin=process.env.CAPTAINS_V2_CDP || 'http://127.0.0.1:9237';
 const eventSlug=process.env.CAPTAINS_V2_SLUG || 'demo-capitanes-v2';
 const experienceVersion=process.env.CAPTAINS_EXPERIENCE_VERSION || 'v2';
+const firstChallengeStatus=process.env.CAPTAINS_FIRST_CHALLENGE_PENDING==='1'?'pending':'ready';
 const eventId='de100000-0000-4000-8000-000000000001';
 const titles=['Brindis de mesa','Pregunta de pareja','Mensaje secreto','Aliados de otra mesa','Coreografía exprés'];
 const event={id:eventId,name:'Capitanes · Revelao',slug:eventSlug,status:'active',experience_version:experienceVersion,start_time:'2026-01-01T00:00:00Z',end_time:'2099-12-31T00:00:00Z'};
 const tables=['Jorge','Marta','Laura','Dani',null].map((name,i)=>({id:`db100000-0000-4000-8000-00000000000${i+1}`,event_id:eventId,table_name:`Mesa ${i+1}`,table_number:i+1,captain_name:name,captain_photo_url:i===0?`${origin}/favicon.png`:null,total_points:0,completed_challenges:0,failed_challenges:0,session_token:`test-session-${i}`}));
 const challenges=titles.map((title,i)=>({id:`dc100000-0000-4000-8000-00000000000${i+1}`,event_id:eventId,title,description:['Haced una foto de toda la mesa brindando por los novios.','¿Dónde fue la primera cita de la pareja?','Grabad un vídeo corto dedicando un mensaje sorpresa a los novios.','Haced una foto con alguien de otra mesa.','Grabad una coreografía con vuestra mesa.'][i],evidence_type:['photo','question','video','photo','video'][i],points:[20,15,25,15,20][i],has_time_limit:false,time_limit_seconds:null,question_options:i===1?['En un restaurante','En la playa','En un concierto','En casa de amigos']:null,question_correct_option:i===1?'En un restaurante':null,order_index:i+1}));
-const rows=tables.flatMap((t,ti)=>challenges.map((c,i)=>({id:`dd100000-0000-4000-8000-0000000000${ti}${i}`,event_id:eventId,table_id:t.id,challenge_id:c.id,randomized_order_index:i+1,status:i===0?'ready':'pending',points_awarded:0,started_at:null})));
+const rows=tables.flatMap((t,ti)=>challenges.map((c,i)=>({id:`dd100000-0000-4000-8000-0000000000${ti}${i}`,event_id:eventId,table_id:t.id,challenge_id:c.id,randomized_order_index:i+1,status:i===0?firstChallengeStatus:'pending',points_awarded:0,started_at:null})));
 const evidence=[];const uploads=[];let rejectUpload=false;const exceptions=[];
 const target=await fetch(`${debuggerOrigin}/json/new?about:blank`,{method:'PUT'}).then(r=>r.json());
 const socket=new WebSocket(target.webSocketDebuggerUrl);await new Promise(r=>socket.addEventListener('open',r,{once:true}));
@@ -50,7 +51,11 @@ if(experienceVersion==='legacy'){
  console.log('PASS: a legacy event keeps the original Capitanes experience.');
  process.exit(0);
 }
-await wait(`!!document.querySelector('.cv2-welcome')`);assert.equal(await evaluate(`document.querySelector('.cv2-join-bar button').textContent.trim()`),'Empezar');await screenshot('welcome');await click('.cv2-join-bar button');await wait(`!!document.querySelector('.cv2-pick') || !!document.querySelector('.cv2-player-strip')`);if(await evaluate(`!!document.querySelector('.cv2-player-strip')`))await click('.cv2-session-footer button');
+await wait(`!!document.querySelector('.cv2-welcome')`);assert.equal(await evaluate(`document.querySelector('.cv2-join-bar button').textContent.trim()`),'Empezar');
+assert.equal(await evaluate(`getComputedStyle(document.querySelector('.cv2-header')).position`),'fixed');
+assert.equal(await evaluate(`getComputedStyle(document.querySelector('.cv2-join-bar')).position`),'fixed');
+assert.equal(await evaluate(`document.querySelectorAll('.cv2-armband path').length>=5`),true);
+await screenshot('welcome');await click('.cv2-join-bar button');await wait(`!!document.querySelector('.cv2-pick') || !!document.querySelector('.cv2-player-strip')`);if(await evaluate(`!!document.querySelector('.cv2-player-strip')`))await click('.cv2-session-footer button');
 assert.equal(await evaluate(`/demo|simula/i.test(document.body.innerText)`),false);
 assert.equal(await evaluate(`document.querySelector('.cv2-join-bar button').disabled`),true);
 assert.equal(await evaluate(`document.querySelector('.cv2-join-bar button').textContent.trim()`),'Continuar');
@@ -62,7 +67,7 @@ for(const width of [320,390,430]){
  assert.equal(await evaluate(`Array.from(document.querySelectorAll('.cv2-pick')).every(card=>card.querySelector('.cv2-pick-label').getBoundingClientRect().top>card.querySelector('.cv2-captain').getBoundingClientRect().bottom)`),true);
 }
 await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
-await screenshot('identity');await click('.cv2-pick:nth-child(2)');await click('.cv2-join-bar button');await wait(`!!document.querySelector('.cv2-active-quest')`);
+await screenshot('identity');assert.equal(await evaluate(`document.querySelector('.cv2-pick:nth-child(5) .cv2-pick-label strong').textContent.trim()`),'Sin nombre');await click('.cv2-pick:nth-child(5)');assert.equal(await evaluate(`!!document.querySelector('.cv2-name-label')`),false);await click('.cv2-pick:nth-child(2)');await click('.cv2-join-bar button');await wait(`!!document.querySelector('.cv2-active-quest')`);
 assert.equal(await evaluate(`document.querySelector('.cv2-bottom-nav').textContent.includes('Recuerdos')`),false);
 assert.equal(await evaluate(`document.querySelector('.cv2-active-quest .cv2-primary').querySelector('svg')===null`),true);
 assert.equal(await evaluate(`document.body.innerText.includes('Hasta 20')`),false);
