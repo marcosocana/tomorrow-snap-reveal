@@ -135,6 +135,7 @@ const demoEventDetail: CaptainsEventDetail = {
     scoring_mode: "automatic",
     status: "active",
     show_live_gallery_after_completion: true,
+    experience_version: "legacy",
     theme_style: "pixel",
     primary_color: DEFAULT_CAPTAINS_PRIMARY,
     secondary_color: DEFAULT_CAPTAINS_SECONDARY,
