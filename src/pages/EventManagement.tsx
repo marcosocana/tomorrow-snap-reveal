@@ -2739,7 +2739,9 @@ const EventManagement = () => {
           </a>
 
           <a
-            href="/admin/photostrip/new"
+            href="https://www.revelao.cam/photostrip"
+            target="_blank"
+            rel="noopener noreferrer"
             className="group flex min-h-56 flex-col rounded-2xl border border-rose-300/50 bg-gradient-to-br from-rose-50 to-background p-6 shadow-sm transition hover:-translate-y-1 hover:border-rose-400/70 hover:shadow-lg"
           >
             <span className="mb-5 flex h-11 w-11 items-center justify-center rounded-xl bg-[#dc6258] text-white shadow-sm">
@@ -2750,7 +2752,7 @@ const EventManagement = () => {
               Un fotomatón digital para que tus invitados creen y compartan su propia tira de fotos.
             </p>
             <span className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-[#c45148]">
-              Crear Photostrip <MoveRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+              Descubrir Photostrip <ExternalLink className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
             </span>
           </a>
         </section>
