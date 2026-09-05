@@ -312,7 +312,6 @@ export type Database = {
           deletion_lock_pin: string | null
           description: string | null
           end_time: string | null
-          experience_version: string
           id: string
           name: string
           owner_id: string | null
@@ -338,7 +337,6 @@ export type Database = {
           deletion_lock_pin?: string | null
           description?: string | null
           end_time?: string | null
-          experience_version?: string
           id?: string
           name: string
           owner_id?: string | null
@@ -364,7 +362,6 @@ export type Database = {
           deletion_lock_pin?: string | null
           description?: string | null
           end_time?: string | null
-          experience_version?: string
           id?: string
           name?: string
           owner_id?: string | null
