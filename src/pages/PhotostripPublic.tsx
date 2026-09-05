@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
-import { Camera, Download, Images, X } from "lucide-react";
+import { Camera, Download, Images, Share2, X } from "lucide-react";
 import { PhotoboothShell } from "@/components/photostrip/PhotoboothShell";
 import { captureVideoFrame, generatePhotostrip } from "@/lib/generatePhotostrip";
 import {
   downloadPhotostrip,
   getPhotostripIdentity,
   photostripApi,
+  sharePhotostrip,
   type PhotostripGalleryItem,
   type PhotostripMode,
   type PhotostripParticipationResult,
@@ -81,6 +82,11 @@ const PhotostripGallery = ({ slug }: { slug: string }) => {
     } catch { setError("No hemos podido descargar la tira."); }
   };
 
+  const shareGalleryItem = async (item: PhotostripGalleryItem) => {
+    try { await sharePhotostrip(item.stripUrl, slug); }
+    catch { setError("No hemos podido compartir la tira."); }
+  };
+
   return (
     <div className="photostrip-gallery-page">
       <header className="photostrip-gallery-header">
@@ -103,7 +109,10 @@ const PhotostripGallery = ({ slug }: { slug: string }) => {
         <div className="photostrip-viewer" role="dialog" aria-modal="true" aria-label="Photostrip ampliado">
           <button className="photostrip-viewer-close" onClick={() => setSelected(null)} aria-label="Cerrar"><X /></button>
           <img src={selected.stripUrl} alt="Photostrip completo" />
-          <button className="photostrip-ink-button" onClick={() => void downloadGalleryItem(selected)}><Download /> DESCARGAR</button>
+          <div className="photostrip-viewer-actions">
+            <button className="photostrip-ink-button" onClick={() => void downloadGalleryItem(selected)}><Download /> DESCARGAR</button>
+            <button className="photostrip-secondary-button" onClick={() => void shareGalleryItem(selected)}><Share2 /> COMPARTIR</button>
+          </div>
         </div>
       ) : null}
     </div>
@@ -121,6 +130,7 @@ const PhotostripExperience = ({ slug }: { slug: string }) => {
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [flash, setFlash] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [cameraReady, setCameraReady] = useState(false);
   const identityRef = useRef(getPhotostripIdentity(slug));
 
   const stopCamera = useCallback(() => {
@@ -128,6 +138,36 @@ const PhotostripExperience = ({ slug }: { slug: string }) => {
     streamRef.current = null;
     if (videoRef.current) videoRef.current.srcObject = null;
   }, []);
+
+  const attachCameraStream = async (stream: MediaStream) => {
+    let video: HTMLVideoElement | null = null;
+    for (let attempt = 0; attempt < 30 && !video; attempt += 1) {
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      video = videoRef.current;
+    }
+    if (!video) throw new Error("CAMERA_NOT_READY");
+    video.muted = true;
+    video.playsInline = true;
+    video.setAttribute("playsinline", "true");
+    video.setAttribute("webkit-playsinline", "true");
+    video.setAttribute("autoplay", "true");
+    video.srcObject = stream;
+    const frameReady = video.videoWidth && video.videoHeight
+      ? Promise.resolve()
+      : new Promise<void>((resolve, reject) => {
+        const timeout = window.setTimeout(() => reject(new Error("CAMERA_NOT_READY")), 6_000);
+        const ready = () => {
+          if (!video?.videoWidth || !video.videoHeight) return;
+          window.clearTimeout(timeout);
+          resolve();
+        };
+        video!.addEventListener("loadedmetadata", ready, { once: true });
+        video!.addEventListener("canplay", ready, { once: true });
+      });
+    await Promise.all([video.play(), frameReady]);
+    if (!video.videoWidth || !video.videoHeight) throw new Error("CAMERA_NOT_READY");
+    setCameraReady(true);
+  };
 
   useEffect(() => {
     let active = true;
@@ -166,6 +206,10 @@ const PhotostripExperience = ({ slug }: { slug: string }) => {
       } catch {
         stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
       }
+      streamRef.current = stream;
+      setCameraReady(false);
+      setStage("camera");
+      await attachCameraStream(stream);
       const identity = identityRef.current;
       const started = await photostripApi<{ status: string; stripUrl?: string }>({
         action: "start", slug, participantId: identity.id, participantToken: identity.token, mode: selectedMode,
@@ -176,14 +220,6 @@ const PhotostripExperience = ({ slug }: { slug: string }) => {
         setStage("result");
         return;
       }
-      streamRef.current = stream;
-      setStage("camera");
-      requestAnimationFrame(() => {
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          void videoRef.current.play();
-        }
-      });
     } catch (cameraError) {
       stopCamera();
       setError(humanError(cameraError instanceof DOMException ? new Error(cameraError.name) : cameraError));
@@ -201,7 +237,7 @@ const PhotostripExperience = ({ slug }: { slug: string }) => {
   };
 
   const captureOne = async () => {
-    if (!videoRef.current) throw new Error("CAMERA_NOT_READY");
+    if (!videoRef.current || !cameraReady) throw new Error("CAMERA_NOT_READY");
     await runCountdown();
     setFlash(true);
     await wait(140);
@@ -268,6 +304,12 @@ const PhotostripExperience = ({ slug }: { slug: string }) => {
     } catch (downloadError) { setError(humanError(downloadError)); }
   };
 
+  const shareOwnStrip = async () => {
+    if (!resultUrl) return;
+    try { await sharePhotostrip(resultUrl, slug); }
+    catch (shareError) { setError(humanError(shareError)); }
+  };
+
   if (stage === "loading") return <PhotoboothShell><p className="photostrip-message">PREPARANDO EL FOTOMATÓN...</p></PhotoboothShell>;
   if (!event || stage === "error") return <PhotoboothShell><div className="photostrip-center-copy"><h1>ESTE PHOTOSTRIP YA NO ESTÁ DISPONIBLE</h1><p>{error}</p></div></PhotoboothShell>;
   if (event.availability !== "active" && stage !== "result") return <PhotoboothShell><Availability event={event} /></PhotoboothShell>;
@@ -305,12 +347,13 @@ const PhotostripExperience = ({ slug }: { slug: string }) => {
       {["camera", "capturing"].includes(stage) ? (
         <div className="photostrip-camera-stage">
           <div className="photostrip-camera-frame">
-            <video ref={videoRef} playsInline muted aria-label="Vista previa de la cámara" />
+            <video ref={videoRef} autoPlay playsInline muted aria-label="Vista previa de la cámara" />
+            {!cameraReady ? <span className="photostrip-camera-loading">ACTIVANDO CÁMARA...</span> : null}
             {countdown !== null ? <span className="photostrip-countdown">{countdown}</span> : null}
             {stage === "capturing" ? <span className="photostrip-progress">FOTO {captureIndex + 1} / 4</span> : null}
             {flash ? <span className="photostrip-flash" /> : null}
           </div>
-          {stage === "camera" ? <button className="photostrip-ink-button" onClick={() => void captureSequence()}><Camera /> EMPEZAR</button> : <p className="photostrip-message">NO TE MUEVAS...</p>}
+          {stage === "camera" ? <button className="photostrip-ink-button" disabled={!cameraReady} onClick={() => void captureSequence()}><Camera /> {cameraReady ? "EMPEZAR" : "PREPARANDO..."}</button> : <p className="photostrip-message">NO TE MUEVAS...</p>}
         </div>
       ) : null}
 
@@ -322,7 +365,8 @@ const PhotostripExperience = ({ slug }: { slug: string }) => {
           <img className="photostrip-strip-preview" src={resultUrl} alt="Tu Photostrip terminado" />
           <div className="photostrip-result-actions">
             <button className="photostrip-ink-button" onClick={() => void downloadOwnStrip()}><Download /> DESCARGAR</button>
-            {event.galleryAllowed ? <Link className="photostrip-secondary-button" to={`/photostrip/${slug}/gallery`}><Images /> VER FOTOS DE OTROS INVITADOS</Link> : null}
+            <button className="photostrip-secondary-button" onClick={() => void shareOwnStrip()}><Share2 /> COMPARTIR</button>
+            {event.galleryAllowed ? <Link className="photostrip-secondary-button photostrip-gallery-action" to={`/photostrip/${slug}/gallery`}><Images /> VER FOTOS DE OTROS INVITADOS</Link> : null}
           </div>
         </div>
       ) : null}

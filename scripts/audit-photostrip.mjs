@@ -62,8 +62,11 @@ expect("demo sends confirmation email", demoFunction.includes("sendConfirmation"
 expect("confirmation email opens event editor", demoEmail.includes("/admin/photostrip/${event.id}/edit"));
 expect("public experience has no scrolling", styles.includes(".photostrip-screen") && styles.includes("overflow: hidden;") && styles.includes(".photostrip-gallery-page"));
 expect("camera action says Empezar", publicPage.includes("EMPEZAR") && !publicPage.includes("> START<"));
-expect("result only exposes download and guest gallery", publicPage.includes("photostrip-result-actions") && publicPage.includes("> DESCARGAR</button>") && publicPage.includes("VER FOTOS DE OTROS INVITADOS"));
+expect("result exposes download, share and guest gallery", publicPage.includes("photostrip-result-actions") && publicPage.includes("> DESCARGAR</button>") && publicPage.includes("shareOwnStrip") && publicPage.includes("VER FOTOS DE OTROS INVITADOS"));
 expect("Photostrip admin uses Revelao-style table", adminPage.includes("PhotostripDashboardEvent") && adminPage.includes("<table") && adminPage.includes('"DEMO"'));
+expect("mobile camera waits for a real video frame", publicPage.includes("attachCameraStream") && publicPage.includes("loadedmetadata") && publicPage.includes("video.videoWidth"));
+expect("mobile video uses inline autoplay", publicPage.includes("autoPlay playsInline muted"));
+expect("own and gallery strips can be shared", publicPage.includes("shareOwnStrip") && publicPage.includes("shareGalleryItem") && read("src/lib/photostrip.ts").includes("navigator.canShare"));
 
 for (const check of checks) console.log(`${check.pass ? "PASS" : "FAIL"}  ${check.name}`);
 const failed = checks.filter((check) => !check.pass);

@@ -91,3 +91,24 @@ export const downloadPhotostrip = async (url: string, slug: string) => {
   anchor.click();
   window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1_000);
 };
+
+export const sharePhotostrip = async (url: string, slug: string) => {
+  const title = "Mi Photostrip de Revelao";
+  if (navigator.share) {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error("SHARE_DOWNLOAD_FAILED");
+      const file = new File([await response.blob()], `revelao-photostrip-${slug}.webp`, { type: "image/webp" });
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ title, text: "Mira mi Photostrip", files: [file] });
+      } else {
+        await navigator.share({ title, text: "Mira mi Photostrip", url });
+      }
+      return;
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      throw error;
+    }
+  }
+  await downloadPhotostrip(url, slug);
+};
