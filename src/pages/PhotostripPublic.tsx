@@ -18,6 +18,17 @@ type Stage = "loading" | "landing" | "mode" | "camera" | "capturing" | "saving" 
 
 const wait = (milliseconds: number) => new Promise((resolve) => window.setTimeout(resolve, milliseconds));
 
+const waitForUsableVideo = async (video: HTMLVideoElement, timeoutMs = 12_000) => {
+  const startedAt = performance.now();
+  while (performance.now() - startedAt < timeoutMs) {
+    const track = (video.srcObject as MediaStream | null)?.getVideoTracks()[0];
+    if (track?.readyState === "ended") throw new Error("CAMERA_UNAVAILABLE");
+    if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && video.videoWidth > 0 && video.videoHeight > 0) return;
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+  }
+  throw new Error("CAMERA_NOT_READY");
+};
+
 const humanError = (error: unknown) => {
   const code = error instanceof Error ? error.message : "UNKNOWN";
   if (code.includes("NotAllowedError") || code === "CAMERA_DENIED") return "Necesitamos permiso para usar la cámara. Actívalo en los ajustes del navegador e inténtalo de nuevo.";
@@ -131,6 +142,7 @@ const PhotostripExperience = ({ slug }: { slug: string }) => {
   const [flash, setFlash] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [cameraReady, setCameraReady] = useState(false);
+  const [cameraNeedsActivation, setCameraNeedsActivation] = useState(false);
   const identityRef = useRef(getPhotostripIdentity(slug));
 
   const stopCamera = useCallback(() => {
@@ -152,22 +164,55 @@ const PhotostripExperience = ({ slug }: { slug: string }) => {
     video.setAttribute("webkit-playsinline", "true");
     video.setAttribute("autoplay", "true");
     video.srcObject = stream;
-    const frameReady = video.videoWidth && video.videoHeight
-      ? Promise.resolve()
-      : new Promise<void>((resolve, reject) => {
-        const timeout = window.setTimeout(() => reject(new Error("CAMERA_NOT_READY")), 6_000);
-        const ready = () => {
-          if (!video?.videoWidth || !video.videoHeight) return;
-          window.clearTimeout(timeout);
-          resolve();
-        };
-        video!.addEventListener("loadedmetadata", ready, { once: true });
-        video!.addEventListener("canplay", ready, { once: true });
-      });
-    await Promise.all([video.play(), frameReady]);
-    if (!video.videoWidth || !video.videoHeight) throw new Error("CAMERA_NOT_READY");
+    try {
+      await video.play();
+    } catch (playError) {
+      if (playError instanceof DOMException && playError.name === "NotAllowedError") {
+        setCameraNeedsActivation(true);
+        return;
+      }
+      throw playError;
+    }
+    await waitForUsableVideo(video);
+    setCameraNeedsActivation(false);
     setCameraReady(true);
   };
+
+  const activateCamera = async () => {
+    const video = videoRef.current;
+    if (!video || !streamRef.current) return;
+    try {
+      setError(null);
+      await video.play();
+      await waitForUsableVideo(video);
+      setCameraNeedsActivation(false);
+      setCameraReady(true);
+    } catch (activationError) {
+      stopCamera();
+      setCameraNeedsActivation(false);
+      setCameraReady(false);
+      setError(humanError(activationError));
+      setStage("landing");
+    }
+  };
+
+  useEffect(() => {
+    const resumeCamera = () => {
+      const video = videoRef.current;
+      if (document.visibilityState === "visible" && streamRef.current && video?.paused) {
+        void video.play().catch(() => {
+          setCameraReady(false);
+          setCameraNeedsActivation(true);
+        });
+      }
+    };
+    document.addEventListener("visibilitychange", resumeCamera);
+    window.addEventListener("pageshow", resumeCamera);
+    return () => {
+      document.removeEventListener("visibilitychange", resumeCamera);
+      window.removeEventListener("pageshow", resumeCamera);
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -202,12 +247,14 @@ const PhotostripExperience = ({ slug }: { slug: string }) => {
       if (!navigator.mediaDevices?.getUserMedia) throw new Error("CAMERA_UNAVAILABLE");
       let stream: MediaStream;
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 1600 }, height: { ideal: 1200 } }, audio: false });
-      } catch {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "user" } }, audio: false });
+      } catch (preferredCameraError) {
+        if (preferredCameraError instanceof DOMException && ["NotAllowedError", "SecurityError"].includes(preferredCameraError.name)) throw preferredCameraError;
         stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
       }
       streamRef.current = stream;
       setCameraReady(false);
+      setCameraNeedsActivation(false);
       setStage("camera");
       await attachCameraStream(stream);
       const identity = identityRef.current;
@@ -237,13 +284,19 @@ const PhotostripExperience = ({ slug }: { slug: string }) => {
   };
 
   const captureOne = async () => {
-    if (!videoRef.current || !cameraReady) throw new Error("CAMERA_NOT_READY");
+    const video = videoRef.current;
+    if (!video || !cameraReady) throw new Error("CAMERA_NOT_READY");
+    if (video.paused) await video.play();
+    await waitForUsableVideo(video, 4_000);
     await runCountdown();
+    await waitForUsableVideo(video, 4_000);
     setFlash(true);
     await wait(140);
-    const blob = await captureVideoFrame(videoRef.current, mode);
-    setFlash(false);
-    return blob;
+    try {
+      return await captureVideoFrame(video, mode);
+    } finally {
+      setFlash(false);
+    }
   };
 
   const captureSequence = async () => {
@@ -353,7 +406,15 @@ const PhotostripExperience = ({ slug }: { slug: string }) => {
             {stage === "capturing" ? <span className="photostrip-progress">FOTO {captureIndex + 1} / 4</span> : null}
             {flash ? <span className="photostrip-flash" /> : null}
           </div>
-          {stage === "camera" ? <button className="photostrip-ink-button" disabled={!cameraReady} onClick={() => void captureSequence()}><Camera /> {cameraReady ? "EMPEZAR" : "PREPARANDO..."}</button> : <p className="photostrip-message">NO TE MUEVAS...</p>}
+          {stage === "camera" ? (
+            <button
+              className="photostrip-ink-button"
+              disabled={!cameraReady && !cameraNeedsActivation}
+              onClick={() => cameraNeedsActivation ? void activateCamera() : void captureSequence()}
+            >
+              <Camera /> {cameraNeedsActivation ? "ACTIVAR CÁMARA" : cameraReady ? "EMPEZAR" : "PREPARANDO..."}
+            </button>
+          ) : <p className="photostrip-message">NO TE MUEVAS...</p>}
         </div>
       ) : null}
 
