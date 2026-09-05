@@ -98,7 +98,10 @@ export function useCaptainsV2(eventSlug = CAPTAINS_V2_SLUG) {
       if (!answer) throw new Error("Selecciona una respuesta.");
       result = await completeCaptainsQuestionChallenge({ eventId: data.event.id, tableId, tableChallengeId: row.id, answer, elapsedSeconds, remainingSeconds });
     } else {
-      if (!file || !file.type.startsWith(item.evidence_type === "photo" ? "image/" : "video/")) throw new Error("Añade el archivo del reto antes de enviarlo.");
+      const fallbackMatches = file && (item.evidence_type === "photo"
+        ? /\.(jpe?g|png|webp|heic|heif)$/i.test(file.name)
+        : /\.(mp4|mov|m4v|webm|3gp)$/i.test(file.name));
+      if (!file || !(file.type.startsWith(item.evidence_type === "photo" ? "image/" : "video/") || (!file.type && fallbackMatches))) throw new Error("Añade el archivo del reto antes de enviarlo.");
       const evidence = await uploadCaptainsEvidence({ eventId: data.event.id, tableId, tableChallengeId: row.id, captainName: data.tables[selected]?.captain_name, evidenceType: item.evidence_type, file, thumbnail, elapsedSeconds, remainingSeconds, scoringMode: "automatic", onProgress });
       result = { correct: true, pointsAwarded: evidence.points_awarded };
     }

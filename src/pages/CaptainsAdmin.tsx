@@ -71,6 +71,7 @@ import {
   updateCaptainsTables,
 } from "@/lib/captainsService";
 import { normalizeCaptainsPublicUrl, resolveCaptainsQrImageUrl } from "@/lib/captainsUtils";
+import { getCaptainSpriteVisual } from "@/lib/captainsSprite";
 import type {
   CaptainsChallengeInput,
   CaptainsChallengeCatalogItem,
@@ -154,59 +155,26 @@ const captainSpriteOptions: Array<{
 ];
 
 const getDefaultCaptainSprite = (index: number) => captainSpriteOptions[index % captainSpriteOptions.length].value;
-const getCaptainSpriteOption = (value?: CaptainsSpriteStyle | null) =>
-  captainSpriteOptions.find((option) => option.value === value) || captainSpriteOptions[0];
 
 const getSpriteColors = (value?: CaptainsSpriteStyle | null, config?: CaptainsSpriteConfig | null) => {
-  if (config) {
-    const hair = hairColorOptions.find((option) => option.value === config.hair_color)?.color || "#151515";
-    const skin = skinColorOptions.find((option) => option.value === config.skin_color)?.color || "#e9b98f";
-    const outfit = config.outfit_type === "dress" ? colorValue(config.dress_color, "#202235") : colorValue(config.suit_color, "#1f2937");
-    return {
-      hair,
-      skin,
-      outfit,
-      accent: config.outfit_type === "dress" ? "#ffffff" : colorValue(config.tie_color, "#f06a5f"),
-      legs: config.outfit_type === "dress" ? "#202235" : colorValue(config.suit_color, "#1f2937"),
-      dressLike: config.outfit_type === "dress",
-      longHair: config.hair_length === "long",
-    };
-  }
-  const option = getCaptainSpriteOption(value);
-  return {
-    hair: option.hair,
-    skin: option.skin,
-    outfit: option.outfit,
-    accent: option.accent,
-    legs: option.legs,
-    dressLike: ["dress", "skirt", "kimono"].includes(option.value),
-    longHair: false,
-  };
+  return getCaptainSpriteVisual(value, config);
 };
 
 const CaptainSpritePreview = ({ value, config, size = "md" }: { value?: CaptainsSpriteStyle | null; config?: CaptainsSpriteConfig | null; size?: "sm" | "md" }) => {
   const option = getSpriteColors(value, config);
-  const scale = size === "sm" ? "h-12 w-9" : "h-16 w-12";
+  const scale = size === "sm" ? "h-14 w-11" : "h-24 w-[72px]";
   return (
-    <div className={`relative shrink-0 ${scale}`} style={{ imageRendering: "pixelated" }}>
-      <div className="absolute left-[28%] top-[2%] h-[10%] w-[44%]" style={{ backgroundColor: option.hair }} />
-      <div className="absolute left-[20%] top-[10%] h-[16%] w-[60%]" style={{ backgroundColor: option.hair }} />
-      {option.longHair ? <div className="absolute left-[12%] top-[20%] h-[26%] w-[76%]" style={{ backgroundColor: option.hair }} /> : null}
-      <div className="absolute left-[25%] top-[18%] h-[18%] w-[50%]" style={{ backgroundColor: option.skin }} />
-      <div className="absolute left-[35%] top-[25%] h-[4%] w-[6%] bg-[#111111]" />
-      <div className="absolute right-[35%] top-[25%] h-[4%] w-[6%] bg-[#111111]" />
-      <div className="absolute left-[40%] top-[32%] h-[3%] w-[20%] bg-[#d25f5f]" />
-      <div className="absolute left-[24%] top-[39%] h-[30%] w-[52%]" style={{ backgroundColor: option.outfit }} />
-      <div className="absolute left-[43%] top-[39%] h-[30%] w-[14%]" style={{ backgroundColor: option.accent }} />
-      <div className="absolute left-[10%] top-[42%] h-[24%] w-[14%]" style={{ backgroundColor: option.skin }} />
-      <div className="absolute right-[10%] top-[42%] h-[24%] w-[14%]" style={{ backgroundColor: option.skin }} />
-      {option.dressLike ? (
-        <div className="absolute left-[18%] top-[66%] h-[16%] w-[64%]" style={{ backgroundColor: option.outfit }} />
-      ) : null}
-      <div className="absolute bottom-[5%] left-[28%] h-[28%] w-[16%]" style={{ backgroundColor: option.legs }} />
-      <div className="absolute bottom-[5%] right-[28%] h-[28%] w-[16%]" style={{ backgroundColor: option.legs }} />
-      <div className="absolute bottom-0 left-[25%] h-[5%] w-[22%] bg-[#111111]" />
-      <div className="absolute bottom-0 right-[25%] h-[5%] w-[22%] bg-[#111111]" />
+    <div className={`relative shrink-0 drop-shadow-[4px_7px_4px_rgba(48,36,34,.22)] ${scale}`}>
+      {option.longHair ? <div className="absolute left-[18%] top-[5%] h-[42%] w-[64%] rounded-[48%_48%_34%_34%]" style={{ background: `linear-gradient(115deg, ${option.hair}, color-mix(in srgb, ${option.hair} 58%, black))` }} /> : null}
+      <div className="absolute left-[25%] top-[5%] z-20 h-[28%] w-[50%] rounded-[48%] border border-white/50" style={{ background: `radial-gradient(circle at 32% 38%, white 0 3%, transparent 4%), linear-gradient(125deg, ${option.skin}, color-mix(in srgb, ${option.skin} 70%, #8a4d35))` }} />
+      <div className="absolute left-[22%] top-[2%] z-30 h-[15%] w-[56%] rounded-[55%_55%_25%_25%]" style={{ background: `linear-gradient(120deg, ${option.hair}, color-mix(in srgb, ${option.hair} 55%, black))` }} />
+      <div className={`absolute left-[24%] top-[34%] z-10 w-[52%] shadow-[inset_-5px_-2px_7px_rgba(0,0,0,.18)] ${option.dressLike ? "h-[42%] rounded-[35%_35%_22%_22%] [clip-path:polygon(14%_0,86%_0,100%_100%,0_100%)]" : "h-[36%] rounded-[30%_30%_16%_16%]"}`} style={{ background: `linear-gradient(110deg, color-mix(in srgb, ${option.outfit} 70%, white), ${option.outfit})` }}>
+        {!option.dressLike ? <span className="absolute left-[42%] top-0 h-[48%] w-[16%] [clip-path:polygon(0_0,100%_0,50%_100%)]" style={{ backgroundColor: option.accent }} /> : null}
+      </div>
+      <div className="absolute left-[9%] top-[38%] h-[33%] w-[16%] rotate-[12deg] rounded-full" style={{ background: `linear-gradient(${option.outfit} 70%, ${option.skin} 70%)` }} />
+      <div className="absolute right-[9%] top-[38%] h-[33%] w-[16%] -rotate-[12deg] rounded-full" style={{ background: `linear-gradient(${option.outfit} 70%, ${option.skin} 70%)` }} />
+      <div className="absolute bottom-[4%] left-[28%] h-[29%] w-[17%] rounded-b-full" style={{ background: `linear-gradient(${option.legs} 77%, #292526 77%)` }} />
+      <div className="absolute bottom-[4%] right-[28%] h-[29%] w-[17%] rounded-b-full" style={{ background: `linear-gradient(${option.legs} 77%, #292526 77%)` }} />
     </div>
   );
 };
@@ -1127,6 +1095,7 @@ export const CaptainsOnboarding = () => {
     })),
   );
   const [uploadingOnboardingCaptainPhotoIndex, setUploadingOnboardingCaptainPhotoIndex] = useState<number | null>(null);
+  const [onboardingCaptainPhotoCrop, setOnboardingCaptainPhotoCrop] = useState<CaptainPhotoCropState | null>(null);
   const [selectedChallengeIds, setSelectedChallengeIds] = useState<string[]>([]);
   const [selectedChallenges, setSelectedChallenges] = useState<CaptainsChallengeInput[]>([]);
   const [contactName, setContactName] = useState("");
@@ -1217,12 +1186,22 @@ export const CaptainsOnboarding = () => {
     );
   };
 
-  const handleOnboardingCaptainPhotoSelected = async (index: number, file?: File | null) => {
+  const handleOnboardingCaptainPhotoSelected = (index: number, file?: File | null) => {
     if (!file) return;
-    const previewUrl = URL.createObjectURL(file);
+    setOnboardingCaptainPhotoCrop({ index, file, previewUrl: URL.createObjectURL(file), zoom: 1, offsetX: 0, offsetY: 0 });
+  };
+
+  const closeOnboardingCaptainPhotoCrop = () => {
+    if (onboardingCaptainPhotoCrop?.previewUrl) URL.revokeObjectURL(onboardingCaptainPhotoCrop.previewUrl);
+    setOnboardingCaptainPhotoCrop(null);
+  };
+
+  const uploadOnboardingCaptainPhoto = async () => {
+    if (!onboardingCaptainPhotoCrop) return;
+    const { index, file } = onboardingCaptainPhotoCrop;
     try {
       setUploadingOnboardingCaptainPhotoIndex(index);
-      const blob = await createCircularCaptainPhotoBlob({ index, file, previewUrl, zoom: 1, offsetX: 0, offsetY: 0 });
+      const blob = await createCircularCaptainPhotoBlob(onboardingCaptainPhotoCrop);
       const cleanName = sanitizeCaptainPhotoName(file.name.replace(/\.[^.]+$/, ""));
       const filePath = `captains/captain-photos/new-onboarding/${Date.now()}-${index + 1}-${cleanName}.png`;
       const { error } = await supabase.storage.from("event-photos").upload(filePath, blob, {
@@ -1234,11 +1213,11 @@ export const CaptainsOnboarding = () => {
       const { data } = supabase.storage.from("event-photos").getPublicUrl(filePath);
       updateOnboardingTable(index, { captain_photo_url: data.publicUrl });
       toast({ title: "Foto añadida", description: "La foto del capitán se ha aplicado a la mesa." });
+      closeOnboardingCaptainPhotoCrop();
     } catch (error) {
       console.error("Onboarding captain photo upload error:", error);
       toast({ title: "Error", description: "No hemos podido subir la foto del capitán.", variant: "destructive" });
     } finally {
-      URL.revokeObjectURL(previewUrl);
       setUploadingOnboardingCaptainPhotoIndex(null);
     }
   };
@@ -1711,6 +1690,38 @@ export const CaptainsOnboarding = () => {
         </section>
       </div>
     </main>
+    <Dialog open={Boolean(onboardingCaptainPhotoCrop)} onOpenChange={(open) => { if (!open) closeOnboardingCaptainPhotoCrop(); }}>
+      <DialogContent className="max-w-lg overflow-x-hidden">
+        <DialogHeader>
+          <DialogTitle>Ajustar foto del capitán</DialogTitle>
+          <DialogDescription>Centra la cara dentro del círculo. Esta será la cabeza del muñeco 3D.</DialogDescription>
+        </DialogHeader>
+        {onboardingCaptainPhotoCrop ? (
+          <div className="min-w-0 space-y-5">
+            <div className="mx-auto flex aspect-square w-full max-w-72 items-center justify-center overflow-hidden rounded-full border-4 border-foreground bg-muted">
+              <img
+                src={onboardingCaptainPhotoCrop.previewUrl}
+                alt="Previsualización del recorte"
+                className="h-full w-full max-w-none object-cover"
+                style={{
+                  transform: `translate(${onboardingCaptainPhotoCrop.offsetX}%, ${onboardingCaptainPhotoCrop.offsetY}%) scale(${onboardingCaptainPhotoCrop.zoom})`,
+                  transformOrigin: "center",
+                }}
+              />
+            </div>
+            <div className="grid min-w-0 gap-3">
+              <label className="space-y-1"><span className="text-sm font-medium">Zoom</span><Input type="range" min="1" max="2.6" step="0.05" value={onboardingCaptainPhotoCrop.zoom} onChange={(event) => setOnboardingCaptainPhotoCrop((prev) => prev ? { ...prev, zoom: Number(event.target.value) } : prev)} /></label>
+              <label className="space-y-1"><span className="text-sm font-medium">Mover horizontal</span><Input type="range" min="-35" max="35" step="1" value={onboardingCaptainPhotoCrop.offsetX} onChange={(event) => setOnboardingCaptainPhotoCrop((prev) => prev ? { ...prev, offsetX: Number(event.target.value) } : prev)} /></label>
+              <label className="space-y-1"><span className="text-sm font-medium">Mover vertical</span><Input type="range" min="-35" max="35" step="1" value={onboardingCaptainPhotoCrop.offsetY} onChange={(event) => setOnboardingCaptainPhotoCrop((prev) => prev ? { ...prev, offsetY: Number(event.target.value) } : prev)} /></label>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={closeOnboardingCaptainPhotoCrop} disabled={uploadingOnboardingCaptainPhotoIndex !== null}>Cancelar</Button>
+              <Button type="button" onClick={uploadOnboardingCaptainPhoto} disabled={uploadingOnboardingCaptainPhotoIndex !== null}>{uploadingOnboardingCaptainPhotoIndex !== null ? "Subiendo..." : "Guardar encuadre"}</Button>
+            </div>
+          </div>
+        ) : null}
+      </DialogContent>
+    </Dialog>
     <Dialog open={editingTableIndex !== null} onOpenChange={(open) => { if (!open) setEditingTableIndex(null); }}>
       <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
         <DialogHeader>

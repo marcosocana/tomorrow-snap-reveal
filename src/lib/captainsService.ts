@@ -71,9 +71,21 @@ const uploadCaptainsEvidenceFile = async (
 ) => {
   const readableUploadError = (cause: unknown) => {
     const message = cause instanceof Error ? cause.message : String(cause || "");
+    const status = typeof cause === "object" && cause && "originalResponse" in cause
+      ? (cause as { originalResponse?: { getStatus?: () => number } }).originalResponse?.getStatus?.()
+      : typeof cause === "object" && cause && "statusCode" in cause
+        ? Number((cause as { statusCode?: unknown }).statusCode)
+        : null;
     if (/413|too large|maximum|exceed|payload/i.test(message)) {
       return new Error("El archivo supera el tamaño admitido. Graba un vídeo más corto y vuelve a intentarlo.");
     }
+    if (status === 401 || status === 403 || /row-level security|unauthorized|forbidden/i.test(message)) {
+      return new Error("La partida no permite guardar este archivo. Actualiza la pantalla y vuelve a entrar en el reto.");
+    }
+    if (/network|fetch|offline|internet|connection/i.test(message)) {
+      return new Error("Se ha perdido la conexión durante la subida. Conservamos el archivo para que puedas pulsar Enviar de nuevo.");
+    }
+    console.error("Captains evidence upload failed:", cause);
     return new Error("La subida se ha interrumpido. Mantendremos el archivo para que puedas pulsar Enviar de nuevo.");
   };
   onProgress?.(0);
@@ -105,6 +117,7 @@ const uploadCaptainsEvidenceFile = async (
         contentType: file.type || "application/octet-stream",
         cacheControl: "3600",
       },
+      fingerprint: () => Promise.resolve(`${CAPTAINS_EVIDENCE_BUCKET}/${filePath}`),
       onProgress: (uploaded, total) => onProgress?.(total > 0 ? Math.round((uploaded / total) * 100) : 0),
       onError: cause => reject(readableUploadError(cause)),
       onSuccess: () => { onProgress?.(100); resolve(); },
@@ -1287,12 +1300,21 @@ export const uploadCaptainsEvidence = async ({
   const fileId = crypto.randomUUID();
   const fileName = sanitizeCaptainsFileName(uploadFile.name || `${evidenceType}-${fileId}`);
   const filePath = `${eventId}/${tableId}/${tableChallengeId}/${fileId}-${fileName}`;
-  const thumbnailPath = evidenceType === "video" && thumbnail
+  let thumbnailPath = evidenceType === "video" && thumbnail
     ? `${eventId}/${tableId}/${tableChallengeId}/${fileId}-thumbnail.jpg`
     : null;
 
   await uploadCaptainsEvidenceFile(filePath, uploadFile, onProgress);
-  if (thumbnailPath && thumbnail) await uploadCaptainsEvidenceFile(thumbnailPath, thumbnail);
+  if (thumbnailPath && thumbnail) {
+    try {
+      await uploadCaptainsEvidenceFile(thumbnailPath, thumbnail);
+    } catch (cause) {
+      // The evidence itself is already safely stored. A browser-generated
+      // thumbnail should never prevent the team from completing the challenge.
+      console.warn("Captains video thumbnail upload failed:", cause);
+      thumbnailPath = null;
+    }
+  }
 
   const challenge = tableChallenge?.captains_event_challenges as CaptainsEventChallenge | undefined;
   const pointsAwarded =

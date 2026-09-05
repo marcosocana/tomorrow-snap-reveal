@@ -28,11 +28,14 @@ export default function MediaCapture({ kind, file, onChange, onThumbnailChange, 
     setError("");
     onChange(null);
     onThumbnailChange?.(null);
-    if (!candidate.type.startsWith(kind === "photo" ? "image/" : "video/")) {
+    const fallbackMatches = kind === "photo"
+      ? /\.(jpe?g|png|webp|heic|heif)$/i.test(candidate.name)
+      : /\.(mp4|mov|m4v|webm|3gp)$/i.test(candidate.name);
+    if (!(candidate.type.startsWith(kind === "photo" ? "image/" : "video/") || (!candidate.type && fallbackMatches))) {
       setError(kind === "photo" ? "Elige una foto válida." : "Elige un vídeo válido."); return;
     }
-    if (candidate.size === 0 || candidate.size > 100 * 1024 * 1024) {
-      setError("El archivo debe tener contenido y ocupar menos de 100 MB."); return;
+    if (candidate.size === 0 || candidate.size > 50 * 1024 * 1024) {
+      setError("El archivo debe tener contenido y ocupar menos de 50 MB."); return;
     }
     setChecking(true);
     onPreparingChange?.(true);
@@ -40,7 +43,7 @@ export default function MediaCapture({ kind, file, onChange, onThumbnailChange, 
     try {
       const thumbnail = await new Promise<File | null>((resolve, reject) => {
         const media = kind === "photo" ? new Image() : document.createElement("video");
-        const timer = window.setTimeout(() => finish(false), kind === "video" ? 30000 : 15000);
+        const timer = window.setTimeout(() => finish(kind === "video"), kind === "video" ? 8000 : 15000);
         let settled = false;
         const finish = (valid: boolean, result: File | null = null) => {
           if (settled) return;
@@ -64,10 +67,11 @@ export default function MediaCapture({ kind, file, onChange, onThumbnailChange, 
             canvas.width = Math.max(1, Math.round(media.videoWidth * scale));
             canvas.height = Math.max(1, Math.round(media.videoHeight * scale));
             const context = canvas.getContext("2d");
-            if (!context) { finish(false); return; }
-            context.drawImage(media, 0, 0, canvas.width, canvas.height);
+            if (!context) { finish(true); return; }
+            try { context.drawImage(media, 0, 0, canvas.width, canvas.height); }
+            catch { finish(true); return; }
             canvas.toBlob(blob => {
-              if (!blob) { finish(false); return; }
+              if (!blob) { finish(true); return; }
               const baseName = candidate.name.replace(/\.[^.]+$/, "") || "video";
               finish(true, new File([blob], `${baseName}-miniatura.jpg`, { type: "image/jpeg", lastModified: Date.now() }));
             }, "image/jpeg", .82);

@@ -5,6 +5,8 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import MediaCapture from "@/components/captains-v2/MediaCapture";
 import { useCaptainsV2 } from "@/hooks/useCaptainsV2";
 import { getCaptainsEvidenceSignedUrl, rankCaptainsTables } from "@/lib/captainsService";
+import { getCaptainSpriteCss, getCaptainSpriteVisual } from "@/lib/captainsSprite";
+import type { CaptainsSpriteConfig, CaptainsSpriteStyle } from "@/lib/captainsTypes";
 import "./CaptainsDemoV2.css";
 
 const teams = [
@@ -14,10 +16,11 @@ const teams = [
   { color: "#e6bd68", outfit: "#8a4f22", skin: "#926348" },
   { color: "#8db9cc", outfit: "#4d7a8a", skin: "#ecc29f" },
 ];
-function Captain({ index, photoUrl }: { index: number; photoUrl?: string | null }) {
+function Captain({ index, photoUrl, sprite, config }: { index: number; photoUrl?: string | null; sprite?: CaptainsSpriteStyle | null; config?: CaptainsSpriteConfig | null }) {
   const [failedPhoto, setFailedPhoto] = useState<string | null>(null);
   const hasPhoto = Boolean(photoUrl && photoUrl !== failedPhoto);
-  return <span className={`cv2-captain cv2-captain-${index} cv2-photo-captain`} aria-hidden="true">
+  const visual = getCaptainSpriteVisual(sprite, config);
+  return <span className={`cv2-captain cv2-captain-${index} cv2-photo-captain ${visual.dressLike ? "is-dress" : "is-suit"} ${visual.longHair ? "has-long-hair" : ""}`} style={getCaptainSpriteCss(sprite, config)} aria-hidden="true">
     <span className="cv2-photo-head">
       {hasPhoto ? <img src={photoUrl!} alt="" onError={() => setFailedPhoto(photoUrl!)} /> : <UserRound size={25} strokeWidth={1.5} />}
     </span>
@@ -32,6 +35,11 @@ const captainStyle = (index: number): CSSProperties => ({
   "--outfit": teams[index % teams.length].outfit,
   "--skin": teams[index % teams.length].skin,
 } as CSSProperties);
+
+const tableCaptainStyle = (index: number, sprite?: CaptainsSpriteStyle | null, config?: CaptainsSpriteConfig | null): CSSProperties => ({
+  ...captainStyle(index),
+  ...getCaptainSpriteCss(sprite, config),
+});
 
 function VictoryCup() {
   return <div className="cv2-victory-cup" aria-hidden="true">
@@ -167,7 +175,7 @@ export default function CaptainsDemoV2({ eventSlug: requestedEventSlug }: { even
     <header className="cv2-header">
       <Link to={`/capitanes/${eventSlug}`} className="cv2-brand" aria-label="Capitanes"><img src="/capitanes-logo.svg" alt="Capitanes" className="cv2-revelao-logo" /></Link>
     </header>
-    <main className="cv2-mobile-main">
+    <main className={`cv2-mobile-main ${!started ? "is-welcome" : ""}`}>
       {started && game.connectionError && <div className="cv2-connection-error" role="alert"><p>{game.connectionError}</p><button className="cv2-secondary" disabled={game.busy} onClick={() => void game.refresh()}>Volver a conectar <RotateCcw size={16} /></button></div>}
       {!started ? <section className="cv2-welcome" aria-labelledby="cv2-welcome-title">
         <div className="cv2-welcome-art" aria-hidden="true"><span className="cv2-welcome-orbit" /><span className="cv2-quest-object cv2-armband-object"><CaptainArmband /><span>✦</span></span></div>
@@ -178,14 +186,14 @@ export default function CaptainsDemoV2({ eventSlug: requestedEventSlug }: { even
         <div className="cv2-intro"><div><h1>¿Qué capitán <em>eres?</em></h1><p>Encuentra tu mesa y elige quién eres.</p></div></div>
         <section className="cv2-identity" aria-labelledby="cv2-identity-title">
           <div className="cv2-identity-heading"><h2 id="cv2-identity-title" className="sr-only">Capitanes disponibles</h2></div>
-          <div className="cv2-captain-picker">{liveTeams.map((item, index) => <button key={item.id} className={`cv2-pick ${selected === index ? "is-selected" : ""}`} style={captainStyle(index)} onClick={() => setChoice(index)} disabled={game.busy} aria-pressed={selected === index} aria-label={`${item.name}, ${item.table_name}`}>
-            <span className="cv2-pick-check">{selected === index && <Check size={14} />}</span><span className="cv2-pick-stage"><span className="cv2-platform"><i /><i /><i /></span><Captain index={index} photoUrl={item.captain_photo_url} /></span><span className="cv2-pick-label"><strong>{item.name}</strong><small>{item.table_name}</small></span>
+          <div className="cv2-captain-picker">{liveTeams.map((item, index) => <button key={item.id} className={`cv2-pick ${selected === index ? "is-selected" : ""}`} style={tableCaptainStyle(index, item.captain_sprite, item.captain_sprite_config)} onClick={() => setChoice(index)} disabled={game.busy} aria-pressed={selected === index} aria-label={`${item.name}, ${item.table_name}`}>
+            <span className="cv2-pick-check">{selected === index && <Check size={14} />}</span><span className="cv2-pick-stage"><span className="cv2-platform"><i /><i /><i /></span><Captain index={index} photoUrl={item.captain_photo_url} sprite={item.captain_sprite} config={item.captain_sprite_config} /></span><span className="cv2-pick-label"><strong>{item.name}</strong><small>{item.table_name}</small></span>
           </button>)}<div className="cv2-pick-message"><Crown size={26} strokeWidth={1.3} /><p>¡Confiamos en ti!</p></div></div>
         </section>
         <p className="cv2-onboarding-note"><LockKeyhole size={15} /> {missions.length} retos sorpresa. Se descubren uno a uno.</p>
         <div className="cv2-join-bar"><button className="cv2-primary" disabled={game.busy || selected === null || !name} onClick={join}>{game.busy ? "Entrando…" : "Continuar"}<ArrowRight size={18} /></button></div>
       </> : <>
-        <section className="cv2-player-strip" aria-label="Tu equipo"><span className="cv2-player-avatar" style={captainStyle(selected!)}><Captain index={selected!} photoUrl={team?.captain_photo_url} /></span><div className="cv2-player-name"><small>VAMOS, {name?.toLocaleUpperCase("es")} ✦</small><h1 style={{ fontSize: (team?.table_name.length ?? 0) > 20 ? 15 : (team?.table_name.length ?? 0) > 13 ? 19 : 26 }}>{team?.table_name}</h1></div><div className="cv2-player-points"><strong>{points}</strong><span>puntos</span></div></section>
+        <section className="cv2-player-strip" aria-label="Tu equipo"><span className="cv2-player-avatar" style={tableCaptainStyle(selected!, team?.captain_sprite, team?.captain_sprite_config)}><Captain index={selected!} photoUrl={team?.captain_photo_url} sprite={team?.captain_sprite} config={team?.captain_sprite_config} /></span><div className="cv2-player-name"><small>VAMOS, {name?.toLocaleUpperCase("es")} ✦</small><h1 style={{ fontSize: (team?.table_name.length ?? 0) > 20 ? 15 : (team?.table_name.length ?? 0) > 13 ? 19 : 26 }}>{team?.table_name}</h1></div><div className="cv2-player-points"><strong>{points}</strong><span>puntos</span></div></section>
         <div className="cv2-mobile-progress"><div><span>{finished ? "¡Aventura completada!" : "Vuestra aventura"}</span><strong>{completed} / {missions.length} retos</strong></div><div className="cv2-progress" role="progressbar" aria-label="Retos finalizados" aria-valuenow={completed} aria-valuemin={0} aria-valuemax={missions.length}>{missions.map((_, index) => <span key={index} className={index < completed ? "filled" : ""} />)}</div></div>
         {view === "quests" && <section className="cv2-mobile-quests" aria-labelledby="cv2-quests-title">
           <h2 id="cv2-quests-title" className="sr-only">Retos</h2>
@@ -199,7 +207,7 @@ export default function CaptainsDemoV2({ eventSlug: requestedEventSlug }: { even
         </section>}
         {view === "ranking" && <section className="cv2-mobile-ranking"><div className="cv2-view-intro"><span className="cv2-eyebrow">CADA RETO CUENTA</span><h2>Camino a la gloria.</h2><p>Vais en el puesto #{position}. ¡La fiesta sigue!</p><p className="cv2-ranking-rule"><Clock3 size={14} /> En caso de empate, gana la mesa que haya completado todos los retos en menos tiempo.</p></div><div className="cv2-podium">{[1, 0, 2].map(place => {
           const item = ranking[place];
-          return item && <div key={item.id} className="cv2-podium-team" style={captainStyle(item.index)}><Captain index={item.index} photoUrl={item.captain_photo_url} /><span className={`cv2-podium-step place-${place}`}><Trophy size={place === 0 ? 29 : 20} /><b>{place + 1}</b><strong>{item.table_name}</strong><small>{item.points} puntos</small></span></div>;
+          return item && <div key={item.id} className="cv2-podium-team" style={tableCaptainStyle(item.index, item.captain_sprite, item.captain_sprite_config)}><Captain index={item.index} photoUrl={item.captain_photo_url} sprite={item.captain_sprite} config={item.captain_sprite_config} /><span className={`cv2-podium-step place-${place}`}><Trophy size={place === 0 ? 29 : 20} /><b>{place + 1}</b><strong>{item.table_name}</strong><small>{item.points} puntos</small></span></div>;
         })}</div><div className="cv2-mobile-ranks">{ranking.map((item, place) => <div key={item.id} className={item.index === selected ? "is-you" : ""}><span>0{place + 1}</span><strong>{item.table_name}<small>{item.index === selected ? "Vuestro equipo" : item.name}</small></strong><b>{item.points} <small>pts</small></b>{place === 0 && <Crown size={18} />}</div>)}</div><p className="cv2-demo-note">Clasificación compartida · Se actualiza automáticamente</p></section>}
         {view === "memories" && finished && <section className="cv2-mobile-memories"><div className="cv2-view-intro"><span className="cv2-eyebrow">RESULTADOS</span><h2>Retos</h2><p>Revisa las fotos y vídeos de cada mesa.</p></div><label className="cv2-gallery-filter">Mesa<select value={galleryTable} onChange={event => setGalleryTable(event.target.value)}><option value="mine">Mi mesa</option>{liveTeams.filter(item => item.id !== team?.id).map(item => <option key={item.id} value={item.id}>{item.table_name}</option>)}</select></label>
           {game.gallery.isPending && <p role="status">Cargando los resultados…</p>}{game.gallery.error && <div role="alert"><p>No se han podido cargar los archivos.</p><button className="cv2-secondary" onClick={() => void game.gallery.refetch()}>Volver a cargar</button></div>}{!game.gallery.isPending && !game.gallery.error && resultRows.length === 0 && <p className="cv2-demo-note">Esta mesa todavía no tiene resultados.</p>}
