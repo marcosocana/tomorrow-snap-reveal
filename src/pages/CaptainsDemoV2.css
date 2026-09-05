@@ -1539,10 +1539,12 @@
 
 /* The brand bar and the welcome action remain visible while the content scrolls. */
 .cv2-mobile .cv2-header {
-  position: fixed;
+  position: fixed !important;
   z-index: 40;
   top: 0;
   left: 50%;
+  right: auto;
+  margin: 0;
   width: min(100%, 520px);
   height: calc(42px + env(safe-area-inset-top));
   padding-top: env(safe-area-inset-top);
@@ -1554,3 +1556,6 @@
 .cv2-mobile-main { padding-top: calc(67px + env(safe-area-inset-top)); }
 .cv2-welcome { min-height: calc(100dvh - 67px - env(safe-area-inset-top)); padding-bottom: calc(92px + env(safe-area-inset-bottom)); }
 .cv2-welcome .cv2-join-bar { z-index: 45; }
+.cv2-video-placeholder { display: grid; place-items: center; align-content: center; gap: 7px; width: 100%; height: 175px; background: #2f292d; color: #fff; }
+.cv2-video-placeholder small { font-size: 11px; }
+.cv2-media-loading { min-height: 240px; display: grid; place-content: center; justify-items: center; gap: 12px; border-radius: 12px; background: #2f292d; color: #fff; font-size: 13px; }

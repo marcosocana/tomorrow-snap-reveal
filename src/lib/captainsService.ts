@@ -1241,6 +1241,7 @@ export const uploadCaptainsEvidence = async ({
   captainName,
   evidenceType,
   file,
+  thumbnail,
   elapsedSeconds,
   remainingSeconds,
   scoringMode = "manual",
@@ -1252,6 +1253,7 @@ export const uploadCaptainsEvidence = async ({
   captainName?: string | null;
   evidenceType: "photo" | "video";
   file: File;
+  thumbnail?: File | null;
   elapsedSeconds?: number | null;
   remainingSeconds?: number | null;
   scoringMode?: CaptainsScoringMode;
@@ -1285,8 +1287,12 @@ export const uploadCaptainsEvidence = async ({
   const fileId = crypto.randomUUID();
   const fileName = sanitizeCaptainsFileName(uploadFile.name || `${evidenceType}-${fileId}`);
   const filePath = `${eventId}/${tableId}/${tableChallengeId}/${fileId}-${fileName}`;
+  const thumbnailPath = evidenceType === "video" && thumbnail
+    ? `${eventId}/${tableId}/${tableChallengeId}/${fileId}-thumbnail.jpg`
+    : null;
 
   await uploadCaptainsEvidenceFile(filePath, uploadFile, onProgress);
+  if (thumbnailPath && thumbnail) await uploadCaptainsEvidenceFile(thumbnailPath, thumbnail);
 
   const challenge = tableChallenge?.captains_event_challenges as CaptainsEventChallenge | undefined;
   const pointsAwarded =
@@ -1315,6 +1321,7 @@ export const uploadCaptainsEvidence = async ({
       captain_name: captainName ?? null,
       evidence_type: evidenceType,
       file_url: filePath,
+      thumbnail_url: thumbnailPath,
       status: evidenceStatus,
       points_awarded: pointsAwarded,
       elapsed_seconds: elapsedSeconds ?? null,
@@ -1349,7 +1356,7 @@ export const uploadCaptainsEvidence = async ({
     captain_name: captainName ?? null,
     evidence_type: evidenceType,
     file_url: filePath,
-    thumbnail_url: null,
+    thumbnail_url: thumbnailPath,
     status: evidenceStatus,
     points_awarded: pointsAwarded,
     admin_comment: null,

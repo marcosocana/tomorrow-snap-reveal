@@ -4,7 +4,7 @@ import { ArrowRight, Camera, Check, ChevronRight, Crown, Film, Flag, HelpCircle,
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import MediaCapture from "@/components/captains-v2/MediaCapture";
 import { useCaptainsV2 } from "@/hooks/useCaptainsV2";
-import { rankCaptainsTables } from "@/lib/captainsService";
+import { getCaptainsEvidenceSignedUrl, rankCaptainsTables } from "@/lib/captainsService";
 import "./CaptainsDemoV2.css";
 
 const teams = [
@@ -93,11 +93,12 @@ export default function CaptainsDemoV2({ eventSlug: requestedEventSlug }: { even
   const [result, setResult] = useState({ correct: true, pointsAwarded: 0 });
   const [answer, setAnswer] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
+  const [thumbnail, setThumbnail] = useState<File | null>(null);
   const [mediaPreparing, setMediaPreparing] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [galleryTable, setGalleryTable] = useState("mine");
   const [rejecting, setRejecting] = useState(false);
-  const [previewMedia, setPreviewMedia] = useState<{ url: string; type: "photo" | "video"; title: string } | null>(null);
+  const [previewMedia, setPreviewMedia] = useState<{ url: string; type: "photo" | "video"; title: string; error?: string } | null>(null);
   const liveTeams = (game.data?.tables ?? []).map((table, index) => ({
     ...teams[index % teams.length], ...table, name: table.captain_name?.trim() || "Sin nombre", points: table.total_points,
   }));
@@ -131,12 +132,12 @@ export default function CaptainsDemoV2({ eventSlug: requestedEventSlug }: { even
     const id = game.currentRow.id;
     const index = completed;
     if (!await game.start()) return;
-    setRowId(id); setMission(index); setCelebrating(false); setAnswer(null); setFile(null); setMediaPreparing(false); setUploadProgress(0);
+    setRowId(id); setMission(index); setCelebrating(false); setAnswer(null); setFile(null); setThumbnail(null); setMediaPreparing(false); setUploadProgress(0);
   };
   const completeMission = async () => {
     if (!rowId) return;
     setUploadProgress(0);
-    const outcome = await game.submit(rowId, file, answer, setUploadProgress);
+    const outcome = await game.submit(rowId, file, thumbnail, answer, setUploadProgress);
     if (outcome) { setResult(outcome); setFile(null); setCelebrating(true); }
   };
   const rejectMission = async () => {
@@ -149,8 +150,18 @@ export default function CaptainsDemoV2({ eventSlug: requestedEventSlug }: { even
   useEffect(() => {
     if (rowId && !game.busy && !celebrating && game.currentRow?.id !== rowId) setMission(null);
   }, [rowId, game.busy, game.currentRow?.id, celebrating]);
-  const leave = () => { game.leave(); setChoice(null); setView("quests"); setMission(null); setFile(null); setMediaPreparing(false); };
+  const leave = () => { game.leave(); setChoice(null); setView("quests"); setMission(null); setFile(null); setThumbnail(null); setMediaPreparing(false); };
   const navigate = (next: View) => { setView(next); window.scrollTo({ top: 0, behavior: "instant" }); };
+  const openResultMedia = async (item: (typeof memories)[number], title: string) => {
+    if (item.evidence_type !== "video") { setPreviewMedia({ url: item.url, type: "photo", title }); return; }
+    setPreviewMedia({ url: "", type: "video", title });
+    try {
+      const url = await getCaptainsEvidenceSignedUrl(item.file_url);
+      setPreviewMedia(current => current?.title === title ? { ...current, url } : current);
+    } catch {
+      setPreviewMedia(current => current?.title === title ? { ...current, error: "No se ha podido cargar el vídeo." } : current);
+    }
+  };
 
   return <div className="cv2 cv2-mobile" style={{ "--team": team?.color ?? "#f06a5f" } as CSSProperties}>
     <header className="cv2-header">
@@ -196,12 +207,12 @@ export default function CaptainsDemoV2({ eventSlug: requestedEventSlug }: { even
             const table = liveTeams.find(table => table.id === row.table_id);
             const task = game.data!.challenges.find(task => task.id === row.challenge_id);
             const item = memories.find(item => item.table_challenge_id === row.id);
-            const media = item ? { url: item.url, type: item.evidence_type === "video" ? "video" as const : "photo" as const, title: task?.title ?? "Reto" } : null;
+            const media = item ? { url: item.url, thumbnailUrl: item.thumbnailUrl, type: item.evidence_type === "video" ? "video" as const : "photo" as const, title: task?.title ?? "Reto", item } : null;
             const successful = row.status === "completed";
             const status = successful ? `+${row.points_awarded} puntos` : row.status === "failed" ? "0 puntos" : row.status === "time_expired" ? "Tiempo agotado" : row.status === "pending" ? "Bloqueado" : row.status === "in_progress" ? "En juego" : "Disponible";
             return <article className="cv2-memory cv2-result-card" key={row.id}>
-              {media ? <button className="cv2-memory-media" onClick={() => setPreviewMedia(media)}>{media.type === "video" ? <video src={media.url} muted playsInline preload="metadata" /> : <img src={media.url} alt={`${task?.title ?? "Reto"} · ${table?.table_name}`} loading="lazy" />}</button> : <span className={`cv2-result-placeholder ${successful ? "is-success" : ""}`}>{task?.evidence_type === "question" ? <HelpCircle size={35} /> : successful ? <Check size={35} /> : <LockKeyhole size={28} />}</span>}
-              <span className="cv2-memory-caption"><small>RETO 0{index + 1} · {status}</small><strong>{row.status === "pending" ? "Reto sorpresa" : task?.title}</strong>{task?.evidence_type === "question" && row.question_answer && <span className="cv2-result-answer">Respuesta: {row.question_answer}</span>}{media && <button onClick={() => setPreviewMedia(media)}>Abrir {media.type === "video" ? "vídeo" : "foto"} <ArrowRight size={13} /></button>}</span>
+              {media ? <button className="cv2-memory-media" onClick={() => void openResultMedia(media.item, media.title)}>{media.type === "video" ? media.thumbnailUrl ? <img src={media.thumbnailUrl} alt={`Primer fotograma de ${media.title}`} loading="lazy" /> : <span className="cv2-video-placeholder"><Film size={34} /><small>Abrir vídeo</small></span> : <img src={media.url} alt={`${task?.title ?? "Reto"} · ${table?.table_name}`} loading="lazy" />}</button> : <span className={`cv2-result-placeholder ${successful ? "is-success" : ""}`}>{task?.evidence_type === "question" ? <HelpCircle size={35} /> : successful ? <Check size={35} /> : <LockKeyhole size={28} />}</span>}
+              <span className="cv2-memory-caption"><small>RETO 0{index + 1} · {status}</small><strong>{row.status === "pending" ? "Reto sorpresa" : task?.title}</strong>{task?.evidence_type === "question" && row.question_answer && <span className="cv2-result-answer">Respuesta: {row.question_answer}</span>}{media && <button onClick={() => void openResultMedia(media.item, media.title)}>Abrir {media.type === "video" ? "vídeo" : "foto"} <ArrowRight size={13} /></button>}</span>
             </article>;
           })}</div>
         </section>}
@@ -209,10 +220,10 @@ export default function CaptainsDemoV2({ eventSlug: requestedEventSlug }: { even
         <nav className={`cv2-bottom-nav ${finished ? "has-results" : ""}`} aria-label="Vistas de tu equipo">{([{ id: "quests", label: "Retos", icon: Flag }, { id: "ranking", label: "Ranking", icon: Trophy }, ...(finished ? [{ id: "memories" as const, label: "Resultados", icon: Camera }] : [])] as const).map(tab => <button key={tab.id} aria-current={view === tab.id ? "page" : undefined} onClick={() => navigate(tab.id)}><tab.icon size={21} /><span>{tab.label}</span>{tab.id === "quests" && !finished && <i />}</button>)}</nav>
       </>}
     </main>
-    <Dialog open={mission !== null} onOpenChange={open => { if (!open && !game.busy) { setMission(null); setFile(null); } }}><DialogContent className="cv2-dialog cv2-mobile-dialog">
+    <Dialog open={mission !== null} onOpenChange={open => { if (!open && !game.busy && !mediaPreparing) { setMission(null); setFile(null); setThumbnail(null); } }}><DialogContent className="cv2-dialog cv2-mobile-dialog">
       {activeMission && <><span className="cv2-eyebrow">{team?.table_name} · RETO 0{mission! + 1}</span><span className="cv2-dialog-icon">{celebrating ? result.correct ? <Check size={38} /> : <XCircle size={38} /> : <Flag size={38} />}</span><DialogTitle className="cv2-dialog-title">{celebrating ? result.correct ? isQuestion ? "¡Respuesta correcta!" : "¡Reto superado!" : "Respuesta incorrecta" : activeMission.title}</DialogTitle><DialogDescription>{celebrating ? `${result.correct ? `Sumáis ${result.pointsAwarded} puntos.` : "Esta vez la respuesta no era correcta. No sumáis puntos."} ${finished ? "¡Habéis completado toda la aventura!" : "El siguiente reto ya os está esperando."}` : activeMission.description}</DialogDescription>
         {celebrating ? <><div className="cv2-celebration-points">+{result.pointsAwarded}<span>puntos para vuestra mesa</span></div><button className="cv2-primary" onClick={() => { setMission(null); window.scrollTo({ top: 0, behavior: "instant" }); }}>{finished ? "Ver nuestra victoria" : "Descubrir siguiente reto"}<ArrowRight size={18} /></button></> : <>
-          {isQuestion ? <div className="cv2-answer-options" role="group" aria-label="Elige una respuesta">{(activeMission.question_options ?? []).map(option => <button key={option} disabled={game.busy} onClick={() => { game.clearError(); setAnswer(option); }} aria-pressed={answer === option}>{option}{answer === option && <Check size={17} />}</button>)}</div> : <MediaCapture key={rowId} kind={activeMission.evidence_type === "photo" ? "photo" : "video"} file={file} onChange={value => { game.clearError(); setFile(value); }} onPreparingChange={setMediaPreparing} disabled={game.busy} />}
+          {isQuestion ? <div className="cv2-answer-options" role="group" aria-label="Elige una respuesta">{(activeMission.question_options ?? []).map(option => <button key={option} disabled={game.busy} onClick={() => { game.clearError(); setAnswer(option); }} aria-pressed={answer === option}>{option}{answer === option && <Check size={17} />}</button>)}</div> : <MediaCapture key={rowId} kind={activeMission.evidence_type === "photo" ? "photo" : "video"} file={file} onChange={value => { game.clearError(); setFile(value); }} onThumbnailChange={setThumbnail} onPreparingChange={setMediaPreparing} disabled={game.busy} />}
           <div className="cv2-dialog-detail"><span>{activeMission.type}</span><strong>{activeMission.points} puntos</strong></div>{game.remaining !== null && <span className="cv2-timer" role="timer"><Clock3 size={15} /> {game.remaining} s restantes</span>}{game.error && <p className="cv2-error" role="alert">{game.error}</p>}<button className="cv2-primary" aria-busy={game.busy || mediaPreparing} disabled={game.busy || mediaPreparing || !canSubmit || game.remaining === 0} onClick={completeMission}>{mediaPreparing ? `Preparando ${activeMission.evidence_type === "photo" ? "foto" : "vídeo"}…` : game.busy ? (isQuestion ? "Comprobando…" : `${activeMission.evidence_type === "photo" ? "Subiendo foto" : "Subiendo vídeo"}${uploadProgress > 0 ? ` · ${uploadProgress}%` : "…"}`) : isQuestion ? "Continuar" : activeMission.evidence_type === "photo" ? "Enviar foto" : "Enviar vídeo"}{game.busy || mediaPreparing ? <Loader2 size={18} className="animate-spin" /> : <ChevronRight size={18} />}</button>
         </>}
       </>}
@@ -227,7 +238,7 @@ export default function CaptainsDemoV2({ eventSlug: requestedEventSlug }: { even
     <Dialog open={previewMedia !== null} onOpenChange={open => { if (!open) setPreviewMedia(null); }}><DialogContent className="cv2-dialog cv2-media-dialog">
       <DialogTitle className="cv2-dialog-title">{previewMedia?.title}</DialogTitle>
       <DialogDescription className="sr-only">Vista ampliada del resultado del reto</DialogDescription>
-      {previewMedia?.type === "video" ? <video src={previewMedia.url} controls autoPlay playsInline preload="metadata" /> : previewMedia && <img src={previewMedia.url} alt={previewMedia.title} />}
+      {previewMedia?.error ? <p className="cv2-error" role="alert">{previewMedia.error}</p> : previewMedia?.type === "video" ? previewMedia.url ? <video src={previewMedia.url} controls autoPlay playsInline preload="metadata" /> : <div className="cv2-media-loading" role="status"><Loader2 className="animate-spin" /><span>Cargando vídeo…</span></div> : previewMedia && <img src={previewMedia.url} alt={previewMedia.title} />}
     </DialogContent></Dialog>
   </div>;
 }

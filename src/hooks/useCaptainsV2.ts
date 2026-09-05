@@ -80,7 +80,7 @@ export function useCaptainsV2(eventSlug = CAPTAINS_V2_SLUG) {
     setNow(Date.now());
     return true;
   });
-  const submit = (rowId: string, file: File | null, answer: string | null, onProgress?: (percentage: number) => void) => run(async () => {
+  const submit = (rowId: string, file: File | null, thumbnail: File | null, answer: string | null, onProgress?: (percentage: number) => void) => run(async () => {
     if (!data || !tableId) return;
     const fresh = await getCaptainsTableChallenges(data.event.id);
     const row = fresh.find(item => item.id === rowId);
@@ -99,7 +99,7 @@ export function useCaptainsV2(eventSlug = CAPTAINS_V2_SLUG) {
       result = await completeCaptainsQuestionChallenge({ eventId: data.event.id, tableId, tableChallengeId: row.id, answer, elapsedSeconds, remainingSeconds });
     } else {
       if (!file || !file.type.startsWith(item.evidence_type === "photo" ? "image/" : "video/")) throw new Error("Añade el archivo del reto antes de enviarlo.");
-      const evidence = await uploadCaptainsEvidence({ eventId: data.event.id, tableId, tableChallengeId: row.id, captainName: data.tables[selected]?.captain_name, evidenceType: item.evidence_type, file, elapsedSeconds, remainingSeconds, scoringMode: "automatic", onProgress });
+      const evidence = await uploadCaptainsEvidence({ eventId: data.event.id, tableId, tableChallengeId: row.id, captainName: data.tables[selected]?.captain_name, evidenceType: item.evidence_type, file, thumbnail, elapsedSeconds, remainingSeconds, scoringMode: "automatic", onProgress });
       result = { correct: true, pointsAwarded: evidence.points_awarded };
     }
     await query.refetch();
@@ -131,7 +131,11 @@ export function useCaptainsV2(eventSlug = CAPTAINS_V2_SLUG) {
     enabled: Boolean(data && finished),
     queryFn: async () => {
       const evidence = await getCaptainsEvidence(data!.event.id, "approved");
-      return Promise.all(evidence.map(async item => ({ ...item, url: await getCaptainsEvidenceSignedUrl(item.file_url) })));
+      return Promise.all(evidence.map(async item => ({
+        ...item,
+        url: item.evidence_type === "video" ? "" : await getCaptainsEvidenceSignedUrl(item.file_url),
+        thumbnailUrl: item.thumbnail_url ? await getCaptainsEvidenceSignedUrl(item.thumbnail_url) : "",
+      })));
     },
     staleTime: 30000,
     refetchInterval: finished ? 15000 : false,

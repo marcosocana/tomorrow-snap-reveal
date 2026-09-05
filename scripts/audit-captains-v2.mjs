@@ -96,12 +96,14 @@ for(let i=0;i<5;i++){
  assert.equal(await evaluate(`(()=>{const items=[...document.querySelectorAll('.cv2-mission-path > div')];const done=items.findIndex(el=>el.classList.contains('cv2-done-quest'));return done<0||items.slice(done).every(el=>el.classList.contains('cv2-done-quest'));})()`),true);
  assert.equal(rows.filter(r=>r.table_id===tables[1].id&&r.status==='completed').length,i+1);
 }
-assert.equal(tables[1].total_points,95);assert.equal(evidence.length,4);assert.equal(uploads.length,4);
+assert.equal(tables[1].total_points,95);assert.equal(evidence.length,4);assert.equal(uploads.length,6);
 assert.equal(await evaluate(`document.querySelector('.cv2-bottom-nav').textContent.includes('Resultados')`),true);
 assert.equal(await evaluate(`document.querySelector('.cv2-bottom-nav').textContent.includes('Mesas')`),false);
 await click('.cv2-bottom-nav button:nth-child(3)');await wait(`document.querySelectorAll('.cv2-memory').length===5`);
 assert.equal(await evaluate(`document.querySelector('.cv2-gallery-filter select').value`),'mine');
 assert.equal(await evaluate(`Array.from(document.querySelectorAll('.cv2-gallery-filter option')).some(option=>option.textContent==='Todas las mesas')`),false);
+assert.equal(await evaluate(`document.querySelectorAll('.cv2-memory-media video').length`),0);
+assert.equal(await evaluate(`document.querySelectorAll('.cv2-memory-media img[alt^="Primer fotograma"]').length`),2);
 await click('.cv2-memory-caption button');await wait(`!!document.querySelector('.cv2-media-dialog')`);await screenshot('gallery-modal');
 await click('.cv2-media-dialog > button');await wait(`!document.querySelector('.cv2-media-dialog')`);await screenshot('gallery');
 await send('Page.reload');await wait(`!!document.querySelector('.cv2-welcome')`);await click('.cv2-join-bar button');await wait(`document.querySelector('.cv2-player-points strong')?.textContent==='95'`);
