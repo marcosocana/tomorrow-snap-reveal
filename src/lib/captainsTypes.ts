@@ -9,7 +9,7 @@ export type CaptainsSpriteSex = "female" | "male" | "unspecified";
 export type CaptainsSpriteHairLength = "short" | "long";
 export type CaptainsSpriteHairColor = "blonde" | "dark" | "brown";
 export type CaptainsSpriteSkinColor = "very_fair" | "fair" | "tan" | "dark";
-export type CaptainsSpriteOutfitType = "dress" | "suit";
+export type CaptainsSpriteOutfitType = "dress" | "long_dress" | "suit" | "tuxedo" | "shirt" | "casual" | "jumpsuit" | "skirt";
 
 export interface CaptainsSpriteConfig {
   sex: CaptainsSpriteSex;
@@ -20,6 +20,8 @@ export interface CaptainsSpriteConfig {
   dress_color: string;
   suit_color: string;
   tie_color: string;
+  outfit_color?: string;
+  bottom_color?: string;
 }
 export type CaptainsTableChallengeStatus =
   | "pending"

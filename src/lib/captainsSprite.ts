@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
 import type { CaptainsSpriteConfig, CaptainsSpriteStyle } from "@/lib/captainsTypes";
+import { getCaptainOutfit } from "@/lib/captainsOutfits";
 
 const presets: Record<CaptainsSpriteStyle, { hair: string; skin: string; outfit: string; accent: string; legs: string; dressLike: boolean }> = {
   suit: { hair: "#3f2d23", skin: "#f0bd91", outfit: "#1f2937", accent: "#ffffff", legs: "#111827", dressLike: false },
@@ -29,17 +30,23 @@ const safeColor = (value: string | null | undefined, fallback: string) =>
   /^#[0-9a-f]{6}$/i.test(value || "") ? value! : fallback;
 
 export const getCaptainSpriteVisual = (value?: CaptainsSpriteStyle | null, config?: CaptainsSpriteConfig | null) => {
-  if (!config) return { ...(presets[value || "suit"] || presets.suit), longHair: false };
-  const outfit = config.outfit_type === "dress"
-    ? safeColor(config.dress_color, "#202235")
-    : safeColor(config.suit_color, "#1f2937");
+  if (!config) {
+    const preset = presets[value || "suit"] || presets.suit;
+    return { ...preset, longHair: false, outfitType: preset.dressLike ? "dress" as const : "suit" as const };
+  }
+  const definition = getCaptainOutfit(config.outfit_type);
+  const primary = definition.colors[0];
+  const outfit = safeColor(config[primary.field], primary.fallback);
+  const dressLike = ["dress", "long_dress", "skirt"].includes(definition.value);
+  const separateBottom = ["shirt", "casual", "skirt"].includes(definition.value);
   return {
     hair: hairColors[config.hair_color] || hairColors.dark,
     skin: skinColors[config.skin_color] || skinColors.fair,
     outfit,
-    accent: config.outfit_type === "dress" ? "#ffffff" : safeColor(config.tie_color, "#f06a5f"),
-    legs: config.outfit_type === "dress" ? "#202235" : outfit,
-    dressLike: config.outfit_type === "dress",
+    accent: safeColor(config.tie_color, "#f06a5f"),
+    legs: separateBottom ? safeColor(config.bottom_color, "#40516b") : dressLike ? "#202235" : outfit,
+    dressLike,
+    outfitType: definition.value,
     longHair: config.hair_length === "long",
   };
 };

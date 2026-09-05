@@ -71,6 +71,8 @@ import {
   updateCaptainsTables,
 } from "@/lib/captainsService";
 import { normalizeCaptainsPublicUrl, resolveCaptainsQrImageUrl } from "@/lib/captainsUtils";
+import CaptainOutfitEditor from "@/components/captains-v2/CaptainOutfitEditor";
+import { getCaptainOutfit, captainOutfitForSex } from "@/lib/captainsOutfits";
 import CaptainModel from "@/components/captains-v2/CaptainModel";
 import type {
   CaptainsChallengeInput,
@@ -1733,7 +1735,7 @@ export const CaptainsOnboarding = () => {
                   value={editingTable.captain_sprite_config.sex}
                   onChange={(event) => {
                     const sex = event.target.value as CaptainsSpriteConfig["sex"];
-                    updateOnboardingSpriteConfig(editingTableIndex, { sex, outfit_type: sex === "female" ? "dress" : "suit" });
+                    updateOnboardingSpriteConfig(editingTableIndex, { sex, outfit_type: captainOutfitForSex(editingTable.captain_sprite_config, sex) });
                   }}
                 >
                   <option value="male">Hombre</option>
@@ -1764,25 +1766,7 @@ export const CaptainsOnboarding = () => {
                   ))}
                 </select>
               </label>
-              <label className="space-y-1">
-                <span className="text-xs font-medium text-muted-foreground">Vestuario</span>
-                <select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={editingTable.captain_sprite_config.outfit_type} onChange={(event) => updateOnboardingSpriteConfig(editingTableIndex, { outfit_type: event.target.value as CaptainsSpriteConfig["outfit_type"] })}>
-                  <option value="dress">Vestido</option>
-                  <option value="suit">Traje</option>
-                </select>
-              </label>
-              <label className="space-y-1">
-                <span className="text-xs font-medium text-muted-foreground">Color vestido</span>
-                <Input type="color" value={colorValue(editingTable.captain_sprite_config.dress_color, "#202235")} onChange={(event) => updateOnboardingSpriteConfig(editingTableIndex, { dress_color: event.target.value })} className="h-10" disabled={editingTable.captain_sprite_config.outfit_type !== "dress"} />
-              </label>
-              <label className="space-y-1">
-                <span className="text-xs font-medium text-muted-foreground">Color traje</span>
-                <Input type="color" value={colorValue(editingTable.captain_sprite_config.suit_color, "#1f2937")} onChange={(event) => updateOnboardingSpriteConfig(editingTableIndex, { suit_color: event.target.value })} className="h-10" disabled={editingTable.captain_sprite_config.outfit_type !== "suit"} />
-              </label>
-              <label className="space-y-1">
-                <span className="text-xs font-medium text-muted-foreground">Color corbata</span>
-                <Input type="color" value={colorValue(editingTable.captain_sprite_config.tie_color, "#f06a5f")} onChange={(event) => updateOnboardingSpriteConfig(editingTableIndex, { tie_color: event.target.value })} className="h-10" disabled={editingTable.captain_sprite_config.outfit_type !== "suit"} />
-              </label>
+              <CaptainOutfitEditor config={editingTable.captain_sprite_config} onChange={patch => updateOnboardingSpriteConfig(editingTableIndex, patch)} />
             </div>
             <div className="flex justify-end">
               <Button type="button" onClick={() => setEditingTableIndex(null)}>Listo</Button>
@@ -2452,7 +2436,7 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
                           value={table.captain_sprite_config.sex}
                           onChange={(event) => {
                             const sex = event.target.value as CaptainsSpriteConfig["sex"];
-                            updateSpriteConfig({ sex, outfit_type: sex === "female" ? "dress" : "suit" });
+                            updateSpriteConfig({ sex, outfit_type: captainOutfitForSex(table.captain_sprite_config, sex) });
                           }}
                         >
                           <option value="male">Hombre</option>
@@ -2483,43 +2467,7 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
                           ))}
                         </select>
                       </label>
-                      <label className="space-y-1">
-                        <span className="text-xs font-medium text-muted-foreground">Vestuario</span>
-                        <select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={table.captain_sprite_config.outfit_type} onChange={(event) => updateSpriteConfig({ outfit_type: event.target.value as CaptainsSpriteConfig["outfit_type"] })}>
-                          <option value="dress">Vestido</option>
-                          <option value="suit">Traje</option>
-                        </select>
-                      </label>
-                      <label className="space-y-1">
-                        <span className="text-xs font-medium text-muted-foreground">Color vestido</span>
-                        <Input
-                          type="color"
-                          value={colorValue(table.captain_sprite_config.dress_color, "#202235")}
-                          onChange={(event) => updateSpriteConfig({ dress_color: event.target.value })}
-                          className="h-10"
-                          disabled={table.captain_sprite_config.outfit_type !== "dress"}
-                        />
-                      </label>
-                      <label className="space-y-1">
-                        <span className="text-xs font-medium text-muted-foreground">Color traje</span>
-                        <Input
-                          type="color"
-                          value={colorValue(table.captain_sprite_config.suit_color, "#1f2937")}
-                          onChange={(event) => updateSpriteConfig({ suit_color: event.target.value })}
-                          className="h-10"
-                          disabled={table.captain_sprite_config.outfit_type !== "suit"}
-                        />
-                      </label>
-                      <label className="space-y-1">
-                        <span className="text-xs font-medium text-muted-foreground">Color corbata</span>
-                        <Input
-                          type="color"
-                          value={colorValue(table.captain_sprite_config.tie_color, "#f06a5f")}
-                          onChange={(event) => updateSpriteConfig({ tie_color: event.target.value })}
-                          className="h-10"
-                          disabled={table.captain_sprite_config.outfit_type !== "suit"}
-                        />
-                      </label>
+                      <CaptainOutfitEditor config={table.captain_sprite_config} onChange={updateSpriteConfig} />
                     </div>
                   </div>
                 );
@@ -3942,7 +3890,7 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
 		                    value={tableDraft.captain_sprite_config?.sex || "unspecified"}
 		                    onChange={(event) => {
 		                      const sex = event.target.value as CaptainsSpriteConfig["sex"];
-		                      updateTableDraftSpriteConfig({ sex, outfit_type: sex === "female" ? "dress" : "suit" });
+		                      updateTableDraftSpriteConfig({ sex, outfit_type: captainOutfitForSex(tableDraft.captain_sprite_config, sex) });
 		                    }}
 		                  >
 		                    <option value="male">Hombre</option>
@@ -3963,30 +3911,12 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
 		                    {hairColorOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
 		                  </select>
 		                </label>
-		                <label className="space-y-1">
-		                  <span className="text-xs font-medium text-muted-foreground">Vestuario</span>
-		                  <select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={tableDraft.captain_sprite_config?.outfit_type || "suit"} onChange={(event) => updateTableDraftSpriteConfig({ outfit_type: event.target.value as CaptainsSpriteConfig["outfit_type"] })}>
-		                    <option value="dress">Vestido</option>
-		                    <option value="suit">Traje</option>
-		                  </select>
-		                </label>
+		                <CaptainOutfitEditor config={tableDraft.captain_sprite_config} onChange={updateTableDraftSpriteConfig} />
 		                <label className="space-y-1">
 		                  <span className="text-xs font-medium text-muted-foreground">Color piel</span>
 		                  <select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={tableDraft.captain_sprite_config?.skin_color || "fair"} onChange={(event) => updateTableDraftSpriteConfig({ skin_color: event.target.value as CaptainsSpriteConfig["skin_color"] })}>
 		                    {skinColorOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
 		                  </select>
-		                </label>
-		                <label className="space-y-1">
-		                  <span className="text-xs font-medium text-muted-foreground">Color vestido</span>
-		                  <Input type="color" value={colorValue(tableDraft.captain_sprite_config?.dress_color || "", "#202235")} onChange={(event) => updateTableDraftSpriteConfig({ dress_color: event.target.value })} className="h-10" disabled={tableDraft.captain_sprite_config?.outfit_type !== "dress"} />
-		                </label>
-		                <label className="space-y-1">
-		                  <span className="text-xs font-medium text-muted-foreground">Color traje</span>
-		                  <Input type="color" value={colorValue(tableDraft.captain_sprite_config?.suit_color || "", "#1f2937")} onChange={(event) => updateTableDraftSpriteConfig({ suit_color: event.target.value })} className="h-10" disabled={tableDraft.captain_sprite_config?.outfit_type !== "suit"} />
-		                </label>
-		                <label className="space-y-1">
-		                  <span className="text-xs font-medium text-muted-foreground">Color corbata</span>
-		                  <Input type="color" value={colorValue(tableDraft.captain_sprite_config?.tie_color || "", "#f06a5f")} onChange={(event) => updateTableDraftSpriteConfig({ tie_color: event.target.value })} className="h-10" disabled={tableDraft.captain_sprite_config?.outfit_type !== "suit"} />
 		                </label>
 		              </div>
 		              <p className={`text-right text-xs ${tableSaveStatus === "error" ? "text-destructive" : "text-muted-foreground"}`}>
@@ -4273,7 +4203,7 @@ const RankingCard = ({
                   <div className="flex items-center gap-2">
                     <CaptainPhotoPreview table={table} size="sm" />
                     <CaptainSpritePreview value={table.captain_sprite} config={table.captain_sprite_config} photoUrl={table.captain_photo_url} size="sm" />
-                    {table.captain_sprite_config?.outfit_type === "dress" ? "Vestido" : "Traje"}
+                    {getCaptainOutfit(table.captain_sprite_config?.outfit_type).label}
                   </div>
                 </td>
                 <td className="px-3 py-4">{table.active_captain_name || table.captain_name || "-"}</td>
@@ -4362,7 +4292,7 @@ const ProgressCard = ({
                     <div className="flex items-center gap-2">
                       <CaptainPhotoPreview table={table} size="sm" />
                       <CaptainSpritePreview value={table.captain_sprite} config={table.captain_sprite_config} photoUrl={table.captain_photo_url} size="sm" />
-                      {table.captain_sprite_config?.outfit_type === "dress" ? "Vestido" : "Traje"}
+                      {getCaptainOutfit(table.captain_sprite_config?.outfit_type).label}
                     </div>
                   </td>
                   <td className="border-y border-border px-3 py-4">{table.active_captain_name || table.captain_name || "-"}</td>
