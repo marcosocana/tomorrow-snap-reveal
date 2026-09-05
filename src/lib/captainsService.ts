@@ -92,6 +92,7 @@ const captainThemeColumns = [
   "contact_name",
   "contact_email",
   "contact_phone",
+  "experience_version",
 ];
 
 const withoutCaptainThemeColumns = <T extends Record<string, unknown>>(payload: T) => {
@@ -243,6 +244,7 @@ export const createCaptainsEvent = async (input: CreateCaptainsEventInput) => {
     status: "active",
     show_live_gallery_after_completion: true,
     theme_style: "pixel" as CaptainsThemeStyle,
+    experience_version: input.experience_version ?? "v2",
     primary_color: "#f06a5f",
     secondary_color: "#2f292d",
     background_image_url: null,

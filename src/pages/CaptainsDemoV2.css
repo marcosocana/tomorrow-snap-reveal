@@ -1324,7 +1324,7 @@
 
 /* Mobile demo: identity first, then one available mission at a time. */
 .cv2-mobile { min-height: 100dvh; }
-.cv2-mobile .cv2-header { max-width: 520px; height: 76px; padding: 0 22px; }
+.cv2-mobile .cv2-header { max-width: 520px; height: 42px; padding: 0 16px; }
 .cv2-mobile-main { max-width: 520px; margin: auto; padding: 25px 20px calc(125px + env(safe-area-inset-bottom)); }
 .cv2-mobile-badge { display: flex; align-items: center; gap: 8px; font-size: 9px; letter-spacing: 1.5px; color: #735653; }
 .cv2-mobile-badge span { background: #e9d9d7; border-radius: 6px; padding: 5px 7px; font-weight: 700; }
@@ -1452,7 +1452,7 @@
 
 /* Revelao's existing logo, system typography and coral/charcoal palette. */
 .cv2, .cv2-dialog { --ink: #2f292d; --paper: #faf8f6; --muted: #84787c; color: #2f292d; background-color: #faf8f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif; }
-.cv2-revelao-logo { width: 170px; height: auto; image-rendering: auto; }
+.cv2-revelao-logo { width: 146px; max-height: 30px; height: auto; image-rendering: auto; }
 .cv2 h1 em { font-family: inherit; font-style: normal; font-weight: 650; color: #f06a5f; }
 .cv2-mobile .cv2-header { background: #fff; border-color: #eee6e4; }
 .cv2-mobile-badge { color: #2f292d; }
@@ -1462,10 +1462,11 @@
 .cv2-mobile .cv2-progress .filled, .cv2-pick.is-selected .cv2-pick-check { background: #f06a5f; border-color: #f06a5f; }
 .cv2-pick.is-selected { border-color: #f06a5f; }
 .cv2-bottom-nav button[aria-current] { color: #c34d43; background: #fce8e4; }
-.cv2-bottom-nav.has-memories { grid-template-columns: repeat(4, 1fr); }
+.cv2-bottom-nav { grid-template-columns: repeat(2, 1fr); }
+.cv2-bottom-nav.has-results { grid-template-columns: repeat(3, 1fr); }
 .cv2-mobile .cv2-bottom-nav, .cv2-mobile .cv2-join-bar { background: #fffaf8f5; }
 .cv2-player-avatar .cv2-captain { max-width: none; }
-.cv2-capture-preview { width: 100%; max-height: 250px; object-fit: contain; background: #2f292d; border-radius: 13px; }
+.cv2-capture-preview { display: block; width: auto; max-width: 100%; height: 140px; margin: 0 auto; object-fit: contain; background: #2f292d; border-radius: 13px; }
 .cv2-capture .cv2-secondary { border: 1px solid #e9d6d0; background: #fff9f6; border-radius: 12px; }
 .cv2-capture .cv2-camera-button { color: #c5554b; }
 .cv2-error, .cv2-connection-error { color: #b64238; font-size: 13px; line-height: 1.6; }
@@ -1484,8 +1485,11 @@
 .cv2-table-missions strong { font-size: 13px; font-weight: 550; }
 .cv2-gallery-filter { display: flex; flex-direction: column; gap: 8px; font-size: 12px; margin-top: 20px; }
 .cv2-gallery-filter select { font-size: 16px; border: 1px solid #eadbd5; border-radius: 12px; background: #fffaf8; padding: 12px; }
-.cv2-memory > video, .cv2-memory > a > img { width: 100%; height: 175px; object-fit: cover; background: #2f292d; image-rendering: auto; }
-.cv2-memory-caption a { min-height: 44px; display: flex; align-items: center; gap: 7px; font-size: 11px; color: #c75e52; }
+.cv2-memory-media, .cv2-memory-media > video, .cv2-memory-media > img { display: block; width: 100%; height: 175px; object-fit: cover; background: #2f292d; image-rendering: auto; }
+.cv2-memory-caption button { min-height: 44px; display: flex; align-items: center; gap: 7px; font-size: 11px; color: #c75e52; }
+.cv2-result-placeholder { display: grid; place-items: center; width: 100%; height: 135px; background: #eee5e2; color: #a28b86; }
+.cv2-result-placeholder.is-success { background: #f8dfda; color: #c5574d; }
+.cv2-result-answer { display: block; margin-top: 7px; font-size: 11px; line-height: 1.45; color: #806e71; }
 .cv2 button:focus-visible, .cv2 a:focus-visible { outline-color: #f06a5f; }
 
 /* QR entry and photo heads keep the body and labels in distinct layout areas. */
@@ -1507,3 +1511,33 @@
 .cv2-pick-label > small { font-size: 11px; color: #87706d; line-height: 1.4; overflow-wrap: anywhere; }
 .cv2-mobile .cv2-player-avatar { overflow: visible; flex-shrink: 0; }
 .cv2-mobile .cv2-player-avatar .cv2-photo-captain { top: 5px; }
+
+.cv2-player-name { min-width: 0; flex: 1; }
+.cv2-player-name h1 { max-width: 100%; line-height: 1.08; overflow-wrap: anywhere; }
+.cv2-centered-action { justify-content: center !important; text-align: center; }
+.cv2-finish .cv2-secondary { min-height: 52px; border: 1px solid #ead8d3; border-radius: 14px; background: #fff; color: #2f292d; font-size: 14px; font-weight: 600; }
+.cv2-reject-button { min-height: 52px; margin-top: 9px; border: 1px solid #ead8d3; border-radius: 14px; background: #fff; color: #2f292d; font-size: 14px; font-weight: 600; }
+.cv2-victory-cup { position: relative; width: 190px; height: 178px; margin: 0 auto 12px; }
+.cv2-victory-cup svg { position: relative; z-index: 2; width: 172px; height: 172px; filter: drop-shadow(0 13px 12px #8e4a3b25); transform: rotate(-3deg); }
+.cv2-victory-shadow { position: absolute; left: 45px; right: 45px; bottom: 9px; height: 18px; border-radius: 50%; background: #7d504825; filter: blur(7px); }
+.cv2-victory-spark { position: absolute; z-index: 3; color: #f06a5f; font-size: 26px; }
+.cv2-victory-spark.one { top: 23px; left: 10px; }
+.cv2-victory-spark.two { top: 51px; right: 5px; font-size: 17px; }
+.cv2-armband-object { overflow: visible; }
+.cv2-armband { position: relative; display: grid; place-items: center; width: 76px; height: 55px; border-radius: 8px 20px 20px 8px; color: #fff; background: linear-gradient(145deg, #ff958b 0%, #f06a5f 48%, #bf4941 100%); box-shadow: 7px 8px 0 #a8403a, 13px 15px 18px #6d373028, inset 4px 4px 6px #ffc2bb88; transform: rotate(-10deg) skewY(2deg); }
+.cv2-armband::before, .cv2-armband::after { content: ""; position: absolute; left: -8px; width: 14px; height: 23px; border-radius: 8px 2px 2px 8px; background: linear-gradient(90deg, #8d3733, #d75c53); }
+.cv2-armband::before { top: 2px; }
+.cv2-armband::after { bottom: 2px; }
+.cv2-armband > i { position: absolute; inset: 6px; border: 1px solid #ffd3cd88; border-radius: 5px 14px 14px 5px; }
+.cv2-armband > b { position: relative; z-index: 1; font-size: 27px; line-height: 1; text-shadow: 1px 2px 0 #9d3c36; }
+.cv2-armband > span { position: absolute; z-index: 1; bottom: 5px; font-size: 5px; font-weight: 800; letter-spacing: 1.5px; }
+.cv2-ranking-rule { display: flex; align-items: flex-start; gap: 7px; margin-top: 12px; padding: 10px 12px; border-radius: 11px; background: #f6e8e5; color: #755f62 !important; font-size: 11px !important; line-height: 1.5 !important; }
+.cv2-ranking-rule svg { flex: 0 0 auto; margin-top: 1px; color: #c75d53; }
+.cv2-confirm-dialog { width: min(calc(100% - 24px), 440px); padding: 32px 24px; text-align: center; border-radius: 23px; }
+.cv2-confirm-dialog > p { font-size: 14px; line-height: 1.7; }
+.cv2-confirm-dialog .cv2-primary { justify-content: center; min-height: 52px; }
+.cv2-confirm-dialog .cv2-secondary { min-height: 48px; }
+.cv2-reject-icon { color: #c4584d; background: #f8ded8; }
+.cv2-media-dialog { width: min(calc(100% - 20px), 720px); max-height: calc(100dvh - 24px); padding: 50px 12px 12px; border-radius: 20px; overflow: hidden; }
+.cv2-media-dialog .cv2-dialog-title { padding: 0 10px; font-size: 18px; }
+.cv2-media-dialog > img, .cv2-media-dialog > video { display: block; width: 100%; max-height: calc(100dvh - 110px); object-fit: contain; border-radius: 12px; background: #2f292d; image-rendering: auto; }

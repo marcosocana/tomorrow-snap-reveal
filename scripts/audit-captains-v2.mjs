@@ -4,9 +4,11 @@ import assert from 'node:assert/strict';
 // All Supabase traffic is intercepted; this script never mutates the real backend.
 const origin=process.env.CAPTAINS_V2_ORIGIN || 'http://127.0.0.1:5185';
 const debuggerOrigin=process.env.CAPTAINS_V2_CDP || 'http://127.0.0.1:9237';
+const eventSlug=process.env.CAPTAINS_V2_SLUG || 'demo-capitanes-v2';
+const experienceVersion=process.env.CAPTAINS_EXPERIENCE_VERSION || 'v2';
 const eventId='de100000-0000-4000-8000-000000000001';
 const titles=['Brindis de mesa','Pregunta de pareja','Mensaje secreto','Aliados de otra mesa','Coreografía exprés'];
-const event={id:eventId,name:'Capitanes · Revelao',slug:'demo-capitanes-v2',status:'active',start_time:'2026-01-01T00:00:00Z',end_time:'2099-12-31T00:00:00Z'};
+const event={id:eventId,name:'Capitanes · Revelao',slug:eventSlug,status:'active',experience_version:experienceVersion,start_time:'2026-01-01T00:00:00Z',end_time:'2099-12-31T00:00:00Z'};
 const tables=['Jorge','Marta','Laura','Dani',null].map((name,i)=>({id:`db100000-0000-4000-8000-00000000000${i+1}`,event_id:eventId,table_name:`Mesa ${i+1}`,table_number:i+1,captain_name:name,captain_photo_url:i===0?`${origin}/favicon.png`:null,total_points:0,completed_challenges:0,failed_challenges:0,session_token:`test-session-${i}`}));
 const challenges=titles.map((title,i)=>({id:`dc100000-0000-4000-8000-00000000000${i+1}`,event_id:eventId,title,description:['Haced una foto de toda la mesa brindando por los novios.','¿Dónde fue la primera cita de la pareja?','Grabad un vídeo corto dedicando un mensaje sorpresa a los novios.','Haced una foto con alguien de otra mesa.','Grabad una coreografía con vuestra mesa.'][i],evidence_type:['photo','question','video','photo','video'][i],points:[20,15,25,15,20][i],has_time_limit:false,time_limit_seconds:null,question_options:i===1?['En un restaurante','En la playa','En un concierto','En casa de amigos']:null,question_correct_option:i===1?'En un restaurante':null,order_index:i+1}));
 const rows=tables.flatMap((t,ti)=>challenges.map((c,i)=>({id:`dd100000-0000-4000-8000-0000000000${ti}${i}`,event_id:eventId,table_id:t.id,challenge_id:c.id,randomized_order_index:i+1,status:i===0?'ready':'pending',points_awarded:0,started_at:null})));
@@ -39,7 +41,16 @@ const wait=async test=>{for(let i=0;i<80;i++){if(await evaluate(test))return;awa
 const click=async selector=>{await evaluate(`document.querySelector(${JSON.stringify(selector)}).click()`);await new Promise(r=>setTimeout(r,150));};
 const screenshot=async name=>{const img=await send('Page.captureScreenshot',{format:'png'});fs.writeFileSync(`/tmp/captains-revelao-${name}.png`,Buffer.from(img.data,'base64'));};
 await send('Page.enable');await send('Runtime.enable');await send('Fetch.enable',{patterns:[{urlPattern:'*supabase.co/*'}]});
-await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});await send('Page.navigate',{url:`${origin}/capitanes/demo-capitanes-v2`});await wait(`!!document.querySelector('.cv2-welcome')`);assert.equal(await evaluate(`document.querySelector('.cv2-join-bar button').textContent.trim()`),'Empezar');await screenshot('welcome');await click('.cv2-join-bar button');await wait(`!!document.querySelector('.cv2-pick') || !!document.querySelector('.cv2-player-strip')`);if(await evaluate(`!!document.querySelector('.cv2-player-strip')`))await click('.cv2-session-footer button');
+await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
+await send('Page.navigate',{url:`${origin}/capitanes/${eventSlug}`});
+if(experienceVersion==='legacy'){
+ await wait(`!!document.querySelector('.captains-public')`);
+ assert.equal(await evaluate(`!!document.querySelector('.cv2')`),false);
+ await send('Page.close');socket.close();
+ console.log('PASS: a legacy event keeps the original Capitanes experience.');
+ process.exit(0);
+}
+await wait(`!!document.querySelector('.cv2-welcome')`);assert.equal(await evaluate(`document.querySelector('.cv2-join-bar button').textContent.trim()`),'Empezar');await screenshot('welcome');await click('.cv2-join-bar button');await wait(`!!document.querySelector('.cv2-pick') || !!document.querySelector('.cv2-player-strip')`);if(await evaluate(`!!document.querySelector('.cv2-player-strip')`))await click('.cv2-session-footer button');
 assert.equal(await evaluate(`/demo|simula/i.test(document.body.innerText)`),false);
 assert.equal(await evaluate(`document.querySelector('.cv2-join-bar button').disabled`),true);
 assert.equal(await evaluate(`document.querySelector('.cv2-join-bar button').textContent.trim()`),'Continuar');
@@ -53,6 +64,8 @@ for(const width of [320,390,430]){
 await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
 await screenshot('identity');await click('.cv2-pick:nth-child(2)');await click('.cv2-join-bar button');await wait(`!!document.querySelector('.cv2-active-quest')`);
 assert.equal(await evaluate(`document.querySelector('.cv2-bottom-nav').textContent.includes('Recuerdos')`),false);
+assert.equal(await evaluate(`document.querySelector('.cv2-active-quest .cv2-primary').querySelector('svg')===null`),true);
+assert.equal(await evaluate(`document.body.innerText.includes('Hasta 20')`),false);
 await screenshot('first');
 const attach=async kind=>{
  await evaluate(`(async()=>{
@@ -67,7 +80,7 @@ const attach=async kind=>{
 for(let i=0;i<5;i++){
  await click('.cv2-active-quest .cv2-primary');await wait(`!!document.querySelector('.cv2-mobile-dialog .cv2-primary')`);
  assert.equal(await evaluate(`document.querySelector('.cv2-mobile-dialog .cv2-primary').disabled`),true);
- if(i===1)await click('.cv2-answer-options button:first-child');else await attach(challenges[i].evidence_type);
+ if(i===1){assert.equal(await evaluate(`document.querySelectorAll('.cv2-answer-options button').length`),4);await click('.cv2-answer-options button:first-child');assert.equal(await evaluate(`document.querySelector('.cv2-mobile-dialog .cv2-primary').textContent.trim()`),'Continuar');}else await attach(challenges[i].evidence_type);
  if(i===0){await screenshot('photo');rejectUpload=true;await click('.cv2-mobile-dialog .cv2-primary');await wait(`!!document.querySelector('.cv2-mobile-dialog .cv2-error')`);assert.equal(rows.filter(r=>r.table_id===tables[1].id&&r.status==='completed').length,0);}
  await click('.cv2-mobile-dialog .cv2-primary');await wait(`!!document.querySelector('.cv2-celebration-points')`);
  await click('.cv2-mobile-dialog .cv2-primary');await wait(`!document.querySelector('[role=dialog]')`);
@@ -75,14 +88,18 @@ for(let i=0;i<5;i++){
  assert.equal(rows.filter(r=>r.table_id===tables[1].id&&r.status==='completed').length,i+1);
 }
 assert.equal(tables[1].total_points,95);assert.equal(evidence.length,4);assert.equal(uploads.length,4);
-assert.equal(await evaluate(`document.querySelector('.cv2-bottom-nav').textContent.includes('Recuerdos')`),true);
-await click('.cv2-bottom-nav button:nth-child(3)');await click('.cv2-table-overview button');await screenshot('tables');
-await click('.cv2-bottom-nav button:nth-child(4)');await wait(`document.querySelectorAll('.cv2-memory').length===4`);await screenshot('gallery');
+assert.equal(await evaluate(`document.querySelector('.cv2-bottom-nav').textContent.includes('Resultados')`),true);
+assert.equal(await evaluate(`document.querySelector('.cv2-bottom-nav').textContent.includes('Mesas')`),false);
+await click('.cv2-bottom-nav button:nth-child(3)');await wait(`document.querySelectorAll('.cv2-memory').length===5`);
+assert.equal(await evaluate(`document.querySelector('.cv2-gallery-filter select').value`),'mine');
+assert.equal(await evaluate(`Array.from(document.querySelectorAll('.cv2-gallery-filter option')).some(option=>option.textContent==='Todas las mesas')`),false);
+await click('.cv2-memory-caption button');await wait(`!!document.querySelector('.cv2-media-dialog')`);await screenshot('gallery-modal');
+await click('.cv2-media-dialog > button');await wait(`!document.querySelector('.cv2-media-dialog')`);await screenshot('gallery');
 await send('Page.reload');await wait(`!!document.querySelector('.cv2-welcome')`);await click('.cv2-join-bar button');await wait(`document.querySelector('.cv2-player-points strong')?.textContent==='95'`);
 await click('.cv2-session-footer button');await click('.cv2-pick:nth-child(3)');await click('.cv2-join-bar button');await wait(`document.querySelector('.cv2-player-strip h1')?.textContent==='Mesa 3'`);
-assert.equal(await evaluate(`document.querySelector('.cv2-bottom-nav').textContent.includes('Recuerdos')`),false);
+assert.equal(await evaluate(`document.querySelector('.cv2-bottom-nav').textContent.includes('Resultados')`),false);
 await click('.cv2-bottom-nav button:nth-child(2)');assert.match(await evaluate(`document.querySelector('.cv2-mobile-ranks').textContent`),/Mesa 2.*95/);
-for(const width of [320,390,430,1440]){await send('Emulation.setDeviceMetricsOverride',{width,height:844,deviceScaleFactor:1,mobile:width<500});for(let tab=1;tab<=3;tab++){await click(`.cv2-bottom-nav button:nth-child(${tab})`);assert.equal(await evaluate(`document.documentElement.scrollWidth>innerWidth`),false);}}
+for(const width of [320,390,430,1440]){await send('Emulation.setDeviceMetricsOverride',{width,height:844,deviceScaleFactor:1,mobile:width<500});for(let tab=1;tab<=2;tab++){await click(`.cv2-bottom-nav button:nth-child(${tab})`);assert.equal(await evaluate(`document.documentElement.scrollWidth>innerWidth`),false);}}
 // A wrong answer is only revealed after submission and never adds points.
 await click('.cv2-bottom-nav button:first-child');
 await click('.cv2-active-quest .cv2-primary');await wait(`!!document.querySelector('.cv2-capture')`);await attach('photo');
@@ -96,4 +113,18 @@ assert.equal(await evaluate(`document.querySelector('.cv2-dialog-title').textCon
 assert.equal(tables[2].total_points,20);
 assert.equal(rows.find(row=>row.table_id===tables[2].id&&row.challenge_id===challenges[1].id).status,'failed');
 await screenshot('wrong-answer');
+await click('.cv2-mobile-dialog .cv2-primary');await wait(`!document.querySelector('[role=dialog]')`);
+// Rejecting requires confirmation, awards zero and unlocks the following challenge.
+await click('.cv2-reject-button');await wait(`!!document.querySelector('.cv2-confirm-dialog')`);
+assert.equal(rows.find(row=>row.table_id===tables[2].id&&row.challenge_id===challenges[2].id).status,'ready');
+await click('.cv2-confirm-dialog .cv2-primary');await wait(`!document.querySelector('.cv2-confirm-dialog')`);
+assert.equal(rows.find(row=>row.table_id===tables[2].id&&row.challenge_id===challenges[2].id).status,'failed');
+assert.equal(tables[2].total_points,20);
+for(const kind of ['photo','video']){
+ await click('.cv2-active-quest .cv2-primary');await wait(`!!document.querySelector('.cv2-capture')`);await attach(kind);
+ await click('.cv2-mobile-dialog .cv2-primary');await wait(`!!document.querySelector('.cv2-celebration-points')`);await click('.cv2-mobile-dialog .cv2-primary');await wait(`!document.querySelector('[role=dialog]')`);
+}
+assert.equal(await evaluate(`document.querySelector('.cv2-bottom-nav').textContent.includes('Resultados')`),true);
+await click('.cv2-bottom-nav button:nth-child(3)');await wait(`document.querySelectorAll('.cv2-result-card').length===4`);
+assert.equal(await evaluate(`document.body.innerText.includes('Mensaje secreto')`),false);
 assert.deepEqual(exceptions,[]);console.log('PASS with mocked backend: identity, real image/video file decoding and preview, upload failure/retry, sequential completion, server score, reload persistence, shared table ranking, gallery only after finish, no demo text, 320–1440px, no JS exceptions.');socket.close();

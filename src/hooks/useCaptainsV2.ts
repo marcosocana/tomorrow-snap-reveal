@@ -3,26 +3,27 @@ import { useQuery } from "@tanstack/react-query";
 import {
   getCaptainsEventDetail, getCaptainsTableChallenges, selectCaptainsTableSession,
   startCaptainsTableChallenge, uploadCaptainsEvidence, completeCaptainsQuestionChallenge,
-  expireCaptainsTableChallenge, getCaptainsEvidence, getCaptainsEvidenceSignedUrl,
+  expireCaptainsTableChallenge, failCaptainsTableChallenge, getCaptainsEvidence, getCaptainsEvidenceSignedUrl,
 } from "@/lib/captainsService";
 import type { CaptainsTableChallenge } from "@/lib/captainsTypes";
 
 export const CAPTAINS_V2_SLUG = "demo-capitanes-v2";
-const SESSION_KEY = "captains-v2-player";
+const sessionKeyForEvent = (eventSlug: string) => `captains-v2-player:${eventSlug}`;
 export const isFinishedRow = (row: CaptainsTableChallenge) => ["completed", "failed", "time_expired", "rejected", "deleted"].includes(row.status);
 const errorMessage = (error: unknown) => error instanceof Error ? error.message : "No se ha podido conectar. Vuelve a intentarlo.";
 
-export function useCaptainsV2() {
+export function useCaptainsV2(eventSlug = CAPTAINS_V2_SLUG) {
+  const sessionKey = sessionKeyForEvent(eventSlug);
   const [tableId, setTableId] = useState<string | null>(() => {
-    try { return localStorage.getItem(SESSION_KEY); } catch { return null; }
+    try { return localStorage.getItem(sessionKey); } catch { return null; }
   });
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const lock = useRef(false);
   const query = useQuery({
-    queryKey: ["captains-v2", CAPTAINS_V2_SLUG],
+    queryKey: ["captains-v2", eventSlug],
     queryFn: async () => {
-      const detail = await getCaptainsEventDetail(CAPTAINS_V2_SLUG);
+      const detail = await getCaptainsEventDetail(eventSlug);
       if (!detail) throw new Error("Esta partida todavía no está disponible. Vuelve a intentarlo en unos minutos.");
       const rows = await getCaptainsTableChallenges(detail.event.id);
       return { ...detail, rows };
@@ -32,6 +33,9 @@ export function useCaptainsV2() {
     refetchOnWindowFocus: true,
     retry: 1,
   });
+  useEffect(() => {
+    try { setTableId(localStorage.getItem(sessionKey)); } catch { setTableId(null); }
+  }, [sessionKey]);
   const data = query.data;
   const selected = data?.tables.findIndex(table => table.id === tableId) ?? -1;
   const rows = (data?.rows.filter(row => row.table_id === tableId) ?? []).sort((a, b) => a.randomized_order_index - b.randomized_order_index);
@@ -63,7 +67,7 @@ export function useCaptainsV2() {
     await selectCaptainsTableSession(table.id, name);
     await query.refetch();
     setTableId(table.id);
-    try { localStorage.setItem(SESSION_KEY, table.id); } catch { /* The current visit still works. */ }
+    try { localStorage.setItem(sessionKey, table.id); } catch { /* The current visit still works. */ }
     return true;
   });
   const start = () => run(async () => {
@@ -101,6 +105,18 @@ export function useCaptainsV2() {
     await query.refetch();
     return result;
   });
+  const reject = (rowId: string) => run(async () => {
+    if (!data || !tableId) return false;
+    const fresh = await getCaptainsTableChallenges(data.event.id);
+    const row = fresh.find(item => item.id === rowId);
+    if (!row || !["ready", "in_progress"].includes(row.status)) {
+      await query.refetch();
+      throw new Error("El estado del reto ha cambiado. Hemos actualizado la partida.");
+    }
+    await failCaptainsTableChallenge(row.id);
+    await query.refetch();
+    return true;
+  });
   const expiring = useRef("");
   const refresh = query.refetch;
   useEffect(() => {
@@ -123,7 +139,7 @@ export function useCaptainsV2() {
   });
   const leave = () => {
     setTableId(null);
-    try { localStorage.removeItem(SESSION_KEY); } catch { /* No persistent identity. */ }
+    try { localStorage.removeItem(sessionKey); } catch { /* No persistent identity. */ }
   };
-  return { data, selected: selected < 0 ? null : selected, rows, completed, finished, currentRow, remaining, busy, error: error || (query.error ? errorMessage(query.error) : ""), loading: query.isPending, refresh: () => { setError(""); return query.refetch(); }, join, start, submit, leave, gallery };
+  return { data, selected: selected < 0 ? null : selected, rows, completed, finished, currentRow, remaining, busy, error: error || (query.error ? errorMessage(query.error) : ""), loading: query.isPending, refresh: () => { setError(""); return query.refetch(); }, join, start, submit, reject, leave, gallery };
 }

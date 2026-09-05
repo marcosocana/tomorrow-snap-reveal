@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Camera, Film, ImagePlus, RotateCcw } from "lucide-react";
+import { Camera, Film, RotateCcw } from "lucide-react";
 
 export default function MediaCapture({ kind, file, onChange, disabled }: {
   kind: "photo" | "video";
@@ -12,7 +12,6 @@ export default function MediaCapture({ kind, file, onChange, disabled }: {
   const [checking, setChecking] = useState(false);
   const request = useRef(0);
   const camera = useRef<HTMLInputElement>(null);
-  const library = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (!file) { setUrl(""); return; }
     const next = URL.createObjectURL(file);
@@ -63,9 +62,7 @@ export default function MediaCapture({ kind, file, onChange, disabled }: {
   return <div className="cv2-capture">
     {url && (kind === "photo" ? <img className="cv2-capture-preview" src={url} alt="Foto que vas a enviar" /> : <video className="cv2-capture-preview" src={url} controls playsInline preload="metadata" />)}
     <input ref={camera} className="sr-only" tabIndex={-1} aria-label={kind === "photo" ? "Hacer una foto" : "Grabar un vídeo"} type="file" accept={kind === "photo" ? "image/*" : "video/*"} capture="environment" disabled={disabled || checking} onChange={event => { void selectFile(event.target.files?.[0]); event.target.value = ""; }} />
-    <input ref={library} className="sr-only" tabIndex={-1} aria-label="Elegir archivo del móvil" type="file" accept={kind === "photo" ? "image/*" : "video/*"} disabled={disabled || checking} onChange={event => { void selectFile(event.target.files?.[0]); event.target.value = ""; }} />
-    <button className="cv2-secondary cv2-camera-button" disabled={disabled || checking} onClick={() => camera.current?.click()}>{file ? <RotateCcw size={19} /> : kind === "photo" ? <Camera size={19} /> : <Film size={19} />}{file ? "Volver a capturar" : kind === "photo" ? "Hacer una foto" : "Grabar un vídeo"}</button>
-    <button className="cv2-secondary" disabled={disabled || checking} onClick={() => library.current?.click()}><ImagePlus size={17} />{file ? "Elegir otro archivo" : "Elegir del móvil"}</button>
+    <button className="cv2-secondary cv2-camera-button" disabled={disabled || checking} onClick={() => { if (file) onChange(null); else camera.current?.click(); }}>{file ? <RotateCcw size={19} /> : kind === "photo" ? <Camera size={19} /> : <Film size={19} />}{file ? "Repetir" : kind === "photo" ? "Hacer una foto" : "Grabar un vídeo"}</button>
     {checking && <p role="status">Preparando archivo…</p>}
     {error && <p role="alert" className="cv2-error">{error}</p>}
   </div>;

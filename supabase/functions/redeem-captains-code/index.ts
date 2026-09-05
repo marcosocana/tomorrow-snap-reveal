@@ -250,6 +250,7 @@ serve(async (req) => {
     primary_color: "#f06a5f",
     secondary_color: "#2f292d",
     background_image_url: null,
+    experience_version: "v2",
   };
   let eventResult = await admin.from("captains_events").insert({ ...eventBase, ...eventOptional, slug, public_url: publicUrl, qr_url: qrImageUrl }).select("*").single();
   if (eventResult.error && Object.keys(eventOptional).some((key) => eventResult.error.message.includes(key))) {

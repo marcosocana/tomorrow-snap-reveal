@@ -26,8 +26,8 @@ import RedeemEvent from "./pages/RedeemEvent";
 import PaidEventSummary from "./pages/PaidEventSummary";
 import Register from "./pages/Register";
 import { CaptainsAdminDetail, CaptainsAdminForm, CaptainsAdminList, CaptainsOnboarding } from "./pages/CaptainsAdmin";
-import CaptainsPublic from "./pages/CaptainsPublic";
 import CaptainsDemoV2 from "./pages/CaptainsDemoV2";
+import CaptainsExperience from "./pages/CaptainsExperience";
 import LiveSlideshow from "./pages/LiveSlideshow";
 import TimeCapsule from "./pages/TimeCapsule";
 import OAuthConsent from "./pages/OAuthConsent";
@@ -203,13 +203,13 @@ const App = () => {
               <Route path="/admin/capitanes/:eventId/edit" element={<CaptainsAdminForm edit />} />
               <Route path="/capitanes/onboarding" element={<CaptainsOnboarding />} />
               <Route path="/capitanes/demo-capitanes-v2" element={<CaptainsDemoV2 />} />
-              <Route path="/capitanes/:eventSlug" element={<CaptainsPublic />} />
-              <Route path="/capitanes/:eventSlug/start" element={<CaptainsPublic />} />
-              <Route path="/capitanes/:eventSlug/play" element={<CaptainsPublic />} />
-              <Route path="/capitanes/:eventSlug/ranking" element={<CaptainsPublic />} />
-              <Route path="/capitanes/:eventSlug/final" element={<CaptainsPublic />} />
-              <Route path="/capitanes/:eventSlug/live" element={<CaptainsPublic />} />
-              <Route path="/capitanes/:eventSlug/resumen" element={<CaptainsPublic />} />
+              <Route path="/capitanes/:eventSlug" element={<CaptainsExperience />} />
+              <Route path="/capitanes/:eventSlug/start" element={<CaptainsExperience />} />
+              <Route path="/capitanes/:eventSlug/play" element={<CaptainsExperience />} />
+              <Route path="/capitanes/:eventSlug/ranking" element={<CaptainsExperience />} />
+              <Route path="/capitanes/:eventSlug/final" element={<CaptainsExperience />} />
+              <Route path="/capitanes/:eventSlug/live" element={<CaptainsExperience />} />
+              <Route path="/capitanes/:eventSlug/resumen" element={<CaptainsExperience />} />
               <Route path="/photostrip/:eventSlug" element={<PhotostripPublic />} />
               <Route path="/photostrip/:eventSlug/gallery" element={<PhotostripPublic />} />
               <Route path="/admin/photostrip/new" element={<PhotostripAdminForm />} />

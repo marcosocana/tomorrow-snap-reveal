@@ -83,7 +83,6 @@ import type {
 	  CaptainsRankingItem,
 	  CaptainsSpriteConfig,
   CaptainsSpriteStyle,
-  CaptainsThemeStyle,
   CaptainsTable,
   CaptainsTableChallenge,
 } from "@/lib/captainsTypes";
@@ -105,46 +104,6 @@ const readableTextColor = (background: string) => {
 const sanitizeCaptainPhotoName = (value: string) => value.toLowerCase().replace(/[^a-z0-9.-]+/g, "-").replace(/^-+|-+$/g, "") || "captain-photo";
 const isCaptainsEventFinished = (event: Pick<CaptainsEvent, "end_time">) =>
   Boolean(event.end_time && new Date(event.end_time).getTime() <= Date.now());
-
-const captainsThemeOptions: Array<{
-  value: CaptainsThemeStyle;
-  label: string;
-  description: string;
-  headingClass: string;
-  previewClass: string;
-}> = [
-  {
-    value: "pixel",
-    label: "Pixel art",
-    description: "Borde negro, estética arcade y tipografía pixelada.",
-    headingClass: "font-mono uppercase",
-    previewClass: "rounded-none border-2 border-black bg-white",
-  },
-  {
-    value: "romantic",
-    label: "Romántico",
-    description: "Tipografía cursiva, bordes suaves y una sensación más elegante.",
-    headingClass: "font-serif italic",
-    previewClass: "rounded-2xl border border-neutral-200 bg-white",
-  },
-  {
-    value: "modern",
-    label: "Moderno",
-    description: "Palo seco, peso fuerte tipo Arial Black y controles limpios.",
-    headingClass: "font-sans uppercase",
-    previewClass: "rounded-lg border-2 border-neutral-900 bg-neutral-50",
-  },
-  {
-    value: "classic",
-    label: "Clásico",
-    description: "Serif editorial, elegante y sobrio para celebraciones formales.",
-    headingClass: "font-serif",
-    previewClass: "rounded-xl border border-stone-300 bg-white",
-  },
-];
-
-const getCaptainsThemeOption = (value?: CaptainsThemeStyle | null) =>
-  captainsThemeOptions.find((option) => option.value === value) || captainsThemeOptions[0];
 
 const hairColorOptions = [
   { value: "blonde", label: "Rubio", color: "#e8c85b" },
@@ -1372,7 +1331,8 @@ export const CaptainsOnboarding = () => {
 	          contact_name: contactName.trim(),
 	          contact_email: contactEmail.trim(),
 	          contact_phone: contactPhone.trim(),
-	          status: "active" as const,
+          status: "active" as const,
+	          ...(!editingEventId ? { experience_version: "v2" as const } : {}),
 	        },
 	        tables,
 	        challenges: selectedChallenges,
@@ -1450,6 +1410,9 @@ export const CaptainsOnboarding = () => {
       case "intro":
         return (
           <div className="space-y-5">
+            {!editingEventId ? <div className={`rounded-2xl border border-[#f06a5f]/25 bg-[#f06a5f]/5 p-4 ${CAPTAINS_ONBOARDING_INFO_CLASS}`}>
+              Esta partida utilizará la nueva experiencia móvil de Capitanes. El nombre y el mensaje aparecerán en la pantalla inicial.
+            </div> : null}
             <label className="space-y-2">
               <span className="text-sm font-medium">Nombre del juego</span>
               <Input value={name} onChange={(event) => setName(event.target.value)} placeholder="Capitanes - Boda Ana y Marcos" className="h-12 rounded-full px-4 text-base" autoFocus />
@@ -2040,10 +2003,6 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
   const [endHour, setEndHour] = useState(defaultDateRange.endTime);
   const [scoringMode, setScoringMode] = useState<"automatic" | "manual">("automatic");
   const [showLiveGalleryAfterCompletion, setShowLiveGalleryAfterCompletion] = useState(true);
-  const [themeStyle, setThemeStyle] = useState<CaptainsThemeStyle>("pixel");
-  const [primaryColor, setPrimaryColor] = useState(DEFAULT_PRIMARY_COLOR);
-  const [secondaryColor, setSecondaryColor] = useState(DEFAULT_SECONDARY_COLOR);
-  const [backgroundImageUrl, setBackgroundImageUrl] = useState("");
   const [selectedChallenges, setSelectedChallenges] = useState<CaptainsChallengeInput[]>([]);
   const [selectedCatalogIds, setSelectedCatalogIds] = useState<string[]>([]);
   const [challengeLimitOpen, setChallengeLimitOpen] = useState(false);
@@ -2073,10 +2032,6 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
     setEndHour(endParts.time);
     setScoringMode(detail.event.scoring_mode);
     setShowLiveGalleryAfterCompletion(detail.event.show_live_gallery_after_completion ?? true);
-    setThemeStyle(detail.event.theme_style || "pixel");
-    setPrimaryColor(detail.event.primary_color || DEFAULT_PRIMARY_COLOR);
-    setSecondaryColor(detail.event.secondary_color || DEFAULT_SECONDARY_COLOR);
-    setBackgroundImageUrl(detail.event.background_image_url || "");
     setSelectedChallenges(
       detail.challenges.map((challenge) => ({
         id: challenge.id,
@@ -2313,7 +2268,7 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
         navigate(`/admin/capitanes/${eventId}`);
       } else {
         const created = await createCaptainsGame({
-          event: eventPayload,
+          event: { ...eventPayload, experience_version: "v2" },
           tables: captains,
           challenges: selectedChallenges,
         });
@@ -2354,81 +2309,9 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
               <span className="text-sm font-medium">Descripción inicial</span>
               <Textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={6} />
             </label>
-            {!edit ? <div className="grid gap-4 rounded-2xl border border-border bg-muted/20 p-4 md:col-span-2 md:grid-cols-2">
-              <div className="space-y-1 md:col-span-2">
-                <span className="text-sm font-medium">Estilo visual del juego mobile</span>
-                <p className="text-xs text-muted-foreground">
-                  Elige la personalidad visual de la experiencia pública: tipografías, bordes y tono de los controles.
-                </p>
-              </div>
-              <label className="space-y-1 md:col-span-2">
-                <span className="text-sm font-medium">Estilo</span>
-                <select
-                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                  value={themeStyle}
-                  onChange={(event) => setThemeStyle(event.target.value as CaptainsThemeStyle)}
-                >
-                  {captainsThemeOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <div className="grid gap-3 md:col-span-2 md:grid-cols-4">
-                {captainsThemeOptions.map((option) => {
-                  const selected = themeStyle === option.value;
-                  return (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => setThemeStyle(option.value)}
-                      className={`min-h-[122px] rounded-xl border p-3 text-left transition hover:border-primary hover:bg-primary/5 ${
-                        selected ? "border-primary bg-primary/10" : "border-border bg-card"
-                      }`}
-                    >
-                      <div className={`mb-2 p-3 text-lg font-black ${option.previewClass}`}>
-                        <span className={option.headingClass}>{option.label}</span>
-                      </div>
-                      <p className="text-xs font-medium text-foreground">{option.description}</p>
-                    </button>
-                  );
-                })}
-              </div>
-              <label className="space-y-1">
-                <span className="text-sm font-medium">Color principal de CTAs</span>
-                <div className="flex gap-2">
-                  <Input type="color" value={isHexColor(primaryColor) ? primaryColor : DEFAULT_PRIMARY_COLOR} onChange={(event) => setPrimaryColor(event.target.value)} className="h-10 w-14 p-1" />
-                  <Input value={primaryColor} onChange={(event) => setPrimaryColor(event.target.value)} placeholder={DEFAULT_PRIMARY_COLOR} />
-                </div>
-              </label>
-              <label className="space-y-1">
-                <span className="text-sm font-medium">Color secundario</span>
-                <div className="flex gap-2">
-                  <Input type="color" value={isHexColor(secondaryColor) ? secondaryColor : DEFAULT_SECONDARY_COLOR} onChange={(event) => setSecondaryColor(event.target.value)} className="h-10 w-14 p-1" />
-                  <Input value={secondaryColor} onChange={(event) => setSecondaryColor(event.target.value)} placeholder={DEFAULT_SECONDARY_COLOR} />
-                </div>
-              </label>
-              <div className="rounded-2xl border border-border bg-card p-4 shadow-sm md:col-span-2">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-normal text-muted-foreground">Vista previa</p>
-                    <p className="mt-1 text-sm font-semibold text-foreground">
-                      {getCaptainsThemeOption(themeStyle).label}: {getCaptainsThemeOption(themeStyle).description}
-                    </p>
-                  </div>
-                  <CaptainSpritePreview
-                    value={captains[0]?.captain_sprite || "suit"}
-                    config={captains[0]?.captain_sprite_config || defaultCaptainSpriteConfig(0)}
-                  />
-                </div>
-                <div
-                  className={`mt-4 inline-flex border px-4 py-2 text-sm font-bold text-white ${getCaptainsThemeOption(themeStyle).previewClass}`}
-                  style={{ backgroundColor: primaryColor }}
-                >
-                  Hacer foto
-                </div>
-              </div>
+            {!edit ? <div className="rounded-2xl border border-[#f06a5f]/25 bg-[#f06a5f]/5 p-4 md:col-span-2">
+              <p className="text-sm font-medium text-foreground">Nueva experiencia móvil de Capitanes</p>
+              <p className="mt-1 text-xs text-muted-foreground">Este evento usará automáticamente el diseño 3D de Capitanes. El nombre y la descripción serán la bienvenida que verán los invitados.</p>
             </div> : null}
             <label className="space-y-1">
               <span className="text-sm font-medium">Número de mesas</span>
