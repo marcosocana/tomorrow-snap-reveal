@@ -698,7 +698,10 @@ export const getCaptainsEvidenceThumbnailPath = (evidence: Pick<CaptainsEvidence
   // Thumbnails share the media directory and upload UUID. This convention
   // works on existing deployments without a captains_evidence.thumbnail_url column.
   const path = getCaptainsEvidenceStoragePath(evidence.file_url);
-  const match = path?.match(/^(.*\/)([\da-f]{8}-(?:[\da-f]{4}-){3}[\da-f]{12})-/i);
+  const match = path?.match(/^(.*\/)([\da-f]{8}-(?:[\da-f]{4}-){3}[\da-f]{12})-([^/]+)$/i);
+  // Photo thumbnails only exist for files created by the in-game camera.
+  // Older photos must use their original file without probing a missing object.
+  if (evidence.evidence_type === "photo" && !match?.[3].startsWith("capitanes-")) return null;
   return match ? `${match[1]}${match[2]}-thumbnail.jpg` : null;
 };
 

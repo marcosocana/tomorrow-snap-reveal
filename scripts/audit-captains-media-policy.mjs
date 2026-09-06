@@ -13,8 +13,9 @@ assert.match(capture, /width: \{ ideal: 1280 \}, height: \{ ideal: 720 \}/);
 assert.match(capture, /videoBitsPerSecond: VIDEO_BITS_PER_SECOND/);
 assert.match(capture, /PHOTO_MAX_DIMENSION = 1600/);
 assert.match(service, /let thumbnailPath = thumbnail/);
+assert.match(service, /evidence\.evidence_type === "photo" && !match\?\.\[3\]\.startsWith\("capitanes-"\)/);
 assert.match(admin, /<EvidencePreview evidence=\{item\} compact \/>/);
-assert.match(admin, /h-32 w-full rounded-xl bg-muted object-cover/);
+assert.match(admin, /h-32 w-full rounded-xl bg-\[#211d1e\] object-contain/);
 assert.doesNotMatch(admin, /<DeferredVideo/);
 assert.match(admin, /<video src=\{url\} controls playsInline preload="metadata"/);
 

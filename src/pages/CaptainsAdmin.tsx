@@ -2725,7 +2725,7 @@ const EvidencePreview = ({ evidence, compact = false }: { evidence: CaptainsEvid
   }
 
   if (compact) {
-    return <img src={url} alt={evidence.evidence_type === "video" ? "Miniatura del vídeo" : "Miniatura de la foto"} loading="lazy" onError={handleThumbnailError} className="h-32 w-full rounded-xl bg-muted object-cover" />;
+    return <img src={url} alt={evidence.evidence_type === "video" ? "Miniatura del vídeo" : "Miniatura de la foto"} loading="lazy" onError={handleThumbnailError} className="h-32 w-full rounded-xl bg-[#211d1e] object-contain" />;
   }
   if (evidence.evidence_type === "photo") {
     return <img src={url} alt="" className="max-h-[75vh] w-full rounded-md bg-black object-contain" />;
