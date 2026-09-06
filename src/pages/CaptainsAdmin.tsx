@@ -2872,7 +2872,9 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
   const { data: evidenceIndex = [] } = useQuery({
     queryKey: ["captains", "evidence-index", eventId],
     queryFn: () => getCaptainsEvidenceIndex(eventId || ""),
-    enabled: Boolean(eventId && activeDetailTab === "content"),
+    // The lightweight metadata index also feeds the header counters, so load
+    // it as soon as the event detail opens. Full media stays lazy per group.
+    enabled: Boolean(eventId),
     refetchInterval: activeDetailTab === "content" ? 5000 : false,
   });
 
