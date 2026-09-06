@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import JSZip from "jszip";
+import { downloadCaptainsContentFiles } from "@/lib/captainsContentDownload";
 import {
   ArrowLeft,
   Check,
@@ -56,6 +57,7 @@ import {
   createCaptainsGame,
   deleteCaptainsEvidence,
   getCaptainsEvidence,
+  getCaptainsEvidenceForDownload,
   getCaptainsEvidenceGroup,
   getCaptainsEvidenceIndex,
   getCaptainsEvidenceSignedUrl,
@@ -2833,6 +2835,8 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
 	  const [qrPreviewOpen, setQrPreviewOpen] = useState(false);
   const [deleteEventOpen, setDeleteEventOpen] = useState(false);
   const [isDownloadingAll, setIsDownloadingAll] = useState(false);
+  const [downloadAllProgress, setDownloadAllProgress] = useState("");
+  const downloadAllLock = useRef(false);
   const [activeDetailTab, setActiveDetailTab] = useState<CaptainsDetailTab>(
     view === "ranking" ? "tables" : view === "review" ? "content" : "general",
   );
@@ -3394,26 +3398,28 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
   const lastLiveEvidence = liveVisibleEvidence[0];
 
   const handleDownloadAllContent = async () => {
-    if (!evidenceIndex.length && answeredQuestionCount === 0) return;
+    if (downloadAllLock.current || (!evidenceIndex.length && answeredQuestionCount === 0)) return;
+    downloadAllLock.current = true;
     try {
       setIsDownloadingAll(true);
-      const allEvidence = await getCaptainsEvidence(event.id);
+      setDownloadAllProgress("Recopilando archivos…");
+      const allEvidence = await getCaptainsEvidenceForDownload(event.id);
       const zip = new JSZip();
       const sanitize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9_-]+/g, "-").replace(/^-+|-+$/g, "") || "contenido";
-      await Promise.all(allEvidence.filter((item) => item.file_url && item.evidence_type !== "question").map(async (item, index) => {
-        const table = tables.find((candidate) => candidate.id === item.table_id);
-        const tableChallenge = tableChallenges.find((candidate) => candidate.id === item.table_challenge_id);
-        const challenge = tableChallenge ? challengesById.get(tableChallenge.challenge_id) : undefined;
-        const signedUrl = await getCaptainsEvidenceSignedUrl(item.file_url);
-        const response = await fetch(signedUrl);
-        if (!response.ok) throw new Error("DOWNLOAD_FAILED");
-        const blob = await response.blob();
-        const rawExtension = item.file_url.split("?")[0].split(".").pop()?.toLowerCase();
-        const extension = rawExtension && /^[a-z0-9]{2,5}$/.test(rawExtension) ? rawExtension : item.evidence_type === "video" ? "mp4" : "jpg";
-        const time = new Date(item.created_at).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }).replace(/:/g, "-");
-        const folder = zip.folder(sanitize(challenge?.title || "Reto"));
-        folder?.file(`${sanitize(table?.table_name || "Mesa")}_${time}_${index + 1}.${extension}`, blob);
-      }));
+      await downloadCaptainsContentFiles(allEvidence.filter((item) => item.file_url && item.evidence_type !== "question"), {
+        getUrl: item => getCaptainsEvidenceSignedUrl(item.file_url),
+        onProgress: (completed, total) => setDownloadAllProgress(`Descargando ${completed} de ${total}…`),
+        onFile: (item, blob, index) => {
+          const table = tables.find((candidate) => candidate.id === item.table_id);
+          const tableChallenge = tableChallenges.find((candidate) => candidate.id === item.table_challenge_id);
+          const challenge = tableChallenge ? challengesById.get(tableChallenge.challenge_id) : undefined;
+          const rawExtension = item.file_url.split("?")[0].split(".").pop()?.toLowerCase();
+          const extension = rawExtension && /^[a-z0-9]{2,5}$/.test(rawExtension) ? rawExtension : item.evidence_type === "video" ? "mp4" : "jpg";
+          const time = new Date(item.created_at).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }).replace(/:/g, "-");
+          const folder = zip.folder(sanitize(challenge?.title || "Reto"));
+          folder?.file(`${sanitize(table?.table_name || "Mesa")}_${time}_${index + 1}.${extension}`, blob);
+        },
+      });
       const questionAnswers = tableChallenges.filter((row) => {
         const challenge = challengesById.get(row.challenge_id);
         return challenge?.evidence_type === "question" && Boolean(row.question_answer?.trim());
@@ -3439,18 +3445,26 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
           ...rows,
         ].join("\n"));
       }
-      const content = await zip.generateAsync({ type: "blob" });
+      setDownloadAllProgress("Preparando ZIP…");
+      const content = await zip.generateAsync({ type: "blob", streamFiles: true }, metadata => {
+        setDownloadAllProgress(`Preparando ZIP ${Math.round(metadata.percent)} %…`);
+      });
       const url = URL.createObjectURL(content);
       const anchor = document.createElement("a");
       anchor.href = url;
       anchor.download = `${event.slug}-contenido.zip`;
+      document.body.appendChild(anchor);
       anchor.click();
-      URL.revokeObjectURL(url);
+      anchor.remove();
+      // Give the browser time to hand the blob to its download manager.
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch (error) {
       console.error("Captains content ZIP error:", error);
-      toast({ title: "Error", description: "No hemos podido descargar todo el contenido.", variant: "destructive" });
+      toast({ title: "Descarga interrumpida", description: error instanceof Error ? error.message : "No hemos podido descargar todo el contenido. Vuelve a intentarlo.", variant: "destructive" });
     } finally {
+      downloadAllLock.current = false;
       setIsDownloadingAll(false);
+      setDownloadAllProgress("");
     }
   };
 
@@ -3724,7 +3738,7 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
               </div>
               <Button variant="outline" className="gap-2 rounded-full" onClick={handleDownloadAllContent} disabled={(!evidenceIndex.length && answeredQuestionCount === 0) || isDownloadingAll}>
                 {isDownloadingAll ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                {isDownloadingAll ? "Preparando ZIP..." : "Descargar todo"}
+                <span role={isDownloadingAll ? "status" : undefined}>{isDownloadingAll ? downloadAllProgress : "Descargar todo"}</span>
               </Button>
             </div>
             {contentGroups.length === 0 ? (

@@ -1233,6 +1233,23 @@ export const getCaptainsEvidenceIndex = async (eventId: string) => {
   return (data || []) as CaptainsEvidenceIndexItem[];
 };
 
+export const getCaptainsEvidenceForDownload = async (eventId: string) => {
+  const all: CaptainsEvidence[] = [];
+  const pageSize = 500;
+  const startedAt = new Date().toISOString();
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await pdb.from("captains_evidence")
+      .select("*").eq("event_id", eventId).neq("status", "deleted")
+      .lte("created_at", startedAt)
+      .order("created_at", { ascending: false }).order("id", { ascending: false })
+      .range(offset, offset + pageSize - 1);
+    ensureNoError(error);
+    const page = (data || []) as CaptainsEvidence[];
+    all.push(...page);
+    if (page.length < pageSize) return all;
+  }
+};
+
 export const getCaptainsEvidenceGroup = async (
   eventId: string,
   filter: { tableId?: string; tableChallengeIds?: string[] },
