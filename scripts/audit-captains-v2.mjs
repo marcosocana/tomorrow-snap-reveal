@@ -98,23 +98,30 @@ assert.equal(await evaluate(`document.querySelector('.cv2-active-quest .cv2-prim
 assert.equal(await evaluate(`document.body.innerText.includes('Hasta 20')`),false);
 await screenshot('first');
 await click('.cv2-active-quest .cv2-primary');await wait(`!!document.querySelector('.cv2-mission-screen')`);
+assert.equal(await evaluate(`document.querySelector('.cv2-mission-heading').textContent.trim()`),challenges[0].title);
+assert.equal(await evaluate(`document.querySelector('.cv2-mission-back').textContent.trim()`),'');
 await click('.cv2-mission-back');await wait(`!!document.querySelector('.cv2-active-quest')`);
 assert.equal(await evaluate(`document.querySelector('.cv2-active-quest .cv2-primary').textContent.trim()`),'Continuar reto');
 const attach=async kind=>{
  assert.equal(await evaluate(`document.querySelectorAll('.cv2-capture input[type=file]').length`),0);
  assert.equal(await evaluate(`document.querySelector('.cv2-mission-submit')===null`),true);
+ assert.equal(await evaluate(`getComputedStyle(document.querySelector('.cv2-camera-button')).backgroundColor`),'rgb(240, 106, 95)');
+ assert.equal(await evaluate(`innerHeight-document.querySelector('.cv2-camera-button').getBoundingClientRect().bottom<60`),true);
  await click('.cv2-camera-button');
  await wait(`!!document.querySelector('.cv2-capture-live') && !document.querySelector(${JSON.stringify(kind==='photo'?'.cv2-shutter':'.cv2-record')}).disabled`);
  assert.equal(await evaluate(`document.querySelector('[role=dialog]')===null`),true);
  assert.equal(await evaluate(`document.querySelector('.cv2-camera-controls [aria-label="Cerrar cámara"]')===null`),true);
+ assert.equal(await evaluate(`document.querySelector('.cv2-dialog-detail')===null`),true);
  await click(kind==='photo'?'.cv2-shutter':'.cv2-record');
  if(kind==='video'){await new Promise(r=>setTimeout(r,650));await click('.cv2-record');}
  await wait(`!!document.querySelector('.cv2-capture-preview') && !document.querySelector('.cv2-mission-submit').disabled`);
+ assert.equal(await evaluate(`!!document.querySelector('.cv2-dialog-detail')`),true);
 };
 for(let i=0;i<5;i++){
  await click('.cv2-active-quest .cv2-primary');await wait(`!!document.querySelector('.cv2-mission-screen')`);
  assert.equal(await evaluate(`document.querySelector('[role=dialog]')===null`),true);
  assert.equal(await evaluate(`!!document.querySelector('.cv2-mission-back svg')`),true);
+ assert.equal(await evaluate(`document.querySelector('.cv2-mission-heading').textContent.trim()`),challenges[i].title);
  assert.equal(await evaluate(`document.querySelector('.cv2-dialog-icon')===null`),true);
  if(i===1){assert.equal(await evaluate(`document.querySelectorAll('.cv2-answer-options button').length`),4);assert.equal(await evaluate(`document.querySelector('.cv2-mission-submit').disabled`),true);await click('.cv2-answer-options button:first-child');assert.equal(await evaluate(`document.querySelector('.cv2-mission-submit').textContent.trim()`),'Continuar');}else await attach(challenges[i].evidence_type);
  if(i===0){await screenshot('photo');rejectUpload=true;await click('.cv2-mission-submit');await wait(`!!document.querySelector('.cv2-mission-screen .cv2-error')`);assert.equal(rows.filter(r=>r.table_id===tables[1].id&&r.status==='completed').length,0);}

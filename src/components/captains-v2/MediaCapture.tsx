@@ -37,12 +37,13 @@ const canvasFile = (video: HTMLVideoElement, maxWidth: number, quality: number, 
   }, "image/jpeg", quality);
 });
 
-export default function MediaCapture({ kind, file, onChange, onThumbnailChange, onPreparingChange, disabled }: {
+export default function MediaCapture({ kind, file, onChange, onThumbnailChange, onPreparingChange, onCameraOpenChange, disabled }: {
   kind: "photo" | "video";
   file: File | null;
   onChange: (file: File | null) => void;
   onThumbnailChange?: (file: File | null) => void;
   onPreparingChange?: (preparing: boolean) => void;
+  onCameraOpenChange?: (open: boolean) => void;
   disabled: boolean;
 }) {
   const [previewUrl, setPreviewUrl] = useState("");
@@ -59,8 +60,10 @@ export default function MediaCapture({ kind, file, onChange, onThumbnailChange, 
   const intervalRef = useRef<number | null>(null);
   const stopTimeoutRef = useRef<number | null>(null);
   const preparingChangeRef = useRef(onPreparingChange);
+  const cameraOpenChangeRef = useRef(onCameraOpenChange);
   const mountedRef = useRef(true);
   preparingChangeRef.current = onPreparingChange;
+  cameraOpenChangeRef.current = onCameraOpenChange;
 
   const clearTimers = () => {
     if (intervalRef.current) window.clearInterval(intervalRef.current);
@@ -75,6 +78,7 @@ export default function MediaCapture({ kind, file, onChange, onThumbnailChange, 
     if (videoRef.current) videoRef.current.srcObject = null;
     setCameraOpen(false);
     setCameraReady(false);
+    if (mountedRef.current) cameraOpenChangeRef.current?.(false);
   };
 
   useEffect(() => {
@@ -118,6 +122,7 @@ export default function MediaCapture({ kind, file, onChange, onThumbnailChange, 
       });
       streamRef.current = stream;
       setCameraOpen(true);
+      cameraOpenChangeRef.current?.(true);
       setSecondsLeft(MAX_VIDEO_SECONDS);
     } catch {
       setError("Necesitamos permiso para usar la cámara y el micrófono.");
@@ -221,14 +226,14 @@ export default function MediaCapture({ kind, file, onChange, onThumbnailChange, 
     await openCamera(next);
   };
 
-  if (file && previewUrl) return <div className="cv2-capture">
+  if (file && previewUrl) return <div className="cv2-capture is-preview">
     {kind === "photo"
       ? <img className="cv2-capture-preview" src={previewUrl} alt="Foto que vas a enviar" />
       : <video className="cv2-capture-preview" src={previewUrl} controls playsInline preload="metadata" />}
     <button className="cv2-secondary cv2-camera-button" disabled={disabled} onClick={() => void openCamera()}><RotateCcw size={19} />Repetir</button>
   </div>;
 
-  return <div className="cv2-capture">
+  return <div className={`cv2-capture ${cameraOpen ? "is-live" : "is-idle"}`}>
     {cameraOpen ? <div className="cv2-camera-stage">
       <video ref={videoRef} className="cv2-capture-live" muted playsInline style={{ transform: facingMode === "user" ? "scaleX(-1)" : undefined }} />
       {kind === "video" && <span className={`cv2-recording-time ${recording ? "is-recording" : ""}`}>{recording ? `00:${String(MAX_VIDEO_SECONDS - secondsLeft).padStart(2, "0")} / 00:30` : "Máximo 30 s"}</span>}
@@ -239,7 +244,7 @@ export default function MediaCapture({ kind, file, onChange, onThumbnailChange, 
           : <button type="button" className={`cv2-record ${recording ? "is-recording" : ""}`} onClick={recording ? stopRecording : startRecording} disabled={!cameraReady} aria-label={recording ? "Detener grabación" : "Empezar grabación"}>{recording ? <Square size={20} /> : <Film size={23} />}</button>}
         <button type="button" onClick={() => void switchCamera()} disabled={recording} aria-label="Cambiar cámara"><SwitchCamera size={20} /></button>
       </div>
-    </div> : <button className="cv2-secondary cv2-camera-button" disabled={disabled} onClick={() => void openCamera()}>{kind === "photo" ? <Camera size={19} /> : <Film size={19} />}{kind === "photo" ? "Abrir cámara" : "Abrir cámara de vídeo"}</button>}
+    </div> : <button className="cv2-primary cv2-camera-button cv2-centered-action" disabled={disabled} onClick={() => void openCamera()}>{kind === "photo" ? <Camera size={19} /> : <Film size={19} />}{kind === "photo" ? "Abrir cámara" : "Abrir cámara de vídeo"}</button>}
     {error && <p role="alert" className="cv2-error">{error}</p>}
   </div>;
 }

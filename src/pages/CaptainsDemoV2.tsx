@@ -69,6 +69,7 @@ export default function CaptainsDemoV2({ eventSlug: requestedEventSlug }: { even
   const [file, setFile] = useState<File | null>(null);
   const [thumbnail, setThumbnail] = useState<File | null>(null);
   const [mediaPreparing, setMediaPreparing] = useState(false);
+  const [cameraActive, setCameraActive] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [galleryTable, setGalleryTable] = useState("mine");
   const [rejecting, setRejecting] = useState(false);
@@ -106,10 +107,10 @@ export default function CaptainsDemoV2({ eventSlug: requestedEventSlug }: { even
     const id = game.currentRow.id;
     const index = completed;
     if (!await game.start()) return;
-    setRowId(id); setMission(index); setCelebrating(false); setAnswer(null); setFile(null); setThumbnail(null); setMediaPreparing(false); setUploadProgress(0);
+    setRowId(id); setMission(index); setCelebrating(false); setAnswer(null); setFile(null); setThumbnail(null); setMediaPreparing(false); setCameraActive(false); setUploadProgress(0);
   };
   const closeMission = () => {
-    setMission(null); setRowId(null); setCelebrating(false); setAnswer(null); setFile(null); setThumbnail(null); setMediaPreparing(false); setUploadProgress(0);
+    setMission(null); setRowId(null); setCelebrating(false); setAnswer(null); setFile(null); setThumbnail(null); setMediaPreparing(false); setCameraActive(false); setUploadProgress(0);
     window.scrollTo({ top: 0, behavior: "instant" });
   };
   const completeMission = async () => {
@@ -132,7 +133,7 @@ export default function CaptainsDemoV2({ eventSlug: requestedEventSlug }: { even
   useEffect(() => {
     if (rowId && !game.busy && !celebrating && game.currentRow?.id !== rowId) setMission(null);
   }, [rowId, game.busy, game.currentRow?.id, celebrating]);
-  const leave = () => { game.leave(); setChoice(null); setView("quests"); setMission(null); setFile(null); setThumbnail(null); setMediaPreparing(false); };
+  const leave = () => { game.leave(); setChoice(null); setView("quests"); setMission(null); setFile(null); setThumbnail(null); setMediaPreparing(false); setCameraActive(false); };
   const navigate = (next: View) => { setView(next); window.scrollTo({ top: 0, behavior: "instant" }); };
   const openResultMedia = async (item: (typeof memories)[number], title: string) => {
     if (item.evidence_type !== "video") { setPreviewMedia({ url: item.url, type: "photo", title }); return; }
@@ -152,13 +153,11 @@ export default function CaptainsDemoV2({ eventSlug: requestedEventSlug }: { even
     <main className={`cv2-mobile-main ${!started ? "is-welcome" : ""} ${activeMission ? "is-mission" : ""}`}>
       {started && game.connectionError && <div className="cv2-connection-error" role="alert"><p>{game.connectionError}</p><button className="cv2-secondary" disabled={game.busy} onClick={() => void game.refresh()}>Volver a conectar <RotateCcw size={16} /></button></div>}
       {started && game.data && joined && activeMission ? <section className="cv2-mission-screen" aria-labelledby="cv2-mission-title">
-        <button className="cv2-mission-back" type="button" disabled={game.busy || mediaPreparing} onClick={closeMission}><ArrowLeft size={19} /> Atrás</button>
-        <span className="cv2-eyebrow">{team?.table_name} · RETO 0{mission! + 1}</span>
-        <h1 id="cv2-mission-title" className="cv2-mission-title">{celebrating ? result.correct ? "¡Respuesta correcta!" : "Respuesta incorrecta" : activeMission.title}</h1>
+        <div className="cv2-mission-heading"><button className="cv2-mission-back" type="button" aria-label="Volver a los retos" disabled={game.busy || mediaPreparing} onClick={closeMission}><ArrowLeft size={22} /></button><h1 id="cv2-mission-title" className="cv2-mission-title">{celebrating ? result.correct ? "¡Respuesta correcta!" : "Respuesta incorrecta" : activeMission.title}</h1></div>
         <p className="cv2-mission-description">{celebrating ? `${result.correct ? `Sumáis ${result.pointsAwarded} puntos.` : "Esta vez la respuesta no era correcta. No sumáis puntos."} ${finished ? "¡Habéis completado toda la aventura!" : "El siguiente reto ya os está esperando."}` : activeMission.description}</p>
         {celebrating ? <><div className="cv2-celebration-points">+{result.pointsAwarded}<span>puntos para vuestra mesa</span></div><button className="cv2-primary cv2-centered-action cv2-mission-submit" onClick={closeMission}>{finished ? "Ver nuestra victoria" : "Descubrir siguiente reto"}</button></> : <>
-          {isQuestion ? <div className="cv2-answer-options" role="group" aria-label="Elige una respuesta">{(activeMission.question_options ?? []).map(option => <button key={option} disabled={game.busy} onClick={() => { game.clearError(); setAnswer(option); }} aria-pressed={answer === option}>{option}{answer === option && <Check size={17} />}</button>)}</div> : <MediaCapture key={rowId} kind={activeMission.evidence_type === "photo" ? "photo" : "video"} file={file} onChange={value => { game.clearError(); setFile(value); }} onThumbnailChange={setThumbnail} onPreparingChange={setMediaPreparing} disabled={game.busy} />}
-          <div className="cv2-dialog-detail"><span>{activeMission.type}</span><strong>{activeMission.points} puntos</strong></div>
+          {isQuestion ? <div className="cv2-answer-options" role="group" aria-label="Elige una respuesta">{(activeMission.question_options ?? []).map(option => <button key={option} disabled={game.busy} onClick={() => { game.clearError(); setAnswer(option); }} aria-pressed={answer === option}>{option}{answer === option && <Check size={17} />}</button>)}</div> : <MediaCapture key={rowId} kind={activeMission.evidence_type === "photo" ? "photo" : "video"} file={file} onChange={value => { game.clearError(); setFile(value); }} onThumbnailChange={setThumbnail} onPreparingChange={setMediaPreparing} onCameraOpenChange={setCameraActive} disabled={game.busy} />}
+          {!cameraActive && <div className="cv2-dialog-detail"><span>{activeMission.type}</span><strong>{activeMission.points} puntos</strong></div>}
           {game.remaining !== null && <span className="cv2-timer" role="timer"><Clock3 size={15} /> {game.remaining} s restantes</span>}
           {game.error && <p className="cv2-error" role="alert">{game.error}</p>}
           {(isQuestion || file || game.busy) && <button className="cv2-primary cv2-centered-action cv2-mission-submit" aria-busy={game.busy || mediaPreparing} disabled={game.busy || mediaPreparing || !canSubmit || game.remaining === 0} onClick={completeMission}>{mediaPreparing ? `Preparando ${activeMission.evidence_type === "photo" ? "foto" : "vídeo"}…` : game.busy ? (isQuestion ? "Comprobando…" : `${activeMission.evidence_type === "photo" ? "Subiendo foto" : "Subiendo vídeo"}${uploadProgress > 0 ? ` · ${uploadProgress}%` : "…"}`) : isQuestion ? "Continuar" : activeMission.evidence_type === "photo" ? "Enviar foto" : "Enviar vídeo"}{(game.busy || mediaPreparing) && <Loader2 size={18} className="animate-spin" />}</button>}

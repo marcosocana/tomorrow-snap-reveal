@@ -1355,15 +1355,15 @@
 .cv2-answer-options button[aria-pressed=true] { background: #e9d6d4; border-color: #986e69; }
 .cv2-answer-options p { color: #956042; font-size: 12px; }
 .cv2-mobile-main.is-mission { min-height: 100dvh; padding-bottom: calc(28px + env(safe-area-inset-bottom)); }
-.cv2-mission-screen { min-height: calc(100dvh - 95px - env(safe-area-inset-top)); animation: cv2-mission-in .22s ease-out both; }
+.cv2-mission-screen { display: flex; flex-direction: column; min-height: calc(100dvh - 95px - env(safe-area-inset-top)); animation: cv2-mission-in .22s ease-out both; }
 @keyframes cv2-mission-in {
   from { opacity: 0; transform: translateX(10px); }
   to { opacity: 1; transform: translateX(0); }
 }
-.cv2-mission-back { display: inline-flex; align-items: center; gap: 7px; min-height: 44px; margin: -9px 0 13px -8px; padding: 8px; color: #6f5a5d; font-size: 13px; font-weight: 600; }
+.cv2-mission-heading { display: flex; align-items: center; gap: 10px; margin: -9px 0 8px -8px; }
+.cv2-mission-back { display: grid; flex: 0 0 44px; place-items: center; width: 44px; height: 44px; padding: 0; color: #6f5a5d; }
 .cv2-mission-back:disabled { opacity: .45; }
-.cv2-mission-screen > .cv2-eyebrow { display: block; margin-bottom: 9px; font-size: 9px; letter-spacing: 1px; }
-.cv2-mobile .cv2-mission-title { margin: 0; font-size: clamp(29px, 8vw, 38px); line-height: 1.08; letter-spacing: -1.25px; }
+.cv2-mobile .cv2-mission-title { min-width: 0; margin: 0; font-size: clamp(22px, 6.5vw, 31px); line-height: 1.08; letter-spacing: -.85px; overflow-wrap: anywhere; }
 .cv2-mission-description { margin: 11px 0 19px; color: #806d70; font-size: 14px; line-height: 1.65; }
 .cv2-mission-screen .cv2-answer-options { margin-top: 20px; }
 .cv2-mission-screen .cv2-capture { margin-top: 15px; }
@@ -1371,6 +1371,9 @@
 .cv2-mission-submit { margin-top: 16px; }
 .cv2-mission-screen .cv2-celebration-points { margin: 38px 0 30px; }
 .cv2-mission-screen .cv2-camera-stage { max-height: calc(100dvh - 235px - env(safe-area-inset-top)); }
+.cv2-mission-screen .cv2-capture.is-idle { order: 2; margin-top: auto; padding-top: 24px; }
+.cv2-mission-screen .cv2-capture.is-idle .cv2-camera-button { min-height: 52px; margin: 0; border: 0; border-radius: 14px; background: #f06a5f; color: #fff; font-size: 14px; font-weight: 600; }
+.cv2-mission-screen .cv2-capture.is-idle .cv2-camera-button:hover { background: #dc5a50; }
 @media (max-width: 360px) {
   .cv2-mobile-main { padding-left: 15px; padding-right: 15px; }
   .cv2-mobile h1 { font-size: 32px; }
