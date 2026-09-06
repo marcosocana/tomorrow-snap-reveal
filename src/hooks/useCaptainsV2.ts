@@ -37,6 +37,7 @@ export function useCaptainsV2(eventSlug = CAPTAINS_V2_SLUG) {
     try { setTableId(localStorage.getItem(sessionKey)); } catch { setTableId(null); }
   }, [sessionKey]);
   const data = query.data;
+  const eventEnded = Boolean(data && (["finished", "archived"].includes(data.event.status) || (data.event.end_time && Date.parse(data.event.end_time) <= Date.now())));
   const selected = data?.tables.findIndex(table => table.id === tableId) ?? -1;
   const rows = (data?.rows.filter(row => row.table_id === tableId) ?? []).sort((a, b) => a.randomized_order_index - b.randomized_order_index);
   const completed = rows.filter(isFinishedRow).length;
@@ -131,7 +132,7 @@ export function useCaptainsV2(eventSlug = CAPTAINS_V2_SLUG) {
 
   const gallery = useQuery({
     queryKey: ["captains-v2-gallery", data?.event.id],
-    enabled: Boolean(data && finished),
+    enabled: Boolean(data && (finished || eventEnded)),
     queryFn: async () => {
       const evidence = await getCaptainsEvidence(data!.event.id, "approved");
       return Promise.all(evidence.map(async item => {
@@ -146,7 +147,7 @@ export function useCaptainsV2(eventSlug = CAPTAINS_V2_SLUG) {
       }));
     },
     staleTime: 30000,
-    refetchInterval: finished ? 15000 : false,
+    refetchInterval: finished || eventEnded ? 15000 : false,
     refetchIntervalInBackground: false,
   });
   const leave = () => {
@@ -159,6 +160,7 @@ export function useCaptainsV2(eventSlug = CAPTAINS_V2_SLUG) {
     rows,
     completed,
     finished,
+    eventEnded,
     currentRow,
     remaining,
     busy,

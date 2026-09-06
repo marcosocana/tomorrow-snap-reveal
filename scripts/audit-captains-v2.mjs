@@ -6,11 +6,12 @@ const origin=process.env.CAPTAINS_V2_ORIGIN || 'http://127.0.0.1:5185';
 const debuggerOrigin=process.env.CAPTAINS_V2_CDP || 'http://127.0.0.1:9237';
 const eventSlug=process.env.CAPTAINS_V2_SLUG || 'demo-capitanes-v2';
 const experienceVersion=process.env.CAPTAINS_EXPERIENCE_VERSION || 'v2';
+const eventAlreadyEnded=process.env.CAPTAINS_EVENT_FINISHED==='1';
 const firstChallengeStatus=process.env.CAPTAINS_FIRST_CHALLENGE_PENDING==='1'?'pending':'ready';
 const thumbnailColumn=process.env.CAPTAINS_THUMBNAIL_COLUMN==='1';
 const eventId='de100000-0000-4000-8000-000000000001';
 const titles=['Brindis de mesa','Pregunta de pareja','Mensaje secreto','Aliados de otra mesa','Coreografía exprés'];
-const event={id:eventId,name:'Capitanes · Revelao',slug:eventSlug,status:'active',experience_version:experienceVersion,start_time:'2026-01-01T00:00:00Z',end_time:'2099-12-31T00:00:00Z'};
+const event={id:eventId,name:'Capitanes · Revelao',slug:eventSlug,status:eventAlreadyEnded?'finished':'active',experience_version:experienceVersion,start_time:'2026-01-01T00:00:00Z',end_time:eventAlreadyEnded?'2026-01-02T00:00:00Z':'2099-12-31T00:00:00Z'};
 const tables=['Jorge','Marta','Laura','Dani',null].map((name,i)=>({id:`db100000-0000-4000-8000-00000000000${i+1}`,event_id:eventId,table_name:`Mesa ${i+1}`,table_number:i+1,captain_name:name,captain_photo_url:i===0?`${origin}/favicon.png`:null,captain_sprite:i===0?'dress':'suit',captain_sprite_config:i===0?{sex:'female',hair_length:'long',hair_color:'brown',skin_color:'tan',outfit_type:'dress',dress_color:'#d32027',suit_color:'#1f2937',tie_color:'#ffffff'}:null,total_points:0,completed_challenges:0,failed_challenges:0,session_token:`test-session-${i}`}));
 const challenges=titles.map((title,i)=>({id:`dc100000-0000-4000-8000-00000000000${i+1}`,event_id:eventId,title,description:['Haced una foto de toda la mesa brindando por los novios.','¿Dónde fue la primera cita de la pareja?','Grabad un vídeo corto dedicando un mensaje sorpresa a los novios.','Haced una foto con alguien de otra mesa.','Grabad una coreografía con vuestra mesa.'][i],evidence_type:['photo','question','video','photo','video'][i],points:[20,15,25,15,20][i],has_time_limit:false,time_limit_seconds:null,question_options:i===1?['En un restaurante','En la playa','En un concierto','En casa de amigos']:null,question_correct_option:i===1?'En un restaurante':null,order_index:i+1}));
 const rows=tables.flatMap((t,ti)=>challenges.map((c,i)=>({id:`dd100000-0000-4000-8000-0000000000${ti}${i}`,event_id:eventId,table_id:t.id,challenge_id:c.id,randomized_order_index:i+1,status:i===0?firstChallengeStatus:'pending',points_awarded:0,started_at:null})));
@@ -66,6 +67,20 @@ if(experienceVersion==='legacy'){
  console.log('PASS: a legacy event keeps the original Capitanes experience.');
  process.exit(0);
 }
+if(eventAlreadyEnded){
+ await wait(`!!document.querySelector('.cv2-pick')`);
+ assert.equal(await evaluate(`document.querySelector('.cv2-welcome')===null`),true);
+ assert.equal(await evaluate(`document.querySelector('.cv2-intro h1').textContent.includes('Qué capitán')`),true);
+ await click('.cv2-pick:nth-child(2)');await click('.cv2-join-bar button');await wait(`!!document.querySelector('.cv2-finish-dialog')`);
+ assert.equal(await evaluate(`document.querySelector('.cv2-finish-dialog').textContent.includes('El juego ha terminado')`),true);
+ assert.equal(await evaluate(`document.querySelectorAll('.cv2-bottom-nav button').length`),2);
+ await screenshot('ended-finish');await click('.cv2-finish-dialog .cv2-primary');await wait(`!!document.querySelector('.cv2-mobile-ranking')`);await screenshot('ended-ranking');await click('.cv2-bottom-nav button:nth-child(2)');await wait(`document.querySelectorAll('.cv2-result-card').length===5`);
+ assert.equal(await evaluate(`document.querySelector('.cv2-bottom-nav').textContent.trim()`),'RankingRetos');
+ assert.equal(await evaluate(`document.querySelectorAll('.cv2-result-placeholder.is-pending').length`),5);
+ assert.equal(await evaluate(`document.body.innerText.includes('Aún no realizado')`),true);
+ assert.equal(await evaluate(`document.querySelector('.cv2-session-footer')===null`),true);
+ assert.deepEqual(exceptions,[]);console.log('PASS: a finished event skips welcome, asks for the captain, explains that the game ended and opens Ranking/Retos with pending results.');socket.close();process.exit(0);
+}
 await wait(`!!document.querySelector('.cv2-welcome')`);await wait(`document.querySelector('.cv2-welcome-art img')?.complete && document.querySelector('.cv2-welcome-art img')?.naturalWidth > 0`);assert.equal(await evaluate(`document.querySelector('.cv2-join-bar button').textContent.trim()`),'Empezar');
 assert.equal(await evaluate(`getComputedStyle(document.querySelector('.cv2-header')).position`),'fixed');
 assert.equal(await evaluate(`getComputedStyle(document.querySelector('.cv2-join-bar')).position`),'fixed');
@@ -77,7 +92,7 @@ assert.equal(await evaluate(`document.querySelector('.cv2-join-bar button svg')=
 assert.equal(await evaluate(`getComputedStyle(document.querySelector('#cv2-welcome-title')).textAlign`),'center');
 assert.equal(await evaluate(`getComputedStyle(document.querySelector('.cv2-welcome > p')).textAlign`),'left');
 await new Promise(r=>setTimeout(r,300));
-await screenshot('welcome');await click('.cv2-join-bar button');await wait(`!!document.querySelector('.cv2-pick') || !!document.querySelector('.cv2-player-strip')`);if(await evaluate(`!!document.querySelector('.cv2-player-strip')`))await click('.cv2-session-footer button');
+await screenshot('welcome');await click('.cv2-join-bar button');await wait(`!!document.querySelector('.cv2-pick') || !!document.querySelector('.cv2-player-strip')`);if(await evaluate(`!!document.querySelector('.cv2-player-strip')`)){await evaluate(`localStorage.removeItem(${JSON.stringify(`captains-v2-player:${eventSlug}`)})`);await send('Page.reload');await wait(`!!document.querySelector('.cv2-welcome')`);await click('.cv2-join-bar button');await wait(`!!document.querySelector('.cv2-pick')`);}
 assert.equal(await evaluate(`/demo|simula/i.test(document.body.innerText)`),false);
 assert.equal(await evaluate(`document.querySelector('.cv2-join-bar button').disabled`),true);
 assert.equal(await evaluate(`document.querySelector('.cv2-join-bar button').textContent.trim()`),'Continuar');
@@ -96,6 +111,7 @@ await screenshot('identity');assert.equal(await evaluate(`document.querySelector
 assert.equal(await evaluate(`document.querySelector('.cv2-bottom-nav').textContent.includes('Recuerdos')`),false);
 assert.equal(await evaluate(`document.querySelector('.cv2-active-quest .cv2-primary').querySelector('svg')===null`),true);
 assert.equal(await evaluate(`document.body.innerText.includes('Hasta 20')`),false);
+assert.equal(await evaluate(`document.querySelector('.cv2-session-footer')===null`),true);
 await screenshot('first');
 await click('.cv2-active-quest .cv2-primary');await wait(`!!document.querySelector('.cv2-mission-screen')`);
 assert.equal(await evaluate(`document.querySelector('.cv2-mission-heading').textContent.trim()`),challenges[0].title);
@@ -142,16 +158,29 @@ assert.equal(tables[1].total_points,95);assert.equal(evidence.length,4);assert.e
 await wait(`!!document.querySelector('.cv2-finish-dialog')`);
 await screenshot('finish');
 assert.equal(await evaluate(`document.querySelector('.cv2-finish-dialog').textContent.includes('¡Lo habéis dado todo!')`),true);
+assert.equal(await evaluate(`document.querySelector('.cv2-finish-dialog .cv2-primary').textContent.trim()`),'Ver ranking');
+assert.equal(await evaluate(`document.querySelector('.cv2-finish-dialog .cv2-secondary').textContent.trim()`),'Ver retos');
+assert.equal(await evaluate(`document.querySelector('.cv2-finish-dialog .cv2-primary').getBoundingClientRect().height===document.querySelector('.cv2-finish-dialog .cv2-secondary').getBoundingClientRect().height`),true);
+assert.equal(await evaluate(`getComputedStyle(document.querySelector('.cv2-finish-dialog .cv2-primary')).fontSize===getComputedStyle(document.querySelector('.cv2-finish-dialog .cv2-secondary')).fontSize`),true);
 assert.equal(await evaluate(`getComputedStyle(document.querySelector('.cv2-finish-dialog > button.absolute')).display`),'none');
 assert.equal(await evaluate(`getComputedStyle(document.querySelector('.cv2-finish-dialog .cv2-primary')).backgroundColor`),'rgb(240, 106, 95)');
 await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape'});await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape'});await new Promise(r=>setTimeout(r,150));
 assert.equal(await evaluate(`!!document.querySelector('.cv2-finish-dialog')`),true);
 assert.equal(await evaluate(`document.querySelectorAll('.cv2-bottom-nav button').length`),2);
-assert.equal(await evaluate(`document.querySelector('.cv2-bottom-nav').textContent.includes('Retos')`),false);
+assert.equal(await evaluate(`document.querySelector('.cv2-bottom-nav').textContent.includes('Retos')`),true);
 await click('.cv2-finish-dialog .cv2-primary');await wait(`!!document.querySelector('.cv2-mobile-ranking')`);
-assert.equal(await evaluate(`document.querySelector('.cv2-bottom-nav').textContent.includes('Resultados')`),true);
+await screenshot('ranking');
+assert.equal(await evaluate(`document.body.innerText.includes('CADA RETO CUENTA')`),false);
+assert.equal(await evaluate(`document.body.innerText.includes('¡La fiesta sigue!')`),false);
+assert.equal(await evaluate(`document.querySelector('.cv2-session-footer')===null`),true);
+assert.equal(await evaluate(`document.querySelector('.cv2-podium-team:first-child > .cv2-podium-step > svg')===null`),true);
+assert.equal(await evaluate(`!!document.querySelector('.cv2-podium-team:nth-child(2) > .cv2-winner-crown')`),true);
+assert.equal(await evaluate(`document.querySelector('.cv2-bottom-nav').textContent.includes('Retos')`),true);
 assert.equal(await evaluate(`document.querySelector('.cv2-bottom-nav').textContent.includes('Mesas')`),false);
 await click('.cv2-bottom-nav button:nth-child(2)');await wait(`document.querySelectorAll('.cv2-memory').length===5`);
+assert.equal(await evaluate(`document.querySelector('.cv2-mobile-memories .cv2-view-intro p').textContent.trim()`),'Revisa las fotos, vídeos y respuestas de cada mesa.');
+assert.equal(await evaluate(`document.querySelector('.cv2-result-card:nth-child(2)').textContent.includes('¿Dónde fue la primera cita de la pareja?')`),true);
+assert.equal(await evaluate(`document.querySelector('.cv2-result-card:nth-child(2)').textContent.includes('Opción marcada: En un restaurante')`),true);
 assert.equal(await evaluate(`document.querySelector('.cv2-gallery-filter select').value`),'mine');
 assert.equal(await evaluate(`Array.from(document.querySelectorAll('.cv2-gallery-filter option')).some(option=>option.textContent==='Todas las mesas')`),false);
 assert.equal(await evaluate(`document.querySelectorAll('.cv2-memory-media video').length`),0);
@@ -165,7 +194,7 @@ await send('Page.reload');await wait(`!!document.querySelector('.cv2-welcome')`)
 await wait(`!!document.querySelector('.cv2-finish-dialog')`);await click('.cv2-finish-dialog .cv2-secondary');await wait(`document.querySelectorAll('.cv2-memory').length===5`);
 assert.equal(await evaluate(`document.querySelectorAll('.cv2-video-placeholder').length`),1);
 assert.equal(await evaluate(`document.querySelectorAll('.cv2-memory-media img[alt^="Primer fotograma"]').length`),1);
-await click('.cv2-session-footer button');await click('.cv2-pick:nth-child(3)');await click('.cv2-join-bar button');await wait(`document.querySelector('.cv2-player-strip h1')?.textContent==='Mesa 3'`);
+await evaluate(`localStorage.removeItem(${JSON.stringify(`captains-v2-player:${eventSlug}`)})`);await send('Page.reload');await wait(`!!document.querySelector('.cv2-welcome')`);await click('.cv2-join-bar button');await wait(`!!document.querySelector('.cv2-pick')`);await click('.cv2-pick:nth-child(3)');await click('.cv2-join-bar button');await wait(`document.querySelector('.cv2-player-strip h1')?.textContent==='Mesa 3'`);
 assert.equal(await evaluate(`document.querySelector('.cv2-bottom-nav').textContent.includes('Resultados')`),false);
 await click('.cv2-bottom-nav button:nth-child(2)');assert.match(await evaluate(`document.querySelector('.cv2-mobile-ranks').textContent`),/Mesa 2.*95/);
 for(const width of [320,390,430,1440]){await send('Emulation.setDeviceMetricsOverride',{width,height:844,deviceScaleFactor:1,mobile:width<500});for(let tab=1;tab<=2;tab++){await click(`.cv2-bottom-nav button:nth-child(${tab})`);assert.equal(await evaluate(`document.documentElement.scrollWidth>innerWidth`),false);}}
@@ -193,7 +222,7 @@ for(const kind of ['photo','video']){
  await click('.cv2-active-quest .cv2-primary');await wait(`!!document.querySelector('.cv2-capture')`);await attach(kind);
  await click('.cv2-mission-submit');await wait(`!document.querySelector('.cv2-mission-screen')`);
 }
-assert.equal(await evaluate(`document.querySelector('.cv2-bottom-nav').textContent.includes('Resultados')`),true);
+assert.equal(await evaluate(`document.querySelector('.cv2-bottom-nav').textContent.includes('Retos')`),true);
 await wait(`!!document.querySelector('.cv2-finish-dialog')`);await click('.cv2-finish-dialog .cv2-secondary');await wait(`document.querySelectorAll('.cv2-result-card').length===4`);
 assert.equal(await evaluate(`document.body.innerText.includes('Mensaje secreto')`),false);
 assert.deepEqual(exceptions,[]);console.log('PASS with mocked backend: identity, in-game photo/video capture, reduced media previews, upload failure/retry, submissions without thumbnail_url column, optional missing poster, sequential completion, server score, reload persistence, shared table ranking, gallery only after finish, no demo text, 320–1440px, no JS exceptions.');socket.close();
