@@ -1386,6 +1386,15 @@
 .cv2-capture-preview { display: block; width: auto; max-width: 100%; height: 140px; margin: 0 auto; object-fit: contain; background: #2f292d; border-radius: 13px; }
 .cv2-capture .cv2-secondary { border: 1px solid #e9d6d0; background: #fff9f6; border-radius: 12px; }
 .cv2-capture .cv2-camera-button { color: #c5554b; }
+.cv2-camera-stage { position: relative; width: 100%; overflow: hidden; border-radius: 16px; background: #201c1d; aspect-ratio: 3 / 4; }
+.cv2-capture-live { display: block; width: 100%; height: 100%; object-fit: cover; }
+.cv2-recording-time { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); padding: 6px 10px; border-radius: 999px; background: #211d1dcc; color: #fff; font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cv2-recording-time.is-recording::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: #ff665d; box-shadow: 0 0 0 3px #ff665d33; }
+.cv2-camera-controls { position: absolute; right: 0; bottom: 0; left: 0; display: grid; grid-template-columns: 48px 68px 48px; align-items: center; justify-content: center; gap: 20px; padding: 15px; background: linear-gradient(transparent, #171314cf); }
+.cv2-camera-controls button { display: grid; place-items: center; width: 46px; height: 46px; border: 1px solid #ffffff66; border-radius: 50%; background: #231f20bb; color: #fff; }
+.cv2-camera-controls button:disabled { opacity: .4; }
+.cv2-camera-controls .cv2-shutter, .cv2-camera-controls .cv2-record { width: 64px; height: 64px; border: 4px solid #fff; background: #f06a5f; box-shadow: 0 4px 18px #0006; }
+.cv2-camera-controls .cv2-record.is-recording { background: #cf4138; }
 .cv2-error, .cv2-connection-error { color: #b64238; font-size: 13px; line-height: 1.6; }
 .cv2-connection-error { background: #ffeae5; padding: 15px; border-radius: 14px; margin-bottom: 20px; }
 .cv2-loading { padding: 50px 15px; text-align: center; }

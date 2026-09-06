@@ -694,8 +694,8 @@ export const getCaptainsEvidenceSignedUrl = async (filePath: string) => {
 
 export const getCaptainsEvidenceThumbnailPath = (evidence: Pick<CaptainsEvidence, "evidence_type" | "file_url" | "thumbnail_url">) => {
   if (evidence.thumbnail_url) return evidence.thumbnail_url;
-  if (evidence.evidence_type !== "video") return null;
-  // Thumbnails share the video's directory and upload UUID. This convention
+  if (evidence.evidence_type === "question") return null;
+  // Thumbnails share the media directory and upload UUID. This convention
   // works on existing deployments without a captains_evidence.thumbnail_url column.
   const path = getCaptainsEvidenceStoragePath(evidence.file_url);
   const match = path?.match(/^(.*\/)([\da-f]{8}-(?:[\da-f]{4}-){3}[\da-f]{12})-/i);
@@ -1327,7 +1327,7 @@ export const uploadCaptainsEvidence = async ({
   const fileId = crypto.randomUUID();
   const fileName = sanitizeCaptainsFileName(uploadFile.name || `${evidenceType}-${fileId}`);
   const filePath = `${eventId}/${tableId}/${tableChallengeId}/${fileId}-${fileName}`;
-  let thumbnailPath = evidenceType === "video" && thumbnail
+  let thumbnailPath = thumbnail
     ? `${eventId}/${tableId}/${tableChallengeId}/${fileId}-thumbnail.jpg`
     : null;
 

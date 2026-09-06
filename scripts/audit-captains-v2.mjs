@@ -7,7 +7,6 @@ const debuggerOrigin=process.env.CAPTAINS_V2_CDP || 'http://127.0.0.1:9237';
 const eventSlug=process.env.CAPTAINS_V2_SLUG || 'demo-capitanes-v2';
 const experienceVersion=process.env.CAPTAINS_EXPERIENCE_VERSION || 'v2';
 const firstChallengeStatus=process.env.CAPTAINS_FIRST_CHALLENGE_PENDING==='1'?'pending':'ready';
-const largeVideo=process.env.CAPTAINS_LARGE_VIDEO==='1';
 const thumbnailColumn=process.env.CAPTAINS_THUMBNAIL_COLUMN==='1';
 const eventId='de100000-0000-4000-8000-000000000001';
 const titles=['Brindis de mesa','Pregunta de pareja','Mensaje secreto','Aliados de otra mesa','Coreografía exprés'];
@@ -58,6 +57,7 @@ const click=async selector=>{await evaluate(`document.querySelector(${JSON.strin
 const screenshot=async name=>{const img=await send('Page.captureScreenshot',{format:'png'});fs.writeFileSync(`/tmp/captains-revelao-${name}.png`,Buffer.from(img.data,'base64'));};
 await send('Page.enable');await send('Runtime.enable');await send('Fetch.enable',{patterns:[{urlPattern:'*supabase.co/*'}]});
 await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
+await send('Page.addScriptToEvaluateOnNewDocument',{source:`Object.defineProperty(navigator,'mediaDevices',{configurable:true,value:{getUserMedia:async constraints=>{const canvas=document.createElement('canvas');canvas.width=640;canvas.height=480;const context=canvas.getContext('2d');context.fillStyle='#f06a5f';context.fillRect(0,0,640,480);const stream=canvas.captureStream(15);if(constraints.audio){const audio=new AudioContext();const oscillator=audio.createOscillator();const destination=audio.createMediaStreamDestination();oscillator.connect(destination);oscillator.start();stream.addTrack(destination.stream.getAudioTracks()[0]);}window.__captainsAuditCanvas=canvas;return stream;}}});`});
 await send('Page.navigate',{url:`${origin}/capitanes/${eventSlug}`});
 if(experienceVersion==='legacy'){
  await wait(`!!document.querySelector('.captains-public')`);
@@ -92,13 +92,11 @@ assert.equal(await evaluate(`document.querySelector('.cv2-active-quest .cv2-prim
 assert.equal(await evaluate(`document.body.innerText.includes('Hasta 20')`),false);
 await screenshot('first');
 const attach=async kind=>{
- await evaluate(`(async()=>{
- const canvas=document.createElement('canvas');canvas.width=120;canvas.height=120;const ctx=canvas.getContext('2d');ctx.fillStyle='#f06a5f';ctx.fillRect(0,0,120,120);
- let blob;
- if(${JSON.stringify(kind)}==='photo')blob=await new Promise(r=>canvas.toBlob(r,'image/png'));
- else{const stream=canvas.captureStream(10);const recorder=new MediaRecorder(stream,{mimeType:'video/webm'});const chunks=[];blob=await new Promise(r=>{recorder.ondataavailable=e=>chunks.push(e.data);recorder.onstop=()=>r(new Blob(chunks,{type:'video/webm'}));recorder.start();setTimeout(()=>{ctx.fillStyle='white';ctx.fillRect(0,0,30,30);},100);setTimeout(()=>recorder.stop(),600);});stream.getTracks().forEach(t=>t.stop());if(${largeVideo})blob=new Blob([blob,new Uint8Array(7*1024*1024)],{type:'video/webm'});}
- const input=document.querySelector('.cv2-capture input');const dt=new DataTransfer();dt.items.add(new File([blob],${JSON.stringify(kind)}==='photo'?'brindis.png':'mensaje.webm',{type:blob.type}));input.files=dt.files;input.dispatchEvent(new Event('change',{bubbles:true}));
- })()`);
+ assert.equal(await evaluate(`document.querySelectorAll('.cv2-capture input[type=file]').length`),0);
+ await click('.cv2-camera-button');
+ await wait(`!!document.querySelector('.cv2-capture-live') && !document.querySelector(${JSON.stringify(kind==='photo'?'.cv2-shutter':'.cv2-record')}).disabled`);
+ await click(kind==='photo'?'.cv2-shutter':'.cv2-record');
+ if(kind==='video'){await new Promise(r=>setTimeout(r,650));await click('.cv2-record');}
  await wait(`!!document.querySelector('.cv2-capture-preview') && !document.querySelector('.cv2-mobile-dialog .cv2-primary').disabled`);
 };
 for(let i=0;i<5;i++){
@@ -111,7 +109,7 @@ for(let i=0;i<5;i++){
  assert.equal(await evaluate(`(()=>{const items=[...document.querySelectorAll('.cv2-mission-path > div')];const done=items.findIndex(el=>el.classList.contains('cv2-done-quest'));return done<0||items.slice(done).every(el=>el.classList.contains('cv2-done-quest'));})()`),true);
  assert.equal(rows.filter(r=>r.table_id===tables[1].id&&r.status==='completed').length,i+1);
 }
-assert.equal(tables[1].total_points,95);assert.equal(evidence.length,4);assert.equal(uploads.length,6);
+assert.equal(tables[1].total_points,95);assert.equal(evidence.length,4);assert.equal(uploads.length,8);
 assert.equal(await evaluate(`document.querySelector('.cv2-bottom-nav').textContent.includes('Resultados')`),true);
 assert.equal(await evaluate(`document.querySelector('.cv2-bottom-nav').textContent.includes('Mesas')`),false);
 await click('.cv2-bottom-nav button:nth-child(3)');await wait(`document.querySelectorAll('.cv2-memory').length===5`);
@@ -122,7 +120,8 @@ assert.equal(await evaluate(`document.querySelectorAll('.cv2-memory-media img[al
 await click('.cv2-memory-caption button');await wait(`!!document.querySelector('.cv2-media-dialog')`);await screenshot('gallery-modal');
 await click('.cv2-media-dialog > button');await wait(`!document.querySelector('.cv2-media-dialog')`);await screenshot('gallery');
 // A video without its optional poster must not break the complete results gallery.
-uploads.splice(uploads.findIndex(path=>path.endsWith('-thumbnail.jpg')),1);
+const videoWithoutPoster=evidence.find(item=>item.evidence_type==='video');
+uploads.splice(uploads.findIndex(path=>path.includes(`/${videoWithoutPoster.table_challenge_id}/`)&&path.endsWith('-thumbnail.jpg')),1);
 await send('Page.reload');await wait(`!!document.querySelector('.cv2-welcome')`);await click('.cv2-join-bar button');await wait(`document.querySelector('.cv2-player-points strong')?.textContent==='95'`);
 await click('.cv2-bottom-nav button:nth-child(3)');await wait(`document.querySelectorAll('.cv2-memory').length===5`);
 assert.equal(await evaluate(`document.querySelectorAll('.cv2-video-placeholder').length`),1);
@@ -158,4 +157,4 @@ for(const kind of ['photo','video']){
 assert.equal(await evaluate(`document.querySelector('.cv2-bottom-nav').textContent.includes('Resultados')`),true);
 await click('.cv2-bottom-nav button:nth-child(3)');await wait(`document.querySelectorAll('.cv2-result-card').length===4`);
 assert.equal(await evaluate(`document.body.innerText.includes('Mensaje secreto')`),false);
-assert.deepEqual(exceptions,[]);console.log(`PASS with mocked backend: identity, real image/video file decoding and preview, ${largeVideo?'resumable large-video uploads, ':''}upload failure/retry, submissions without thumbnail_url column, optional missing poster, sequential completion, server score, reload persistence, shared table ranking, gallery only after finish, no demo text, 320–1440px, no JS exceptions.`);socket.close();
+assert.deepEqual(exceptions,[]);console.log('PASS with mocked backend: identity, in-game photo/video capture, reduced media previews, upload failure/retry, submissions without thumbnail_url column, optional missing poster, sequential completion, server score, reload persistence, shared table ranking, gallery only after finish, no demo text, 320–1440px, no JS exceptions.');socket.close();

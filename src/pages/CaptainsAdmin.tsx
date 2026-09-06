@@ -33,7 +33,6 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import DeferredVideo from "@/components/DeferredVideo";
 import DeferredImage from "@/components/DeferredImage";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -61,6 +60,7 @@ import {
   getCaptainsEvidenceGroup,
   getCaptainsEvidenceIndex,
   getCaptainsEvidenceSignedUrl,
+  getCaptainsEvidenceThumbnailPath,
   getCaptainsTableChallenges,
   rejectCaptainsEvidence,
   replaceCaptainsEventChallenges,
@@ -2679,30 +2679,59 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
   );
 };
 
-const EvidencePreview = ({ evidence }: { evidence: CaptainsEvidence }) => {
+const EvidencePreview = ({ evidence, compact = false }: { evidence: CaptainsEvidence; compact?: boolean }) => {
   const [url, setUrl] = useState("");
+  const [unavailable, setUnavailable] = useState(false);
+  const [usingFullPhoto, setUsingFullPhoto] = useState(false);
+  const thumbnailPath = compact ? getCaptainsEvidenceThumbnailPath(evidence) : null;
 
   useEffect(() => {
     let active = true;
-    getCaptainsEvidenceSignedUrl(evidence.file_url)
+    setUrl("");
+    setUnavailable(false);
+    setUsingFullPhoto(false);
+    const path = thumbnailPath || (evidence.evidence_type === "photo" ? evidence.file_url : compact ? "" : evidence.file_url);
+    if (!path) {
+      setUnavailable(true);
+      return () => { active = false; };
+    }
+    getCaptainsEvidenceSignedUrl(path)
       .then((signedUrl) => {
         if (active) setUrl(signedUrl);
       })
-      .catch(() => setUrl(""));
+      .catch(() => {
+        if (!active) return;
+        if (compact && evidence.evidence_type === "photo" && thumbnailPath) {
+          setUsingFullPhoto(true);
+          getCaptainsEvidenceSignedUrl(evidence.file_url).then(fallbackUrl => {
+            if (active) setUrl(fallbackUrl);
+          }).catch(() => { if (active) setUnavailable(true); });
+        } else setUnavailable(true);
+      });
     return () => {
       active = false;
     };
-  }, [evidence.file_url]);
+  }, [compact, evidence.evidence_type, evidence.file_url, thumbnailPath]);
 
-  if (!url) {
-    return <div className="flex aspect-video items-center justify-center rounded-md bg-muted text-xs text-muted-foreground">Preview</div>;
+  const handleThumbnailError = () => {
+    if (compact && evidence.evidence_type === "photo" && thumbnailPath && !usingFullPhoto) {
+      setUsingFullPhoto(true);
+      getCaptainsEvidenceSignedUrl(evidence.file_url).then(setUrl).catch(() => setUnavailable(true));
+    } else setUnavailable(true);
+  };
+
+  if (!url || unavailable) {
+    return <div className={compact ? "flex h-32 w-full items-center justify-center rounded-xl bg-muted text-xs text-muted-foreground" : "flex aspect-video items-center justify-center rounded-md bg-muted text-xs text-muted-foreground"}>{unavailable && evidence.evidence_type === "video" ? "Abrir vídeo" : "Cargando miniatura…"}</div>;
   }
 
+  if (compact) {
+    return <img src={url} alt={evidence.evidence_type === "video" ? "Miniatura del vídeo" : "Miniatura de la foto"} loading="lazy" onError={handleThumbnailError} className="h-32 w-full rounded-xl bg-muted object-cover" />;
+  }
   if (evidence.evidence_type === "photo") {
     return <img src={url} alt="" className="max-h-[75vh] w-full rounded-md bg-black object-contain" />;
   }
   if (evidence.evidence_type === "video") {
-    return <DeferredVideo source={url} controls playsInline className="max-h-[75vh] w-full rounded-md bg-black object-contain" />;
+    return <video src={url} controls playsInline preload="metadata" className="max-h-[75vh] w-full rounded-md bg-black object-contain" />;
   }
   return <div className="flex aspect-video items-center justify-center rounded-md bg-muted text-xs text-muted-foreground">Sin preview</div>;
 };
@@ -2929,7 +2958,7 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
         };
       })
       .filter((group) => group.count > 0);
-  }, [contentView, detail?.challenges, detail?.tables, evidenceIndex, tableChallenges]);
+  }, [challengesById, contentView, detail?.challenges, detail?.tables, evidenceIndex, tableChallenges]);
 
   const activeContentGroup = contentGroups.find((group) => group.id === openContentGroup);
   const activeQuestionAnswers = useMemo(() => {
@@ -3801,7 +3830,7 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
                     <Card key={item.id} className="space-y-3 rounded-2xl p-3 shadow-sm">
                       <div className="relative">
                         <button type="button" className="block w-full text-left" onClick={() => setSelectedEvidence(item)}>
-                          <EvidencePreview evidence={item} />
+                          <EvidencePreview evidence={item} compact />
                         </button>
                         <div className="absolute right-2 top-2 z-10 flex gap-1.5">
                           <Button variant="outline" size="icon" className="h-8 w-8 rounded-full shadow-sm hover:!bg-[var(--admin-demo2-accent-soft)] hover:!text-foreground" onClick={() => openEvidenceEditor(item)} aria-label="Editar evidencia" title="Editar evidencia">

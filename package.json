@@ -10,6 +10,7 @@
     "lint": "eslint .",
     "test:captains": "node scripts/audit-captains-public.mjs",
     "test:captains:v2": "node scripts/audit-captains-v2.mjs",
+    "test:captains:media": "node scripts/audit-captains-media-policy.mjs",
     "test:captains:remote": "node scripts/audit-captains-public.mjs --remote",
     "test:demo-credentials": "node scripts/audit-demo-event-credentials.mjs",
     "test:gifts": "node scripts/audit-revelao-gifts.mjs",
