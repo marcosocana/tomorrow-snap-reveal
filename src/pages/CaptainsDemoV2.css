@@ -1287,6 +1287,11 @@
 .cv2-mobile-progress strong { font-weight: 550; color: #594240; }
 .cv2-mobile-progress .cv2-progress span { height: 6px; }
 .cv2-active-quest { border: 1px solid #dcc4c1; background: radial-gradient(ellipse at 50% 30%, #f9f0ef 0, transparent 60%), #ecdbd9; border-radius: 24px; padding: 22px; }
+.cv2-quest-enter { animation: cv2-quest-reveal .3s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes cv2-quest-reveal {
+  from { opacity: 0; transform: translateY(10px) scale(.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
 .cv2-active-quest .cv2-eyebrow { font-size: 8px; letter-spacing: 1px; }
 .cv2-active-quest .cv2-points { font-size: 12px; padding: 7px 9px; }
 .cv2-quest-object { position: relative; width: 108px; height: 108px; display: grid; place-items: center; margin: 28px auto; border-radius: 30px; color: #895853; background: linear-gradient(135deg, #fbf4f3, #ddbab6); box-shadow: 6px 9px 0 #c8a29e, 12px 20px 25px #90605b20, inset 2px 2px 3px #fff; transform: rotate(-9deg); }
@@ -1349,6 +1354,23 @@
 .cv2-answer-options button { display: flex; align-items: center; justify-content: space-between; text-align: left; min-height: 49px; border: 1px solid #d9c2c0; border-radius: 12px; padding: 12px 14px; font-size: 14px; }
 .cv2-answer-options button[aria-pressed=true] { background: #e9d6d4; border-color: #986e69; }
 .cv2-answer-options p { color: #956042; font-size: 12px; }
+.cv2-mobile-main.is-mission { min-height: 100dvh; padding-bottom: calc(28px + env(safe-area-inset-bottom)); }
+.cv2-mission-screen { min-height: calc(100dvh - 95px - env(safe-area-inset-top)); animation: cv2-mission-in .22s ease-out both; }
+@keyframes cv2-mission-in {
+  from { opacity: 0; transform: translateX(10px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.cv2-mission-back { display: inline-flex; align-items: center; gap: 7px; min-height: 44px; margin: -9px 0 13px -8px; padding: 8px; color: #6f5a5d; font-size: 13px; font-weight: 600; }
+.cv2-mission-back:disabled { opacity: .45; }
+.cv2-mission-screen > .cv2-eyebrow { display: block; margin-bottom: 9px; font-size: 9px; letter-spacing: 1px; }
+.cv2-mobile .cv2-mission-title { margin: 0; font-size: clamp(29px, 8vw, 38px); line-height: 1.08; letter-spacing: -1.25px; }
+.cv2-mission-description { margin: 11px 0 19px; color: #806d70; font-size: 14px; line-height: 1.65; }
+.cv2-mission-screen .cv2-answer-options { margin-top: 20px; }
+.cv2-mission-screen .cv2-capture { margin-top: 15px; }
+.cv2-mission-screen .cv2-dialog-detail { margin-top: 18px; }
+.cv2-mission-submit { margin-top: 16px; }
+.cv2-mission-screen .cv2-celebration-points { margin: 38px 0 30px; }
+.cv2-mission-screen .cv2-camera-stage { max-height: calc(100dvh - 235px - env(safe-area-inset-top)); }
 @media (max-width: 360px) {
   .cv2-mobile-main { padding-left: 15px; padding-right: 15px; }
   .cv2-mobile h1 { font-size: 32px; }
@@ -1392,6 +1414,7 @@
 .cv2-recording-time.is-recording::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: #ff665d; box-shadow: 0 0 0 3px #ff665d33; }
 .cv2-camera-controls { position: absolute; right: 0; bottom: 0; left: 0; display: grid; grid-template-columns: 48px 68px 48px; align-items: center; justify-content: center; gap: 20px; padding: 15px; background: linear-gradient(transparent, #171314cf); }
 .cv2-camera-controls button { display: grid; place-items: center; width: 46px; height: 46px; border: 1px solid #ffffff66; border-radius: 50%; background: #231f20bb; color: #fff; }
+.cv2-camera-control-spacer { display: block; width: 46px; height: 46px; }
 .cv2-camera-controls button:disabled { opacity: .4; }
 .cv2-camera-controls .cv2-shutter, .cv2-camera-controls .cv2-record { width: 64px; height: 64px; border: 4px solid #fff; background: #f06a5f; box-shadow: 0 4px 18px #0006; }
 .cv2-camera-controls .cv2-record.is-recording { background: #cf4138; }
@@ -1419,12 +1442,12 @@
 .cv2 button:focus-visible, .cv2 a:focus-visible { outline-color: #f06a5f; }
 
 /* QR entry and photo heads keep the body and labels in distinct layout areas. */
-.cv2-welcome { text-align: center; padding: 4px 8px 14px; }
-.cv2-welcome h1 { font-size: clamp(27px, 7.2vw, 36px); line-height: 1.14; margin: 8px 0 10px; }
-.cv2-welcome > p { max-width: 370px; margin: 7px auto; font-size: 14px; line-height: 1.55; color: #837578; }
-.cv2-welcome-art { position: relative; height: clamp(116px, 19dvh, 145px); display: grid; place-items: center; }
-.cv2-welcome-art .cv2-quest-object { width: 96px; height: 96px; margin: 0; }
-.cv2-welcome-orbit { position: absolute; width: 220px; height: 115px; border: 1px dashed #e4cbc4; border-radius: 50%; transform: rotate(-20deg); }
+.cv2-welcome { text-align: center; padding: 0 8px 14px; }
+.cv2-welcome h1 { font-size: clamp(27px, 7.2vw, 36px); line-height: 1.14; margin: 5px 0 10px; text-align: center; }
+.cv2-welcome > p { max-width: 370px; margin: 7px auto; font-size: 14px; line-height: 1.55; color: #837578; text-align: left; }
+.cv2-welcome-art { position: relative; height: clamp(210px, 32dvh, 285px); display: grid; place-items: end center; overflow: hidden; }
+.cv2-welcome-art img { position: absolute; z-index: 1; inset: 0; display: block; width: 100%; height: 100%; object-fit: contain; object-position: center bottom; filter: drop-shadow(0 16px 17px rgba(76, 47, 48, .16)); }
+.cv2-welcome-glow { position: absolute; left: 50%; bottom: 4%; width: min(78vw, 330px); aspect-ratio: 1; border-radius: 50%; transform: translateX(-50%); background: radial-gradient(circle, rgba(255, 241, 77, .32) 0 32%, rgba(240, 106, 95, .13) 55%, transparent 72%); }
 .cv2-mobile .cv2-pick { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; min-width: 0; padding: 14px 10px 17px; }
 .cv2-mobile .cv2-pick.is-selected { padding: 13px 9px 16px; }
 .cv2-mobile .cv2-pick-stage { flex: 0 0 148px; width: 120px; height: 148px; margin: 0; transform: scale(.88); transform-origin: center top; }

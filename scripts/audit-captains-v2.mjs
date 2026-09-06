@@ -66,12 +66,17 @@ if(experienceVersion==='legacy'){
  console.log('PASS: a legacy event keeps the original Capitanes experience.');
  process.exit(0);
 }
-await wait(`!!document.querySelector('.cv2-welcome')`);assert.equal(await evaluate(`document.querySelector('.cv2-join-bar button').textContent.trim()`),'Empezar');
+await wait(`!!document.querySelector('.cv2-welcome')`);await wait(`document.querySelector('.cv2-welcome-art img')?.complete && document.querySelector('.cv2-welcome-art img')?.naturalWidth > 0`);assert.equal(await evaluate(`document.querySelector('.cv2-join-bar button').textContent.trim()`),'Empezar');
 assert.equal(await evaluate(`getComputedStyle(document.querySelector('.cv2-header')).position`),'fixed');
 assert.equal(await evaluate(`getComputedStyle(document.querySelector('.cv2-join-bar')).position`),'fixed');
 assert.equal(await evaluate(`document.documentElement.scrollWidth>innerWidth`),false);
 assert.equal(await evaluate(`document.documentElement.scrollHeight>innerHeight`),false);
-assert.equal(await evaluate(`document.querySelectorAll('.cv2-armband path').length>=5`),true);
+assert.equal(await evaluate(`!!document.querySelector('.cv2-welcome-art img[src*="welcome-captain-v3"]')`),true);
+assert.deepEqual(await evaluate(`(()=>{const image=document.querySelector('.cv2-welcome-art img');return [image.naturalWidth,image.naturalHeight]})()`),[1070,1470]);
+assert.equal(await evaluate(`document.querySelector('.cv2-join-bar button svg')===null`),true);
+assert.equal(await evaluate(`getComputedStyle(document.querySelector('#cv2-welcome-title')).textAlign`),'center');
+assert.equal(await evaluate(`getComputedStyle(document.querySelector('.cv2-welcome > p')).textAlign`),'left');
+await new Promise(r=>setTimeout(r,300));
 await screenshot('welcome');await click('.cv2-join-bar button');await wait(`!!document.querySelector('.cv2-pick') || !!document.querySelector('.cv2-player-strip')`);if(await evaluate(`!!document.querySelector('.cv2-player-strip')`))await click('.cv2-session-footer button');
 assert.equal(await evaluate(`/demo|simula/i.test(document.body.innerText)`),false);
 assert.equal(await evaluate(`document.querySelector('.cv2-join-bar button').disabled`),true);
@@ -81,6 +86,7 @@ assert.equal(await evaluate(`document.body.textContent.includes('AQUÍ EMPIEZA V
 assert.equal(await evaluate(`document.querySelector('.cv2-photo-head img').getAttribute('src')`),`${origin}/favicon.png`);
 assert.equal(await evaluate(`getComputedStyle(document.querySelector('.cv2-pick:first-child')).getPropertyValue('--outfit').trim()`),'#d32027');
 assert.equal(await evaluate(`document.querySelector('.cv2-pick:first-child .cv2-captain').classList.contains('is-dress')`),true);
+assert.equal(await evaluate(`document.querySelectorAll('.cv2-pick').length % 2 === 0 || !!document.querySelector('.cv2-pick-message')`),true);
 for(const width of [320,390,430]){
  await send('Emulation.setDeviceMetricsOverride',{width,height:844,deviceScaleFactor:1,mobile:true});
  assert.equal(await evaluate(`Array.from(document.querySelectorAll('.cv2-pick')).every(card=>card.querySelector('.cv2-pick-label').getBoundingClientRect().top>card.querySelector('.cv2-captain').getBoundingClientRect().bottom)`),true);
@@ -91,21 +97,31 @@ assert.equal(await evaluate(`document.querySelector('.cv2-bottom-nav').textConte
 assert.equal(await evaluate(`document.querySelector('.cv2-active-quest .cv2-primary').querySelector('svg')===null`),true);
 assert.equal(await evaluate(`document.body.innerText.includes('Hasta 20')`),false);
 await screenshot('first');
+await click('.cv2-active-quest .cv2-primary');await wait(`!!document.querySelector('.cv2-mission-screen')`);
+await click('.cv2-mission-back');await wait(`!!document.querySelector('.cv2-active-quest')`);
+assert.equal(await evaluate(`document.querySelector('.cv2-active-quest .cv2-primary').textContent.trim()`),'Continuar reto');
 const attach=async kind=>{
  assert.equal(await evaluate(`document.querySelectorAll('.cv2-capture input[type=file]').length`),0);
+ assert.equal(await evaluate(`document.querySelector('.cv2-mission-submit')===null`),true);
  await click('.cv2-camera-button');
  await wait(`!!document.querySelector('.cv2-capture-live') && !document.querySelector(${JSON.stringify(kind==='photo'?'.cv2-shutter':'.cv2-record')}).disabled`);
+ assert.equal(await evaluate(`document.querySelector('[role=dialog]')===null`),true);
+ assert.equal(await evaluate(`document.querySelector('.cv2-camera-controls [aria-label="Cerrar cámara"]')===null`),true);
  await click(kind==='photo'?'.cv2-shutter':'.cv2-record');
  if(kind==='video'){await new Promise(r=>setTimeout(r,650));await click('.cv2-record');}
- await wait(`!!document.querySelector('.cv2-capture-preview') && !document.querySelector('.cv2-mobile-dialog .cv2-primary').disabled`);
+ await wait(`!!document.querySelector('.cv2-capture-preview') && !document.querySelector('.cv2-mission-submit').disabled`);
 };
 for(let i=0;i<5;i++){
- await click('.cv2-active-quest .cv2-primary');await wait(`!!document.querySelector('.cv2-mobile-dialog .cv2-primary')`);
- assert.equal(await evaluate(`document.querySelector('.cv2-mobile-dialog .cv2-primary').disabled`),true);
- if(i===1){assert.equal(await evaluate(`document.querySelectorAll('.cv2-answer-options button').length`),4);await click('.cv2-answer-options button:first-child');assert.equal(await evaluate(`document.querySelector('.cv2-mobile-dialog .cv2-primary').textContent.trim()`),'Continuar');}else await attach(challenges[i].evidence_type);
- if(i===0){await screenshot('photo');rejectUpload=true;await click('.cv2-mobile-dialog .cv2-primary');await wait(`!!document.querySelector('.cv2-mobile-dialog .cv2-error')`);assert.equal(rows.filter(r=>r.table_id===tables[1].id&&r.status==='completed').length,0);}
- await click('.cv2-mobile-dialog .cv2-primary');await wait(`!!document.querySelector('.cv2-celebration-points')`);
- await click('.cv2-mobile-dialog .cv2-primary');await wait(`!document.querySelector('[role=dialog]')`);
+ await click('.cv2-active-quest .cv2-primary');await wait(`!!document.querySelector('.cv2-mission-screen')`);
+ assert.equal(await evaluate(`document.querySelector('[role=dialog]')===null`),true);
+ assert.equal(await evaluate(`!!document.querySelector('.cv2-mission-back svg')`),true);
+ assert.equal(await evaluate(`document.querySelector('.cv2-dialog-icon')===null`),true);
+ if(i===1){assert.equal(await evaluate(`document.querySelectorAll('.cv2-answer-options button').length`),4);assert.equal(await evaluate(`document.querySelector('.cv2-mission-submit').disabled`),true);await click('.cv2-answer-options button:first-child');assert.equal(await evaluate(`document.querySelector('.cv2-mission-submit').textContent.trim()`),'Continuar');}else await attach(challenges[i].evidence_type);
+ if(i===0){await screenshot('photo');rejectUpload=true;await click('.cv2-mission-submit');await wait(`!!document.querySelector('.cv2-mission-screen .cv2-error')`);assert.equal(rows.filter(r=>r.table_id===tables[1].id&&r.status==='completed').length,0);}
+ await click('.cv2-mission-submit');
+ if(i===1){await wait(`!!document.querySelector('.cv2-celebration-points')`);await click('.cv2-mission-submit');}
+ await wait(`!document.querySelector('.cv2-mission-screen')`);
+ if(i<4)assert.equal(await evaluate(`!!document.querySelector('.cv2-active-quest.cv2-quest-enter')`),true);
  assert.equal(await evaluate(`(()=>{const items=[...document.querySelectorAll('.cv2-mission-path > div')];const done=items.findIndex(el=>el.classList.contains('cv2-done-quest'));return done<0||items.slice(done).every(el=>el.classList.contains('cv2-done-quest'));})()`),true);
  assert.equal(rows.filter(r=>r.table_id===tables[1].id&&r.status==='completed').length,i+1);
 }
@@ -133,17 +149,17 @@ for(const width of [320,390,430,1440]){await send('Emulation.setDeviceMetricsOve
 // A wrong answer is only revealed after submission and never adds points.
 await click('.cv2-bottom-nav button:first-child');
 await click('.cv2-active-quest .cv2-primary');await wait(`!!document.querySelector('.cv2-capture')`);await attach('photo');
-await click('.cv2-mobile-dialog .cv2-primary');await wait(`!!document.querySelector('.cv2-celebration-points')`);await click('.cv2-mobile-dialog .cv2-primary');
+await click('.cv2-mission-submit');await wait(`!document.querySelector('.cv2-mission-screen')`);
 await click('.cv2-active-quest .cv2-primary');await wait(`!!document.querySelector('.cv2-answer-options')`);
 await click('.cv2-answer-options button:nth-child(2)');
-assert.equal(await evaluate(`document.querySelector('.cv2-dialog-title').textContent`),'Pregunta de pareja');
-assert.equal(await evaluate(`document.querySelector('.cv2-mobile-dialog .cv2-primary').disabled`),false);
-await click('.cv2-mobile-dialog .cv2-primary');await wait(`!!document.querySelector('.cv2-celebration-points')`);
-assert.equal(await evaluate(`document.querySelector('.cv2-dialog-title').textContent`),'Respuesta incorrecta');
+assert.equal(await evaluate(`document.querySelector('.cv2-mission-title').textContent`),'Pregunta de pareja');
+assert.equal(await evaluate(`document.querySelector('.cv2-mission-submit').disabled`),false);
+await click('.cv2-mission-submit');await wait(`!!document.querySelector('.cv2-celebration-points')`);
+assert.equal(await evaluate(`document.querySelector('.cv2-mission-title').textContent`),'Respuesta incorrecta');
 assert.equal(tables[2].total_points,20);
 assert.equal(rows.find(row=>row.table_id===tables[2].id&&row.challenge_id===challenges[1].id).status,'failed');
 await screenshot('wrong-answer');
-await click('.cv2-mobile-dialog .cv2-primary');await wait(`!document.querySelector('[role=dialog]')`);
+await click('.cv2-mission-submit');await wait(`!document.querySelector('.cv2-mission-screen')`);
 // Rejecting requires confirmation, awards zero and unlocks the following challenge.
 await click('.cv2-reject-button');await wait(`!!document.querySelector('.cv2-confirm-dialog')`);
 assert.equal(rows.find(row=>row.table_id===tables[2].id&&row.challenge_id===challenges[2].id).status,'ready');
@@ -152,7 +168,7 @@ assert.equal(rows.find(row=>row.table_id===tables[2].id&&row.challenge_id===chal
 assert.equal(tables[2].total_points,20);
 for(const kind of ['photo','video']){
  await click('.cv2-active-quest .cv2-primary');await wait(`!!document.querySelector('.cv2-capture')`);await attach(kind);
- await click('.cv2-mobile-dialog .cv2-primary');await wait(`!!document.querySelector('.cv2-celebration-points')`);await click('.cv2-mobile-dialog .cv2-primary');await wait(`!document.querySelector('[role=dialog]')`);
+ await click('.cv2-mission-submit');await wait(`!document.querySelector('.cv2-mission-screen')`);
 }
 assert.equal(await evaluate(`document.querySelector('.cv2-bottom-nav').textContent.includes('Resultados')`),true);
 await click('.cv2-bottom-nav button:nth-child(3)');await wait(`document.querySelectorAll('.cv2-result-card').length===4`);

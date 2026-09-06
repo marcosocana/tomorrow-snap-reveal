@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Camera, Film, RotateCcw, Square, SwitchCamera, X } from "lucide-react";
+import { Camera, Film, RotateCcw, Square, SwitchCamera } from "lucide-react";
 
 const MAX_VIDEO_SECONDS = 30;
 const MAX_VIDEO_BYTES = 25 * 1024 * 1024;
@@ -233,7 +233,7 @@ export default function MediaCapture({ kind, file, onChange, onThumbnailChange, 
       <video ref={videoRef} className="cv2-capture-live" muted playsInline style={{ transform: facingMode === "user" ? "scaleX(-1)" : undefined }} />
       {kind === "video" && <span className={`cv2-recording-time ${recording ? "is-recording" : ""}`}>{recording ? `00:${String(MAX_VIDEO_SECONDS - secondsLeft).padStart(2, "0")} / 00:30` : "Máximo 30 s"}</span>}
       <div className="cv2-camera-controls">
-        <button type="button" onClick={stopStream} disabled={recording} aria-label="Cerrar cámara"><X size={20} /></button>
+        <span className="cv2-camera-control-spacer" aria-hidden="true" />
         {kind === "photo"
           ? <button type="button" className="cv2-shutter" onClick={() => void takePhoto()} disabled={!cameraReady} aria-label="Hacer foto"><Camera size={25} /></button>
           : <button type="button" className={`cv2-record ${recording ? "is-recording" : ""}`} onClick={recording ? stopRecording : startRecording} disabled={!cameraReady} aria-label={recording ? "Detener grabación" : "Empezar grabación"}>{recording ? <Square size={20} /> : <Film size={23} />}</button>}

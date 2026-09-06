@@ -1,6 +1,6 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowRight, Camera, Check, ChevronRight, Crown, Film, Flag, HelpCircle, LockKeyhole, RotateCcw, Trophy, Users, Clock3, Loader2, XCircle } from "lucide-react";
+import { ArrowLeft, ArrowRight, Camera, Check, Crown, Film, Flag, HelpCircle, LockKeyhole, RotateCcw, Trophy, Users, Clock3, Loader2, XCircle } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import CaptainModel from "@/components/captains-v2/CaptainModel";
 import MediaCapture from "@/components/captains-v2/MediaCapture";
@@ -8,6 +8,7 @@ import { useCaptainsV2 } from "@/hooks/useCaptainsV2";
 import { getCaptainsEvidenceSignedUrl, rankCaptainsTables } from "@/lib/captainsService";
 import { getCaptainSpriteCss, getCaptainSpriteVisual } from "@/lib/captainsSprite";
 import type { CaptainsSpriteConfig, CaptainsSpriteStyle } from "@/lib/captainsTypes";
+import welcomeCaptain from "@/assets/captains/welcome-captain-v3.png";
 import "./CaptainsDemoV2.css";
 
 const teams = [
@@ -49,37 +50,6 @@ function VictoryCup() {
     </svg>
     <span className="cv2-victory-shadow" />
   </div>;
-}
-
-function CaptainArmband() {
-  return <svg className="cv2-armband" viewBox="8 10 134 104" aria-hidden="true">
-    <defs>
-      <linearGradient id="cv2-armband-main" x1="18" y1="16" x2="126" y2="102" gradientUnits="userSpaceOnUse">
-        <stop stopColor="#ffaaa0" /><stop offset=".48" stopColor="#f06a5f" /><stop offset="1" stopColor="#b9443c" />
-      </linearGradient>
-      <linearGradient id="cv2-armband-edge" x1="105" y1="25" x2="134" y2="92" gradientUnits="userSpaceOnUse">
-        <stop stopColor="#d5554c" /><stop offset="1" stopColor="#8f332e" />
-      </linearGradient>
-      <radialGradient id="cv2-armband-badge" cx="35%" cy="28%" r="75%">
-        <stop stopColor="#fffdf7" /><stop offset="1" stopColor="#f4dfce" />
-      </radialGradient>
-      <filter id="cv2-armband-shadow" x="-35%" y="-35%" width="180%" height="200%">
-        <feDropShadow dx="5" dy="8" stdDeviation="6" floodColor="#6d3730" floodOpacity=".28" />
-      </filter>
-    </defs>
-    <ellipse cx="75" cy="103" rx="48" ry="9" fill="#6d3730" opacity=".13" />
-    <g filter="url(#cv2-armband-shadow)" transform="rotate(-7 75 57)">
-      <path d="M34 26C17 34 15 78 36 91l16-13c-10-12-9-35 1-47L34 26Z" fill="#9c3a34" />
-      <path d="M35 22c27-9 69-4 91 11l-8 61C93 80 61 77 34 88l1-66Z" fill="url(#cv2-armband-main)" stroke="#81322e" strokeWidth="3" strokeLinejoin="round" />
-      <path d="M126 33c8 8 8 47-8 61l-9-8 7-58 10 5Z" fill="url(#cv2-armband-edge)" stroke="#81322e" strokeWidth="3" strokeLinejoin="round" />
-      <path d="M43 31c22-6 51-3 70 7M41 78c22-7 48-5 69 4" fill="none" stroke="#ffd0ca" strokeWidth="2" strokeLinecap="round" strokeDasharray="3 5" opacity=".9" />
-      <path d="M42 27c22-7 49-4 68 3" fill="none" stroke="#fff" strokeWidth="5" strokeLinecap="round" opacity=".23" />
-      <circle cx="76" cy="57" r="25" fill="url(#cv2-armband-badge)" stroke="#9f4039" strokeWidth="3" />
-      <circle cx="76" cy="57" r="20" fill="none" stroke="#e7bba9" strokeWidth="1.5" strokeDasharray="2 3" />
-      <text x="76" y="67" textAnchor="middle" fill="#d45148" fontSize="30" fontWeight="850">C</text>
-      <text x="76" y="86" textAnchor="middle" fill="#fff7f2" fontSize="6" fontWeight="800" letterSpacing="2">CAPITÁN</text>
-    </g>
-  </svg>;
 }
 
 export default function CaptainsDemoV2({ eventSlug: requestedEventSlug }: { eventSlug?: string } = {}) {
@@ -138,11 +108,19 @@ export default function CaptainsDemoV2({ eventSlug: requestedEventSlug }: { even
     if (!await game.start()) return;
     setRowId(id); setMission(index); setCelebrating(false); setAnswer(null); setFile(null); setThumbnail(null); setMediaPreparing(false); setUploadProgress(0);
   };
+  const closeMission = () => {
+    setMission(null); setRowId(null); setCelebrating(false); setAnswer(null); setFile(null); setThumbnail(null); setMediaPreparing(false); setUploadProgress(0);
+    window.scrollTo({ top: 0, behavior: "instant" });
+  };
   const completeMission = async () => {
     if (!rowId) return;
     setUploadProgress(0);
     const outcome = await game.submit(rowId, file, thumbnail, answer, setUploadProgress);
-    if (outcome) { setResult(outcome); setFile(null); setCelebrating(true); }
+    if (outcome) {
+      setResult(outcome);
+      if (isQuestion) { setFile(null); setCelebrating(true); }
+      else closeMission();
+    }
   };
   const rejectMission = async () => {
     if (!game.currentRow) return;
@@ -171,20 +149,32 @@ export default function CaptainsDemoV2({ eventSlug: requestedEventSlug }: { even
     <header className="cv2-header">
       <Link to={`/capitanes/${eventSlug}`} className="cv2-brand" aria-label="Capitanes"><img src="/capitanes-logo.svg" alt="Capitanes" className="cv2-revelao-logo" /></Link>
     </header>
-    <main className={`cv2-mobile-main ${!started ? "is-welcome" : ""}`}>
+    <main className={`cv2-mobile-main ${!started ? "is-welcome" : ""} ${activeMission ? "is-mission" : ""}`}>
       {started && game.connectionError && <div className="cv2-connection-error" role="alert"><p>{game.connectionError}</p><button className="cv2-secondary" disabled={game.busy} onClick={() => void game.refresh()}>Volver a conectar <RotateCcw size={16} /></button></div>}
-      {!started ? <section className="cv2-welcome" aria-labelledby="cv2-welcome-title">
-        <div className="cv2-welcome-art" aria-hidden="true"><span className="cv2-welcome-orbit" /><span className="cv2-quest-object cv2-armband-object"><CaptainArmband /><span>✦</span></span></div>
+      {started && game.data && joined && activeMission ? <section className="cv2-mission-screen" aria-labelledby="cv2-mission-title">
+        <button className="cv2-mission-back" type="button" disabled={game.busy || mediaPreparing} onClick={closeMission}><ArrowLeft size={19} /> Atrás</button>
+        <span className="cv2-eyebrow">{team?.table_name} · RETO 0{mission! + 1}</span>
+        <h1 id="cv2-mission-title" className="cv2-mission-title">{celebrating ? result.correct ? "¡Respuesta correcta!" : "Respuesta incorrecta" : activeMission.title}</h1>
+        <p className="cv2-mission-description">{celebrating ? `${result.correct ? `Sumáis ${result.pointsAwarded} puntos.` : "Esta vez la respuesta no era correcta. No sumáis puntos."} ${finished ? "¡Habéis completado toda la aventura!" : "El siguiente reto ya os está esperando."}` : activeMission.description}</p>
+        {celebrating ? <><div className="cv2-celebration-points">+{result.pointsAwarded}<span>puntos para vuestra mesa</span></div><button className="cv2-primary cv2-centered-action cv2-mission-submit" onClick={closeMission}>{finished ? "Ver nuestra victoria" : "Descubrir siguiente reto"}</button></> : <>
+          {isQuestion ? <div className="cv2-answer-options" role="group" aria-label="Elige una respuesta">{(activeMission.question_options ?? []).map(option => <button key={option} disabled={game.busy} onClick={() => { game.clearError(); setAnswer(option); }} aria-pressed={answer === option}>{option}{answer === option && <Check size={17} />}</button>)}</div> : <MediaCapture key={rowId} kind={activeMission.evidence_type === "photo" ? "photo" : "video"} file={file} onChange={value => { game.clearError(); setFile(value); }} onThumbnailChange={setThumbnail} onPreparingChange={setMediaPreparing} disabled={game.busy} />}
+          <div className="cv2-dialog-detail"><span>{activeMission.type}</span><strong>{activeMission.points} puntos</strong></div>
+          {game.remaining !== null && <span className="cv2-timer" role="timer"><Clock3 size={15} /> {game.remaining} s restantes</span>}
+          {game.error && <p className="cv2-error" role="alert">{game.error}</p>}
+          {(isQuestion || file || game.busy) && <button className="cv2-primary cv2-centered-action cv2-mission-submit" aria-busy={game.busy || mediaPreparing} disabled={game.busy || mediaPreparing || !canSubmit || game.remaining === 0} onClick={completeMission}>{mediaPreparing ? `Preparando ${activeMission.evidence_type === "photo" ? "foto" : "vídeo"}…` : game.busy ? (isQuestion ? "Comprobando…" : `${activeMission.evidence_type === "photo" ? "Subiendo foto" : "Subiendo vídeo"}${uploadProgress > 0 ? ` · ${uploadProgress}%` : "…"}`) : isQuestion ? "Continuar" : activeMission.evidence_type === "photo" ? "Enviar foto" : "Enviar vídeo"}{(game.busy || mediaPreparing) && <Loader2 size={18} className="animate-spin" />}</button>}
+        </>}
+      </section> : !started ? <section className="cv2-welcome" aria-labelledby="cv2-welcome-title">
+        <div className="cv2-welcome-art" aria-hidden="true"><span className="cv2-welcome-glow" /><img src={welcomeCaptain} alt="" /></div>
         <h1 id="cv2-welcome-title">{game.data?.event.name ?? "Capitanes"}</h1>
         <p>{game.data?.event.description ?? "Reúne a tu mesa, superad los retos y cread recuerdos durante la celebración."}</p>
-        <div className="cv2-join-bar"><button className="cv2-primary" onClick={() => { setStarted(true); window.scrollTo({ top: 0, behavior: "instant" }); }}>Empezar <ArrowRight size={18} /></button></div>
+        <div className="cv2-join-bar"><button className="cv2-primary cv2-centered-action" onClick={() => { setStarted(true); window.scrollTo({ top: 0, behavior: "instant" }); }}>Empezar</button></div>
       </section> : !game.data ? <div className="cv2-loading" role="status">{game.loading && <Loader2 className="animate-spin" />}<h1>{game.loading ? "Preparando vuestra mesa…" : "Estamos preparando la partida"}</h1></div> : !joined ? <>
         <div className="cv2-intro"><div><h1>¿Qué capitán <em>eres?</em></h1><p>Encuentra tu mesa y elige quién eres.</p></div></div>
         <section className="cv2-identity" aria-labelledby="cv2-identity-title">
           <div className="cv2-identity-heading"><h2 id="cv2-identity-title" className="sr-only">Capitanes disponibles</h2></div>
           <div className="cv2-captain-picker">{liveTeams.map((item, index) => <button key={item.id} className={`cv2-pick ${selected === index ? "is-selected" : ""}`} style={tableCaptainStyle(index, item.captain_sprite, item.captain_sprite_config)} onClick={() => setChoice(index)} disabled={game.busy} aria-pressed={selected === index} aria-label={`${item.name}, ${item.table_name}`}>
             <span className="cv2-pick-check">{selected === index && <Check size={14} />}</span><span className="cv2-pick-stage"><span className="cv2-platform"><i /><i /><i /></span><Captain index={index} photoUrl={item.captain_photo_url} sprite={item.captain_sprite} config={item.captain_sprite_config} /></span><span className="cv2-pick-label"><strong>{item.name}</strong><small>{item.table_name}</small></span>
-          </button>)}<div className="cv2-pick-message"><Crown size={26} strokeWidth={1.3} /><p>¡Confiamos en ti!</p></div></div>
+          </button>)}{liveTeams.length % 2 !== 0 && <div className="cv2-pick-message"><Crown size={26} strokeWidth={1.3} /><p>¡Confiamos en ti!</p></div>}</div>
         </section>
         <p className="cv2-onboarding-note"><LockKeyhole size={15} /> {missions.length} retos sorpresa. Se descubren uno a uno.</p>
         <div className="cv2-join-bar"><button className="cv2-primary" disabled={game.busy || selected === null || !name} onClick={join}>{game.busy ? "Entrando…" : "Continuar"}<ArrowRight size={18} /></button></div>
@@ -193,7 +183,7 @@ export default function CaptainsDemoV2({ eventSlug: requestedEventSlug }: { even
         <div className="cv2-mobile-progress"><div><span>{finished ? "¡Aventura completada!" : "Vuestra aventura"}</span><strong>{completed} / {missions.length} retos</strong></div><div className="cv2-progress" role="progressbar" aria-label="Retos finalizados" aria-valuenow={completed} aria-valuemin={0} aria-valuemax={missions.length}>{missions.map((_, index) => <span key={index} className={index < completed ? "filled" : ""} />)}</div></div>
         {view === "quests" && <section className="cv2-mobile-quests" aria-labelledby="cv2-quests-title">
           <h2 id="cv2-quests-title" className="sr-only">Retos</h2>
-          {finished ? <div className="cv2-finish"><VictoryCup /><span className="cv2-eyebrow">MISIÓN CUMPLIDA</span><h2>¡Lo habéis dado todo!</h2><p>{missions.length} retos, {points} puntos y una historia que ya es vuestra.</p><button className="cv2-primary cv2-centered-action" onClick={() => navigate("ranking")}>Ver nuestra posición</button><button className="cv2-secondary cv2-centered-action" onClick={() => navigate("memories")}>Revivir los recuerdos</button></div> : current ? <article className="cv2-active-quest">
+          {finished ? <div className="cv2-finish"><VictoryCup /><span className="cv2-eyebrow">MISIÓN CUMPLIDA</span><h2>¡Lo habéis dado todo!</h2><p>{missions.length} retos, {points} puntos y una historia que ya es vuestra.</p><button className="cv2-primary cv2-centered-action" onClick={() => navigate("ranking")}>Ver nuestra posición</button><button className="cv2-secondary cv2-centered-action" onClick={() => navigate("memories")}>Revivir los recuerdos</button></div> : current ? <article key={current.id} className="cv2-active-quest cv2-quest-enter">
             <div className="cv2-card-top"><span className="cv2-eyebrow"><span className="cv2-status-dot" /> RETO 0{completed + 1} DESBLOQUEADO</span><span className="cv2-points">{current.points} puntos</span></div><div className="cv2-quest-object"><current.icon size={52} strokeWidth={1.3} /><span>✦</span></div><span className="cv2-mission-type">{current.type}</span><h2>{current.title}</h2><p>{current.description}</p><button className="cv2-primary cv2-centered-action" disabled={game.busy} onClick={openMission}>{game.busy ? "Abriendo…" : game.currentRow?.status === "in_progress" ? "Continuar reto" : "Aceptar reto"}</button><button className="cv2-secondary cv2-reject-button" disabled={game.busy} onClick={() => setRejecting(true)}>Rechazar reto</button>
             {game.error && <p className="cv2-error" role="alert">{game.error}</p>}{game.currentRow?.status === "in_progress" && game.remaining !== null && <span className="cv2-timer"><Clock3 size={14} /> {game.remaining} s restantes</span>}<small className="cv2-unlock-hint"><LockKeyhole size={12} /> Termínalo para descubrir el siguiente</small>
           </article> : <p role="status">Preparando los retos de vuestra mesa…</p>}
@@ -224,14 +214,6 @@ export default function CaptainsDemoV2({ eventSlug: requestedEventSlug }: { even
         <nav className={`cv2-bottom-nav ${finished ? "has-results" : ""}`} aria-label="Vistas de tu equipo">{([{ id: "quests", label: "Retos", icon: Flag }, { id: "ranking", label: "Ranking", icon: Trophy }, ...(finished ? [{ id: "memories" as const, label: "Resultados", icon: Camera }] : [])] as const).map(tab => <button key={tab.id} aria-current={view === tab.id ? "page" : undefined} onClick={() => navigate(tab.id)}><tab.icon size={21} /><span>{tab.label}</span>{tab.id === "quests" && !finished && <i />}</button>)}</nav>
       </>}
     </main>
-    <Dialog open={mission !== null} onOpenChange={open => { if (!open && !game.busy && !mediaPreparing) { setMission(null); setFile(null); setThumbnail(null); } }}><DialogContent className="cv2-dialog cv2-mobile-dialog">
-      {activeMission && <><span className="cv2-eyebrow">{team?.table_name} · RETO 0{mission! + 1}</span><span className="cv2-dialog-icon">{celebrating ? result.correct ? <Check size={38} /> : <XCircle size={38} /> : <Flag size={38} />}</span><DialogTitle className="cv2-dialog-title">{celebrating ? result.correct ? isQuestion ? "¡Respuesta correcta!" : "¡Reto superado!" : "Respuesta incorrecta" : activeMission.title}</DialogTitle><DialogDescription>{celebrating ? `${result.correct ? `Sumáis ${result.pointsAwarded} puntos.` : "Esta vez la respuesta no era correcta. No sumáis puntos."} ${finished ? "¡Habéis completado toda la aventura!" : "El siguiente reto ya os está esperando."}` : activeMission.description}</DialogDescription>
-        {celebrating ? <><div className="cv2-celebration-points">+{result.pointsAwarded}<span>puntos para vuestra mesa</span></div><button className="cv2-primary" onClick={() => { setMission(null); window.scrollTo({ top: 0, behavior: "instant" }); }}>{finished ? "Ver nuestra victoria" : "Descubrir siguiente reto"}<ArrowRight size={18} /></button></> : <>
-          {isQuestion ? <div className="cv2-answer-options" role="group" aria-label="Elige una respuesta">{(activeMission.question_options ?? []).map(option => <button key={option} disabled={game.busy} onClick={() => { game.clearError(); setAnswer(option); }} aria-pressed={answer === option}>{option}{answer === option && <Check size={17} />}</button>)}</div> : <MediaCapture key={rowId} kind={activeMission.evidence_type === "photo" ? "photo" : "video"} file={file} onChange={value => { game.clearError(); setFile(value); }} onThumbnailChange={setThumbnail} onPreparingChange={setMediaPreparing} disabled={game.busy} />}
-          <div className="cv2-dialog-detail"><span>{activeMission.type}</span><strong>{activeMission.points} puntos</strong></div>{game.remaining !== null && <span className="cv2-timer" role="timer"><Clock3 size={15} /> {game.remaining} s restantes</span>}{game.error && <p className="cv2-error" role="alert">{game.error}</p>}<button className="cv2-primary" aria-busy={game.busy || mediaPreparing} disabled={game.busy || mediaPreparing || !canSubmit || game.remaining === 0} onClick={completeMission}>{mediaPreparing ? `Preparando ${activeMission.evidence_type === "photo" ? "foto" : "vídeo"}…` : game.busy ? (isQuestion ? "Comprobando…" : `${activeMission.evidence_type === "photo" ? "Subiendo foto" : "Subiendo vídeo"}${uploadProgress > 0 ? ` · ${uploadProgress}%` : "…"}`) : isQuestion ? "Continuar" : activeMission.evidence_type === "photo" ? "Enviar foto" : "Enviar vídeo"}{game.busy || mediaPreparing ? <Loader2 size={18} className="animate-spin" /> : <ChevronRight size={18} />}</button>
-        </>}
-      </>}
-    </DialogContent></Dialog>
     <Dialog open={rejecting} onOpenChange={open => { if (!game.busy) setRejecting(open); }}><DialogContent className="cv2-dialog cv2-confirm-dialog">
       <span className="cv2-dialog-icon cv2-reject-icon"><XCircle size={38} /></span>
       <DialogTitle className="cv2-dialog-title">¿Rechazáis este reto?</DialogTitle>
