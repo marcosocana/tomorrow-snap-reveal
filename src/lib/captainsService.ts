@@ -692,6 +692,16 @@ export const getCaptainsEvidenceSignedUrl = async (filePath: string) => {
   return signedUrl;
 };
 
+export const getCaptainsEvidenceThumbnailPath = (evidence: Pick<CaptainsEvidence, "evidence_type" | "file_url" | "thumbnail_url">) => {
+  if (evidence.thumbnail_url) return evidence.thumbnail_url;
+  if (evidence.evidence_type !== "video") return null;
+  // Thumbnails share the video's directory and upload UUID. This convention
+  // works on existing deployments without a captains_evidence.thumbnail_url column.
+  const path = getCaptainsEvidenceStoragePath(evidence.file_url);
+  const match = path?.match(/^(.*\/)([\da-f]{8}-(?:[\da-f]{4}-){3}[\da-f]{12})-/i);
+  return match ? `${match[1]}${match[2]}-thumbnail.jpg` : null;
+};
+
 export const saveCaptainForTable = async (tableId: string, captainName: string) => {
   const cleanName = captainName.trim();
   const { data: existingTable, error: readError } = await pdb
@@ -1343,7 +1353,8 @@ export const uploadCaptainsEvidence = async ({
       captain_name: captainName ?? null,
       evidence_type: evidenceType,
       file_url: filePath,
-      thumbnail_url: thumbnailPath,
+      // The optional poster lives beside the video, rather than requiring a
+      // schema migration before a photo/video submission can be registered.
       status: evidenceStatus,
       points_awarded: pointsAwarded,
       elapsed_seconds: elapsedSeconds ?? null,
@@ -1592,7 +1603,7 @@ export const deleteCaptainsEvidence = async (evidenceId: string) => {
   const evidence = data as CaptainsEvidence;
   const storagePaths = [...new Set([
     getCaptainsEvidenceStoragePath(evidence.file_url),
-    getCaptainsEvidenceStoragePath(evidence.thumbnail_url),
+    getCaptainsEvidenceStoragePath(getCaptainsEvidenceThumbnailPath(evidence)),
   ].filter((path): path is string => Boolean(path)))];
   if (storagePaths.length > 0) {
     const { error: storageError } = await supabase.storage.from(CAPTAINS_EVIDENCE_BUCKET).remove(storagePaths);

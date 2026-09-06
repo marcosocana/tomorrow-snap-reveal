@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   getCaptainsEventDetail, getCaptainsTableChallenges, selectCaptainsTableSession,
   startCaptainsTableChallenge, uploadCaptainsEvidence, completeCaptainsQuestionChallenge,
-  expireCaptainsTableChallenge, failCaptainsTableChallenge, getCaptainsEvidence, getCaptainsEvidenceSignedUrl,
+  expireCaptainsTableChallenge, failCaptainsTableChallenge, getCaptainsEvidence, getCaptainsEvidenceSignedUrl, getCaptainsEvidenceThumbnailPath,
 } from "@/lib/captainsService";
 import type { CaptainsTableChallenge } from "@/lib/captainsTypes";
 
@@ -134,11 +134,16 @@ export function useCaptainsV2(eventSlug = CAPTAINS_V2_SLUG) {
     enabled: Boolean(data && finished),
     queryFn: async () => {
       const evidence = await getCaptainsEvidence(data!.event.id, "approved");
-      return Promise.all(evidence.map(async item => ({
-        ...item,
-        url: item.evidence_type === "video" ? "" : await getCaptainsEvidenceSignedUrl(item.file_url),
-        thumbnailUrl: item.thumbnail_url ? await getCaptainsEvidenceSignedUrl(item.thumbnail_url) : "",
-      })));
+      return Promise.all(evidence.map(async item => {
+        const thumbnailPath = getCaptainsEvidenceThumbnailPath(item);
+        return {
+          ...item,
+          url: item.evidence_type === "video" ? "" : await getCaptainsEvidenceSignedUrl(item.file_url),
+          // Older videos may have no poster. A missing optional thumbnail must
+          // not prevent any of the table's results from opening.
+          thumbnailUrl: thumbnailPath ? await getCaptainsEvidenceSignedUrl(thumbnailPath).catch(() => "") : "",
+        };
+      }));
     },
     staleTime: 30000,
     refetchInterval: finished ? 15000 : false,

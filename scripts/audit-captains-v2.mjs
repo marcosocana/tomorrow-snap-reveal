@@ -8,6 +8,7 @@ const eventSlug=process.env.CAPTAINS_V2_SLUG || 'demo-capitanes-v2';
 const experienceVersion=process.env.CAPTAINS_EXPERIENCE_VERSION || 'v2';
 const firstChallengeStatus=process.env.CAPTAINS_FIRST_CHALLENGE_PENDING==='1'?'pending':'ready';
 const largeVideo=process.env.CAPTAINS_LARGE_VIDEO==='1';
+const thumbnailColumn=process.env.CAPTAINS_THUMBNAIL_COLUMN==='1';
 const eventId='de100000-0000-4000-8000-000000000001';
 const titles=['Brindis de mesa','Pregunta de pareja','Mensaje secreto','Aliados de otra mesa','Coreografía exprés'];
 const event={id:eventId,name:'Capitanes · Revelao',slug:eventSlug,status:'active',experience_version:experienceVersion,start_time:'2026-01-01T00:00:00Z',end_time:'2099-12-31T00:00:00Z'};
@@ -26,13 +27,23 @@ const mock=async params=>{
   const table=url.pathname.split('/').at(-1); const all={captains_events:[event],captains_tables:tables,captains_event_challenges:challenges,captains_table_challenges:rows,captains_evidence:evidence,captains_table_accesses:[]}[table]??[];
   let matching=all.filter(item=>[...url.searchParams].every(([k,v])=>!v.startsWith('eq.')&&!v.startsWith('neq.')||(v.startsWith('eq.')?String(item[k])===v.slice(3):String(item[k])!==v.slice(4))));
   if(request.method==='PATCH'){const payload=JSON.parse(request.postData);matching.forEach(item=>Object.assign(item,payload));}
-  if(request.method==='POST'){const payload=JSON.parse(request.postData);all.push(payload);matching=[payload];}
+  if(request.method==='POST'){
+   const payload=JSON.parse(request.postData);
+   if(table==='captains_evidence'&&!thumbnailColumn&&Object.hasOwn(payload,'thumbnail_url')){
+    await send('Fetch.fulfillRequest',{requestId,responseCode:400,responseHeaders:[{name:'Content-Type',value:'application/json'},{name:'Access-Control-Allow-Origin',value:'*'}],body:Buffer.from(JSON.stringify({code:'PGRST204',message:"Could not find the 'thumbnail_url' column of 'captains_evidence' in the schema cache"})).toString('base64')});return;
+   }
+   all.push(payload);matching=[payload];
+  }
   if(url.searchParams.get('select')?.includes('captains_event_challenges('))matching=matching.map(item=>({...item,captains_event_challenges:challenges.find(c=>c.id===item.challenge_id)}));
   result=Object.entries(request.headers).some(([key,value])=>key.toLowerCase()==='accept'&&value.includes('vnd.pgrst.object'))?(matching[0]??null):matching;
  }else if(url.pathname.includes('/storage/v1/upload/resumable')){
   status=201;uploads.push(url.pathname);const total=request.headers['upload-length']||request.headers['Upload-Length']||'0';
   extraHeaders.push({name:'Location',value:`${url.origin}/storage/v1/upload/resumable/audit-upload-${uploads.length}`},{name:'Tus-Resumable',value:'1.0.0'},{name:'Upload-Offset',value:total},{name:'Access-Control-Expose-Headers',value:'Location,Tus-Resumable,Upload-Offset'});
- }else if(url.pathname.includes('/storage/v1/object/sign/')){result={signedURL:`/object/public/captains-evidence/fixture.png`};}
+ }else if(url.pathname.includes('/storage/v1/object/sign/')){
+  const storagePath=url.pathname.split('/storage/v1/object/sign/captains-evidence/')[1];
+  if(storagePath?.endsWith('-thumbnail.jpg')&&!uploads.some(upload=>upload.endsWith('/'+storagePath))){status=404;result={message:'Object not found'};}
+  else result={signedURL:`/object/public/captains-evidence/fixture.png`};
+ }
  else if(url.pathname.includes('/storage/v1/object/public/')){await send('Fetch.fulfillRequest',{requestId,responseCode:200,responseHeaders:[{name:'Content-Type',value:'image/png'}],body:'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII='});return;}
  else if(url.pathname.includes('/storage/v1/object/')){
   if(rejectUpload){status=503;result={message:'Conexión interrumpida',error:'ServiceUnavailable',statusCode:'503'};rejectUpload=false;}
@@ -110,7 +121,12 @@ assert.equal(await evaluate(`document.querySelectorAll('.cv2-memory-media video'
 assert.equal(await evaluate(`document.querySelectorAll('.cv2-memory-media img[alt^="Primer fotograma"]').length`),2);
 await click('.cv2-memory-caption button');await wait(`!!document.querySelector('.cv2-media-dialog')`);await screenshot('gallery-modal');
 await click('.cv2-media-dialog > button');await wait(`!document.querySelector('.cv2-media-dialog')`);await screenshot('gallery');
+// A video without its optional poster must not break the complete results gallery.
+uploads.splice(uploads.findIndex(path=>path.endsWith('-thumbnail.jpg')),1);
 await send('Page.reload');await wait(`!!document.querySelector('.cv2-welcome')`);await click('.cv2-join-bar button');await wait(`document.querySelector('.cv2-player-points strong')?.textContent==='95'`);
+await click('.cv2-bottom-nav button:nth-child(3)');await wait(`document.querySelectorAll('.cv2-memory').length===5`);
+assert.equal(await evaluate(`document.querySelectorAll('.cv2-video-placeholder').length`),1);
+assert.equal(await evaluate(`document.querySelectorAll('.cv2-memory-media img[alt^="Primer fotograma"]').length`),1);
 await click('.cv2-session-footer button');await click('.cv2-pick:nth-child(3)');await click('.cv2-join-bar button');await wait(`document.querySelector('.cv2-player-strip h1')?.textContent==='Mesa 3'`);
 assert.equal(await evaluate(`document.querySelector('.cv2-bottom-nav').textContent.includes('Resultados')`),false);
 await click('.cv2-bottom-nav button:nth-child(2)');assert.match(await evaluate(`document.querySelector('.cv2-mobile-ranks').textContent`),/Mesa 2.*95/);
@@ -142,4 +158,4 @@ for(const kind of ['photo','video']){
 assert.equal(await evaluate(`document.querySelector('.cv2-bottom-nav').textContent.includes('Resultados')`),true);
 await click('.cv2-bottom-nav button:nth-child(3)');await wait(`document.querySelectorAll('.cv2-result-card').length===4`);
 assert.equal(await evaluate(`document.body.innerText.includes('Mensaje secreto')`),false);
-assert.deepEqual(exceptions,[]);console.log(`PASS with mocked backend: identity, real image/video file decoding and preview, ${largeVideo?'resumable large-video uploads, ':''}upload failure/retry, sequential completion, server score, reload persistence, shared table ranking, gallery only after finish, no demo text, 320–1440px, no JS exceptions.`);socket.close();
+assert.deepEqual(exceptions,[]);console.log(`PASS with mocked backend: identity, real image/video file decoding and preview, ${largeVideo?'resumable large-video uploads, ':''}upload failure/retry, submissions without thumbnail_url column, optional missing poster, sequential completion, server score, reload persistence, shared table ranking, gallery only after finish, no demo text, 320–1440px, no JS exceptions.`);socket.close();
