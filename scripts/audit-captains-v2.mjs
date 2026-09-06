@@ -102,11 +102,17 @@ assert.equal(await evaluate(`document.querySelector('.cv2-mission-heading').text
 assert.equal(await evaluate(`document.querySelector('.cv2-mission-back').textContent.trim()`),'');
 await click('.cv2-mission-back');await wait(`!!document.querySelector('.cv2-active-quest')`);
 assert.equal(await evaluate(`document.querySelector('.cv2-active-quest .cv2-primary').textContent.trim()`),'Continuar reto');
+await click('.cv2-active-quest .cv2-primary');await wait(`!!document.querySelector('.cv2-cancel-button')`);
+assert.equal(await evaluate(`document.querySelector('.cv2-cancel-button').textContent.trim()`),'Cancelar');
+assert.equal(await evaluate(`getComputedStyle(document.querySelector('.cv2-cancel-button')).backgroundColor`),'rgb(255, 255, 255)');
+await click('.cv2-cancel-button');await wait(`!!document.querySelector('.cv2-active-quest')`);
+assert.equal(await evaluate(`document.querySelector('.cv2-active-quest .cv2-primary').textContent.trim()`),'Continuar reto');
 const attach=async kind=>{
  assert.equal(await evaluate(`document.querySelectorAll('.cv2-capture input[type=file]').length`),0);
  assert.equal(await evaluate(`document.querySelector('.cv2-mission-submit')===null`),true);
  assert.equal(await evaluate(`getComputedStyle(document.querySelector('.cv2-camera-button')).backgroundColor`),'rgb(240, 106, 95)');
- assert.equal(await evaluate(`innerHeight-document.querySelector('.cv2-camera-button').getBoundingClientRect().bottom<60`),true);
+ assert.equal(await evaluate(`document.querySelector('.cv2-camera-button').getBoundingClientRect().bottom<document.querySelector('.cv2-cancel-button').getBoundingClientRect().top`),true);
+ assert.equal(await evaluate(`innerHeight-document.querySelector('.cv2-cancel-button').getBoundingClientRect().bottom<60`),true);
  await click('.cv2-camera-button');
  await wait(`!!document.querySelector('.cv2-capture-live') && !document.querySelector(${JSON.stringify(kind==='photo'?'.cv2-shutter':'.cv2-record')}).disabled`);
  assert.equal(await evaluate(`document.querySelector('[role=dialog]')===null`),true);

@@ -37,13 +37,14 @@ const canvasFile = (video: HTMLVideoElement, maxWidth: number, quality: number, 
   }, "image/jpeg", quality);
 });
 
-export default function MediaCapture({ kind, file, onChange, onThumbnailChange, onPreparingChange, onCameraOpenChange, disabled }: {
+export default function MediaCapture({ kind, file, onChange, onThumbnailChange, onPreparingChange, onCameraOpenChange, onCancel, disabled }: {
   kind: "photo" | "video";
   file: File | null;
   onChange: (file: File | null) => void;
   onThumbnailChange?: (file: File | null) => void;
   onPreparingChange?: (preparing: boolean) => void;
   onCameraOpenChange?: (open: boolean) => void;
+  onCancel: () => void;
   disabled: boolean;
 }) {
   const [previewUrl, setPreviewUrl] = useState("");
@@ -244,7 +245,7 @@ export default function MediaCapture({ kind, file, onChange, onThumbnailChange, 
           : <button type="button" className={`cv2-record ${recording ? "is-recording" : ""}`} onClick={recording ? stopRecording : startRecording} disabled={!cameraReady} aria-label={recording ? "Detener grabación" : "Empezar grabación"}>{recording ? <Square size={20} /> : <Film size={23} />}</button>}
         <button type="button" onClick={() => void switchCamera()} disabled={recording} aria-label="Cambiar cámara"><SwitchCamera size={20} /></button>
       </div>
-    </div> : <button className="cv2-primary cv2-camera-button cv2-centered-action" disabled={disabled} onClick={() => void openCamera()}>{kind === "photo" ? <Camera size={19} /> : <Film size={19} />}{kind === "photo" ? "Abrir cámara" : "Abrir cámara de vídeo"}</button>}
+    </div> : <><button className="cv2-primary cv2-camera-button cv2-centered-action" disabled={disabled} onClick={() => void openCamera()}>{kind === "photo" ? <Camera size={19} /> : <Film size={19} />}{kind === "photo" ? "Abrir cámara" : "Abrir cámara de vídeo"}</button><button type="button" className="cv2-secondary cv2-cancel-button cv2-centered-action" disabled={disabled} onClick={onCancel}>Cancelar</button></>}
     {error && <p role="alert" className="cv2-error">{error}</p>}
   </div>;
 }
