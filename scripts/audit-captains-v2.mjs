@@ -139,9 +139,19 @@ for(let i=0;i<5;i++){
  assert.equal(rows.filter(r=>r.table_id===tables[1].id&&r.status==='completed').length,i+1);
 }
 assert.equal(tables[1].total_points,95);assert.equal(evidence.length,4);assert.equal(uploads.length,8);
+await wait(`!!document.querySelector('.cv2-finish-dialog')`);
+await screenshot('finish');
+assert.equal(await evaluate(`document.querySelector('.cv2-finish-dialog').textContent.includes('¡Lo habéis dado todo!')`),true);
+assert.equal(await evaluate(`getComputedStyle(document.querySelector('.cv2-finish-dialog > button.absolute')).display`),'none');
+assert.equal(await evaluate(`getComputedStyle(document.querySelector('.cv2-finish-dialog .cv2-primary')).backgroundColor`),'rgb(240, 106, 95)');
+await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape'});await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape'});await new Promise(r=>setTimeout(r,150));
+assert.equal(await evaluate(`!!document.querySelector('.cv2-finish-dialog')`),true);
+assert.equal(await evaluate(`document.querySelectorAll('.cv2-bottom-nav button').length`),2);
+assert.equal(await evaluate(`document.querySelector('.cv2-bottom-nav').textContent.includes('Retos')`),false);
+await click('.cv2-finish-dialog .cv2-primary');await wait(`!!document.querySelector('.cv2-mobile-ranking')`);
 assert.equal(await evaluate(`document.querySelector('.cv2-bottom-nav').textContent.includes('Resultados')`),true);
 assert.equal(await evaluate(`document.querySelector('.cv2-bottom-nav').textContent.includes('Mesas')`),false);
-await click('.cv2-bottom-nav button:nth-child(3)');await wait(`document.querySelectorAll('.cv2-memory').length===5`);
+await click('.cv2-bottom-nav button:nth-child(2)');await wait(`document.querySelectorAll('.cv2-memory').length===5`);
 assert.equal(await evaluate(`document.querySelector('.cv2-gallery-filter select').value`),'mine');
 assert.equal(await evaluate(`Array.from(document.querySelectorAll('.cv2-gallery-filter option')).some(option=>option.textContent==='Todas las mesas')`),false);
 assert.equal(await evaluate(`document.querySelectorAll('.cv2-memory-media video').length`),0);
@@ -152,7 +162,7 @@ await click('.cv2-media-dialog > button');await wait(`!document.querySelector('.
 const videoWithoutPoster=evidence.find(item=>item.evidence_type==='video');
 uploads.splice(uploads.findIndex(path=>path.includes(`/${videoWithoutPoster.table_challenge_id}/`)&&path.endsWith('-thumbnail.jpg')),1);
 await send('Page.reload');await wait(`!!document.querySelector('.cv2-welcome')`);await click('.cv2-join-bar button');await wait(`document.querySelector('.cv2-player-points strong')?.textContent==='95'`);
-await click('.cv2-bottom-nav button:nth-child(3)');await wait(`document.querySelectorAll('.cv2-memory').length===5`);
+await wait(`!!document.querySelector('.cv2-finish-dialog')`);await click('.cv2-finish-dialog .cv2-secondary');await wait(`document.querySelectorAll('.cv2-memory').length===5`);
 assert.equal(await evaluate(`document.querySelectorAll('.cv2-video-placeholder').length`),1);
 assert.equal(await evaluate(`document.querySelectorAll('.cv2-memory-media img[alt^="Primer fotograma"]').length`),1);
 await click('.cv2-session-footer button');await click('.cv2-pick:nth-child(3)');await click('.cv2-join-bar button');await wait(`document.querySelector('.cv2-player-strip h1')?.textContent==='Mesa 3'`);
@@ -184,6 +194,6 @@ for(const kind of ['photo','video']){
  await click('.cv2-mission-submit');await wait(`!document.querySelector('.cv2-mission-screen')`);
 }
 assert.equal(await evaluate(`document.querySelector('.cv2-bottom-nav').textContent.includes('Resultados')`),true);
-await click('.cv2-bottom-nav button:nth-child(3)');await wait(`document.querySelectorAll('.cv2-result-card').length===4`);
+await wait(`!!document.querySelector('.cv2-finish-dialog')`);await click('.cv2-finish-dialog .cv2-secondary');await wait(`document.querySelectorAll('.cv2-result-card').length===4`);
 assert.equal(await evaluate(`document.body.innerText.includes('Mensaje secreto')`),false);
 assert.deepEqual(exceptions,[]);console.log('PASS with mocked backend: identity, in-game photo/video capture, reduced media previews, upload failure/retry, submissions without thumbnail_url column, optional missing poster, sequential completion, server score, reload persistence, shared table ranking, gallery only after finish, no demo text, 320–1440px, no JS exceptions.');socket.close();
