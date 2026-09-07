@@ -1,4 +1,18 @@
-import type { CaptainsEvent, CaptainsHostCharacterConfig, CaptainsHostConfig, CaptainsWeddingContext } from "@/lib/captainsTypes";
+import type { CaptainsEvent, CaptainsHostCharacterConfig, CaptainsHostConfig, CaptainsWeddingContext, CaptainsSpriteConfig } from "@/lib/captainsTypes";
+
+export const getHostSpriteConfig = (config: CaptainsHostCharacterConfig): CaptainsSpriteConfig => ({
+  sex: config.outfit.includes("dress") ? "female" : "male",
+  hair_length: config.hair_style === "long" ? "long" : "short",
+  hair_color: config.hair_color === "blonde" ? "blonde" : config.hair_color === "brown" ? "brown" : "dark",
+  skin_color: ({ light: "very_fair", medium: "fair", tan: "tan", deep: "dark" } as const)[config.skin_tone],
+  outfit_type: config.outfit === "classic_dress" ? "long_dress" : config.outfit === "modern_dress" ? "dress" : config.outfit === "casual" ? "casual" : config.outfit === "informal_suit" ? "shirt" : "suit",
+  dress_color: config.primary_color,
+  suit_color: config.primary_color,
+  tie_color: config.secondary_color,
+  outfit_color: config.primary_color,
+  bottom_color: config.primary_color,
+  ...config.sprite_config,
+});
 
 export const emptyCaptainsWeddingContext = (): CaptainsWeddingContext => ({
   partner_1_name: "", partner_1_nickname: "", partner_2_name: "", partner_2_nickname: "",

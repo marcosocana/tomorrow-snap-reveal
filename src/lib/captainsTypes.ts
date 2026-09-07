@@ -36,6 +36,8 @@ export interface CaptainsWeddingContext {
 }
 
 export interface CaptainsHostCharacterConfig {
+  sprite_config?: CaptainsSpriteConfig;
+  photo_url?: string | null;
   linked_partner: "partner_1" | "partner_2" | "none";
   display_name: string;
   skin_tone: "light" | "medium" | "tan" | "deep";

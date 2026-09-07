@@ -1,4 +1,3 @@
-.host-avatar { display: block; width: 100%; max-width: 180px; aspect-ratio: 180 / 230; }
-.host-avatar svg { display: block; width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 8px 8px rgba(67, 42, 38, .12)); }
+.host-avatar { display: block; width: 100%; max-width: 180px; aspect-ratio: 180 / 240; }
 @media (prefers-reduced-motion: no-preference) { .host-avatar.is-speaking { animation: host-avatar-speak 1.8s ease-in-out infinite; transform-origin: 50% 100%; } }
 @keyframes host-avatar-speak { 0%, 100% { transform: translateY(0) rotate(0); } 50% { transform: translateY(-3px) rotate(-1deg); } }
