@@ -530,6 +530,13 @@ All colors MUST be HSL.
     opacity: 1 !important;
   }
 
+  .admin-demo2-shell button[aria-pressed="true"],
+  .admin-demo2-shell button[aria-pressed="true"]:hover {
+    border-color: #f06a5f !important;
+    background-color: rgb(240 106 95 / 0.1) !important;
+    color: #8f3d36 !important;
+  }
+
   .admin-demo2-shell [class*="hover:bg-primary"]:hover,
   .admin-demo2-shell [class*="hover:border-primary"]:hover,
   .admin-demo2-shell [class*="hover:bg-[#f06a5f]"]:hover,
