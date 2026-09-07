@@ -112,6 +112,9 @@ assert.equal(await evaluate(`document.querySelector('.cv2-bottom-nav').textConte
 assert.equal(await evaluate(`document.querySelector('.cv2-active-quest .cv2-primary').querySelector('svg')===null`),true);
 assert.equal(await evaluate(`document.body.innerText.includes('Hasta 20')`),false);
 assert.equal(await evaluate(`document.querySelector('.cv2-session-footer')===null`),true);
+assert.equal(await evaluate(`document.querySelectorAll('.cv2-mission-path > .cv2-locked-quest').length`),4);
+assert.equal(await evaluate(`document.querySelectorAll('.cv2-mission-path > .cv2-locked-quest:not(.is-depth-fade)').length`),3);
+assert.equal(await evaluate(`document.querySelectorAll('.cv2-mission-path > .cv2-locked-quest.is-depth-fade').length`),1);
 await screenshot('first');
 await click('.cv2-active-quest .cv2-primary');await wait(`!!document.querySelector('.cv2-mission-screen')`);
 assert.equal(await evaluate(`document.querySelector('.cv2-mission-heading').textContent.trim()`),challenges[0].title);
@@ -175,6 +178,9 @@ assert.equal(await evaluate(`document.body.innerText.includes('¡La fiesta sigue
 assert.equal(await evaluate(`document.querySelector('.cv2-session-footer')===null`),true);
 assert.equal(await evaluate(`document.querySelector('.cv2-podium-team:first-child > .cv2-podium-step > svg')===null`),true);
 assert.equal(await evaluate(`!!document.querySelector('.cv2-podium-team:nth-child(2) > .cv2-winner-crown')`),true);
+assert.equal(await evaluate(`(()=>{const crown=document.querySelector('.cv2-winner-crown').getBoundingClientRect();const captain=document.querySelector('.cv2-podium-team:nth-child(2) > .cv2-captain').getBoundingClientRect();return crown.bottom>captain.top&&crown.top<captain.bottom;})()`),true);
+assert.equal(await evaluate(`new Set([...document.querySelectorAll('.cv2-podium-step')].map(item=>getComputedStyle(item).backgroundImage)).size`),3);
+assert.equal(await evaluate(`document.querySelector('.cv2-ranking-rule').nextElementSibling.classList.contains('cv2-demo-note')`),true);
 assert.equal(await evaluate(`document.querySelector('.cv2-bottom-nav').textContent.includes('Retos')`),true);
 assert.equal(await evaluate(`document.querySelector('.cv2-bottom-nav').textContent.includes('Mesas')`),false);
 await click('.cv2-bottom-nav button:nth-child(2)');await wait(`document.querySelectorAll('.cv2-memory').length===5`);
@@ -185,6 +191,7 @@ assert.equal(await evaluate(`document.querySelector('.cv2-gallery-filter select'
 assert.equal(await evaluate(`Array.from(document.querySelectorAll('.cv2-gallery-filter option')).some(option=>option.textContent==='Todas las mesas')`),false);
 assert.equal(await evaluate(`document.querySelectorAll('.cv2-memory-media video').length`),0);
 assert.equal(await evaluate(`document.querySelectorAll('.cv2-memory-media img[alt^="Primer fotograma"]').length`),2);
+assert.equal(await evaluate(`document.querySelectorAll('.cv2-memory-media img[alt^="Miniatura"]').length`),2);
 await click('.cv2-memory-caption button');await wait(`!!document.querySelector('.cv2-media-dialog')`);await screenshot('gallery-modal');
 await click('.cv2-media-dialog > button');await wait(`!document.querySelector('.cv2-media-dialog')`);await screenshot('gallery');
 // A video without its optional poster must not break the complete results gallery.

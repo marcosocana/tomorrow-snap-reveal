@@ -139,7 +139,9 @@ export function useCaptainsV2(eventSlug = CAPTAINS_V2_SLUG) {
         const thumbnailPath = getCaptainsEvidenceThumbnailPath(item);
         return {
           ...item,
-          url: item.evidence_type === "video" ? "" : await getCaptainsEvidenceSignedUrl(item.file_url),
+          // Keep full media out of the results grid. It is signed and loaded
+          // only after the guest opens the preview.
+          url: "",
           // Older videos may have no poster. A missing optional thumbnail must
           // not prevent any of the table's results from opening.
           thumbnailUrl: thumbnailPath ? await getCaptainsEvidenceSignedUrl(thumbnailPath).catch(() => "") : "",
