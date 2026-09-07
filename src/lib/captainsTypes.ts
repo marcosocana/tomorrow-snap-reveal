@@ -4,6 +4,74 @@ export type CaptainsEvidenceType = "photo" | "video" | "question";
 export type CaptainsDifficulty = "easy" | "medium" | "hard" | "special";
 export type CaptainsThemeStyle = "pixel" | "romantic" | "modern" | "classic";
 export type CaptainsExperienceVersion = "legacy" | "v2";
+export type CaptainsHostTone = "divertido" | "elegante" | "gamberro" | "epico" | "romantico";
+export type CaptainsHostFrequency = "low" | "normal" | "high";
+export type CaptainsHostTrigger =
+  | "GAME_STARTED" | "FIRST_CHALLENGE_COMPLETED" | "POINTS_25" | "POINTS_50" | "POINTS_100"
+  | "HALFWAY_TIME" | "ENTERED_PODIUM" | "LEFT_PODIUM" | "BECAME_LEADER" | "LOST_LEAD"
+  | "TEAM_OVERTAKEN" | "TIME_REMAINING_30" | "TIME_REMAINING_10" | "FINAL_CHALLENGES" | "GAME_FINISHED";
+export type CaptainsHostSpeaker = "character_1" | "character_2" | "both";
+export type CaptainsHostInterventionStatus = "pending" | "shown" | "dismissed";
+
+export interface CaptainsWeddingContext {
+  partner_1_name: string;
+  partner_1_nickname: string;
+  partner_2_name: string;
+  partner_2_nickname: string;
+  years_together: number | null;
+  relationship_start_date: string;
+  venue_name: string;
+  venue_city: string;
+  venue_region: string;
+  venue_country: string;
+  venue_address: string;
+  how_they_met: string;
+  met_location: string;
+  city_where_they_live: string;
+  shared_hobby: string;
+  special_song: string;
+  inside_phrase: string;
+  most_competitive_partner: string;
+  fun_fact: string;
+}
+
+export interface CaptainsHostCharacterConfig {
+  linked_partner: "partner_1" | "partner_2" | "none";
+  display_name: string;
+  skin_tone: "light" | "medium" | "tan" | "deep";
+  hair_style: "short" | "wave" | "long" | "curly" | "bald";
+  hair_color: "blonde" | "brown" | "dark" | "red" | "gray";
+  facial_hair: "none" | "stubble" | "beard";
+  glasses: "none" | "round" | "square";
+  head_accessory: "none" | "hat" | "crown";
+  outfit: "classic_suit" | "informal_suit" | "classic_dress" | "modern_dress" | "party" | "casual" | "custom";
+  primary_color: string;
+  secondary_color: string;
+  accessory: "none" | "bowtie" | "tie" | "bouquet" | "glass";
+}
+
+export interface CaptainsHostConfig {
+  enabled: boolean;
+  tone: CaptainsHostTone;
+  frequency: CaptainsHostFrequency;
+  wedding: CaptainsWeddingContext;
+  character_1: CaptainsHostCharacterConfig;
+  character_2: CaptainsHostCharacterConfig;
+}
+
+export interface CaptainsHostInterventionRecord {
+  id: string;
+  event_id: string;
+  table_id: string;
+  intervention_type: string;
+  trigger: CaptainsHostTrigger;
+  variant: number;
+  status: CaptainsHostInterventionStatus;
+  payload: Record<string, unknown> | null;
+  created_at: string;
+  shown_at: string | null;
+  dismissed_at: string | null;
+}
 export type CaptainsSpriteStyle = "suit" | "dress" | "jacket" | "skirt" | "festival" | "tunic" | "uniform" | "kimono";
 export type CaptainsSpriteSex = "female" | "male" | "unspecified";
 export type CaptainsSpriteHairLength = "short" | "long";
@@ -49,6 +117,12 @@ export interface CaptainsEvent {
   show_live_gallery_after_completion: boolean;
   theme_style: CaptainsThemeStyle | null;
   experience_version: CaptainsExperienceVersion;
+  wedding_context?: CaptainsWeddingContext | null;
+  character_1_config?: CaptainsHostCharacterConfig | null;
+  character_2_config?: CaptainsHostCharacterConfig | null;
+  host_characters_enabled?: boolean;
+  host_tone?: CaptainsHostTone | null;
+  host_frequency?: CaptainsHostFrequency | null;
   primary_color: string | null;
   secondary_color: string | null;
   background_image_url: string | null;
@@ -197,6 +271,12 @@ export interface CreateCaptainsEventInput {
   contact_name?: string | null;
   contact_email?: string | null;
   contact_phone?: string | null;
+  wedding_context?: CaptainsWeddingContext | null;
+  character_1_config?: CaptainsHostCharacterConfig | null;
+  character_2_config?: CaptainsHostCharacterConfig | null;
+  host_characters_enabled?: boolean;
+  host_tone?: CaptainsHostTone;
+  host_frequency?: CaptainsHostFrequency;
 }
 
 export interface CaptainsChallengeInput {

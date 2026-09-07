@@ -76,6 +76,9 @@ import { normalizeCaptainsPublicUrl, resolveCaptainsQrImageUrl } from "@/lib/cap
 import CaptainOutfitEditor from "@/components/captains-v2/CaptainOutfitEditor";
 import { getCaptainOutfit, captainOutfitForSex } from "@/lib/captainsOutfits";
 import CaptainModel from "@/components/captains-v2/CaptainModel";
+import CaptainsPersonalizationEditor from "@/components/captains-v2/CaptainsPersonalizationEditor";
+import HostCharacterAvatar from "@/components/captains-v2/HostCharacterAvatar";
+import { defaultCaptainsHostConfig, getHostDisplayName, normalizeCaptainsHostConfig } from "@/lib/captainsHosts";
 import type {
   CaptainsChallengeInput,
   CaptainsChallengeCatalogItem,
@@ -90,6 +93,7 @@ import type {
   CaptainsSpriteStyle,
   CaptainsTable,
   CaptainsTableChallenge,
+  CaptainsHostConfig,
 } from "@/lib/captainsTypes";
 
 const DEFAULT_DESCRIPTION =
@@ -970,10 +974,11 @@ export const CaptainsAdminList = () => {
   );
 };
 
-type CaptainsOnboardingStep = "intro" | "tables" | "challenges" | "contact";
+type CaptainsOnboardingStep = "intro" | "personalization" | "tables" | "challenges" | "contact";
 
 const captainsOnboardingSteps: Array<{ id: CaptainsOnboardingStep; label: string }> = [
   { id: "intro", label: "Evento" },
+  { id: "personalization", label: "Personalización" },
   { id: "tables", label: "Mesas" },
   { id: "challenges", label: "Retos" },
   { id: "contact", label: "Contacto" },
@@ -1016,9 +1021,10 @@ export const CaptainsOnboarding = () => {
         setStartHour(start.time);
         setEndDate(end.date);
         setEndHour(end.time);
-        setContactName(data.event.contact_name || "");
-        setContactEmail(data.event.contact_email || "");
-        setContactPhone(data.event.contact_phone || "");
+	        setContactName(data.event.contact_name || "");
+	        setContactEmail(data.event.contact_email || "");
+	        setContactPhone(data.event.contact_phone || "");
+            setHostConfig(normalizeCaptainsHostConfig(data.event));
         const loadedTables = (data.tables || []).map((table: CaptainsTable, index: number) => ({
           id: table.id,
           table_number: index + 1,
@@ -1089,6 +1095,7 @@ export const CaptainsOnboarding = () => {
   const [contactName, setContactName] = useState("");
   const [contactEmail, setContactEmail] = useState("");
   const [contactPhone, setContactPhone] = useState("");
+  const [hostConfig, setHostConfig] = useState<CaptainsHostConfig>(() => defaultCaptainsHostConfig(true));
   const currentStep = captainsOnboardingSteps[stepIndex];
   const progress = Math.round(((stepIndex + 1) / captainsOnboardingSteps.length) * 100);
   const primaryTextColor = readableTextColor(primaryColor);
@@ -1298,6 +1305,12 @@ export const CaptainsOnboarding = () => {
 	          contact_name: contactName.trim(),
 	          contact_email: contactEmail.trim(),
 	          contact_phone: contactPhone.trim(),
+              wedding_context: hostConfig.wedding,
+              character_1_config: hostConfig.character_1,
+              character_2_config: hostConfig.character_2,
+              host_characters_enabled: hostConfig.enabled,
+              host_tone: hostConfig.tone,
+              host_frequency: hostConfig.frequency,
           status: "active" as const,
 	          ...(!editingEventId ? { experience_version: "v2" as const } : {}),
 	        },
@@ -1405,6 +1418,8 @@ export const CaptainsOnboarding = () => {
             </div>
           </div>
         );
+      case "personalization":
+        return <CaptainsPersonalizationEditor value={hostConfig} onChange={setHostConfig} />;
       case "tables":
         return (
           <div className="space-y-5">
@@ -1984,6 +1999,7 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
   const [endHour, setEndHour] = useState(defaultDateRange.endTime);
   const [scoringMode, setScoringMode] = useState<"automatic" | "manual">("automatic");
   const [showLiveGalleryAfterCompletion, setShowLiveGalleryAfterCompletion] = useState(true);
+  const [hostConfig, setHostConfig] = useState<CaptainsHostConfig>(() => defaultCaptainsHostConfig(true));
   const [selectedChallenges, setSelectedChallenges] = useState<CaptainsChallengeInput[]>([]);
   const [selectedCatalogIds, setSelectedCatalogIds] = useState<string[]>([]);
   const [challengeLimitOpen, setChallengeLimitOpen] = useState(false);
@@ -2013,6 +2029,7 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
     setEndHour(endParts.time);
     setScoringMode(detail.event.scoring_mode);
     setShowLiveGalleryAfterCompletion(detail.event.show_live_gallery_after_completion ?? true);
+    setHostConfig(normalizeCaptainsHostConfig(detail.event));
     setSelectedChallenges(
       detail.challenges.map((challenge) => ({
         id: challenge.id,
@@ -2239,6 +2256,12 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
         secondary_color: DEFAULT_SECONDARY_COLOR,
         background_image_url: null,
         status: "active" as const,
+        wedding_context: hostConfig.wedding,
+        character_1_config: hostConfig.character_1,
+        character_2_config: hostConfig.character_2,
+        host_characters_enabled: hostConfig.enabled,
+        host_tone: hostConfig.tone,
+        host_frequency: hostConfig.frequency,
       };
 
       if (edit && eventId) {
@@ -2343,6 +2366,7 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
                 Cuando una mesa complete todos sus retos, podrá ver en tiempo real las evidencias subidas por el resto de mesas.
               </p>
             </label> : null}
+            <CaptainsPersonalizationEditor value={hostConfig} onChange={setHostConfig} />
           </div>
 
           {captains.length === 0 ? (
@@ -3414,6 +3438,7 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
   }
 
 	  const { event, tables, challenges } = detail;
+	  const detailHostConfig = normalizeCaptainsHostConfig(event);
 	  const eventIsFinished = isCaptainsEventFinished(event);
 	  const eventStatusLabel = eventIsFinished ? "Terminado" : "En curso";
 	  const publicUrl = normalizeCaptainsPublicUrl(event.public_url, event.slug);
@@ -3673,6 +3698,23 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
                   </Button>
                 </div>
               </div>
+            </div>
+          </Card>
+          <Card className="rounded-2xl p-5 shadow-sm">
+            <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+              <div className="flex items-center gap-4">
+                <div className="flex w-28 items-end">
+                  <HostCharacterAvatar config={detailHostConfig.character_1} />
+                  <HostCharacterAvatar config={detailHostConfig.character_2} className="-ml-10" />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Personalización</p>
+                  <h3 className="mt-1 text-lg font-bold">{getHostDisplayName(detailHostConfig, 1)} + {getHostDisplayName(detailHostConfig, 2)}</h3>
+                  <p className="text-sm text-muted-foreground">{[detailHostConfig.wedding.years_together ? `${detailHostConfig.wedding.years_together} años juntos` : "", detailHostConfig.wedding.venue_name, detailHostConfig.wedding.venue_city].filter(Boolean).join(" · ") || "Contexto pendiente de completar"}</p>
+                  <div className="mt-2 flex flex-wrap gap-2 text-xs"><Badge variant="outline">Tono: {detailHostConfig.tone}</Badge><Badge variant="outline">Frecuencia: {detailHostConfig.frequency === "low" ? "Baja" : detailHostConfig.frequency === "high" ? "Alta" : "Normal"}</Badge><Badge variant={detailHostConfig.enabled ? "default" : "outline"}>{detailHostConfig.enabled ? "Activo" : "Desactivado"}</Badge></div>
+                </div>
+              </div>
+              <Button variant="outline" onClick={() => navigate(`/admin/capitanes/${event.id}/edit`)}>Editar personalización</Button>
             </div>
           </Card>
 	        </TabsContent>

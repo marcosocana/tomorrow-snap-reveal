@@ -7,15 +7,16 @@ const debuggerOrigin=process.env.CAPTAINS_V2_CDP || 'http://127.0.0.1:9237';
 const eventSlug=process.env.CAPTAINS_V2_SLUG || 'demo-capitanes-v2';
 const experienceVersion=process.env.CAPTAINS_EXPERIENCE_VERSION || 'v2';
 const eventAlreadyEnded=process.env.CAPTAINS_EVENT_FINISHED==='1';
+const hostsEnabled=process.env.CAPTAINS_HOSTS==='1';
 const firstChallengeStatus=process.env.CAPTAINS_FIRST_CHALLENGE_PENDING==='1'?'pending':'ready';
 const thumbnailColumn=process.env.CAPTAINS_THUMBNAIL_COLUMN==='1';
 const eventId='de100000-0000-4000-8000-000000000001';
 const titles=['Brindis de mesa','Pregunta de pareja','Mensaje secreto','Aliados de otra mesa','Coreografía exprés'];
-const event={id:eventId,name:'Capitanes · Revelao',slug:eventSlug,status:eventAlreadyEnded?'finished':'active',experience_version:experienceVersion,start_time:'2026-01-01T00:00:00Z',end_time:eventAlreadyEnded?'2026-01-02T00:00:00Z':'2099-12-31T00:00:00Z'};
+const event={id:eventId,name:'Capitanes · Revelao',slug:eventSlug,status:eventAlreadyEnded?'finished':'active',experience_version:experienceVersion,start_time:'2026-01-01T00:00:00Z',end_time:eventAlreadyEnded?'2026-01-02T00:00:00Z':'2099-12-31T00:00:00Z',host_characters_enabled:hostsEnabled,host_tone:'divertido',host_frequency:'normal',wedding_context:hostsEnabled?{partner_1_name:'Carlos',partner_2_name:'Lucía',years_together:8,venue_name:'Finca La Estación',venue_city:'Madrid'}:null,character_1_config:hostsEnabled?{linked_partner:'partner_1',display_name:'Carlos',skin_tone:'medium',hair_style:'short',hair_color:'dark',facial_hair:'none',glasses:'none',head_accessory:'none',outfit:'classic_suit',primary_color:'#26354a',secondary_color:'#fff6ec',accessory:'tie'}:null,character_2_config:hostsEnabled?{linked_partner:'partner_2',display_name:'Lucía',skin_tone:'light',hair_style:'long',hair_color:'brown',facial_hair:'none',glasses:'round',head_accessory:'none',outfit:'modern_dress',primary_color:'#f06a5f',secondary_color:'#fff6ec',accessory:'bouquet'}:null};
 const tables=['Jorge','Marta','Laura','Dani',null].map((name,i)=>({id:`db100000-0000-4000-8000-00000000000${i+1}`,event_id:eventId,table_name:`Mesa ${i+1}`,table_number:i+1,captain_name:name,captain_photo_url:i===0?`${origin}/favicon.png`:null,captain_sprite:i===0?'dress':'suit',captain_sprite_config:i===0?{sex:'female',hair_length:'long',hair_color:'brown',skin_color:'tan',outfit_type:'dress',dress_color:'#d32027',suit_color:'#1f2937',tie_color:'#ffffff'}:null,total_points:0,completed_challenges:0,failed_challenges:0,session_token:`test-session-${i}`}));
 const challenges=titles.map((title,i)=>({id:`dc100000-0000-4000-8000-00000000000${i+1}`,event_id:eventId,title,description:['Haced una foto de toda la mesa brindando por los novios.','¿Dónde fue la primera cita de la pareja?','Grabad un vídeo corto dedicando un mensaje sorpresa a los novios.','Haced una foto con alguien de otra mesa.','Grabad una coreografía con vuestra mesa.'][i],evidence_type:['photo','question','video','photo','video'][i],points:[20,15,25,15,20][i],has_time_limit:false,time_limit_seconds:null,question_options:i===1?['En un restaurante','En la playa','En un concierto','En casa de amigos']:null,question_correct_option:i===1?'En un restaurante':null,order_index:i+1}));
 const rows=tables.flatMap((t,ti)=>challenges.map((c,i)=>({id:`dd100000-0000-4000-8000-0000000000${ti}${i}`,event_id:eventId,table_id:t.id,challenge_id:c.id,randomized_order_index:i+1,status:i===0?firstChallengeStatus:'pending',points_awarded:0,started_at:null})));
-const evidence=[];const uploads=[];let rejectUpload=false;const exceptions=[];
+const evidence=[];const hostInterventions=[];const uploads=[];let rejectUpload=false;const exceptions=[];
 const target=await fetch(`${debuggerOrigin}/json/new?about:blank`,{method:'PUT'}).then(r=>r.json());
 const socket=new WebSocket(target.webSocketDebuggerUrl);await new Promise(r=>socket.addEventListener('open',r,{once:true}));
 let id=0;const pending=new Map();
@@ -24,15 +25,19 @@ const mock=async params=>{
  const {request,requestId}=params;const url=new URL(request.url);let result={};let status=200;const extraHeaders=[];
  if(request.method==='OPTIONS'){result={};}
  else if(url.pathname.includes('/rest/v1/')){
-  const table=url.pathname.split('/').at(-1); const all={captains_events:[event],captains_tables:tables,captains_event_challenges:challenges,captains_table_challenges:rows,captains_evidence:evidence,captains_table_accesses:[]}[table]??[];
+	  const table=url.pathname.split('/').at(-1); const all={captains_events:[event],captains_tables:tables,captains_event_challenges:challenges,captains_table_challenges:rows,captains_evidence:evidence,captains_table_accesses:[],captains_host_interventions:hostInterventions}[table]??[];
   let matching=all.filter(item=>[...url.searchParams].every(([k,v])=>!v.startsWith('eq.')&&!v.startsWith('neq.')||(v.startsWith('eq.')?String(item[k])===v.slice(3):String(item[k])!==v.slice(4))));
   if(request.method==='PATCH'){const payload=JSON.parse(request.postData);matching.forEach(item=>Object.assign(item,payload));}
-  if(request.method==='POST'){
-   const payload=JSON.parse(request.postData);
+	  if(request.method==='POST'){
+	   const payload=JSON.parse(request.postData);
    if(table==='captains_evidence'&&!thumbnailColumn&&Object.hasOwn(payload,'thumbnail_url')){
     await send('Fetch.fulfillRequest',{requestId,responseCode:400,responseHeaders:[{name:'Content-Type',value:'application/json'},{name:'Access-Control-Allow-Origin',value:'*'}],body:Buffer.from(JSON.stringify({code:'PGRST204',message:"Could not find the 'thumbnail_url' column of 'captains_evidence' in the schema cache"})).toString('base64')});return;
    }
-   all.push(payload);matching=[payload];
+	   if(table==='captains_host_interventions'){
+	    const duplicate=all.some(item=>item.event_id===payload.event_id&&item.table_id===payload.table_id&&item.trigger===payload.trigger);
+	    if(duplicate){status=409;result={code:'23505',message:'duplicate key value violates unique constraint'};matching=[];}
+	    else{const stored={id:`host-${all.length+1}`,...payload,created_at:new Date().toISOString(),shown_at:null,dismissed_at:null};all.push(stored);matching=[stored];}
+	   }else{all.push(payload);matching=[payload];}
   }
   if(url.searchParams.get('select')?.includes('captains_event_challenges('))matching=matching.map(item=>({...item,captains_event_challenges:challenges.find(c=>c.id===item.challenge_id)}));
   result=Object.entries(request.headers).some(([key,value])=>key.toLowerCase()==='accept'&&value.includes('vnd.pgrst.object'))?(matching[0]??null):matching;
@@ -53,7 +58,7 @@ const mock=async params=>{
 };
 socket.addEventListener('message',e=>{const m=JSON.parse(e.data);if(m.id){const p=pending.get(m.id);pending.delete(m.id);m.error?p?.reject(m.error):p?.resolve(m.result);}if(m.method==='Fetch.requestPaused')mock(m.params).catch(error=>{console.error(error);process.exitCode=1;});if(m.method==='Runtime.exceptionThrown')exceptions.push(m.params.exceptionDetails.text);});
 const evaluate=async expression=>{const r=await send('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true});if(r.exceptionDetails)throw Error(r.exceptionDetails.text);return r.result.value;};
-const wait=async test=>{for(let i=0;i<80;i++){if(await evaluate(test))return;await new Promise(r=>setTimeout(r,100));}throw Error(`Timeout: ${test}: ${await evaluate("document.body.innerText")}`);};
+const wait=async test=>{for(let i=0;i<160;i++){if(await evaluate(test))return;await new Promise(r=>setTimeout(r,100));}throw Error(`Timeout: ${test}: ${await evaluate("document.body.innerText")}`);};
 const click=async selector=>{await evaluate(`document.querySelector(${JSON.stringify(selector)}).click()`);await new Promise(r=>setTimeout(r,150));};
 const screenshot=async name=>{const img=await send('Page.captureScreenshot',{format:'png'});fs.writeFileSync(`/tmp/captains-revelao-${name}.png`,Buffer.from(img.data,'base64'));};
 await send('Page.enable');await send('Runtime.enable');await send('Fetch.enable',{patterns:[{urlPattern:'*supabase.co/*'}]});
@@ -108,6 +113,19 @@ for(const width of [320,390,430]){
 }
 await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
 await screenshot('identity');assert.equal(await evaluate(`document.querySelector('.cv2-pick:nth-child(5) .cv2-pick-label strong').textContent.trim()`),'Sin nombre');await click('.cv2-pick:nth-child(5)');assert.equal(await evaluate(`!!document.querySelector('.cv2-name-label')`),false);await click('.cv2-pick:nth-child(2)');await click('.cv2-join-bar button');await wait(`!!document.querySelector('.cv2-active-quest')`);
+if(hostsEnabled){
+ await wait(`!!document.querySelector('.cv2-host-dialog')`);await screenshot('host-welcome');
+ assert.equal(await evaluate(`document.querySelectorAll('.cv2-host-dialog .host-avatar').length`),2);
+ assert.equal(await evaluate(`document.querySelector('.cv2-host-dialog').textContent.includes('Carlos')&&document.querySelector('.cv2-host-dialog').textContent.includes('Lucía')`),true);
+ assert.equal(hostInterventions.filter(item=>item.table_id===tables[1].id&&item.trigger==='GAME_STARTED').length,1);
+ await click('.host-intervention-cta');await wait(`!document.querySelector('.cv2-host-dialog')`);
+ await new Promise(r=>setTimeout(r,300));await evaluate(`(()=>{const current=Date.now();Date.now=()=>current+10*60*1000})()`);
+ tables[1].total_points=50;tables[1].completed_challenges=1;Object.assign(rows.find(row=>row.table_id===tables[1].id&&row.challenge_id===challenges[0].id),{status:'completed',points_awarded:50,submitted_at:new Date().toISOString()});
+ await wait(`document.querySelector('.cv2-host-dialog')?.textContent.includes('50 puntos')`);await screenshot('host-50-points');
+ assert.equal(hostInterventions.filter(item=>item.table_id===tables[1].id&&item.trigger==='POINTS_50').length,1);
+ await click('.host-intervention-cta');await wait(`!document.querySelector('.cv2-host-dialog')`);
+ assert.deepEqual(exceptions,[]);console.log('PASS: configured host characters render once at game start and once at the 50-point milestone.');socket.close();process.exit(0);
+}
 assert.equal(await evaluate(`document.querySelector('.cv2-bottom-nav').textContent.includes('Recuerdos')`),false);
 assert.equal(await evaluate(`document.querySelector('.cv2-active-quest .cv2-primary').querySelector('svg')===null`),true);
 assert.equal(await evaluate(`document.body.innerText.includes('Hasta 20')`),false);

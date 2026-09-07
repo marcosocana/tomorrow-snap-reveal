@@ -10,6 +10,10 @@ const slugify = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036
 const pick = (source: Record<string, unknown>, keys: string[]) => Object.fromEntries(keys.filter((key) => source[key] !== undefined).map((key) => [key, source[key]]));
 const isUuid = (value: unknown) => typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 const MAX_CHALLENGES = 25;
+const HOST_EVENT_FIELDS = ["wedding_context", "character_1_config", "character_2_config", "host_characters_enabled", "host_tone", "host_frequency"];
+const withoutFields = (source: Record<string, unknown>, fields: string[]) =>
+  Object.fromEntries(Object.entries(source).filter(([key]) => !fields.includes(key)));
+const referencesAnyField = (message: string, fields: string[]) => fields.some((field) => message.includes(field));
 const CAPTAINS_PUBLIC_ORIGIN = "https://acceso.revelao.cam";
 const getQrImageUrl = (publicUrl: string) =>
   `https://quickchart.io/qr?size=1024&margin=1&ecLevel=H&text=${encodeURIComponent(publicUrl)}`;
@@ -158,7 +162,7 @@ serve(async (req) => {
       if (body.tables.length < 1 || body.tables.length > access.max_tables) return json({ error: "TABLE_LIMIT_EXCEEDED", maxTables: access.max_tables }, 400);
       if (body.challenges.length < 1 || body.challenges.length > MAX_CHALLENGES) return json({ error: "CHALLENGE_LIMIT_EXCEEDED", maxChallenges: MAX_CHALLENGES }, 400);
       const eventChanges = {
-        ...pick(body.event, ["name", "description", "start_time", "end_time", "contact_name", "contact_email", "contact_phone"]),
+        ...pick(body.event, ["name", "description", "start_time", "end_time", "contact_name", "contact_email", "contact_phone", "wedding_context", "character_1_config", "character_2_config", "host_characters_enabled", "host_tone", "host_frequency"]),
         scoring_mode: "automatic",
         status: "active",
         show_live_gallery_after_completion: true,
@@ -168,7 +172,11 @@ serve(async (req) => {
         background_image_url: null,
         updated_at: new Date().toISOString(),
       };
-      const { data: updatedEvent, error: updateEventError } = await admin.from("captains_events").update(eventChanges).eq("id", access.event_id).select("*").single();
+      let updateEventResult = await admin.from("captains_events").update(eventChanges).eq("id", access.event_id).select("*").single();
+      if (updateEventResult.error && referencesAnyField(updateEventResult.error.message, HOST_EVENT_FIELDS)) {
+        updateEventResult = await admin.from("captains_events").update(withoutFields(eventChanges, HOST_EVENT_FIELDS)).eq("id", access.event_id).select("*").single();
+      }
+      const { data: updatedEvent, error: updateEventError } = updateEventResult;
       if (updateEventError) return json({ error: "UPDATE_EVENT_FAILED", detail: updateEventError.message }, 500);
 
       const { data: oldTables } = await admin.from("captains_tables").select("id").eq("event_id", access.event_id);
@@ -290,7 +298,7 @@ serve(async (req) => {
     owner_id: ownerId,
   };
   const eventOptional = {
-    ...pick(body.event, ["contact_name", "contact_email", "contact_phone"]),
+    ...pick(body.event, ["contact_name", "contact_email", "contact_phone", "wedding_context", "character_1_config", "character_2_config", "host_characters_enabled", "host_tone", "host_frequency"]),
     theme_style: "pixel",
     primary_color: "#f06a5f",
     secondary_color: "#2f292d",
@@ -298,6 +306,9 @@ serve(async (req) => {
     experience_version: "v2",
   };
   let eventResult = await admin.from("captains_events").insert({ ...eventBase, ...eventOptional, slug, public_url: publicUrl, qr_url: qrImageUrl }).select("*").single();
+  if (eventResult.error && referencesAnyField(eventResult.error.message, HOST_EVENT_FIELDS)) {
+    eventResult = await admin.from("captains_events").insert({ ...eventBase, ...withoutFields(eventOptional, HOST_EVENT_FIELDS), slug, public_url: publicUrl, qr_url: qrImageUrl }).select("*").single();
+  }
   if (eventResult.error && Object.keys(eventOptional).some((key) => eventResult.error.message.includes(key))) {
     eventResult = await admin.from("captains_events").insert({ ...eventBase, slug, public_url: publicUrl, qr_url: qrImageUrl }).select("*").single();
   }

@@ -1,0 +1,15 @@
+.host-intervention { width: min(100%, 440px); margin: auto; padding: 18px 18px 20px; border-radius: 28px; color: #352b2d; background: radial-gradient(circle at 50% 0, #fff8ec, transparent 42%), #f0ddda; box-shadow: 0 24px 70px rgba(42, 26, 28, .24); }
+.host-intervention-stage { display: flex; align-items: flex-end; justify-content: center; height: min(35dvh, 250px); padding: 0 12px; overflow: hidden; }
+.host-intervention-stage .host-avatar { width: 48%; margin-bottom: -14px; transition: opacity .2s, filter .2s; }
+.host-intervention-stage .host-avatar:not(.is-speaking) { opacity: .75; filter: saturate(.75); }
+.host-dialogue { position: relative; z-index: 2; display: grid; gap: 10px; margin-top: -4px; }
+.host-dialogue > div { padding: 12px 14px; border: 1px solid rgba(97, 59, 57, .12); border-radius: 15px; background: rgba(255,255,255,.74); }
+.host-dialogue > div.is-active { border-color: rgba(240,106,95,.38); background: #fff; }
+.host-dialogue strong { display: block; margin-bottom: 4px; color: #ba5049; font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; }
+.host-dialogue p { margin: 0; font-size: 15px; font-weight: 600; line-height: 1.4; }
+.host-dialogue p + p { margin-top: 5px; }
+.host-intervention-cta { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 52px; margin-top: 16px; border-radius: 14px; background: #f06a5f; color: white; font-size: 14px; font-weight: 650; }
+.host-intervention.is-preview { box-shadow: none; transform: scale(.92); transform-origin: top center; }
+@media (max-width: 370px) { .host-intervention { padding: 12px; border-radius: 22px; } .host-intervention-stage { height: 205px; } .host-dialogue p { font-size: 13px; } }
+@media (prefers-reduced-motion: no-preference) { .host-intervention { animation: host-intervention-in .34s cubic-bezier(.2,.85,.25,1) both; } }
+@keyframes host-intervention-in { from { opacity: 0; transform: translateY(28px) scale(.96); } to { opacity: 1; transform: translateY(0) scale(1); } }

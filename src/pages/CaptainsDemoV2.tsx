@@ -4,7 +4,9 @@ import { ArrowLeft, ArrowRight, Camera, Check, CircleDashed, Crown, Film, Flag, 
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import CaptainModel from "@/components/captains-v2/CaptainModel";
 import MediaCapture from "@/components/captains-v2/MediaCapture";
+import HostIntervention from "@/components/captains-v2/HostIntervention";
 import { useCaptainsV2 } from "@/hooks/useCaptainsV2";
+import { useCaptainsHostInterventions } from "@/hooks/useCaptainsHostInterventions";
 import { getCaptainsEvidenceSignedUrl, rankCaptainsTables } from "@/lib/captainsService";
 import { getCaptainSpriteCss, getCaptainSpriteVisual } from "@/lib/captainsSprite";
 import type { CaptainsSpriteConfig, CaptainsSpriteStyle } from "@/lib/captainsTypes";
@@ -92,6 +94,15 @@ export default function CaptainsDemoV2({ eventSlug: requestedEventSlug }: { even
   const ranking = rankCaptainsTables(game.data?.tables ?? [], game.data?.rows ?? []).map(table => {
     const index = game.data!.tables.findIndex(item => item.id === table.id);
     return { ...teams[index % teams.length], ...table, name: table.captain_name?.trim() || "Sin nombre", points: table.total_points, index };
+  });
+  const hosts = useCaptainsHostInterventions({
+    event: game.data?.event,
+    team: selected === null ? undefined : game.data?.tables[selected],
+    ranking,
+    completedChallenges: completed,
+    totalChallenges: missions.length,
+    joined,
+    finished: experienceFinished,
   });
   const position = ranking.findIndex(item => item.index === selected) + 1;
   const galleryTableId = galleryTable === "mine" ? team?.id : galleryTable;
@@ -214,7 +225,10 @@ export default function CaptainsDemoV2({ eventSlug: requestedEventSlug }: { even
         <nav className="cv2-bottom-nav" aria-label="Vistas de tu equipo">{(experienceFinished ? [{ id: "ranking" as const, label: "Ranking", icon: Trophy }, { id: "memories" as const, label: "Retos", icon: Camera }] : [{ id: "quests" as const, label: "Retos", icon: Flag }, { id: "ranking" as const, label: "Ranking", icon: Trophy }]).map(tab => <button key={tab.id} aria-current={view === tab.id ? "page" : undefined} onClick={() => navigate(tab.id)}><tab.icon size={21} /><span>{tab.label}</span>{tab.id === "quests" && <i />}</button>)}</nav>
       </>}
     </main>
-    <Dialog open={Boolean((started || game.eventEnded) && joined && experienceFinished && mission === null && view === "quests")} onOpenChange={() => undefined}><DialogContent className="cv2-dialog cv2-finish-dialog" onEscapeKeyDown={event => event.preventDefault()} onPointerDownOutside={event => event.preventDefault()}>
+    <Dialog open={Boolean(hosts.active && hosts.message && mission === null)} onOpenChange={() => undefined}><DialogContent className="cv2-dialog cv2-host-dialog" onEscapeKeyDown={event => event.preventDefault()} onPointerDownOutside={event => event.preventDefault()}>
+      {hosts.message && <HostIntervention config={hosts.config} message={hosts.message} onContinue={() => void hosts.dismiss().then(() => { if (hosts.message?.cta === "Ver clasificación") navigate("ranking"); })} />}
+    </DialogContent></Dialog>
+    <Dialog open={Boolean(!hosts.active && (started || game.eventEnded) && joined && experienceFinished && mission === null && view === "quests")} onOpenChange={() => undefined}><DialogContent className="cv2-dialog cv2-finish-dialog" onEscapeKeyDown={event => event.preventDefault()} onPointerDownOutside={event => event.preventDefault()}>
       <div className="cv2-finish"><VictoryCup /><span className="cv2-eyebrow">{game.eventEnded ? "PARTIDA FINALIZADA" : "MISIÓN CUMPLIDA"}</span><DialogTitle>{game.eventEnded ? "El juego ha terminado" : "¡Lo habéis dado todo!"}</DialogTitle><DialogDescription>{game.eventEnded ? "Consulta la clasificación y los retos de todas las mesas." : `${missions.length} retos, ${points} puntos y una historia que ya es vuestra.`}</DialogDescription><button className="cv2-primary cv2-centered-action" onClick={() => navigate("ranking")}>Ver ranking</button><button className="cv2-secondary cv2-centered-action" onClick={() => navigate("memories")}>Ver retos</button></div>
     </DialogContent></Dialog>
     <Dialog open={rejecting} onOpenChange={open => { if (!game.busy) setRejecting(open); }}><DialogContent className="cv2-dialog cv2-confirm-dialog">

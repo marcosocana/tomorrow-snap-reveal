@@ -31,6 +31,8 @@ import type {
   CaptainsScoringMode,
   CaptainsSpriteConfig,
   CaptainsSpriteStyle,
+  CaptainsHostInterventionRecord,
+  CaptainsHostTrigger,
 } from "@/lib/captainsTypes";
 
 // Several deployed Captains columns predate the generated Supabase types.
@@ -161,6 +163,12 @@ const captainThemeColumns = [
   "contact_email",
   "contact_phone",
   "experience_version",
+  "wedding_context",
+  "character_1_config",
+  "character_2_config",
+  "host_characters_enabled",
+  "host_tone",
+  "host_frequency",
 ];
 
 const withoutCaptainThemeColumns = <T extends Record<string, unknown>>(payload: T) => {
@@ -319,6 +327,12 @@ export const createCaptainsEvent = async (input: CreateCaptainsEventInput) => {
     contact_name: input.contact_name?.trim() || null,
     contact_email: input.contact_email?.trim().toLowerCase() || null,
     contact_phone: input.contact_phone?.trim() || null,
+    wedding_context: input.wedding_context ?? null,
+    character_1_config: input.character_1_config ?? null,
+    character_2_config: input.character_2_config ?? null,
+    host_characters_enabled: input.host_characters_enabled ?? true,
+    host_tone: input.host_tone ?? "divertido",
+    host_frequency: input.host_frequency ?? "normal",
     public_url: publicUrl,
     qr_url: getCaptainsQrImageUrl(publicUrl),
   };
@@ -668,6 +682,50 @@ export const getCaptainsTableChallenges = async (eventId: string) => {
     .order("randomized_order_index", { ascending: true });
   ensureNoError(error);
   return (data || []) as CaptainsTableChallenge[];
+};
+
+export const getCaptainsHostInterventions = async (eventId: string, tableId: string) => {
+  const { data, error } = await pdb
+    .from("captains_host_interventions")
+    .select("*")
+    .eq("event_id", eventId)
+    .eq("table_id", tableId)
+    .order("created_at", { ascending: true });
+  if (error) {
+    if (/captains_host_interventions|schema cache|does not exist/i.test(String(error.message || ""))) return [];
+    ensureNoError(error);
+  }
+  return (data || []) as CaptainsHostInterventionRecord[];
+};
+
+export const claimCaptainsHostIntervention = async ({
+  eventId, tableId, trigger, variant, payload,
+}: { eventId: string; tableId: string; trigger: CaptainsHostTrigger; variant: number; payload?: Record<string, unknown> }) => {
+  const { data, error } = await pdb.from("captains_host_interventions").insert({
+    event_id: eventId,
+    table_id: tableId,
+    intervention_type: "host_message",
+    trigger,
+    variant,
+    status: "pending",
+    payload: payload ?? null,
+  }).select("*").maybeSingle();
+  if (error) {
+    if (String(error.code) === "23505" || /duplicate|captains_host_interventions|schema cache|does not exist/i.test(String(error.message || ""))) return null;
+    ensureNoError(error);
+  }
+  return data as CaptainsHostInterventionRecord | null;
+};
+
+export const markCaptainsHostIntervention = async (id: string, status: "shown" | "dismissed") => {
+  const now = new Date().toISOString();
+  const payload = status === "shown" ? { status, shown_at: now } : { status, dismissed_at: now };
+  const { data, error } = await pdb.from("captains_host_interventions").update(payload).eq("id", id).select("*").maybeSingle();
+  if (error) {
+    if (/captains_host_interventions|schema cache|does not exist/i.test(String(error.message || ""))) return null;
+    ensureNoError(error);
+  }
+  return data as CaptainsHostInterventionRecord | null;
 };
 
 export const getCaptainsTableChallengesForTable = async (eventId: string, tableId: string) => {
