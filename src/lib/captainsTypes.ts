@@ -76,10 +76,10 @@ export interface CaptainsHostInterventionRecord {
 }
 export type CaptainsSpriteStyle = "suit" | "dress" | "jacket" | "skirt" | "festival" | "tunic" | "uniform" | "kimono";
 export type CaptainsSpriteSex = "female" | "male" | "unspecified";
-export type CaptainsSpriteHairLength = "short" | "long";
+export type CaptainsSpriteHairLength = "short" | "long" | "wavy" | "curly" | "bob" | "bun" | "bald";
 export type CaptainsSpriteHairColor = "blonde" | "dark" | "brown";
 export type CaptainsSpriteSkinColor = "very_fair" | "fair" | "tan" | "dark";
-export type CaptainsSpriteOutfitType = "dress" | "long_dress" | "suit" | "tuxedo" | "shirt" | "casual" | "jumpsuit" | "skirt";
+export type CaptainsSpriteOutfitType = "dress" | "long_dress" | "suit" | "tuxedo" | "shirt" | "casual" | "jumpsuit" | "skirt" | "wedding_dress";
 
 export interface CaptainsSpriteConfig {
   sex: CaptainsSpriteSex;

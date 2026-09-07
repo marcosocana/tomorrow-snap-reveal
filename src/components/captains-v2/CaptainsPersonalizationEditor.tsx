@@ -1,3 +1,4 @@
+import { captainHairOptions } from "@/lib/captainsHair";
 import { useMemo, useState } from "react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Input } from "@/components/ui/input";
@@ -15,7 +16,7 @@ const toneOptions: Array<{ value: CaptainsHostTone; label: string }> = [
   { value: "divertido", label: "Divertido" }, { value: "elegante", label: "Elegante" }, { value: "gamberro", label: "Gamberro" }, { value: "epico", label: "Épico" }, { value: "romantico", label: "Romántico" },
 ];
 const frequencyOptions: Array<{ value: CaptainsHostFrequency; label: string; detail: string }> = [
-  { value: "low", label: "Baja", detail: "3–4 apariciones" }, { value: "normal", label: "Normal", detail: "5–7 apariciones" }, { value: "high", label: "Alta", detail: "8–10 apariciones" },
+  { value: "low", label: "Baja", detail: "Hasta 8 situaciones · pausa de 5 min" }, { value: "normal", label: "Normal", detail: "Hasta 13 situaciones · pausa de 4 min" }, { value: "high", label: "Alta", detail: "Hasta 15 situaciones · pausa de 3 min" },
 ];
 const previewTriggers: Array<{ value: CaptainsHostTrigger; label: string }> = [
   { value: "GAME_STARTED", label: "Inicio" }, { value: "POINTS_50", label: "50 puntos" }, { value: "HALFWAY_TIME", label: "Ecuador" }, { value: "ENTERED_PODIUM", label: "Podio" }, { value: "TIME_REMAINING_10", label: "Últimos 10 min" }, { value: "GAME_FINISHED", label: "Final" },
@@ -34,7 +35,7 @@ function CharacterEditor({ number, config, partnerName, onChange }: { number: 1 
       <HostPhotoEditor photoUrl={config.photo_url} onChange={photo_url => patch({ photo_url })} />
       {choice("Personaje", [{ value: "male", label: "Hombre" }, { value: "female", label: "Mujer" }, { value: "unspecified", label: "Sin especificar" }], sprite.sex, sex => patchSprite({ sex }))}
       {choice("Tono de piel", [{value:"very_fair",label:"Muy claro"},{value:"fair",label:"Claro"},{value:"tan",label:"Moreno"},{value:"dark",label:"Oscuro"}], sprite.skin_color, skin_color => patchSprite({ skin_color }))}
-      {choice("Pelo", [{value:"short",label:"Corto"},{value:"long",label:"Largo"}], sprite.hair_length, hair_length => patchSprite({ hair_length }))}
+      {choice("Pelo", captainHairOptions, sprite.hair_length, hair_length => patchSprite({ hair_length }))}
       {choice("Color de pelo", [{value:"blonde",label:"Rubio"},{value:"brown",label:"Castaño"},{value:"dark",label:"Oscuro"}], sprite.hair_color, hair_color => patchSprite({ hair_color }))}
       <div className="grid gap-3 sm:grid-cols-2"><CaptainOutfitEditor config={sprite} onChange={patchSprite} /></div>
     </div>

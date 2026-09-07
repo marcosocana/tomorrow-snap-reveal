@@ -4,5 +4,5 @@ import CaptainModel from "./CaptainModel";
 import "./HostCharacterAvatar.css";
 
 export default function HostCharacterAvatar({ config, className = "" }: { config: CaptainsHostCharacterConfig; className?: string }) {
-  return <span className={`host-avatar ${className}`} aria-hidden="true"><CaptainModel config={getHostSpriteConfig(config)} photoUrl={config.photo_url} /></span>;
+  return <span className={`host-avatar ${className}`} aria-hidden="true"><CaptainModel showArmband={false} config={getHostSpriteConfig(config)} photoUrl={config.photo_url} /></span>;
 }

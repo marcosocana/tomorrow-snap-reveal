@@ -37,7 +37,7 @@ export const getCaptainSpriteVisual = (value?: CaptainsSpriteStyle | null, confi
   const definition = getCaptainOutfit(config.outfit_type);
   const primary = definition.colors[0];
   const outfit = safeColor(config[primary.field], primary.fallback);
-  const dressLike = ["dress", "long_dress", "skirt"].includes(definition.value);
+  const dressLike = ["dress", "long_dress", "wedding_dress", "skirt"].includes(definition.value);
   const separateBottom = ["shirt", "casual", "skirt"].includes(definition.value);
   return {
     hair: hairColors[config.hair_color] || hairColors.dark,

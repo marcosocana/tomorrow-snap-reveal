@@ -8,10 +8,11 @@ type CaptainModelProps = {
   config?: CaptainsSpriteConfig | null;
   photoUrl?: string | null;
   className?: string;
+  showArmband?: boolean;
 };
 
 /** Shared, resolution-independent sculpted character. Photos replace only the head. */
-export default function CaptainModel({ sprite, config, photoUrl, className = "" }: CaptainModelProps) {
+export default function CaptainModel({ sprite, config, photoUrl, className = "", showArmband = true }: CaptainModelProps) {
   const id = useId().replace(/:/g, "");
   const [failedPhoto, setFailedPhoto] = useState<string | null>(null);
   const photo = Boolean(photoUrl && photoUrl !== failedPhoto);
@@ -19,7 +20,9 @@ export default function CaptainModel({ sprite, config, photoUrl, className = "" 
   const kind = visual.outfitType;
   const formal = kind === "suit" || kind === "tuxedo";
   const casual = kind === "casual";
-  const longDress = kind === "long_dress";
+  const weddingDress = kind === "wedding_dress";
+  const longDress = kind === "long_dress" || weddingDress;
+  const hairstyle = config?.hair_length || "short";
   const fill = (name: string) => `url(#${id}-${name})`;
   return <span className={`captain-model ${visual.dressLike ? "is-dress" : "is-suit"} ${className}`} data-outfit={kind} style={getCaptainSpriteCss(sprite, config)} aria-hidden="true">
     <svg className="captain-model-art" viewBox="0 0 180 240" fill="none">
@@ -49,12 +52,13 @@ export default function CaptainModel({ sprite, config, photoUrl, className = "" 
           <stop stopColor="#fff0c0" /><stop offset=".4" stopColor="#e8bd70" /><stop offset="1" stopColor="#9e6938" />
         </linearGradient>
         <linearGradient id={`${id}-band`} x1="0" y1="0" x2="1" y2="1">
-          <stop stopColor="#ffb0a3" /><stop offset=".4" stopColor="#f06a5f" /><stop offset="1" stopColor="#a83e38" />
+          <stop stopColor="#f6ff9e" /><stop offset=".4" stopColor="#dfff00" /><stop offset="1" stopColor="#94ad00" />
         </linearGradient>
         <radialGradient id={`${id}-ground`}><stop stopColor="#4b302b" stopOpacity=".26" /><stop offset="1" stopColor="#4b302b" stopOpacity="0" /></radialGradient>
       </defs>
       <ellipse cx="91" cy="225" rx="63" ry="12" fill={fill("ground")} />
       <g strokeLinejoin="round" strokeLinecap="round">
+        {weddingDress && <path d="M63 30q27-23 54 0l29 179c-31 14-78 14-112 0Z" fill="#fffdf8" fillOpacity=".55" stroke="#e5ded5" strokeWidth="1.5" />}
         {/* Rounded trousers, stitched seams and polished shoes. */}
         <path d="M61 166h28l-3 46c-5 5-16 5-23 1l-4-33Z" fill={visual.dressLike ? fill("skin") : fill("trouser")} />
         <path d="M93 166h27l-3 48c-7 4-17 3-22-1l-3-34Z" fill={visual.dressLike ? fill("skin") : fill("trouser")} />
@@ -123,12 +127,20 @@ export default function CaptainModel({ sprite, config, photoUrl, className = "" 
             <path d="M104 128h12v12l-6 4-6-4Z" stroke="#fff" strokeOpacity=".3" />
           </>}
         </>}
-        {/* Every captain wears a tiny enamel captain's armband. */}
-        <path d="m131 130 13-4 3 13-13 4Z" fill={fill("band")} stroke="#a94940" strokeWidth=".8" />
-        <path d="m133 132 10-3m-7 11 9-3" stroke="#ffd5bc" strokeWidth=".7" />
-        <circle cx="139" cy="134" r="4" fill={fill("gold")} />
-        <path d="M140 132c-4-1-4 5 0 4" stroke="#9c4235" strokeWidth="1.2" />
+        {weddingDress && <g fill="#fffefc" stroke="#e7dfd4" strokeWidth=".7">
+          {[70, 80, 90, 100, 110].map((x, i) => <circle key={x} cx={x} cy={108 + (2 - Math.abs(i - 2)) * 3} r="2" />)}
+          <path d="M66 145q24 10 51 0" fill="none" strokeWidth="3" />
+          <path d="M88 142q-15-12-16-2t16 4q15-12 18-4t-18 4l-6 23m7-23 9 23" fill="none" strokeWidth="2" />
+          <path d="M49 201q7 8 14 0 7 8 14 0 7 8 14 0 7 8 14 0 7 8 14 0 7 8 14 0" fill="none" strokeWidth="2" />
+        </g>}
+        {showArmband && <g transform="rotate(-16 137 135)">
+          <path d="M127 127q10-3 20 0v16q-10 3-20 0Z" fill={fill("band")} stroke="#7f9400" strokeWidth="1" />
+          <path d="M128 129q9-2 18 0m-18 12q9 2 18 0" stroke="#faffb4" strokeWidth="1" />
+          <path d="M140 132c-7-5-10 9-1 7" stroke="#25311b" strokeWidth="2.4" />
+        </g>}
         {!photo && <>
+          {hairstyle === "bun" && <><circle cx="91" cy="12" r="15" fill={fill("hair")} /><path d="M82 4q-7 10 0 16m10-18q-7 12 0 20" stroke="#fff" strokeOpacity=".15" strokeWidth="2" /></>}
+          {hairstyle === "bob" && <path d="M47 45q-2-35 44-35t44 35l4 43q-11 13-23 2H64q-13 10-23-2Z" fill={fill("hair")} />}
           {visual.longHair && <path d="M49 49c-2-39 82-40 84 0l5 50c-7 14-25 15-34 5H76c-12 11-30 5-31-5Z" fill={fill("hair")} />}
           <ellipse cx="49" cy="61" rx="8" ry="12" fill={fill("skin")} /><ellipse cx="131" cy="61" rx="8" ry="12" fill={fill("skin")} />
           <path d="M49 45c0-43 82-43 82 0v18c0 23-18 36-41 36S49 85 49 63Z" fill={fill("skin")} />
@@ -138,8 +150,10 @@ export default function CaptainModel({ sprite, config, photoUrl, className = "" 
           <circle cx="70" cy="59" r="1.3" fill="#fff" /><circle cx="109" cy="59" r="1.3" fill="#fff" />
           <path d="M88 63q-5 10 4 9" stroke="#9f6144" strokeOpacity=".4" strokeWidth="2" />
           <path d="M78 80q12 9 24-1" stroke="#9b5548" strokeWidth="2.5" /><path d="m83 81 13-1" stroke="#ffebdc" strokeWidth="2" />
-          <path d={visual.longHair ? "M47 58C35 4 82 3 96 12c29-8 45 14 37 47l-11-9-4-19c-15 8-25 0-28-7-7 13-20 20-35 19l-2 16Z" : "M48 58C35 22 53 5 78 12c15-14 30-4 35 2 20-2 28 14 20 43l-10-9-4-17c-24 16-36 13-54 9l-8 18Z"} fill={fill("hair")} />
-          <path d="M57 28c14-12 36-9 43-6m-37 9c10-5 20-5 27-6" stroke="#fff" strokeOpacity=".15" strokeWidth="2.5" />
+          {hairstyle !== "bald" && <>
+            <path d={hairstyle === "bun" ? "M48 55q-10-45 43-45t43 45l-12-20q-31 0-62 0Z" : hairstyle === "bob" ? "M46 58q-8-49 44-48t44 48l-12-24q-30 13-60 0l-5 25Z" : hairstyle === "wavy" ? "M47 58C29 23 52 1 72 13 85-7 116 3 119 17c23-3 27 22 13 41l-12-23q-15 17-28 1-15 13-30 5l-5 17Z" : visual.longHair ? "M47 58C35 4 82 3 96 12c29-8 45 14 37 47l-11-9-4-19c-15 8-25 0-28-7-7 13-20 20-35 19l-2 16Z" : "M48 58C35 22 53 5 78 12c15-14 30-4 35 2 20-2 28 14 20 43l-10-9-4-17c-24 16-36 13-54 9l-8 18Z"} fill={fill("hair")} />
+            {hairstyle === "curly" ? <g fill={fill("hair")} stroke="#ffffff" strokeOpacity=".12" strokeWidth="1.5">{[[49,31],[61,20],[77,16],[94,15],[112,19],[128,29],[56,40],[72,32],[89,31],[107,33],[124,41]].map(([x,y]) => <circle key={x + ":" + y} cx={x} cy={y} r="11" />)}</g> : <path d="M57 28c14-12 36-9 43-6m-37 9c10-5 20-5 27-6" stroke="#fff" strokeOpacity=".15" strokeWidth="2.5" />}
+          </>}
         </>}
       </g>
     </svg>

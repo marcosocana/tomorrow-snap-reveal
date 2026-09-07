@@ -34,6 +34,14 @@ export const defaultHostCharacter = (index: 1 | 2): CaptainsHostCharacterConfig 
   primary_color: index === 1 ? "#2f3b52" : "#f06a5f",
   secondary_color: "#fff6ec",
   accessory: "none",
+  sprite_config: {
+    sex: index === 1 ? "male" : "female",
+    hair_length: index === 1 ? "short" : "bun",
+    hair_color: index === 1 ? "dark" : "brown",
+    skin_color: index === 1 ? "fair" : "very_fair",
+    outfit_type: index === 1 ? "tuxedo" : "wedding_dress",
+    dress_color: "#fffaf4", suit_color: "#20212a", tie_color: "#15151c",
+  },
 });
 
 export const defaultCaptainsHostConfig = (enabled = true): CaptainsHostConfig => ({
@@ -52,8 +60,8 @@ export const normalizeCaptainsHostConfig = (event?: Partial<CaptainsEvent> | nul
     tone: event?.host_tone ?? defaults.tone,
     frequency: event?.host_frequency ?? defaults.frequency,
     wedding: { ...defaults.wedding, ...(event?.wedding_context ?? {}) },
-    character_1: { ...defaults.character_1, ...(event?.character_1_config ?? {}) },
-    character_2: { ...defaults.character_2, ...(event?.character_2_config ?? {}) },
+    character_1: { ...defaults.character_1, ...(event?.character_1_config ?? {}), ...(event?.character_1_config ? { sprite_config: event.character_1_config.sprite_config } : {}) },
+    character_2: { ...defaults.character_2, ...(event?.character_2_config ?? {}), ...(event?.character_2_config ? { sprite_config: event.character_2_config.sprite_config } : {}) },
   };
 };
 

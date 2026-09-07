@@ -1,3 +1,4 @@
+import { captainHairOptions } from "@/lib/captainsHair";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -1763,8 +1764,7 @@ export const CaptainsOnboarding = () => {
               <label className="space-y-1">
                 <span className="text-xs font-medium text-muted-foreground">Pelo</span>
                 <select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={editingTable.captain_sprite_config.hair_length} onChange={(event) => updateOnboardingSpriteConfig(editingTableIndex, { hair_length: event.target.value as CaptainsSpriteConfig["hair_length"] })}>
-                  <option value="short">Corto</option>
-                  <option value="long">Largo</option>
+                  {captainHairOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
                 </select>
               </label>
               <label className="space-y-1">
@@ -2473,8 +2473,7 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
                       <label className="space-y-1">
                         <span className="text-xs font-medium text-muted-foreground">Pelo</span>
                         <select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={table.captain_sprite_config.hair_length} onChange={(event) => updateSpriteConfig({ hair_length: event.target.value as CaptainsSpriteConfig["hair_length"] })}>
-                          <option value="short">Corto</option>
-                          <option value="long">Largo</option>
+                          {captainHairOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
                         </select>
                       </label>
                       <label className="space-y-1">
@@ -3988,8 +3987,7 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
 		                <label className="space-y-1">
 		                  <span className="text-xs font-medium text-muted-foreground">Pelo</span>
 		                  <select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={tableDraft.captain_sprite_config?.hair_length || "short"} onChange={(event) => updateTableDraftSpriteConfig({ hair_length: event.target.value as CaptainsSpriteConfig["hair_length"] })}>
-		                    <option value="short">Corto</option>
-		                    <option value="long">Largo</option>
+		                    {captainHairOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
 		                  </select>
 		                </label>
 		                <label className="space-y-1">
