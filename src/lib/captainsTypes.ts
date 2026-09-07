@@ -8,8 +8,8 @@ export type CaptainsHostTone = "divertido" | "elegante" | "gamberro" | "epico" |
 export type CaptainsHostFrequency = "low" | "normal" | "high";
 export type CaptainsHostTrigger =
   | "GAME_STARTED" | "FIRST_CHALLENGE_COMPLETED" | "POINTS_25" | "POINTS_50" | "POINTS_100"
-  | "HALFWAY_TIME" | "ENTERED_PODIUM" | "LEFT_PODIUM" | "BECAME_LEADER" | "LOST_LEAD"
-  | "TEAM_OVERTAKEN" | "TIME_REMAINING_30" | "TIME_REMAINING_10" | "FINAL_CHALLENGES" | "GAME_FINISHED";
+  | "HALFWAY_CHALLENGES" | "ENTERED_PODIUM" | "LEFT_PODIUM" | "BECAME_LEADER" | "LOST_LEAD"
+  | "TEAM_OVERTAKEN" | "THREE_QUARTERS_CHALLENGES" | "LAST_CHALLENGE" | "FINAL_CHALLENGES" | "GAME_FINISHED";
 export type CaptainsHostSpeaker = "character_1" | "character_2" | "both";
 export type CaptainsHostInterventionStatus = "pending" | "shown" | "dismissed";
 

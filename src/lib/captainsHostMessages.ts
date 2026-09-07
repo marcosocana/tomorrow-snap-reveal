@@ -8,14 +8,14 @@ const base: Record<CaptainsHostTrigger, HostMessageTemplate[]> = {
   POINTS_25: [{ speaker: "character_1", line1: "Ya tenéis {points} puntos.", line2: "Esto empieza a moverse." }],
   POINTS_50: [{ speaker: "both", line1: "¡Ya habéis superado los 50 puntos!", line2: "Vale, quizá sí sepáis lo que estáis haciendo." }, { speaker: "both", line1: "50 puntos para {teamName}.", line2: "Esto empieza a ponerse interesante." }],
   POINTS_100: [{ speaker: "both", line1: "100 puntos.", line2: "Ahora empezamos a tomaros en serio." }],
-  HALFWAY_TIME: [{ speaker: "both", line1: "Tenemos noticias.", line2: "Ya vais por la mitad del juego." }, { speaker: "both", line1: "{partner1} y {partner2} llevan {yearsTogether} años juntos.", line2: "Vosotros ya lleváis media partida intentando ganar." }],
+  HALFWAY_CHALLENGES: [{ speaker: "both", line1: "Tenemos noticias.", line2: "¡Habéis completado la mitad de los retos!" }, { speaker: "both", line1: "{partner1} y {partner2} llevan {yearsTogether} años juntos.", line2: "Vosotros ya habéis completado la mitad de los retos." }],
   ENTERED_PODIUM: [{ speaker: "both", line1: "Atención.", line2: "Acabáis de entrar en el podio.", cta: "Ver clasificación" }],
   LEFT_PODIUM: [{ speaker: "character_2", line1: "El podio se ha movido.", line2: "Todavía podéis recuperarlo." }],
   BECAME_LEADER: [{ speaker: "both", line1: "Tenemos nuevos líderes.", line2: "Y sois vosotros.", cta: "Ver clasificación" }],
   LOST_LEAD: [{ speaker: "both", line1: "Os acaban de quitar el primer puesto.", line2: "Que no se acomoden." }],
   TEAM_OVERTAKEN: [{ speaker: "character_2", line1: "Malas noticias.", line2: "{otherTeam} os acaba de adelantar." }],
-  TIME_REMAINING_30: [{ speaker: "character_1", line1: "Quedan 30 minutos.", line2: "Entramos en la recta final." }],
-  TIME_REMAINING_10: [{ speaker: "both", line1: "Quedan 10 minutos.", line2: "Si estabais guardando algo, este es el momento." }],
+  THREE_QUARTERS_CHALLENGES: [{ speaker: "character_1", line1: "¡Ya habéis completado el 75 % de los retos!", line2: "Entramos en la recta final." }],
+  LAST_CHALLENGE: [{ speaker: "both", line1: "¡Solo os queda un reto!", line2: "Vamos a cerrar esta aventura por todo lo alto." }],
   FINAL_CHALLENGES: [{ speaker: "both", line1: "Solo os quedan dos retos.", line2: "El final ya está aquí." }, { speaker: "both", line1: "Todo esto termina hoy en {venue}.", line2: "A vosotros solo os quedan dos retos." }],
   GAME_FINISHED: [{ speaker: "both", line1: "Se acabó.", line2: "Habéis terminado Capitanes con {points} puntos.", cta: "Continuar" }],
 };
@@ -36,7 +36,7 @@ const toneLine: Record<CaptainsHostTone, Partial<Record<CaptainsHostTrigger, str
   },
   romantico: {
     GAME_STARTED: "Celebrad, jugad y cread un recuerdo juntos.", POINTS_50: "Cada punto también guarda un recuerdo.",
-    HALFWAY_TIME: "La noche avanza y vuestra historia sigue creciendo.", GAME_FINISHED: "Gracias por llenar esta noche de recuerdos.",
+    HALFWAY_CHALLENGES: "La mitad de los retos, un montón de recuerdos compartidos.", GAME_FINISHED: "Gracias por llenar esta noche de recuerdos.",
   },
 };
 

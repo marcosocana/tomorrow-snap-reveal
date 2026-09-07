@@ -14,8 +14,16 @@ assert.equal(choose(snapshot({ position: 3 }), snapshot({ position: 4 }))?.trigg
 assert.equal(choose(snapshot({ position: 3 }), snapshot({ position: 3 })), null);
 assert.equal(choose(snapshot({ position: 1 }), snapshot({ position: 2 }))?.trigger, "BECAME_LEADER");
 assert.equal(choose(snapshot({ position: 1 }), snapshot({ position: 1 })), null);
-assert.equal(choose(snapshot({ now: Date.parse("2026-09-07T21:01:00Z") }), snapshot(), [])?.trigger, "HALFWAY_TIME");
-assert.equal(choose(snapshot({ now: Date.parse("2026-09-07T21:01:00Z") }), snapshot(), [record("HALFWAY_TIME")]), null);
+assert.equal(choose(snapshot({ completedChallenges: 5 }), snapshot({ completedChallenges: 4 }))?.trigger, "HALFWAY_CHALLENGES");
+assert.equal(choose(snapshot({ completedChallenges: 5 }), snapshot({ completedChallenges: 4 }), [record("HALFWAY_CHALLENGES")]), null);
+assert.equal(choose(snapshot({ completedChallenges: 8 }), snapshot({ completedChallenges: 7 }), [record("FINAL_CHALLENGES")])?.trigger, "THREE_QUARTERS_CHALLENGES");
+assert.equal(choose(snapshot({ completedChallenges: 9 }), snapshot({ completedChallenges: 8 }))?.trigger, "LAST_CHALLENGE");
+for (const frequency of ["low", "normal", "high"]) {
+  assert.equal(choose(snapshot({ now: Date.parse("2026-09-07T22:55:00Z") }), snapshot(), [], frequency), null);
+  assert.equal(choose(snapshot({ completedChallenges: 9 }), snapshot({ completedChallenges: 8 }), [], frequency)?.trigger, "LAST_CHALLENGE");
+}
+assert.equal(choose(snapshot({ completedChallenges: 8 }), snapshot({ completedChallenges: 7 }), [], "low"), null);
+assert.equal(choose(snapshot({ completedChallenges: 10, finished: true }), snapshot({ completedChallenges: 9 }))?.trigger, "GAME_FINISHED");
 assert.equal(choose(snapshot({ points: 50 }), snapshot({ points: 40 }), [record("FIRST_CHALLENGE_COMPLETED", 1)]), null);
 assert.equal(choose(snapshot({ points: 50, position: 1 }), snapshot({ points: 40, position: 2 }))?.trigger, "BECAME_LEADER");
 assert.equal(choose(snapshot({ points: 50 }), snapshot({ points: 40 }), [], "normal", false), null);

@@ -19,7 +19,7 @@ const frequencyOptions: Array<{ value: CaptainsHostFrequency; label: string; det
   { value: "low", label: "Baja", detail: "Hasta 8 situaciones · pausa de 5 min" }, { value: "normal", label: "Normal", detail: "Hasta 13 situaciones · pausa de 4 min" }, { value: "high", label: "Alta", detail: "Hasta 15 situaciones · pausa de 3 min" },
 ];
 const previewTriggers: Array<{ value: CaptainsHostTrigger; label: string }> = [
-  { value: "GAME_STARTED", label: "Inicio" }, { value: "POINTS_50", label: "50 puntos" }, { value: "HALFWAY_TIME", label: "Ecuador" }, { value: "ENTERED_PODIUM", label: "Podio" }, { value: "TIME_REMAINING_10", label: "Últimos 10 min" }, { value: "GAME_FINISHED", label: "Final" },
+  { value: "GAME_STARTED", label: "Inicio" }, { value: "POINTS_50", label: "50 puntos" }, { value: "HALFWAY_CHALLENGES", label: "Mitad de retos" }, { value: "ENTERED_PODIUM", label: "Podio" }, { value: "LAST_CHALLENGE", label: "Último reto" }, { value: "GAME_FINISHED", label: "Final" },
 ];
 
 const choice = <T extends string>(label: string, values: Array<{ value: T; label: string }>, current: T, onChange: (value: T) => void) => <fieldset className="space-y-2"><legend className="text-xs font-medium text-muted-foreground">{label}</legend><div className="flex flex-wrap gap-2">{values.map(item => <button type="button" key={item.value} aria-pressed={current === item.value} onClick={() => onChange(item.value)} className={`rounded-full border px-3 py-2 text-xs transition ${current === item.value ? "border-[#f06a5f] bg-[#f06a5f]/10 text-[#b94d45]" : "border-border bg-background"}`}>{item.label}</button>)}</div></fieldset>;

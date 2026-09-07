@@ -28,11 +28,9 @@ export function useCaptainsHostInterventions({ event, team, ranking, completedCh
     position,
     leaderTeam: ranking[0]?.table_name,
     overtakingTeam: position > 1 ? ranking[position - 2]?.table_name : undefined,
-    startedAt: event?.start_time,
-    endsAt: event?.end_time,
     now: Date.now(),
     finished,
-  }), [team?.total_points, completedChallenges, totalChallenges, position, ranking, event?.start_time, event?.end_time, finished]);
+  }), [team?.total_points, completedChallenges, totalChallenges, position, ranking, finished]);
   const history = useQuery({
     queryKey: ["captains-host-interventions", event?.id, team?.id],
     enabled: Boolean(config.enabled && joined && event?.id && team?.id),
@@ -43,7 +41,7 @@ export function useCaptainsHostInterventions({ event, team, ranking, completedCh
 
   useEffect(() => {
     if (!config.enabled || !joined) { setActive(null); previous.current = null; return; }
-    const pending = history.data?.find(item => item.status !== "dismissed" && !dismissedLocally.current.has(item.id));
+    const pending = history.data?.find(item => !new Set<string>(["HALFWAY_TIME", "TIME_REMAINING_30", "TIME_REMAINING_10"]).has(item.trigger) && item.status !== "dismissed" && !dismissedLocally.current.has(item.id));
     if (pending && !active) {
       setActive(pending);
       if (pending.status === "pending") void markCaptainsHostIntervention(pending.id, "shown").then(() => history.refetch());
@@ -76,7 +74,6 @@ export function useCaptainsHostInterventions({ event, team, ranking, completedCh
     leaderTeam: ranking[0]?.table_name,
     otherTeam: snapshot.overtakingTeam,
     completedChallenges,
-    remainingTime: event?.end_time ? Math.max(0, Math.ceil((Date.parse(event.end_time) - Date.now()) / 60_000)) : null,
     partner1: config.wedding.partner_1_nickname || config.wedding.partner_1_name,
     partner2: config.wedding.partner_2_nickname || config.wedding.partner_2_name,
     yearsTogether: config.wedding.years_together,

@@ -7,8 +7,6 @@ export type CaptainsHostGameSnapshot = {
   position: number;
   leaderTeam?: string;
   overtakingTeam?: string;
-  startedAt?: string | null;
-  endsAt?: string | null;
   now: number;
   finished: boolean;
 };
@@ -18,9 +16,9 @@ export type HostEventCandidate = { trigger: CaptainsHostTrigger; priority: 1 | 2
 const ordinaryCooldownMs = { low: 5 * 60_000, normal: 4 * 60_000, high: 3 * 60_000 } satisfies Record<CaptainsHostFrequency, number>;
 const critical = new Set<CaptainsHostTrigger>(["GAME_FINISHED", "BECAME_LEADER", "ENTERED_PODIUM"]);
 const allowedByFrequency: Record<CaptainsHostFrequency, Set<CaptainsHostTrigger>> = {
-  low: new Set(["GAME_STARTED", "FIRST_CHALLENGE_COMPLETED", "POINTS_50", "POINTS_100", "HALFWAY_TIME", "BECAME_LEADER", "TIME_REMAINING_10", "GAME_FINISHED"]),
-  normal: new Set(["GAME_STARTED", "FIRST_CHALLENGE_COMPLETED", "POINTS_50", "POINTS_100", "HALFWAY_TIME", "ENTERED_PODIUM", "BECAME_LEADER", "LOST_LEAD", "TEAM_OVERTAKEN", "TIME_REMAINING_30", "TIME_REMAINING_10", "FINAL_CHALLENGES", "GAME_FINISHED"]),
-  high: new Set(["GAME_STARTED", "FIRST_CHALLENGE_COMPLETED", "POINTS_25", "POINTS_50", "POINTS_100", "HALFWAY_TIME", "ENTERED_PODIUM", "LEFT_PODIUM", "BECAME_LEADER", "LOST_LEAD", "TEAM_OVERTAKEN", "TIME_REMAINING_30", "TIME_REMAINING_10", "FINAL_CHALLENGES", "GAME_FINISHED"]),
+  low: new Set(["GAME_STARTED", "FIRST_CHALLENGE_COMPLETED", "POINTS_50", "POINTS_100", "HALFWAY_CHALLENGES", "BECAME_LEADER", "LAST_CHALLENGE", "GAME_FINISHED"]),
+  normal: new Set(["GAME_STARTED", "FIRST_CHALLENGE_COMPLETED", "POINTS_50", "POINTS_100", "HALFWAY_CHALLENGES", "ENTERED_PODIUM", "BECAME_LEADER", "LOST_LEAD", "TEAM_OVERTAKEN", "THREE_QUARTERS_CHALLENGES", "LAST_CHALLENGE", "FINAL_CHALLENGES", "GAME_FINISHED"]),
+  high: new Set(["GAME_STARTED", "FIRST_CHALLENGE_COMPLETED", "POINTS_25", "POINTS_50", "POINTS_100", "HALFWAY_CHALLENGES", "ENTERED_PODIUM", "LEFT_PODIUM", "BECAME_LEADER", "LOST_LEAD", "TEAM_OVERTAKEN", "THREE_QUARTERS_CHALLENGES", "LAST_CHALLENGE", "FINAL_CHALLENGES", "GAME_FINISHED"]),
 };
 
 const crossed = (previous: number | undefined, current: number, threshold: number) => previous !== undefined && previous < threshold && current >= threshold;
@@ -40,12 +38,10 @@ export const collectHostEventCandidates = (current: CaptainsHostGameSnapshot, pr
   const remaining = current.totalChallenges - current.completedChallenges;
   const previousRemaining = previous ? previous.totalChallenges - previous.completedChallenges : undefined;
   if (remaining <= 2 && remaining > 0 && previousRemaining !== undefined && previousRemaining > 2) result.push({ trigger: "FINAL_CHALLENGES", priority: 2 });
-  const start = current.startedAt ? Date.parse(current.startedAt) : NaN;
-  const end = current.endsAt ? Date.parse(current.endsAt) : NaN;
-  if (Number.isFinite(start) && Number.isFinite(end) && end > start) {
-    if (current.now >= start + (end - start) / 2) result.push({ trigger: "HALFWAY_TIME", priority: 2 });
-    if (end - current.now <= 30 * 60_000 && end - current.now > 0) result.push({ trigger: "TIME_REMAINING_30", priority: 2 });
-    if (end - current.now <= 10 * 60_000 && end - current.now > 0) result.push({ trigger: "TIME_REMAINING_10", priority: 3 });
+  if (current.totalChallenges > 0 && !current.finished && remaining > 0) {
+    if (crossed(previous?.completedChallenges, current.completedChallenges, Math.ceil(current.totalChallenges / 2))) result.push({ trigger: "HALFWAY_CHALLENGES", priority: 2 });
+    if (crossed(previous?.completedChallenges, current.completedChallenges, Math.ceil(current.totalChallenges * .75))) result.push({ trigger: "THREE_QUARTERS_CHALLENGES", priority: 2 });
+    if (remaining === 1 && previousRemaining !== undefined && previousRemaining > 1) result.push({ trigger: "LAST_CHALLENGE", priority: 3 });
   }
   if (!previous) result.push({ trigger: "GAME_STARTED", priority: 3 });
   return result.sort((first, second) => second.priority - first.priority);
