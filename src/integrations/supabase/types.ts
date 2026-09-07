@@ -305,6 +305,8 @@ export type Database = {
         Row: {
           admin_event_tab: string | null
           background_image_url: string | null
+          character_1_config: Json | null
+          character_2_config: Json | null
           contact_email: string | null
           contact_name: string | null
           contact_phone: string | null
@@ -313,6 +315,9 @@ export type Database = {
           description: string | null
           end_time: string | null
           experience_version: string
+          host_characters_enabled: boolean
+          host_frequency: string
+          host_tone: string
           id: string
           name: string
           owner_id: string | null
@@ -327,10 +332,13 @@ export type Database = {
           status: string
           theme_style: string
           updated_at: string
+          wedding_context: Json | null
         }
         Insert: {
           admin_event_tab?: string | null
           background_image_url?: string | null
+          character_1_config?: Json | null
+          character_2_config?: Json | null
           contact_email?: string | null
           contact_name?: string | null
           contact_phone?: string | null
@@ -339,6 +347,9 @@ export type Database = {
           description?: string | null
           end_time?: string | null
           experience_version?: string
+          host_characters_enabled?: boolean
+          host_frequency?: string
+          host_tone?: string
           id?: string
           name: string
           owner_id?: string | null
@@ -353,10 +364,13 @@ export type Database = {
           status?: string
           theme_style?: string
           updated_at?: string
+          wedding_context?: Json | null
         }
         Update: {
           admin_event_tab?: string | null
           background_image_url?: string | null
+          character_1_config?: Json | null
+          character_2_config?: Json | null
           contact_email?: string | null
           contact_name?: string | null
           contact_phone?: string | null
@@ -365,6 +379,9 @@ export type Database = {
           description?: string | null
           end_time?: string | null
           experience_version?: string
+          host_characters_enabled?: boolean
+          host_frequency?: string
+          host_tone?: string
           id?: string
           name?: string
           owner_id?: string | null
@@ -379,6 +396,7 @@ export type Database = {
           status?: string
           theme_style?: string
           updated_at?: string
+          wedding_context?: Json | null
         }
         Relationships: [
           {
@@ -472,6 +490,63 @@ export type Database = {
           },
           {
             foreignKeyName: "captains_evidence_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: false
+            referencedRelation: "captains_tables"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      captains_host_interventions: {
+        Row: {
+          created_at: string
+          dismissed_at: string | null
+          event_id: string
+          id: string
+          intervention_type: string
+          payload: Json | null
+          shown_at: string | null
+          status: string
+          table_id: string
+          trigger: string
+          variant: number
+        }
+        Insert: {
+          created_at?: string
+          dismissed_at?: string | null
+          event_id: string
+          id?: string
+          intervention_type?: string
+          payload?: Json | null
+          shown_at?: string | null
+          status?: string
+          table_id: string
+          trigger: string
+          variant?: number
+        }
+        Update: {
+          created_at?: string
+          dismissed_at?: string | null
+          event_id?: string
+          id?: string
+          intervention_type?: string
+          payload?: Json | null
+          shown_at?: string | null
+          status?: string
+          table_id?: string
+          trigger?: string
+          variant?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "captains_host_interventions_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "captains_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "captains_host_interventions_table_id_fkey"
             columns: ["table_id"]
             isOneToOne: false
             referencedRelation: "captains_tables"
