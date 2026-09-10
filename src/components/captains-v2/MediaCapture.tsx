@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Camera, Film, RotateCcw, Square, SwitchCamera } from "lucide-react";
 
 const MAX_VIDEO_SECONDS = 30;
@@ -37,9 +37,44 @@ const canvasFile = (video: HTMLVideoElement, maxWidth: number, quality: number, 
   }, "image/jpeg", quality);
 });
 
-export default function MediaCapture({ kind, file, onChange, onThumbnailChange, onPreparingChange, onCameraOpenChange, onCancel, disabled }: {
+// Decode the recorded file itself so the poster is its first frame.
+const firstVideoFrame = (blob: Blob, name: string) => new Promise<File>((resolve, reject) => {
+  const video = document.createElement("video");
+  const url = URL.createObjectURL(blob);
+  const cleanup = () => {
+    window.clearTimeout(timeout);
+    video.removeAttribute("src");
+    video.load();
+    URL.revokeObjectURL(url);
+  };
+  const timeout = window.setTimeout(() => {
+    video.onloadeddata = null;
+    video.onerror = null;
+    cleanup();
+    reject(new Error("No se ha podido preparar la miniatura del vídeo."));
+  }, 10_000);
+  video.muted = true;
+  video.playsInline = true;
+  video.preload = "auto";
+  video.onloadeddata = () => {
+    video.onloadeddata = null;
+    video.onerror = null;
+    void canvasFile(video, THUMBNAIL_MAX_WIDTH, .76, name).then(resolve, reject).finally(cleanup);
+  };
+  video.onerror = () => {
+    video.onloadeddata = null;
+    video.onerror = null;
+    cleanup();
+    reject(new Error("No se ha podido leer el vídeo."));
+  };
+  video.src = url;
+});
+
+export default function MediaCapture({ kind, file, thumbnail, previewActions, onChange, onThumbnailChange, onPreparingChange, onCameraOpenChange, onCancel, disabled }: {
   kind: "photo" | "video";
   file: File | null;
+  thumbnail?: File | null;
+  previewActions?: (retry: ReactNode) => ReactNode;
   onChange: (file: File | null) => void;
   onThumbnailChange?: (file: File | null) => void;
   onPreparingChange?: (preparing: boolean) => void;
@@ -48,6 +83,14 @@ export default function MediaCapture({ kind, file, onChange, onThumbnailChange, 
   disabled: boolean;
 }) {
   const [previewUrl, setPreviewUrl] = useState("");
+  const [posterUrl, setPosterUrl] = useState("");
+
+  useEffect(() => {
+    if (!thumbnail) { setPosterUrl(""); return; }
+    const url = URL.createObjectURL(thumbnail);
+    setPosterUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [thumbnail]);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
   const [recording, setRecording] = useState(false);
@@ -201,12 +244,13 @@ export default function MediaCapture({ kind, file, onChange, onThumbnailChange, 
         }
         onPreparingChange?.(true);
         const stamp = Date.now();
-        void canvasFile(videoRef.current!, THUMBNAIL_MAX_WIDTH, .76, `capitanes-${stamp}-miniatura.jpg`)
+        stopStream();
+        void firstVideoFrame(blob, `capitanes-${stamp}-miniatura.jpg`)
           .catch(() => null)
           .then(thumbnail => {
+            if (!mountedRef.current) return;
             onThumbnailChange?.(thumbnail);
             onChange(new File([blob], `capitanes-${stamp}.${extensionFor(actualType)}`, { type: actualType, lastModified: stamp }));
-            stopStream();
           })
           .finally(() => preparingChangeRef.current?.(false));
       };
@@ -227,11 +271,13 @@ export default function MediaCapture({ kind, file, onChange, onThumbnailChange, 
     await openCamera(next);
   };
 
+  const retryButton = <button className="cv2-secondary cv2-camera-button" disabled={disabled} onClick={() => void openCamera()}><RotateCcw size={19} />Repetir</button>;
+
   if (file && previewUrl) return <div className="cv2-capture is-preview">
     {kind === "photo"
       ? <img className="cv2-capture-preview" src={previewUrl} alt="Foto que vas a enviar" />
-      : <video className="cv2-capture-preview" src={previewUrl} controls playsInline preload="metadata" />}
-    <button className="cv2-secondary cv2-camera-button" disabled={disabled} onClick={() => void openCamera()}><RotateCcw size={19} />Repetir</button>
+      : <video className="cv2-capture-preview" src={previewUrl} poster={posterUrl || undefined} controls playsInline preload="auto" />}
+    {previewActions ? previewActions(retryButton) : retryButton}
   </div>;
 
   return <div className={`cv2-capture ${cameraOpen ? "is-live" : "is-idle"}`}>

@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Camera, Check, CircleDashed, Crown, Film, Flag, HelpCircle, LockKeyhole, RotateCcw, Trophy, Clock3, Loader2, XCircle } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -55,6 +55,7 @@ function VictoryCup() {
 }
 
 export default function CaptainsDemoV2({ eventSlug: requestedEventSlug }: { eventSlug?: string } = {}) {
+  const mainRef = useRef<HTMLElement>(null);
   const params = useParams();
   const eventSlug = requestedEventSlug || params.eventSlug || "demo-capitanes-v2";
   const game = useCaptainsV2(eventSlug);
@@ -110,7 +111,56 @@ export default function CaptainsDemoV2({ eventSlug: requestedEventSlug }: { even
   const resultRows = (game.data?.rows ?? []).filter(row => row.table_id === galleryTableId && !(row.status === "failed" && !row.question_answer && !row.submitted_at)).sort((a, b) => a.randomized_order_index - b.randomized_order_index);
   const activeMission = mission === null ? null : missions[mission];
   const isQuestion = activeMission?.evidence_type === "question";
+  const hasMedia = Boolean(file);
   const canSubmit = isQuestion ? Boolean(answer) : Boolean(file);
+  useLayoutEffect(() => {
+    const reset = () => {
+      window.scrollTo({ top: 0, behavior: "instant" });
+      mainRef.current?.scrollTo({ top: 0, behavior: "instant" });
+    };
+    reset();
+    window.addEventListener("popstate", reset);
+    window.addEventListener("pageshow", reset);
+    return () => {
+      window.removeEventListener("popstate", reset);
+      window.removeEventListener("pageshow", reset);
+    };
+  }, [started, joined, view, mission, celebrating, hasMedia, cameraActive, completed, eventSlug]);
+
+  useEffect(() => {
+    const existing = document.querySelector<HTMLMetaElement>('meta[name="viewport"]');
+    const viewport = existing ?? document.createElement("meta");
+    const original = viewport.getAttribute("content");
+    viewport.name = "viewport";
+    viewport.content = "width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover";
+    if (!existing) document.head.appendChild(viewport);
+    const restoration = history.scrollRestoration;
+    history.scrollRestoration = "manual";
+    document.documentElement.classList.add("captains-game-open");
+    const preventGesture = (event: Event) => event.preventDefault();
+    const preventPinch = (event: TouchEvent) => { if (event.touches.length > 1) event.preventDefault(); };
+    const preventWheelZoom = (event: WheelEvent) => { if (event.ctrlKey || event.metaKey) event.preventDefault(); };
+    const preventKeyZoom = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && ["+", "-", "=", "0"].includes(event.key)) event.preventDefault();
+    };
+    document.addEventListener("gesturestart", preventGesture, { passive: false });
+    document.addEventListener("gesturechange", preventGesture, { passive: false });
+    document.addEventListener("touchmove", preventPinch, { passive: false });
+    document.addEventListener("wheel", preventWheelZoom, { passive: false });
+    document.addEventListener("keydown", preventKeyZoom);
+    return () => {
+      if (!existing) viewport.remove();
+      else if (original === null) viewport.removeAttribute("content");
+      else viewport.content = original;
+      history.scrollRestoration = restoration;
+      document.documentElement.classList.remove("captains-game-open");
+      document.removeEventListener("gesturestart", preventGesture);
+      document.removeEventListener("gesturechange", preventGesture);
+      document.removeEventListener("touchmove", preventPinch);
+      document.removeEventListener("wheel", preventWheelZoom);
+      document.removeEventListener("keydown", preventKeyZoom);
+    };
+  }, []);
   const join = async () => {
     if (selected === null || !name) return;
     if (await game.join(selected, name)) { setEndedIdentityChosen(true); window.scrollTo({ top: 0, behavior: "instant" }); }
@@ -146,7 +196,7 @@ export default function CaptainsDemoV2({ eventSlug: requestedEventSlug }: { even
   useEffect(() => {
     if (rowId && !game.busy && !celebrating && game.currentRow?.id !== rowId) setMission(null);
   }, [rowId, game.busy, game.currentRow?.id, celebrating]);
-  const navigate = (next: View) => { setView(next); window.scrollTo({ top: 0, behavior: "instant" }); };
+  const navigate = (next: View) => { setView(next); mainRef.current?.scrollTo({ top: 0, behavior: "instant" }); window.scrollTo({ top: 0, behavior: "instant" }); };
   const openResultMedia = async (item: (typeof memories)[number], title: string) => {
     const type = item.evidence_type === "video" ? "video" : "photo";
     setPreviewMedia({ url: "", type, title });
@@ -158,21 +208,23 @@ export default function CaptainsDemoV2({ eventSlug: requestedEventSlug }: { even
     }
   };
 
+  const submitButton = activeMission ? <button className="cv2-primary cv2-centered-action cv2-mission-submit" aria-busy={game.busy || mediaPreparing} disabled={game.busy || mediaPreparing || !canSubmit || game.remaining === 0} onClick={completeMission}>{mediaPreparing ? `Preparando ${activeMission.evidence_type === "photo" ? "foto" : "vídeo"}…` : game.busy ? (isQuestion ? "Comprobando…" : `${activeMission.evidence_type === "photo" ? "Subiendo foto" : "Subiendo vídeo"}${uploadProgress > 0 ? ` · ${uploadProgress}%` : "…"}`) : isQuestion ? "Continuar" : activeMission.evidence_type === "photo" ? "Enviar foto" : "Enviar vídeo"}{(game.busy || mediaPreparing) && <Loader2 size={18} className="animate-spin" />}</button> : null;
+
   return <div className="cv2 cv2-mobile" style={{ "--team": team?.color ?? "#f06a5f" } as CSSProperties}>
     <header className="cv2-header">
       <Link to={`/capitanes/${eventSlug}`} className="cv2-brand" aria-label="Capitanes"><img src="/capitanes-logo.svg" alt="Capitanes" className="cv2-revelao-logo" /></Link>
     </header>
-    <main className={`cv2-mobile-main ${!started && !game.eventEnded ? "is-welcome" : ""} ${activeMission ? "is-mission" : ""}`}>
+    <main ref={mainRef} className={`cv2-mobile-main ${!started && !game.eventEnded ? "is-welcome" : ""} ${activeMission ? "is-mission" : ""} ${file ? "has-media-preview" : ""}`}>
       {started && game.connectionError && <div className="cv2-connection-error" role="alert"><p>{game.connectionError}</p><button className="cv2-secondary" disabled={game.busy} onClick={() => void game.refresh()}>Volver a conectar <RotateCcw size={16} /></button></div>}
       {(started || game.eventEnded) && game.data && joined && activeMission ? <section className="cv2-mission-screen" aria-labelledby="cv2-mission-title">
         <div className="cv2-mission-heading"><button className="cv2-mission-back" type="button" aria-label="Volver a los retos" disabled={game.busy || mediaPreparing} onClick={closeMission}><ArrowLeft size={22} /></button><h1 id="cv2-mission-title" className="cv2-mission-title">{celebrating ? result.correct ? "¡Respuesta correcta!" : "Respuesta incorrecta" : activeMission.title}</h1></div>
         <p className="cv2-mission-description">{celebrating ? `${result.correct ? `Sumáis ${result.pointsAwarded} puntos.` : "Esta vez la respuesta no era correcta. No sumáis puntos."} ${finished ? "¡Habéis completado toda la aventura!" : "El siguiente reto ya os está esperando."}` : activeMission.description}</p>
         {celebrating ? <><div className="cv2-celebration-points">+{result.pointsAwarded}<span>puntos para vuestra mesa</span></div><button className="cv2-primary cv2-centered-action cv2-mission-submit" onClick={closeMission}>{finished ? "Ver nuestra victoria" : "Descubrir siguiente reto"}</button></> : <>
-          {isQuestion ? <div className="cv2-answer-options" role="group" aria-label="Elige una respuesta">{(activeMission.question_options ?? []).map(option => <button key={option} disabled={game.busy} onClick={() => { game.clearError(); setAnswer(option); }} aria-pressed={answer === option}>{option}{answer === option && <Check size={17} />}</button>)}</div> : <MediaCapture key={rowId} kind={activeMission.evidence_type === "photo" ? "photo" : "video"} file={file} onChange={value => { game.clearError(); setFile(value); }} onThumbnailChange={setThumbnail} onPreparingChange={setMediaPreparing} onCameraOpenChange={setCameraActive} onCancel={closeMission} disabled={game.busy} />}
-          {!cameraActive && <div className="cv2-dialog-detail"><span>{activeMission.type}</span><strong>{activeMission.points} puntos</strong></div>}
+          {isQuestion ? <div className="cv2-answer-options" role="group" aria-label="Elige una respuesta">{(activeMission.question_options ?? []).map(option => <button key={option} disabled={game.busy} onClick={() => { game.clearError(); setAnswer(option); }} aria-pressed={answer === option}>{option}{answer === option && <Check size={17} />}</button>)}</div> : <MediaCapture key={rowId} kind={activeMission.evidence_type === "photo" ? "photo" : "video"} file={file} onChange={value => { game.clearError(); setFile(value); }} thumbnail={thumbnail} previewActions={retry => <div className="cv2-mission-actions">{retry}{submitButton}</div>} onThumbnailChange={setThumbnail} onPreparingChange={setMediaPreparing} onCameraOpenChange={setCameraActive} onCancel={closeMission} disabled={game.busy} />}
+          {!cameraActive && !file && <div className="cv2-mission-facts"><span><activeMission.icon size={22} />{activeMission.type}</span><strong><Trophy size={22} />+{activeMission.points} puntos</strong></div>}
           {game.remaining !== null && <span className="cv2-timer" role="timer"><Clock3 size={15} /> {game.remaining} s restantes</span>}
           {game.error && <p className="cv2-error" role="alert">{game.error}</p>}
-          {(isQuestion || file || game.busy) && <button className="cv2-primary cv2-centered-action cv2-mission-submit" aria-busy={game.busy || mediaPreparing} disabled={game.busy || mediaPreparing || !canSubmit || game.remaining === 0} onClick={completeMission}>{mediaPreparing ? `Preparando ${activeMission.evidence_type === "photo" ? "foto" : "vídeo"}…` : game.busy ? (isQuestion ? "Comprobando…" : `${activeMission.evidence_type === "photo" ? "Subiendo foto" : "Subiendo vídeo"}${uploadProgress > 0 ? ` · ${uploadProgress}%` : "…"}`) : isQuestion ? "Continuar" : activeMission.evidence_type === "photo" ? "Enviar foto" : "Enviar vídeo"}{(game.busy || mediaPreparing) && <Loader2 size={18} className="animate-spin" />}</button>}
+          {isQuestion && submitButton}
         </>}
       </section> : !game.data ? <div className="cv2-loading" role="status">{game.loading && <Loader2 className="animate-spin" />}<h1>{game.loading ? "Preparando vuestra mesa…" : "Estamos preparando la partida"}</h1></div> : !started && !game.eventEnded ? <section className="cv2-welcome" aria-labelledby="cv2-welcome-title">
         <div className="cv2-welcome-art" aria-hidden="true"><span className="cv2-welcome-glow" /><img src={welcomeCaptain} alt="" /></div>
@@ -194,8 +246,8 @@ export default function CaptainsDemoV2({ eventSlug: requestedEventSlug }: { even
         <div className="cv2-mobile-progress"><div><span>{experienceFinished ? "Partida finalizada" : "Vuestra aventura"}</span><strong>{completed} / {missions.length} retos</strong></div><div className="cv2-progress" role="progressbar" aria-label="Retos finalizados" aria-valuenow={completed} aria-valuemin={0} aria-valuemax={missions.length}>{missions.map((_, index) => <span key={index} className={index < completed ? "filled" : ""} />)}</div></div>
         {view === "quests" && <section className="cv2-mobile-quests" aria-labelledby="cv2-quests-title">
           <h2 id="cv2-quests-title" className="sr-only">Retos</h2>
-          {experienceFinished ? null : current ? <article key={current.id} className="cv2-active-quest cv2-quest-enter">
-            <div className="cv2-card-top"><span className="cv2-eyebrow"><span className="cv2-status-dot" /> RETO 0{completed + 1} DESBLOQUEADO</span><span className="cv2-points">{current.points} puntos</span></div><div className="cv2-quest-object"><current.icon size={52} strokeWidth={1.3} /><span>✦</span></div><span className="cv2-mission-type">{current.type}</span><h2>{current.title}</h2><p>{current.description}</p><button className="cv2-primary cv2-centered-action" disabled={game.busy} onClick={openMission}>{game.busy ? "Abriendo…" : game.currentRow?.status === "in_progress" ? "Continuar reto" : "Aceptar reto"}</button><button className="cv2-secondary cv2-reject-button" disabled={game.busy} onClick={() => setRejecting(true)}>Rechazar reto</button>
+          {experienceFinished ? null : current ? <article key={current.id} className="cv2-active-quest cv2-quest-enter" style={{ animationPlayState: hosts.active ? "paused" : "running" }}>
+            <div className="cv2-card-top"><span className="cv2-eyebrow"><span className="cv2-status-dot" /> Reto {String(completed + 1).padStart(2, "0")}</span><span className="cv2-points">{current.points} puntos</span></div><div className="cv2-quest-object"><current.icon size={52} strokeWidth={1.3} /><span>✦</span></div><span className="cv2-mission-type">{current.type}</span><h2>{current.title}</h2><p>{current.description}</p><button className="cv2-primary cv2-centered-action" disabled={game.busy} onClick={openMission}>{game.busy ? "Abriendo…" : game.currentRow?.status === "in_progress" ? "Continuar reto" : "Aceptar reto"}</button><button className="cv2-secondary cv2-reject-button" disabled={game.busy} onClick={() => setRejecting(true)}>Rechazar reto</button>
             {game.error && <p className="cv2-error" role="alert">{game.error}</p>}{game.currentRow?.status === "in_progress" && game.remaining !== null && <span className="cv2-timer"><Clock3 size={14} /> {game.remaining} s restantes</span>}<small className="cv2-unlock-hint"><LockKeyhole size={12} /> Termínalo para descubrir el siguiente</small>
           </article> : <p role="status">Preparando los retos de vuestra mesa…</p>}
           {!experienceFinished && <div className="cv2-mission-path" aria-label="Próximos retos">{missions.map((item, index) => ({ item, index })).filter(({ index }) => index > completed).slice(0, 5).map(({ item, index }, futureIndex) => {

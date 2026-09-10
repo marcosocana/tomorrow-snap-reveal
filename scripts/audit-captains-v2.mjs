@@ -133,11 +133,19 @@ assert.equal(await evaluate(`document.querySelector('.cv2-session-footer')===nul
 assert.equal(await evaluate(`document.querySelectorAll('.cv2-mission-path > .cv2-locked-quest').length`),4);
 assert.equal(await evaluate(`document.querySelectorAll('.cv2-mission-path > .cv2-locked-quest:not(.is-depth-fade)').length`),3);
 assert.equal(await evaluate(`document.querySelectorAll('.cv2-mission-path > .cv2-locked-quest.is-depth-fade').length`),1);
+assert.equal(await evaluate(`document.querySelector('.cv2-active-quest .cv2-eyebrow').textContent.trim()`),'Reto 01');
+assert.equal(await evaluate(`document.querySelector('meta[name="viewport"]').content.includes('user-scalable=no')`),true);
+await evaluate(`document.querySelector('.cv2-mobile-main').scrollTop=300`);
+assert.equal(await evaluate(`document.querySelector('.cv2-mobile-main').getBoundingClientRect().top>=document.querySelector('.cv2-header').getBoundingClientRect().bottom`),true);
 await screenshot('first');
 await click('.cv2-active-quest .cv2-primary');await wait(`!!document.querySelector('.cv2-mission-screen')`);
+assert.equal(await evaluate(`document.querySelector('.cv2-mobile-main').scrollTop`),0);
+assert.equal(await evaluate(`!!document.querySelector('.cv2-mission-facts svg')`),true);
 assert.equal(await evaluate(`document.querySelector('.cv2-mission-heading').textContent.trim()`),challenges[0].title);
 assert.equal(await evaluate(`document.querySelector('.cv2-mission-back').textContent.trim()`),'');
+await evaluate(`document.querySelector('.cv2-mobile-main').scrollTop=200`);
 await click('.cv2-mission-back');await wait(`!!document.querySelector('.cv2-active-quest')`);
+assert.equal(await evaluate(`document.querySelector('.cv2-mobile-main').scrollTop`),0);
 assert.equal(await evaluate(`document.querySelector('.cv2-active-quest .cv2-primary').textContent.trim()`),'Continuar reto');
 await click('.cv2-active-quest .cv2-primary');await wait(`!!document.querySelector('.cv2-cancel-button')`);
 assert.equal(await evaluate(`document.querySelector('.cv2-cancel-button').textContent.trim()`),'Cancelar');
@@ -156,9 +164,17 @@ const attach=async kind=>{
  assert.equal(await evaluate(`document.querySelector('.cv2-camera-controls [aria-label="Cerrar cámara"]')===null`),true);
  assert.equal(await evaluate(`document.querySelector('.cv2-dialog-detail')===null`),true);
  await click(kind==='photo'?'.cv2-shutter':'.cv2-record');
- if(kind==='video'){await new Promise(r=>setTimeout(r,650));await click('.cv2-record');}
+ if(kind==='video'){await new Promise(r=>setTimeout(r,350));await evaluate(`(()=>{const canvas=window.__captainsAuditCanvas;const context=canvas.getContext('2d');context.fillStyle='#0000ff';context.fillRect(0,0,canvas.width,canvas.height);})()`);await new Promise(r=>setTimeout(r,350));await click('.cv2-record');}
  await wait(`!!document.querySelector('.cv2-capture-preview') && !document.querySelector('.cv2-mission-submit').disabled`);
- assert.equal(await evaluate(`!!document.querySelector('.cv2-dialog-detail')`),true);
+ assert.equal(await evaluate(`document.querySelector('.cv2-dialog-detail')===null && document.querySelector('.cv2-mission-facts')===null`),true);
+ assert.equal(await evaluate(`getComputedStyle(document.querySelector('.cv2-mission-actions')).position`),'fixed');
+ assert.equal(await evaluate(`document.querySelector('.cv2-capture-preview').getBoundingClientRect().height>=220`),true);
+ assert.equal(await evaluate(`Math.abs(document.querySelector('.cv2-mission-actions').getBoundingClientRect().bottom-innerHeight)<2`),true);
+ if(kind==='video') {
+  assert.equal(await evaluate(`document.querySelector('.cv2-capture-preview').poster.startsWith('blob:')`),true);
+  const pixel = await evaluate(`new Promise((resolve,reject)=>{const image=new Image();image.onload=()=>{const canvas=document.createElement('canvas');canvas.width=1;canvas.height=1;const context=canvas.getContext('2d');context.drawImage(image,0,0,1,1);resolve([...context.getImageData(0,0,1,1).data]);};image.onerror=reject;image.src=document.querySelector('.cv2-capture-preview').poster;})`);
+  assert.ok(pixel[0]>200 && pixel[2]<150, 'Video poster must show the coral first frame, not the blue final frame');
+ }
 };
 for(let i=0;i<5;i++){
  await click('.cv2-active-quest .cv2-primary');await wait(`!!document.querySelector('.cv2-mission-screen')`);

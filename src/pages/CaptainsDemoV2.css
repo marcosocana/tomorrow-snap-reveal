@@ -1287,12 +1287,12 @@
 .cv2-mobile-progress strong { font-weight: 550; color: #594240; }
 .cv2-mobile-progress .cv2-progress span { height: 6px; }
 .cv2-active-quest { border: 1px solid #dcc4c1; background: radial-gradient(ellipse at 50% 30%, #f9f0ef 0, transparent 60%), #ecdbd9; border-radius: 24px; padding: 22px; }
-.cv2-quest-enter { animation: cv2-quest-reveal .3s cubic-bezier(.2,.8,.2,1) both; }
+.cv2-quest-enter { animation: cv2-quest-reveal .7s cubic-bezier(.2,.8,.2,1) both; }
 @keyframes cv2-quest-reveal {
-  from { opacity: 0; transform: translateY(10px) scale(.985); }
+  from { opacity: 0; transform: translateY(28px) scale(.95); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
-.cv2-active-quest .cv2-eyebrow { font-size: 8px; letter-spacing: 1px; }
+.cv2-active-quest .cv2-eyebrow { font-size: 14px; letter-spacing: 1px; }
 .cv2-active-quest .cv2-points { font-size: 12px; padding: 7px 9px; }
 .cv2-quest-object { position: relative; width: 108px; height: 108px; display: grid; place-items: center; margin: 28px auto; border-radius: 30px; color: #895853; background: linear-gradient(135deg, #fbf4f3, #ddbab6); box-shadow: 6px 9px 0 #c8a29e, 12px 20px 25px #90605b20, inset 2px 2px 3px #fff; transform: rotate(-9deg); }
 .cv2-quest-object > span { position: absolute; right: -25px; top: -8px; color: #b88782; font-size: 30px; }
@@ -1371,8 +1371,8 @@
 .cv2-mobile-main.is-mission { min-height: 100dvh; padding-bottom: calc(28px + env(safe-area-inset-bottom)); }
 .cv2-mission-screen { display: flex; flex-direction: column; min-height: calc(100dvh - 95px - env(safe-area-inset-top)); animation: cv2-mission-in .22s ease-out both; }
 @keyframes cv2-mission-in {
-  from { opacity: 0; transform: translateX(10px); }
-  to { opacity: 1; transform: translateX(0); }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 .cv2-mission-heading { display: flex; align-items: center; gap: 10px; margin: -9px 0 8px -8px; }
 .cv2-mission-back { display: grid; flex: 0 0 44px; place-items: center; width: 44px; height: 44px; padding: 0; color: #6f5a5d; }
@@ -1523,3 +1523,29 @@
 .cv2-video-placeholder { display: grid; place-items: center; align-content: center; gap: 7px; width: 100%; height: 175px; background: #2f292d; color: #fff; }
 .cv2-video-placeholder small { font-size: 11px; }
 .cv2-media-loading { min-height: 240px; display: grid; place-content: center; justify-items: center; gap: 12px; border-radius: 12px; background: #2f292d; color: #fff; font-size: 13px; }
+
+/* Keep the scrolling game below the brand bar, including on short screens. */
+html.captains-game-open, .captains-game-open body { overflow: hidden; overscroll-behavior: none; }
+.captains-game-open body { touch-action: pan-x pan-y; }
+.cv2-mobile { height: 100dvh; min-height: 0; overflow: hidden; padding-top: calc(42px + env(safe-area-inset-top)); }
+.cv2-mobile .cv2-header { background: #fff; }
+.cv2-mobile-main, .cv2-mobile-main.is-mission {
+  height: calc(100dvh - 42px - env(safe-area-inset-top));
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  padding-top: 25px;
+  scroll-behavior: auto;
+}
+.cv2-mobile-main.has-media-preview { padding-bottom: calc(160px + env(safe-area-inset-bottom)); }
+.has-media-preview .cv2-mission-screen { min-height: 0; }
+.cv2-mission-facts { display: flex; flex-wrap: wrap; gap: 10px; margin: 18px 0; }
+.cv2-mission-facts > * { display: flex; align-items: center; gap: 9px; padding: 13px 15px; border-radius: 14px; background: #fff; color: #755359; font-size: 15px; font-weight: 650; }
+.cv2-mission-facts > strong { background: #fce5de; color: #bc5045; }
+.cv2-capture-preview { width: 100%; height: clamp(220px, 38dvh, 360px); }
+.cv2-mission-actions { position: fixed; z-index: 45; bottom: 0; left: 50%; transform: translateX(-50%); width: min(100%, 520px); display: flex; flex-direction: column; gap: 8px; padding: 12px 20px calc(12px + env(safe-area-inset-bottom)); border-top: 1px solid #eee6e4; background: #fffaf8; }
+.cv2-mission-actions .cv2-secondary, .cv2-mission-actions .cv2-primary { min-height: 52px; margin: 0; }
+.cv2-mission-path > .cv2-locked-quest:last-child::after { content: ""; position: absolute; inset: 0; z-index: 3; pointer-events: none; background: linear-gradient(180deg, rgba(250, 248, 246, .72), #faf8f6 82%); }
+@media (prefers-reduced-motion: reduce) {
+  .cv2-quest-enter, .cv2-mission-screen { animation: none; }
+}
