@@ -332,7 +332,7 @@ export const createCaptainsEvent = async (input: CreateCaptainsEventInput) => {
     character_2_config: input.character_2_config ?? null,
     host_characters_enabled: input.host_characters_enabled ?? true,
     host_tone: input.host_tone ?? "divertido",
-    host_frequency: input.host_frequency ?? "normal",
+    host_frequency: input.host_frequency ?? "high",
     public_url: publicUrl,
     qr_url: getCaptainsQrImageUrl(publicUrl),
   };

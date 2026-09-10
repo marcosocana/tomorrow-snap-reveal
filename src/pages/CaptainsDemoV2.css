@@ -1300,7 +1300,7 @@
 .cv2-active-quest h2 { font-size: 29px; font-weight: 650; line-height: 1.15; text-align: center; letter-spacing: -1px; }
 .cv2-active-quest > p { font-size: 14px; text-align: center; line-height: 1.65; color: #7f625f; margin: 12px 0 22px; }
 .cv2-unlock-hint { display: flex; justify-content: center; align-items: center; gap: 5px; color: #896a67; font-size: 10px; margin-top: 14px; }
-.cv2-mission-path { display: flex; flex-direction: column; gap: 13px; margin-top: 20px; }
+.cv2-mission-path { display: flex; flex-direction: column; gap: 13px; position: relative; margin-top: 20px; }
 .cv2-locked-quest, .cv2-done-quest { display: flex; align-items: center; gap: 13px; position: relative; border: 1px solid #e3d6d4; border-radius: 16px; min-height: 91px; padding: 16px; background: #f1e7e6; overflow: hidden; }
 .cv2-locked-quest.is-depth-fade::after { content: ""; position: absolute; inset: 0; z-index: 3; pointer-events: none; background: linear-gradient(180deg, rgba(250, 244, 243, .14), rgba(250, 244, 243, .72)); }
 .cv2-locked-quest.is-depth-fade.fade-2::after { background: linear-gradient(180deg, rgba(250, 244, 243, .55), rgba(250, 244, 243, .96)); }
@@ -1465,8 +1465,7 @@
 .cv2-welcome h1 { font-size: clamp(27px, 7.2vw, 36px); line-height: 1.14; margin: 5px 0 10px; text-align: center; }
 .cv2-welcome > p { max-width: 370px; margin: 7px auto; font-size: 14px; line-height: 1.55; color: #837578; text-align: left; }
 .cv2-welcome-art { position: relative; height: clamp(210px, 32dvh, 285px); display: grid; place-items: end center; overflow: hidden; }
-.cv2-welcome-art img { position: absolute; z-index: 1; inset: 0; display: block; width: 100%; height: 100%; object-fit: contain; object-position: center bottom; filter: drop-shadow(0 16px 17px rgba(76, 47, 48, .16)); }
-.cv2-welcome-glow { position: absolute; left: 50%; bottom: 4%; width: min(78vw, 330px); aspect-ratio: 1; border-radius: 50%; transform: translateX(-50%); background: radial-gradient(circle, rgba(255, 241, 77, .32) 0 32%, rgba(240, 106, 95, .13) 55%, transparent 72%); }
+.cv2-welcome-art img { position: absolute; z-index: 1; inset: 0; display: block; width: 100%; height: 100%; object-fit: contain; object-position: center bottom; }
 .cv2-mobile .cv2-pick { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; min-width: 0; padding: 14px 10px 17px; }
 .cv2-mobile .cv2-pick.is-selected { padding: 13px 9px 16px; }
 .cv2-mobile .cv2-pick-stage { flex: 0 0 148px; width: 120px; height: 148px; margin: 0; transform: scale(.88); transform-origin: center top; }
@@ -1493,8 +1492,9 @@
 .cv2-ranking-rule svg { flex: 0 0 auto; margin-top: 1px; color: #c75d53; }
 .cv2-confirm-dialog { width: min(calc(100% - 24px), 440px); padding: 32px 24px; text-align: center; border-radius: 23px; }
 .cv2-confirm-dialog > p { font-size: 14px; line-height: 1.7; }
-.cv2-confirm-dialog .cv2-primary { justify-content: center; min-height: 52px; }
-.cv2-confirm-dialog .cv2-secondary { min-height: 48px; }
+.cv2-confirm-dialog .cv2-primary { justify-content: center; min-height: 52px; background: #f06a5f; color: #fff; }
+.cv2-confirm-dialog .cv2-primary:hover { background: #dc5a50; }
+.cv2-confirm-dialog .cv2-secondary { min-height: 52px; border: 1px solid #ead8d3; border-radius: 14px; background: #fff; color: #2f292d; font-size: 14px; font-weight: 600; }
 .cv2-reject-icon { color: #c4584d; background: #f8ded8; }
 .cv2-media-dialog { width: min(calc(100% - 20px), 720px); max-height: calc(100dvh - 24px); padding: 50px 12px 12px; border-radius: 20px; overflow: hidden; }
 .cv2-media-dialog .cv2-dialog-title { padding: 0 10px; font-size: 18px; }
@@ -1545,7 +1545,7 @@ html.captains-game-open, .captains-game-open body { overflow: hidden; overscroll
 .cv2-capture-preview { width: 100%; height: clamp(220px, 38dvh, 360px); }
 .cv2-mission-actions { position: fixed; z-index: 45; bottom: 0; left: 50%; transform: translateX(-50%); width: min(100%, 520px); display: flex; flex-direction: column; gap: 8px; padding: 12px 20px calc(12px + env(safe-area-inset-bottom)); border-top: 1px solid #eee6e4; background: #fffaf8; }
 .cv2-mission-actions .cv2-secondary, .cv2-mission-actions .cv2-primary { min-height: 52px; margin: 0; }
-.cv2-mission-path > .cv2-locked-quest:last-child::after { content: ""; position: absolute; inset: 0; z-index: 3; pointer-events: none; background: linear-gradient(180deg, rgba(250, 248, 246, .72), #faf8f6 82%); }
+.cv2-mission-path::after { content: ""; position: absolute; z-index: 4; right: -1px; bottom: -1px; left: -1px; height: 105px; pointer-events: none; border-radius: 17px; background: linear-gradient(180deg, rgba(250, 248, 246, .72), #faf8f6 82%); }
 @media (prefers-reduced-motion: reduce) {
   .cv2-quest-enter, .cv2-mission-screen { animation: none; }
 }

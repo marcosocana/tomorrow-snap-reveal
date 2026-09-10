@@ -47,7 +47,7 @@ export const defaultHostCharacter = (index: 1 | 2): CaptainsHostCharacterConfig 
 export const defaultCaptainsHostConfig = (enabled = true): CaptainsHostConfig => ({
   enabled,
   tone: "divertido",
-  frequency: "normal",
+  frequency: "high",
   wedding: emptyCaptainsWeddingContext(),
   character_1: defaultHostCharacter(1),
   character_2: defaultHostCharacter(2),

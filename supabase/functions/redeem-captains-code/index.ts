@@ -298,6 +298,7 @@ serve(async (req) => {
     owner_id: ownerId,
   };
   const eventOptional = {
+    host_frequency: "high",
     ...pick(body.event, ["contact_name", "contact_email", "contact_phone", "wedding_context", "character_1_config", "character_2_config", "host_characters_enabled", "host_tone", "host_frequency"]),
     theme_style: "pixel",
     primary_color: "#f06a5f",

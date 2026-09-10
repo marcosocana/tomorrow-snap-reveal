@@ -13,8 +13,6 @@ export type CaptainsHostGameSnapshot = {
 
 export type HostEventCandidate = { trigger: CaptainsHostTrigger; priority: 1 | 2 | 3 };
 
-const ordinaryCooldownMs = { low: 5 * 60_000, normal: 4 * 60_000, high: 3 * 60_000 } satisfies Record<CaptainsHostFrequency, number>;
-const critical = new Set<CaptainsHostTrigger>(["GAME_FINISHED", "BECAME_LEADER", "ENTERED_PODIUM"]);
 const allowedByFrequency: Record<CaptainsHostFrequency, Set<CaptainsHostTrigger>> = {
   low: new Set(["GAME_STARTED", "FIRST_CHALLENGE_COMPLETED", "POINTS_50", "POINTS_100", "HALFWAY_CHALLENGES", "BECAME_LEADER", "LAST_CHALLENGE", "GAME_FINISHED"]),
   normal: new Set(["GAME_STARTED", "FIRST_CHALLENGE_COMPLETED", "POINTS_50", "POINTS_100", "HALFWAY_CHALLENGES", "ENTERED_PODIUM", "BECAME_LEADER", "LOST_LEAD", "TEAM_OVERTAKEN", "THREE_QUARTERS_CHALLENGES", "LAST_CHALLENGE", "FINAL_CHALLENGES", "GAME_FINISHED"]),
@@ -56,11 +54,9 @@ export const selectHostIntervention = ({ current, previous, history, frequency, 
 }): HostEventCandidate | null => {
   if (!enabled) return null;
   const shown = new Set(history.map(item => item.trigger));
-  const lastShown = history.reduce((latest, item) => Math.max(latest, Date.parse(item.dismissed_at || item.shown_at || item.created_at) || 0), 0);
-  return collectHostEventCandidates(current, previous).find(candidate => {
-    if (shown.has(candidate.trigger) || !allowedByFrequency[frequency].has(candidate.trigger)) return false;
-    return critical.has(candidate.trigger) || current.now - lastShown >= ordinaryCooldownMs[frequency];
-  }) ?? null;
+  return collectHostEventCandidates(current, previous).find(candidate =>
+    !shown.has(candidate.trigger) && allowedByFrequency[frequency].has(candidate.trigger)
+  ) ?? null;
 };
 
 export const deterministicHostVariant = (teamId: string, trigger: CaptainsHostTrigger) =>

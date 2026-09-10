@@ -91,8 +91,9 @@ assert.equal(await evaluate(`getComputedStyle(document.querySelector('.cv2-heade
 assert.equal(await evaluate(`getComputedStyle(document.querySelector('.cv2-join-bar')).position`),'fixed');
 assert.equal(await evaluate(`document.documentElement.scrollWidth>innerWidth`),false);
 assert.equal(await evaluate(`document.documentElement.scrollHeight>innerHeight`),false);
-assert.equal(await evaluate(`!!document.querySelector('.cv2-welcome-art img[src*="welcome-captain-v3"]')`),true);
-assert.deepEqual(await evaluate(`(()=>{const image=document.querySelector('.cv2-welcome-art img');return [image.naturalWidth,image.naturalHeight]})()`),[1070,1470]);
+assert.equal(await evaluate(`!!document.querySelector('.cv2-welcome-art img[src*="captain-armbands"]')`),true);
+assert.deepEqual(await evaluate(`(()=>{const image=document.querySelector('.cv2-welcome-art img');return [image.naturalWidth,image.naturalHeight]})()`),[1254,1254]);
+assert.equal(await evaluate(`document.querySelector('.cv2-welcome-glow')===null`),true);
 assert.equal(await evaluate(`document.querySelector('.cv2-join-bar button svg')===null`),true);
 assert.equal(await evaluate(`getComputedStyle(document.querySelector('#cv2-welcome-title')).textAlign`),'center');
 assert.equal(await evaluate(`getComputedStyle(document.querySelector('.cv2-welcome > p')).textAlign`),'left');
@@ -113,6 +114,7 @@ for(const width of [320,390,430]){
 }
 await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
 await screenshot('identity');assert.equal(await evaluate(`document.querySelector('.cv2-pick:nth-child(5) .cv2-pick-label strong').textContent.trim()`),'Sin nombre');await click('.cv2-pick:nth-child(5)');assert.equal(await evaluate(`!!document.querySelector('.cv2-name-label')`),false);await click('.cv2-pick:nth-child(2)');await click('.cv2-join-bar button');await wait(`!!document.querySelector('.cv2-active-quest')`);
+await click('.cv2-brand');await wait(`!!document.querySelector('.cv2-welcome')`);await click('.cv2-join-bar button');await wait(`!!document.querySelector('.cv2-pick')`);await click('.cv2-pick:nth-child(2)');await click('.cv2-join-bar button');await wait(`!!document.querySelector('.cv2-active-quest')`);
 if(hostsEnabled){
  await wait(`!!document.querySelector('.cv2-host-dialog')`);await screenshot('host-welcome');
  assert.equal(await evaluate(`document.querySelectorAll('.cv2-host-dialog .host-avatar').length`),2);
@@ -133,6 +135,7 @@ assert.equal(await evaluate(`document.querySelector('.cv2-session-footer')===nul
 assert.equal(await evaluate(`document.querySelectorAll('.cv2-mission-path > .cv2-locked-quest').length`),4);
 assert.equal(await evaluate(`document.querySelectorAll('.cv2-mission-path > .cv2-locked-quest:not(.is-depth-fade)').length`),3);
 assert.equal(await evaluate(`document.querySelectorAll('.cv2-mission-path > .cv2-locked-quest.is-depth-fade').length`),1);
+assert.equal(await evaluate(`getComputedStyle(document.querySelector('.cv2-mission-path'),'::after').zIndex`),'4');
 assert.equal(await evaluate(`document.querySelector('.cv2-active-quest .cv2-eyebrow').textContent.trim()`),'Reto 01');
 assert.equal(await evaluate(`document.querySelector('meta[name="viewport"]').content.includes('user-scalable=no')`),true);
 await evaluate(`document.querySelector('.cv2-mobile-main').scrollTop=300`);
@@ -182,7 +185,7 @@ for(let i=0;i<5;i++){
  assert.equal(await evaluate(`!!document.querySelector('.cv2-mission-back svg')`),true);
  assert.equal(await evaluate(`document.querySelector('.cv2-mission-heading').textContent.trim()`),challenges[i].title);
  assert.equal(await evaluate(`document.querySelector('.cv2-dialog-icon')===null`),true);
- if(i===1){assert.equal(await evaluate(`document.querySelectorAll('.cv2-answer-options button').length`),4);assert.equal(await evaluate(`document.querySelector('.cv2-mission-submit').disabled`),true);await click('.cv2-answer-options button:first-child');assert.equal(await evaluate(`document.querySelector('.cv2-mission-submit').textContent.trim()`),'Continuar');}else await attach(challenges[i].evidence_type);
+ if(i===1){assert.equal(await evaluate(`document.querySelector('.cv2-mission-description')===null`),true);assert.equal(await evaluate(`document.querySelectorAll('.cv2-answer-options button').length`),4);assert.equal(await evaluate(`document.querySelector('.cv2-mission-submit').disabled`),true);await click('.cv2-answer-options button:first-child');assert.equal(await evaluate(`document.querySelector('.cv2-mission-submit').textContent.trim()`),'Continuar');}else await attach(challenges[i].evidence_type);
  if(i===0){await screenshot('photo');rejectUpload=true;await click('.cv2-mission-submit');await wait(`!!document.querySelector('.cv2-mission-screen .cv2-error')`);assert.equal(rows.filter(r=>r.table_id===tables[1].id&&r.status==='completed').length,0);}
  await click('.cv2-mission-submit');
  if(i===1){await wait(`!!document.querySelector('.cv2-celebration-points')`);await click('.cv2-mission-submit');}
@@ -256,6 +259,11 @@ await click('.cv2-mission-submit');await wait(`!document.querySelector('.cv2-mis
 // Rejecting requires confirmation, awards zero and unlocks the following challenge.
 await click('.cv2-reject-button');await wait(`!!document.querySelector('.cv2-confirm-dialog')`);
 assert.equal(rows.find(row=>row.table_id===tables[2].id&&row.challenge_id===challenges[2].id).status,'ready');
+assert.equal(await evaluate(`document.querySelector('.cv2-confirm-dialog .cv2-secondary').textContent.trim()`),'Volver al reto');
+assert.equal(await evaluate(`document.querySelector('.cv2-confirm-dialog .cv2-primary').textContent.trim()`),'Sí, rechazar reto');
+assert.equal(await evaluate(`getComputedStyle(document.querySelector('.cv2-confirm-dialog .cv2-secondary')).backgroundColor`),'rgb(255, 255, 255)');
+assert.equal(await evaluate(`getComputedStyle(document.querySelector('.cv2-confirm-dialog .cv2-primary')).backgroundColor`),'rgb(240, 106, 95)');
+assert.equal(await evaluate(`document.querySelector('.cv2-confirm-dialog .cv2-secondary').compareDocumentPosition(document.querySelector('.cv2-confirm-dialog .cv2-primary'))===Node.DOCUMENT_POSITION_FOLLOWING`),true);
 await click('.cv2-confirm-dialog .cv2-primary');await wait(`!document.querySelector('.cv2-confirm-dialog')`);
 assert.equal(rows.find(row=>row.table_id===tables[2].id&&row.challenge_id===challenges[2].id).status,'failed');
 assert.equal(tables[2].total_points,20);

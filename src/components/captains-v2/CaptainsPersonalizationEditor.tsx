@@ -16,7 +16,7 @@ const toneOptions: Array<{ value: CaptainsHostTone; label: string }> = [
   { value: "divertido", label: "Divertido" }, { value: "elegante", label: "Elegante" }, { value: "gamberro", label: "Gamberro" }, { value: "epico", label: "Épico" }, { value: "romantico", label: "Romántico" },
 ];
 const frequencyOptions: Array<{ value: CaptainsHostFrequency; label: string; detail: string }> = [
-  { value: "low", label: "Baja", detail: "Hasta 8 situaciones · pausa de 5 min" }, { value: "normal", label: "Normal", detail: "Hasta 13 situaciones · pausa de 4 min" }, { value: "high", label: "Alta", detail: "Hasta 15 situaciones · pausa de 3 min" },
+  { value: "low", label: "Baja", detail: "Hasta 8 situaciones" }, { value: "normal", label: "Normal", detail: "Hasta 13 situaciones" }, { value: "high", label: "Alta", detail: "Hasta 15 situaciones" },
 ];
 const previewTriggers: Array<{ value: CaptainsHostTrigger; label: string }> = [
   { value: "GAME_STARTED", label: "Inicio" }, { value: "POINTS_50", label: "50 puntos" }, { value: "HALFWAY_CHALLENGES", label: "Mitad de retos" }, { value: "ENTERED_PODIUM", label: "Podio" }, { value: "LAST_CHALLENGE", label: "Último reto" }, { value: "GAME_FINISHED", label: "Final" },

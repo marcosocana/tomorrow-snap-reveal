@@ -10,7 +10,7 @@ import { useCaptainsHostInterventions } from "@/hooks/useCaptainsHostInterventio
 import { getCaptainsEvidenceSignedUrl, rankCaptainsTables } from "@/lib/captainsService";
 import { getCaptainSpriteCss, getCaptainSpriteVisual } from "@/lib/captainsSprite";
 import type { CaptainsSpriteConfig, CaptainsSpriteStyle } from "@/lib/captainsTypes";
-import welcomeCaptain from "@/assets/captains/welcome-captain-v3.png";
+import captainArmbands from "@/assets/captains/captain-armbands.png";
 import "./CaptainsDemoV2.css";
 
 const teams = [
@@ -60,6 +60,7 @@ export default function CaptainsDemoV2({ eventSlug: requestedEventSlug }: { even
   const eventSlug = requestedEventSlug || params.eventSlug || "demo-capitanes-v2";
   const game = useCaptainsV2(eventSlug);
   const [started, setStarted] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(false);
   const [choice, setChoice] = useState<number | null>(null);
   const [endedIdentityChosen, setEndedIdentityChosen] = useState(false);
   const selected = game.eventEnded && !endedIdentityChosen ? choice : game.selected ?? choice;
@@ -176,6 +177,17 @@ export default function CaptainsDemoV2({ eventSlug: requestedEventSlug }: { even
     setMission(null); setRowId(null); setCelebrating(false); setAnswer(null); setFile(null); setThumbnail(null); setMediaPreparing(false); setCameraActive(false); setUploadProgress(0);
     window.scrollTo({ top: 0, behavior: "instant" });
   };
+  const returnToStart = () => {
+    game.leave();
+    setStarted(false);
+    setShowWelcome(true);
+    setChoice(null);
+    setEndedIdentityChosen(false);
+    setView("quests");
+    setRejecting(false);
+    setPreviewMedia(null);
+    closeMission();
+  };
   const completeMission = async () => {
     if (!rowId) return;
     setUploadProgress(0);
@@ -212,13 +224,13 @@ export default function CaptainsDemoV2({ eventSlug: requestedEventSlug }: { even
 
   return <div className="cv2 cv2-mobile" style={{ "--team": team?.color ?? "#f06a5f" } as CSSProperties}>
     <header className="cv2-header">
-      <Link to={`/capitanes/${eventSlug}`} className="cv2-brand" aria-label="Capitanes"><img src="/capitanes-logo.svg" alt="Capitanes" className="cv2-revelao-logo" /></Link>
+      <Link to={`/capitanes/${eventSlug}`} className="cv2-brand" aria-label="Volver al inicio de Capitanes" onClick={returnToStart}><img src="/capitanes-logo.svg" alt="Capitanes" className="cv2-revelao-logo" /></Link>
     </header>
-    <main ref={mainRef} className={`cv2-mobile-main ${!started && !game.eventEnded ? "is-welcome" : ""} ${activeMission ? "is-mission" : ""} ${file ? "has-media-preview" : ""}`}>
+    <main ref={mainRef} className={`cv2-mobile-main ${showWelcome || (!started && !game.eventEnded) ? "is-welcome" : ""} ${activeMission ? "is-mission" : ""} ${file ? "has-media-preview" : ""}`}>
       {started && game.connectionError && <div className="cv2-connection-error" role="alert"><p>{game.connectionError}</p><button className="cv2-secondary" disabled={game.busy} onClick={() => void game.refresh()}>Volver a conectar <RotateCcw size={16} /></button></div>}
       {(started || game.eventEnded) && game.data && joined && activeMission ? <section className="cv2-mission-screen" aria-labelledby="cv2-mission-title">
         <div className="cv2-mission-heading"><button className="cv2-mission-back" type="button" aria-label="Volver a los retos" disabled={game.busy || mediaPreparing} onClick={closeMission}><ArrowLeft size={22} /></button><h1 id="cv2-mission-title" className="cv2-mission-title">{celebrating ? result.correct ? "¡Respuesta correcta!" : "Respuesta incorrecta" : activeMission.title}</h1></div>
-        <p className="cv2-mission-description">{celebrating ? `${result.correct ? `Sumáis ${result.pointsAwarded} puntos.` : "Esta vez la respuesta no era correcta. No sumáis puntos."} ${finished ? "¡Habéis completado toda la aventura!" : "El siguiente reto ya os está esperando."}` : activeMission.description}</p>
+        {(celebrating || !isQuestion) && <p className="cv2-mission-description">{celebrating ? `${result.correct ? `Sumáis ${result.pointsAwarded} puntos.` : "Esta vez la respuesta no era correcta. No sumáis puntos."} ${finished ? "¡Habéis completado toda la aventura!" : "El siguiente reto ya os está esperando."}` : activeMission.description}</p>}
         {celebrating ? <><div className="cv2-celebration-points">+{result.pointsAwarded}<span>puntos para vuestra mesa</span></div><button className="cv2-primary cv2-centered-action cv2-mission-submit" onClick={closeMission}>{finished ? "Ver nuestra victoria" : "Descubrir siguiente reto"}</button></> : <>
           {isQuestion ? <div className="cv2-answer-options" role="group" aria-label="Elige una respuesta">{(activeMission.question_options ?? []).map(option => <button key={option} disabled={game.busy} onClick={() => { game.clearError(); setAnswer(option); }} aria-pressed={answer === option}>{option}{answer === option && <Check size={17} />}</button>)}</div> : <MediaCapture key={rowId} kind={activeMission.evidence_type === "photo" ? "photo" : "video"} file={file} onChange={value => { game.clearError(); setFile(value); }} thumbnail={thumbnail} previewActions={retry => <div className="cv2-mission-actions">{retry}{submitButton}</div>} onThumbnailChange={setThumbnail} onPreparingChange={setMediaPreparing} onCameraOpenChange={setCameraActive} onCancel={closeMission} disabled={game.busy} />}
           {!cameraActive && !file && <div className="cv2-mission-facts"><span><activeMission.icon size={22} />{activeMission.type}</span><strong><Trophy size={22} />+{activeMission.points} puntos</strong></div>}
@@ -226,11 +238,11 @@ export default function CaptainsDemoV2({ eventSlug: requestedEventSlug }: { even
           {game.error && <p className="cv2-error" role="alert">{game.error}</p>}
           {isQuestion && submitButton}
         </>}
-      </section> : !game.data ? <div className="cv2-loading" role="status">{game.loading && <Loader2 className="animate-spin" />}<h1>{game.loading ? "Preparando vuestra mesa…" : "Estamos preparando la partida"}</h1></div> : !started && !game.eventEnded ? <section className="cv2-welcome" aria-labelledby="cv2-welcome-title">
-        <div className="cv2-welcome-art" aria-hidden="true"><span className="cv2-welcome-glow" /><img src={welcomeCaptain} alt="" /></div>
+      </section> : !game.data ? <div className="cv2-loading" role="status">{game.loading && <Loader2 className="animate-spin" />}<h1>{game.loading ? "Preparando vuestra mesa…" : "Estamos preparando la partida"}</h1></div> : showWelcome || (!started && !game.eventEnded) ? <section className="cv2-welcome" aria-labelledby="cv2-welcome-title">
+        <div className="cv2-welcome-art" aria-hidden="true"><img src={captainArmbands} alt="" /></div>
         <h1 id="cv2-welcome-title">{game.data?.event.name ?? "Capitanes"}</h1>
         <p>{game.data?.event.description ?? "Reúne a tu mesa, superad los retos y cread recuerdos durante la celebración."}</p>
-        <div className="cv2-join-bar"><button className="cv2-primary cv2-centered-action" onClick={() => { setStarted(true); window.scrollTo({ top: 0, behavior: "instant" }); }}>Empezar</button></div>
+        <div className="cv2-join-bar"><button className="cv2-primary cv2-centered-action" onClick={() => { setShowWelcome(false); setStarted(true); window.scrollTo({ top: 0, behavior: "instant" }); }}>Empezar</button></div>
       </section> : !joined ? <>
         <div className="cv2-intro"><div><h1>¿Qué capitán <em>eres?</em></h1><p>Encuentra tu mesa y elige quién eres.</p></div></div>
         <section className="cv2-identity" aria-labelledby="cv2-identity-title">
@@ -287,8 +299,8 @@ export default function CaptainsDemoV2({ eventSlug: requestedEventSlug }: { even
       <span className="cv2-dialog-icon cv2-reject-icon"><XCircle size={38} /></span>
       <DialogTitle className="cv2-dialog-title">¿Rechazáis este reto?</DialogTitle>
       <DialogDescription>Este reto sumará 0 puntos y pasaréis directamente al siguiente. Esta decisión no se puede deshacer.</DialogDescription>
-      <button className="cv2-primary" disabled={game.busy} onClick={rejectMission}>{game.busy ? "Rechazando…" : "Sí, rechazar reto"}{game.busy && <Loader2 size={18} className="animate-spin" />}</button>
-      <button className="cv2-secondary" disabled={game.busy} onClick={() => setRejecting(false)}>Volver al reto</button>
+      <button className="cv2-secondary cv2-centered-action" disabled={game.busy} onClick={() => setRejecting(false)}>Volver al reto</button>
+      <button className="cv2-primary cv2-centered-action" disabled={game.busy} onClick={rejectMission}>{game.busy ? "Rechazando…" : "Sí, rechazar reto"}{game.busy && <Loader2 size={18} className="animate-spin" />}</button>
     </DialogContent></Dialog>
     <Dialog open={previewMedia !== null} onOpenChange={open => { if (!open) setPreviewMedia(null); }}><DialogContent className="cv2-dialog cv2-media-dialog">
       <DialogTitle className="cv2-dialog-title">{previewMedia?.title}</DialogTitle>
