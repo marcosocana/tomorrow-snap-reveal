@@ -1302,8 +1302,6 @@
 .cv2-unlock-hint { display: flex; justify-content: center; align-items: center; gap: 5px; color: #896a67; font-size: 10px; margin-top: 14px; }
 .cv2-mission-path { display: flex; flex-direction: column; gap: 13px; position: relative; margin-top: 20px; }
 .cv2-locked-quest, .cv2-done-quest { display: flex; align-items: center; gap: 13px; position: relative; border: 1px solid #e3d6d4; border-radius: 16px; min-height: 91px; padding: 16px; background: #f1e7e6; overflow: hidden; }
-.cv2-locked-quest.is-depth-fade::after { content: ""; position: absolute; inset: 0; z-index: 3; pointer-events: none; background: linear-gradient(180deg, rgba(250, 244, 243, .14), rgba(250, 244, 243, .72)); }
-.cv2-locked-quest.is-depth-fade.fade-2::after { background: linear-gradient(180deg, rgba(250, 244, 243, .55), rgba(250, 244, 243, .96)); }
 .cv2-path-number { display: grid; place-items: center; flex-shrink: 0; width: 32px; height: 32px; background: #e8dad8; border-radius: 50%; font-size: 11px; color: #916e6a; }
 .cv2-locked-content { display: flex; gap: 13px; align-items: center; filter: blur(6px); opacity: .45; user-select: none; pointer-events: none; }
 .cv2-locked-content strong, .cv2-locked-content small { display: block; }
@@ -1492,9 +1490,10 @@
 .cv2-ranking-rule svg { flex: 0 0 auto; margin-top: 1px; color: #c75d53; }
 .cv2-confirm-dialog { width: min(calc(100% - 24px), 440px); padding: 32px 24px; text-align: center; border-radius: 23px; }
 .cv2-confirm-dialog > p { font-size: 14px; line-height: 1.7; }
+.cv2-confirm-dialog .cv2-primary, .cv2-confirm-dialog .cv2-secondary { font-size: 14px; font-weight: 600; }
 .cv2-confirm-dialog .cv2-primary { justify-content: center; min-height: 52px; background: #f06a5f; color: #fff; }
 .cv2-confirm-dialog .cv2-primary:hover { background: #dc5a50; }
-.cv2-confirm-dialog .cv2-secondary { min-height: 52px; border: 1px solid #ead8d3; border-radius: 14px; background: #fff; color: #2f292d; font-size: 14px; font-weight: 600; }
+.cv2-confirm-dialog .cv2-secondary { min-height: 52px; border: 1px solid #ead8d3; border-radius: 14px; background: #fff; color: #2f292d; }
 .cv2-reject-icon { color: #c4584d; background: #f8ded8; }
 .cv2-media-dialog { width: min(calc(100% - 20px), 720px); max-height: calc(100dvh - 24px); padding: 50px 12px 12px; border-radius: 20px; overflow: hidden; }
 .cv2-media-dialog .cv2-dialog-title { padding: 0 10px; font-size: 18px; }
@@ -1545,7 +1544,7 @@ html.captains-game-open, .captains-game-open body { overflow: hidden; overscroll
 .cv2-capture-preview { width: 100%; height: clamp(220px, 38dvh, 360px); }
 .cv2-mission-actions { position: fixed; z-index: 45; bottom: 0; left: 50%; transform: translateX(-50%); width: min(100%, 520px); display: flex; flex-direction: column; gap: 8px; padding: 12px 20px calc(12px + env(safe-area-inset-bottom)); border-top: 1px solid #eee6e4; background: #fffaf8; }
 .cv2-mission-actions .cv2-secondary, .cv2-mission-actions .cv2-primary { min-height: 52px; margin: 0; }
-.cv2-mission-path::after { content: ""; position: absolute; z-index: 4; right: -1px; bottom: -1px; left: -1px; height: 105px; pointer-events: none; border-radius: 17px; background: linear-gradient(180deg, rgba(250, 248, 246, .72), #faf8f6 82%); }
+.cv2-mission-path::after { content: ""; position: absolute; z-index: 4; right: -1px; bottom: -1px; left: -1px; height: min(260px, 100%); pointer-events: none; background: linear-gradient(180deg, rgba(250, 248, 246, 0) 0%, rgba(250, 248, 246, .08) 16%, rgba(250, 248, 246, .27) 38%, rgba(250, 248, 246, .58) 64%, rgba(250, 248, 246, .88) 86%, #faf8f6 100%); }
 @media (prefers-reduced-motion: reduce) {
   .cv2-quest-enter, .cv2-mission-screen { animation: none; }
 }

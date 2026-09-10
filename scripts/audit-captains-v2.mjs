@@ -133,9 +133,9 @@ assert.equal(await evaluate(`document.querySelector('.cv2-active-quest .cv2-prim
 assert.equal(await evaluate(`document.body.innerText.includes('Hasta 20')`),false);
 assert.equal(await evaluate(`document.querySelector('.cv2-session-footer')===null`),true);
 assert.equal(await evaluate(`document.querySelectorAll('.cv2-mission-path > .cv2-locked-quest').length`),4);
-assert.equal(await evaluate(`document.querySelectorAll('.cv2-mission-path > .cv2-locked-quest:not(.is-depth-fade)').length`),3);
-assert.equal(await evaluate(`document.querySelectorAll('.cv2-mission-path > .cv2-locked-quest.is-depth-fade').length`),1);
+assert.equal(await evaluate(`document.querySelectorAll('.cv2-mission-path > .cv2-locked-quest.is-depth-fade').length`),0);
 assert.equal(await evaluate(`getComputedStyle(document.querySelector('.cv2-mission-path'),'::after').zIndex`),'4');
+assert.equal(await evaluate(`getComputedStyle(document.querySelector('.cv2-mission-path'),'::after').height`),'260px');
 assert.equal(await evaluate(`document.querySelector('.cv2-active-quest .cv2-eyebrow').textContent.trim()`),'Reto 01');
 assert.equal(await evaluate(`document.querySelector('meta[name="viewport"]').content.includes('user-scalable=no')`),true);
 await evaluate(`document.querySelector('.cv2-mobile-main').scrollTop=300`);
@@ -263,6 +263,7 @@ assert.equal(await evaluate(`document.querySelector('.cv2-confirm-dialog .cv2-se
 assert.equal(await evaluate(`document.querySelector('.cv2-confirm-dialog .cv2-primary').textContent.trim()`),'Sí, rechazar reto');
 assert.equal(await evaluate(`getComputedStyle(document.querySelector('.cv2-confirm-dialog .cv2-secondary')).backgroundColor`),'rgb(255, 255, 255)');
 assert.equal(await evaluate(`getComputedStyle(document.querySelector('.cv2-confirm-dialog .cv2-primary')).backgroundColor`),'rgb(240, 106, 95)');
+assert.equal(await evaluate(`getComputedStyle(document.querySelector('.cv2-confirm-dialog .cv2-secondary')).fontSize`),await evaluate(`getComputedStyle(document.querySelector('.cv2-confirm-dialog .cv2-primary')).fontSize`));
 assert.equal(await evaluate(`document.querySelector('.cv2-confirm-dialog .cv2-secondary').compareDocumentPosition(document.querySelector('.cv2-confirm-dialog .cv2-primary'))===Node.DOCUMENT_POSITION_FOLLOWING`),true);
 await click('.cv2-confirm-dialog .cv2-primary');await wait(`!document.querySelector('.cv2-confirm-dialog')`);
 assert.equal(rows.find(row=>row.table_id===tables[2].id&&row.challenge_id===challenges[2].id).status,'failed');
