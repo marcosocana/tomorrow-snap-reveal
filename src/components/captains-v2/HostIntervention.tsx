@@ -22,6 +22,6 @@ export default function HostIntervention({ config, message, onContinue, preview 
       <HostCharacterAvatar config={config.character_2} className={secondActive ? "is-speaking" : ""} />
     </div>
     <div className="host-dialogue">{dialogue}</div>
-    {onContinue && <button className="host-intervention-cta" type="button" onClick={onContinue}>{message.cta || "Continuar jugando"}</button>}
+    {onContinue && <button className="host-intervention-cta" type="button" onClick={onContinue}>Continuar</button>}
   </div>;
 }

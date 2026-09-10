@@ -28,6 +28,7 @@ import Register from "./pages/Register";
 import { CaptainsAdminDetail, CaptainsAdminForm, CaptainsAdminList, CaptainsOnboarding } from "./pages/CaptainsAdmin";
 import CaptainsDemoV2 from "./pages/CaptainsDemoV2";
 import CaptainsExperience from "./pages/CaptainsExperience";
+import CaptainsLanding from "./pages/CaptainsLanding";
 import LiveSlideshow from "./pages/LiveSlideshow";
 import TimeCapsule from "./pages/TimeCapsule";
 import OAuthConsent from "./pages/OAuthConsent";
@@ -202,6 +203,7 @@ const App = () => {
               <Route path="/admin/capitanes/:eventId" element={<CaptainsAdminDetail />} />
               <Route path="/admin/capitanes/:eventId/edit" element={<CaptainsAdminForm edit />} />
               <Route path="/capitanes/onboarding" element={<CaptainsOnboarding />} />
+              <Route path="/capitanes" element={<CaptainsLanding />} />
               <Route path="/capitanes/demo-capitanes-v2" element={<CaptainsDemoV2 />} />
               <Route path="/capitanes/:eventSlug" element={<CaptainsExperience />} />
               <Route path="/capitanes/:eventSlug/start" element={<CaptainsExperience />} />

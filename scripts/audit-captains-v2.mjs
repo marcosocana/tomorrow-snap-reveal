@@ -10,6 +10,9 @@ const eventAlreadyEnded=process.env.CAPTAINS_EVENT_FINISHED==='1';
 const hostsEnabled=process.env.CAPTAINS_HOSTS==='1';
 const firstChallengeStatus=process.env.CAPTAINS_FIRST_CHALLENGE_PENDING==='1'?'pending':'ready';
 const thumbnailColumn=process.env.CAPTAINS_THUMBNAIL_COLUMN==='1';
+const demoSeed=fs.readFileSync('supabase/migrations/20260911110000_replace_captains_v2_demo.sql','utf8');
+assert.match(demoSeed, /'Boda de María y Marcos'/);
+assert.equal([...demoSeed.matchAll(/^\s*\('dc200000-[^\n]+$/gm)].length,15,'The replacement demo must contain 15 challenges');
 const eventId='de100000-0000-4000-8000-000000000001';
 const titles=['Brindis de mesa','Pregunta de pareja','Mensaje secreto','Aliados de otra mesa','Coreografía exprés'];
 const event={id:eventId,name:'Capitanes · Revelao',slug:eventSlug,status:eventAlreadyEnded?'finished':'active',experience_version:experienceVersion,start_time:'2026-01-01T00:00:00Z',end_time:eventAlreadyEnded?'2026-01-02T00:00:00Z':'2099-12-31T00:00:00Z',host_characters_enabled:hostsEnabled,host_tone:'divertido',host_frequency:'normal',wedding_context:hostsEnabled?{partner_1_name:'Carlos',partner_2_name:'Lucía',years_together:8,venue_name:'Finca La Estación',venue_city:'Madrid'}:null,character_1_config:hostsEnabled?{linked_partner:'partner_1',display_name:'Carlos',skin_tone:'medium',hair_style:'short',hair_color:'dark',facial_hair:'none',glasses:'none',head_accessory:'none',outfit:'classic_suit',primary_color:'#26354a',secondary_color:'#fff6ec',accessory:'tie'}:null,character_2_config:hostsEnabled?{linked_partner:'partner_2',display_name:'Lucía',skin_tone:'light',hair_style:'long',hair_color:'brown',facial_hair:'none',glasses:'round',head_accessory:'none',outfit:'modern_dress',primary_color:'#f06a5f',secondary_color:'#fff6ec',accessory:'bouquet'}:null};
@@ -64,6 +67,16 @@ const screenshot=async name=>{const img=await send('Page.captureScreenshot',{for
 await send('Page.enable');await send('Runtime.enable');await send('Fetch.enable',{patterns:[{urlPattern:'*supabase.co/*'}]});
 await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
 await send('Page.addScriptToEvaluateOnNewDocument',{source:`Object.defineProperty(navigator,'mediaDevices',{configurable:true,value:{getUserMedia:async constraints=>{const canvas=document.createElement('canvas');canvas.width=640;canvas.height=480;const context=canvas.getContext('2d');context.fillStyle='#f06a5f';context.fillRect(0,0,640,480);const stream=canvas.captureStream(15);if(constraints.audio){const audio=new AudioContext();const oscillator=audio.createOscillator();const destination=audio.createMediaStreamDestination();oscillator.connect(destination);oscillator.start();stream.addTrack(destination.stream.getAudioTracks()[0]);}window.__captainsAuditCanvas=canvas;return stream;}}});`});
+await send('Page.navigate',{url:`${origin}/capitanes`});
+await wait(`!!document.querySelector('.cl-page')`);
+assert.equal(await evaluate(`document.querySelector('.cl-hero h1').textContent.includes('Una misión')`),true);
+assert.equal(await evaluate(`document.querySelector('.cl-button[href="/capitanes/demo-capitanes-v2"]')!==null`),true);
+assert.equal(await evaluate(`document.documentElement.scrollWidth>innerWidth`),false);
+await screenshot('landing-mobile');
+await send('Emulation.setDeviceMetricsOverride',{width:1280,height:900,deviceScaleFactor:1,mobile:false});
+assert.equal(await evaluate(`document.documentElement.scrollWidth>innerWidth`),false);
+await screenshot('landing-desktop');
+await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
 await send('Page.navigate',{url:`${origin}/capitanes/${eventSlug}`});
 if(experienceVersion==='legacy'){
  await wait(`!!document.querySelector('.captains-public')`);
@@ -114,18 +127,23 @@ for(const width of [320,390,430]){
 }
 await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
 await screenshot('identity');assert.equal(await evaluate(`document.querySelector('.cv2-pick:nth-child(5) .cv2-pick-label strong').textContent.trim()`),'Sin nombre');await click('.cv2-pick:nth-child(5)');assert.equal(await evaluate(`!!document.querySelector('.cv2-name-label')`),false);await click('.cv2-pick:nth-child(2)');await click('.cv2-join-bar button');await wait(`!!document.querySelector('.cv2-active-quest')`);
-await click('.cv2-brand');await wait(`!!document.querySelector('.cv2-welcome')`);await click('.cv2-join-bar button');await wait(`!!document.querySelector('.cv2-pick')`);await click('.cv2-pick:nth-child(2)');await click('.cv2-join-bar button');await wait(`!!document.querySelector('.cv2-active-quest')`);
+if(!hostsEnabled){await click('.cv2-brand');await wait(`!!document.querySelector('.cv2-welcome')`);await click('.cv2-join-bar button');await wait(`!!document.querySelector('.cv2-pick')`);await click('.cv2-pick:nth-child(2)');await click('.cv2-join-bar button');await wait(`!!document.querySelector('.cv2-active-quest')`);}
 if(hostsEnabled){
  await wait(`!!document.querySelector('.cv2-host-dialog')`);await screenshot('host-welcome');
+ assert.equal(await evaluate(`document.querySelector('.host-intervention-cta').textContent.trim()`),'Continuar');
  assert.equal(await evaluate(`document.querySelectorAll('.cv2-host-dialog .host-avatar').length`),2);
  assert.equal(await evaluate(`document.querySelector('.cv2-host-dialog').textContent.includes('Carlos')&&document.querySelector('.cv2-host-dialog').textContent.includes('Lucía')`),true);
  assert.equal(hostInterventions.filter(item=>item.table_id===tables[1].id&&item.trigger==='GAME_STARTED').length,1);
  await click('.host-intervention-cta');await wait(`!document.querySelector('.cv2-host-dialog')`);
+ await click('.cv2-bottom-nav button:nth-child(2)');await wait(`!!document.querySelector('.cv2-mobile-ranking')`);
  await new Promise(r=>setTimeout(r,300));await evaluate(`(()=>{const current=Date.now();Date.now=()=>current+10*60*1000})()`);
  tables[1].total_points=50;tables[1].completed_challenges=1;Object.assign(rows.find(row=>row.table_id===tables[1].id&&row.challenge_id===challenges[0].id),{status:'completed',points_awarded:50,submitted_at:new Date().toISOString()});
  await wait(`document.querySelector('.cv2-host-dialog')?.textContent.includes('50 puntos')`);await screenshot('host-50-points');
+ assert.equal(await evaluate(`document.querySelector('.host-intervention-cta').textContent.trim()`),'Continuar');
  assert.equal(hostInterventions.filter(item=>item.table_id===tables[1].id&&item.trigger==='POINTS_50').length,1);
  await click('.host-intervention-cta');await wait(`!document.querySelector('.cv2-host-dialog')`);
+ await wait(`!!document.querySelector('.cv2-active-quest')`);
+ assert.equal(await evaluate(`document.querySelector('.cv2-bottom-nav button:first-child').getAttribute('aria-current')`),'page');
  assert.deepEqual(exceptions,[]);console.log('PASS: configured host characters render once at game start and once at the 50-point milestone.');socket.close();process.exit(0);
 }
 assert.equal(await evaluate(`document.querySelector('.cv2-bottom-nav').textContent.includes('Recuerdos')`),false);
