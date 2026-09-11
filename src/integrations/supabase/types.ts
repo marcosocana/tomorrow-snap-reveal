@@ -1882,6 +1882,12 @@ export type Database = {
         Args: { target_event_id: string }
         Returns: undefined
       }
+      list_expired_captains_demo_storage_objects: {
+        Args: { batch_limit?: number; cutoff: string }
+        Returns: {
+          name: string
+        }[]
+      }
       resolve_public_event_access: {
         Args: { candidate_password: string }
         Returns: {
@@ -1895,6 +1901,7 @@ export type Database = {
         }[]
       }
       sanitize_public_event_limits: { Args: { raw: Json }; Returns: Json }
+      schedule_captains_demo_evidence_purge: { Args: never; Returns: undefined }
       schedule_demo_lifecycle_email_cron: { Args: never; Returns: undefined }
       schedule_purchase_email_outbox_cron: { Args: never; Returns: undefined }
       schedule_time_capsule_unlock_cron: { Args: never; Returns: undefined }
