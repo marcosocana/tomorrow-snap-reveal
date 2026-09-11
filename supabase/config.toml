@@ -15,6 +15,9 @@ verify_jwt = false
 [functions.reset-captains-tables]
 verify_jwt = false
 
+[functions.purge-captains-demo-evidence]
+verify_jwt = false
+
 [functions.delete-account]
 verify_jwt = false
 

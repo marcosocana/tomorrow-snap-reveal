@@ -11,8 +11,15 @@ const hostsEnabled=process.env.CAPTAINS_HOSTS==='1';
 const firstChallengeStatus=process.env.CAPTAINS_FIRST_CHALLENGE_PENDING==='1'?'pending':'ready';
 const thumbnailColumn=process.env.CAPTAINS_THUMBNAIL_COLUMN==='1';
 const demoSeed=fs.readFileSync('supabase/migrations/20260911110000_replace_captains_v2_demo.sql','utf8');
-assert.match(demoSeed, /'Boda de María y Marcos'/);
-assert.equal([...demoSeed.matchAll(/^\s*\('dc200000-[^\n]+$/gm)].length,15,'The replacement demo must contain 15 challenges');
+const demoRetention=fs.readFileSync('supabase/migrations/20260911120000_add_captains_demo_evidence_retention.sql','utf8');
+const demoPurge=fs.readFileSync('supabase/functions/purge-captains-demo-evidence/index.ts','utf8');
+assert.match(demoSeed, /'Evento Demo v2'/);
+assert.match(demoSeed, /slug = 'boda-de-pruebita-y-pruebito'/);
+assert.match(demoSeed, /FROM public\.captains_tables source_table/);
+assert.match(demoSeed, /FROM public\.captains_event_challenges source_challenge/);
+assert.match(demoRetention, /interval '1 hour'/);
+assert.match(demoRetention, /'\* \* \* \* \*'/);
+assert.match(demoPurge, /admin\.storage\.from\(BUCKET\)\.remove\(paths\)/);
 const eventId='de100000-0000-4000-8000-000000000001';
 const titles=['Brindis de mesa','Pregunta de pareja','Mensaje secreto','Aliados de otra mesa','Coreografía exprés'];
 const event={id:eventId,name:'Capitanes · Revelao',slug:eventSlug,status:eventAlreadyEnded?'finished':'active',experience_version:experienceVersion,start_time:'2026-01-01T00:00:00Z',end_time:eventAlreadyEnded?'2026-01-02T00:00:00Z':'2099-12-31T00:00:00Z',host_characters_enabled:hostsEnabled,host_tone:'divertido',host_frequency:'normal',wedding_context:hostsEnabled?{partner_1_name:'Carlos',partner_2_name:'Lucía',years_together:8,venue_name:'Finca La Estación',venue_city:'Madrid'}:null,character_1_config:hostsEnabled?{linked_partner:'partner_1',display_name:'Carlos',skin_tone:'medium',hair_style:'short',hair_color:'dark',facial_hair:'none',glasses:'none',head_accessory:'none',outfit:'classic_suit',primary_color:'#26354a',secondary_color:'#fff6ec',accessory:'tie'}:null,character_2_config:hostsEnabled?{linked_partner:'partner_2',display_name:'Lucía',skin_tone:'light',hair_style:'long',hair_color:'brown',facial_hair:'none',glasses:'round',head_accessory:'none',outfit:'modern_dress',primary_color:'#f06a5f',secondary_color:'#fff6ec',accessory:'bouquet'}:null};
@@ -77,6 +84,7 @@ await send('Emulation.setDeviceMetricsOverride',{width:1280,height:900,deviceSca
 assert.equal(await evaluate(`document.documentElement.scrollWidth>innerWidth`),false);
 await screenshot('landing-desktop');
 await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
+if(eventSlug==='demo-capitanes-v2')await evaluate(`localStorage.setItem(${JSON.stringify(`captains-v2-player:${eventSlug}`)},${JSON.stringify(tables[1].id)})`);
 await send('Page.navigate',{url:`${origin}/capitanes/${eventSlug}`});
 if(experienceVersion==='legacy'){
  await wait(`!!document.querySelector('.captains-public')`);
@@ -111,7 +119,7 @@ assert.equal(await evaluate(`document.querySelector('.cv2-join-bar button svg')=
 assert.equal(await evaluate(`getComputedStyle(document.querySelector('#cv2-welcome-title')).textAlign`),'center');
 assert.equal(await evaluate(`getComputedStyle(document.querySelector('.cv2-welcome > p')).textAlign`),'left');
 await new Promise(r=>setTimeout(r,300));
-await screenshot('welcome');await click('.cv2-join-bar button');await wait(`!!document.querySelector('.cv2-pick') || !!document.querySelector('.cv2-player-strip')`);if(await evaluate(`!!document.querySelector('.cv2-player-strip')`)){await evaluate(`localStorage.removeItem(${JSON.stringify(`captains-v2-player:${eventSlug}`)})`);await send('Page.reload');await wait(`!!document.querySelector('.cv2-welcome')`);await click('.cv2-join-bar button');await wait(`!!document.querySelector('.cv2-pick')`);}
+await screenshot('welcome');await click('.cv2-join-bar button');await wait(`!!document.querySelector('.cv2-pick') || !!document.querySelector('.cv2-player-strip')`);if(eventSlug==='demo-capitanes-v2')assert.equal(await evaluate(`!!document.querySelector('.cv2-pick')`),true,'The demo must always forget the previous captain before showing the picker.');else if(await evaluate(`!!document.querySelector('.cv2-player-strip')`)){await evaluate(`localStorage.removeItem(${JSON.stringify(`captains-v2-player:${eventSlug}`)})`);await send('Page.reload');await wait(`!!document.querySelector('.cv2-welcome')`);await click('.cv2-join-bar button');await wait(`!!document.querySelector('.cv2-pick')`);}
 assert.equal(await evaluate(`/demo|simula/i.test(document.body.innerText)`),false);
 assert.equal(await evaluate(`document.querySelector('.cv2-join-bar button').disabled`),true);
 assert.equal(await evaluate(`document.querySelector('.cv2-join-bar button').textContent.trim()`),'Continuar');
@@ -252,7 +260,7 @@ await click('.cv2-media-dialog > button');await wait(`!document.querySelector('.
 // A video without its optional poster must not break the complete results gallery.
 const videoWithoutPoster=evidence.find(item=>item.evidence_type==='video');
 uploads.splice(uploads.findIndex(path=>path.includes(`/${videoWithoutPoster.table_challenge_id}/`)&&path.endsWith('-thumbnail.jpg')),1);
-await send('Page.reload');await wait(`!!document.querySelector('.cv2-welcome')`);await click('.cv2-join-bar button');await wait(`document.querySelector('.cv2-player-points strong')?.textContent==='95'`);
+await send('Page.reload');await wait(`!!document.querySelector('.cv2-welcome')`);await click('.cv2-join-bar button');await wait(`!!document.querySelector('.cv2-pick')`);await click('.cv2-pick:nth-child(2)');await click('.cv2-join-bar button');await wait(`document.querySelector('.cv2-player-points strong')?.textContent==='95'`);
 await wait(`!!document.querySelector('.cv2-finish-dialog')`);await click('.cv2-finish-dialog .cv2-secondary');await wait(`document.querySelectorAll('.cv2-memory').length===5`);
 assert.equal(await evaluate(`document.querySelectorAll('.cv2-video-placeholder').length`),1);
 assert.equal(await evaluate(`document.querySelectorAll('.cv2-memory-media img[alt^="Primer fotograma"]').length`),1);
@@ -293,4 +301,4 @@ for(const kind of ['photo','video']){
 assert.equal(await evaluate(`document.querySelector('.cv2-bottom-nav').textContent.includes('Retos')`),true);
 await wait(`!!document.querySelector('.cv2-finish-dialog')`);await click('.cv2-finish-dialog .cv2-secondary');await wait(`document.querySelectorAll('.cv2-result-card').length===4`);
 assert.equal(await evaluate(`document.body.innerText.includes('Mensaje secreto')`),false);
-assert.deepEqual(exceptions,[]);console.log('PASS with mocked backend: identity, in-game photo/video capture, reduced media previews, upload failure/retry, submissions without thumbnail_url column, optional missing poster, sequential completion, server score, reload persistence, shared table ranking, gallery only after finish, no demo text, 320–1440px, no JS exceptions.');socket.close();
+assert.deepEqual(exceptions,[]);console.log('PASS with mocked backend: fresh demo entry, captain selection, in-game photo/video capture, reduced media previews, upload failure/retry, submissions without thumbnail_url column, optional missing poster, sequential completion, server score, shared table ranking, gallery only after finish, no demo text, 320–1440px, no JS exceptions.');socket.close();

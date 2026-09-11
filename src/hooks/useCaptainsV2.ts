@@ -12,9 +12,14 @@ const sessionKeyForEvent = (eventSlug: string) => `captains-v2-player:${eventSlu
 export const isFinishedRow = (row: CaptainsTableChallenge) => ["completed", "failed", "time_expired", "rejected", "deleted"].includes(row.status);
 const errorMessage = (error: unknown) => error instanceof Error ? error.message : "No se ha podido conectar. Vuelve a intentarlo.";
 
-export function useCaptainsV2(eventSlug = CAPTAINS_V2_SLUG) {
+export function useCaptainsV2(
+  eventSlug = CAPTAINS_V2_SLUG,
+  options?: { forceFreshEntry?: boolean },
+) {
   const sessionKey = sessionKeyForEvent(eventSlug);
+  const forceFreshEntry = options?.forceFreshEntry ?? false;
   const [tableId, setTableId] = useState<string | null>(() => {
+    if (forceFreshEntry) return null;
     try { return localStorage.getItem(sessionKey); } catch { return null; }
   });
   const [error, setError] = useState("");
@@ -34,8 +39,13 @@ export function useCaptainsV2(eventSlug = CAPTAINS_V2_SLUG) {
     retry: 1,
   });
   useEffect(() => {
+    if (forceFreshEntry) {
+      try { localStorage.removeItem(sessionKey); } catch { /* No persistent identity. */ }
+      setTableId(null);
+      return;
+    }
     try { setTableId(localStorage.getItem(sessionKey)); } catch { setTableId(null); }
-  }, [sessionKey]);
+  }, [forceFreshEntry, sessionKey]);
   const data = query.data;
   const eventEnded = Boolean(data && (["finished", "archived"].includes(data.event.status) || (data.event.end_time && Date.parse(data.event.end_time) <= Date.now())));
   const selected = data?.tables.findIndex(table => table.id === tableId) ?? -1;

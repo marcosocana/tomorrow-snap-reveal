@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import CaptainModel from "@/components/captains-v2/CaptainModel";
 import MediaCapture from "@/components/captains-v2/MediaCapture";
 import HostIntervention from "@/components/captains-v2/HostIntervention";
-import { useCaptainsV2 } from "@/hooks/useCaptainsV2";
+import { CAPTAINS_V2_SLUG, useCaptainsV2 } from "@/hooks/useCaptainsV2";
 import { useCaptainsHostInterventions } from "@/hooks/useCaptainsHostInterventions";
 import { getCaptainsEvidenceSignedUrl, rankCaptainsTables } from "@/lib/captainsService";
 import { getCaptainSpriteCss, getCaptainSpriteVisual } from "@/lib/captainsSprite";
@@ -58,7 +58,7 @@ export default function CaptainsDemoV2({ eventSlug: requestedEventSlug }: { even
   const mainRef = useRef<HTMLElement>(null);
   const params = useParams();
   const eventSlug = requestedEventSlug || params.eventSlug || "demo-capitanes-v2";
-  const game = useCaptainsV2(eventSlug);
+  const game = useCaptainsV2(eventSlug, { forceFreshEntry: eventSlug === CAPTAINS_V2_SLUG });
   const [started, setStarted] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
   const [choice, setChoice] = useState<number | null>(null);
