@@ -222,7 +222,12 @@ export default function CaptainsDemoV2({ eventSlug: requestedEventSlug }: { even
 
   const submitButton = activeMission ? <button className="cv2-primary cv2-centered-action cv2-mission-submit" aria-busy={game.busy || mediaPreparing} disabled={game.busy || mediaPreparing || !canSubmit || game.remaining === 0} onClick={completeMission}>{mediaPreparing ? `Preparando ${activeMission.evidence_type === "photo" ? "foto" : "vídeo"}…` : game.busy ? (isQuestion ? "Comprobando…" : `${activeMission.evidence_type === "photo" ? "Subiendo foto" : "Subiendo vídeo"}${uploadProgress > 0 ? ` · ${uploadProgress}%` : "…"}`) : isQuestion ? "Continuar" : activeMission.evidence_type === "photo" ? "Enviar foto" : "Enviar vídeo"}{(game.busy || mediaPreparing) && <Loader2 size={18} className="animate-spin" />}</button> : null;
 
-  return <div className="cv2 cv2-mobile" style={{ "--team": team?.color ?? "#f06a5f" } as CSSProperties}>
+  const isDemoEvent = eventSlug === CAPTAINS_V2_SLUG;
+
+  return <div className={`cv2 cv2-mobile ${isDemoEvent ? "is-demo-event" : ""}`} style={{ "--team": team?.color ?? "#f06a5f" } as CSSProperties}>
+    {isDemoEvent && <aside className="cv2-demo-banner">
+      <a href="https://revelao.cam/capitanes" className="cv2-demo-return"><strong>Evento demo</strong>, haz click aquí para volver a la web.</a>
+    </aside>}
     <header className="cv2-header">
       <Link to={`/capitanes/${eventSlug}`} className="cv2-brand" aria-label="Volver al inicio de Capitanes" onClick={returnToStart}><img src="/capitanes-logo.svg" alt="Capitanes" className="cv2-revelao-logo" /></Link>
     </header>

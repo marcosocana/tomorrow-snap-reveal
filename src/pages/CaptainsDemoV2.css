@@ -1528,6 +1528,40 @@ html.captains-game-open, .captains-game-open body { overflow: hidden; overscroll
 .captains-game-open body { touch-action: pan-x pan-y; }
 .cv2-mobile { height: 100dvh; min-height: 0; overflow: hidden; padding-top: calc(42px + env(safe-area-inset-top)); }
 .cv2-mobile .cv2-header { background: #fff; }
+.cv2-mobile.is-demo-event { padding-top: calc(82px + env(safe-area-inset-top)); }
+.cv2-mobile.is-demo-event .cv2-header {
+  top: calc(40px + env(safe-area-inset-top));
+  height: 42px;
+  padding-top: 0;
+}
+.cv2-demo-banner {
+  position: fixed;
+  z-index: 41;
+  top: 0;
+  left: 50%;
+  width: min(100%, 520px);
+  height: calc(40px + env(safe-area-inset-top));
+  padding: env(safe-area-inset-top) 5% 0;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  background: #ffe500;
+}
+.cv2-mobile.is-demo-event .cv2-mobile-main,
+.cv2-mobile.is-demo-event .cv2-mobile-main.is-mission {
+  height: calc(100dvh - 82px - env(safe-area-inset-top));
+}
+.cv2-demo-return {
+  display: block;
+  width: 100%;
+  color: #111;
+  font-size: 12px;
+  line-height: 1.35;
+  text-align: center;
+  text-decoration: none;
+}
+.cv2-demo-return strong { font-weight: 800; }
+.cv2-demo-return:hover { color: #111; text-decoration: underline; text-underline-offset: 3px; }
 .cv2-mobile-main, .cv2-mobile-main.is-mission {
   height: calc(100dvh - 42px - env(safe-area-inset-top));
   min-height: 0;
