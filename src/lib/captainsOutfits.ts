@@ -9,6 +9,10 @@ type Outfit = {
 };
 const everyone: CaptainsSpriteSex[] = ["male", "female", "unspecified"];
 export const captainsOutfits: Outfit[] = [
+  { value: "vest", label: "Chaleco y camisa", sexes: everyone, colors: [{ field: "suit_color", label: "Color chaleco", fallback: "#84664e" }, { field: "bottom_color", label: "Color pantalón", fallback: "#40516b" }, { field: "tie_color", label: "Color corbata / pajarita", fallback: "#f06a5f" }] },
+  { value: "blazer", label: "Americana combinada", sexes: everyone, colors: [{ field: "suit_color", label: "Color americana", fallback: "#638575" }, { field: "bottom_color", label: "Color pantalón", fallback: "#dac9ac" }, { field: "tie_color", label: "Color corbata / pajarita", fallback: "#f06a5f" }] },
+  { value: "polo", label: "Polo y pantalón", sexes: everyone, colors: [{ field: "outfit_color", label: "Color polo", fallback: "#67969d" }, { field: "bottom_color", label: "Color pantalón", fallback: "#d8c8ac" }] },
+  { value: "boho_dress", label: "Vestido boho con volantes", sexes: everyone, colors: [{ field: "dress_color", label: "Color vestido", fallback: "#e6bd95" }] },
   { value: "wedding_dress", label: "Vestido de novia", sexes: ["female", "unspecified"], colors: [{ field: "dress_color", label: "Color vestido de novia", fallback: "#fffaf4" }] },
   { value: "suit", label: "Traje", sexes: everyone, colors: [{ field: "suit_color", label: "Color traje", fallback: "#1f2937" }, { field: "tie_color", label: "Color corbata", fallback: "#f06a5f" }] },
   { value: "tuxedo", label: "Esmoquin", sexes: everyone, colors: [{ field: "suit_color", label: "Color esmoquin", fallback: "#1f2937" }, { field: "tie_color", label: "Color pajarita", fallback: "#f06a5f" }] },
@@ -22,5 +26,5 @@ export const captainsOutfits: Outfit[] = [
 export const getCaptainOutfit = (value?: string | null) => captainsOutfits.find(outfit => outfit.value === value) || captainsOutfits.find(outfit => outfit.value === "suit")!;
 export const captainOutfitForSex = (config: CaptainsSpriteConfig | null | undefined, sex: CaptainsSpriteSex): CaptainsSpriteOutfitType => {
   const current = getCaptainOutfit(config?.outfit_type);
-  return current.sexes.includes(sex) ? current.value : sex === "female" ? "dress" : "suit";
+  return config?.outfit_type ? current.value : sex === "female" ? "dress" : "suit";
 };

@@ -1,4 +1,4 @@
-import { captainHairOptions } from "@/lib/captainsHair";
+import { captainHairOptions, captainHairColorOptions } from "@/lib/captainsHair";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -78,8 +78,7 @@ import CaptainOutfitEditor from "@/components/captains-v2/CaptainOutfitEditor";
 import { getCaptainOutfit, captainOutfitForSex } from "@/lib/captainsOutfits";
 import CaptainModel from "@/components/captains-v2/CaptainModel";
 import CaptainsPersonalizationEditor from "@/components/captains-v2/CaptainsPersonalizationEditor";
-import HostCharacterAvatar from "@/components/captains-v2/HostCharacterAvatar";
-import { defaultCaptainsHostConfig, getHostDisplayName, normalizeCaptainsHostConfig } from "@/lib/captainsHosts";
+import { defaultCaptainsHostConfig, normalizeCaptainsHostConfig } from "@/lib/captainsHosts";
 import type {
   CaptainsChallengeInput,
   CaptainsChallengeCatalogItem,
@@ -115,11 +114,7 @@ const sanitizeCaptainPhotoName = (value: string) => value.toLowerCase().replace(
 const isCaptainsEventFinished = (event: Pick<CaptainsEvent, "end_time">) =>
   Boolean(event.end_time && new Date(event.end_time).getTime() <= Date.now());
 
-const hairColorOptions = [
-  { value: "blonde", label: "Rubio", color: "#e8c85b" },
-  { value: "dark", label: "Moreno", color: "#151515" },
-  { value: "brown", label: "Castaño", color: "#6b4328" },
-] as const;
+const hairColorOptions = captainHairColorOptions;
 
 const skinColorOptions = [
   { value: "very_fair", label: "Muy blanca", color: "#f4d6c6" },
@@ -224,7 +219,7 @@ type CaptainPhotoCropState = {
   offsetX: number;
   offsetY: number;
 };
-type CaptainsDetailTab = "general" | "tables" | "challenges" | "content";
+type CaptainsDetailTab = "general" | "wedding" | "tables" | "challenges" | "content";
 
 const statusLabels: Record<string, string> = {
   draft: "Borrador",
@@ -999,6 +994,7 @@ export const CaptainsOnboarding = () => {
     return Math.max(1, Math.min(999, Math.floor(Number.isFinite(value) ? value : 6)));
   }, [searchParams]);
   const [stepIndex, setStepIndex] = useState(0);
+  const [furthestStepIndex, setFurthestStepIndex] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
   const [maxTables, setMaxTables] = useState<number | null>(null);
@@ -1098,7 +1094,7 @@ export const CaptainsOnboarding = () => {
   const [contactPhone, setContactPhone] = useState("");
   const [hostConfig, setHostConfig] = useState<CaptainsHostConfig>(() => defaultCaptainsHostConfig(true));
   const currentStep = captainsOnboardingSteps[stepIndex];
-  const progress = Math.round(((stepIndex + 1) / captainsOnboardingSteps.length) * 100);
+  const progress = Math.round(((furthestStepIndex + 1) / captainsOnboardingSteps.length) * 100);
   const primaryTextColor = readableTextColor(primaryColor);
   const catalogByCategory = useMemo(() => {
     return availableCatalog.reduce<Array<[string, CaptainsChallengeCatalogItem[]]>>((groups, item) => {
@@ -1137,7 +1133,7 @@ export const CaptainsOnboarding = () => {
   const validateStep = (step: CaptainsOnboardingStep) => {
     if (step === "intro") {
       if (!name.trim()) return "Pon un nombre para el juego.";
-      const start = editingEventId ? new Date(`${startDate}T${startHour}`) : new Date();
+      const start = new Date(`${startDate}T${startHour}`);
       const end = new Date(`${endDate}T${endHour}`);
       if (!startDate || !startHour || !endDate || !endHour || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return "Revisa las fechas del juego.";
       if (end <= start) return "La fecha de fin debe ser posterior al inicio.";
@@ -1157,7 +1153,11 @@ export const CaptainsOnboarding = () => {
       toast({ title: "Revisa este paso", description: error, variant: "destructive" });
       return;
     }
-    setStepIndex((index) => Math.min(index + 1, captainsOnboardingSteps.length - 1));
+    setStepIndex((index) => {
+      const next = Math.min(index + 1, captainsOnboardingSteps.length - 1);
+      setFurthestStepIndex(current => Math.max(current, next));
+      return next;
+    });
   };
 
   const goBack = () => setStepIndex((index) => Math.max(index - 1, 0));
@@ -1289,7 +1289,7 @@ export const CaptainsOnboarding = () => {
     }
     try {
       setIsSaving(true);
-      const startIso = editingEventId ? dateTimePartsToIso(startDate, startHour) : new Date().toISOString();
+      const startIso = dateTimePartsToIso(startDate, startHour);
       const endIso = dateTimePartsToIso(endDate, endHour);
       const gameInput = {
         event: {
@@ -1309,9 +1309,9 @@ export const CaptainsOnboarding = () => {
               wedding_context: hostConfig.wedding,
               character_1_config: hostConfig.character_1,
               character_2_config: hostConfig.character_2,
-              host_characters_enabled: hostConfig.enabled,
-              host_tone: hostConfig.tone,
-              host_frequency: hostConfig.frequency,
+              host_characters_enabled: true,
+              host_tone: "divertido" as const,
+              host_frequency: "high" as const,
           status: "active" as const,
 	          ...(!editingEventId ? { experience_version: "v2" as const } : {}),
 	        },
@@ -1402,8 +1402,22 @@ export const CaptainsOnboarding = () => {
               <span className="text-sm font-medium">Mensaje de bienvenida</span>
               <Textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={5} className="rounded-2xl px-4 py-3" />
             </label>
-            <div className="space-y-2">
-              <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,96px)] gap-2 sm:grid-cols-[minmax(0,1fr)_110px]">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,96px)] gap-2 sm:grid-cols-[minmax(0,1fr)_110px]">
+                  <label className="min-w-0 space-y-2">
+                    <span className="text-sm font-medium">Fecha de inicio</span>
+                    <Input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} className="h-12 min-w-0 w-full max-w-full rounded-full px-2 text-sm sm:px-4 sm:text-base" />
+                  </label>
+                  <label className="min-w-0 space-y-2">
+                    <span className="text-sm font-medium">Hora</span>
+                    <Input type="time" value={startHour} onChange={(event) => setStartHour(event.target.value)} className="h-12 min-w-0 w-full max-w-full rounded-full px-2 text-sm sm:px-4 sm:text-base" />
+                  </label>
+                </div>
+                <p className={CAPTAINS_ONBOARDING_INFO_CLASS}>Por defecto, el evento comienza hoy.</p>
+              </div>
+              <div className="space-y-2">
+                <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,96px)] gap-2 sm:grid-cols-[minmax(0,1fr)_110px]">
                 <label className="min-w-0 space-y-2">
                   <span className="text-sm font-medium">Fecha de fin</span>
                   <Input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} className="h-12 min-w-0 w-full max-w-full rounded-full px-2 text-sm sm:px-4 sm:text-base" />
@@ -1412,10 +1426,9 @@ export const CaptainsOnboarding = () => {
                   <span className="text-sm font-medium">Hora</span>
                   <Input type="time" value={endHour} onChange={(event) => setEndHour(event.target.value)} className="h-12 min-w-0 w-full max-w-full rounded-full px-2 text-sm sm:px-4 sm:text-base" />
                 </label>
+                </div>
+                <p className={CAPTAINS_ONBOARDING_INFO_CLASS}>Por defecto, el evento termina al día siguiente. Después se publicarán el ranking y el contenido y ya no se podrán completar retos.</p>
               </div>
-              <p className={CAPTAINS_ONBOARDING_INFO_CLASS}>
-                A partir de este momento, el ranking y todo el contenido generado se harán públicos para todos los grupos. Ya no se podrán completar más retos.
-              </p>
             </div>
           </div>
         );
@@ -1644,29 +1657,27 @@ export const CaptainsOnboarding = () => {
             <div className="h-2 overflow-hidden rounded-full bg-muted">
               <div className="h-full rounded-full transition-all" style={{ width: `${progress}%`, backgroundColor: primaryColor }} />
             </div>
-            <ol className="-mx-1 flex gap-1 px-1 pb-1 sm:mx-0 sm:gap-0 sm:px-0">
+            <ol className="grid grid-cols-5 gap-2 pb-1">
               {captainsOnboardingSteps.map((step, index) => (
-                <li key={step.id} className="flex min-w-0 flex-1 items-center sm:min-w-[128px]">
+                <li key={step.id} className="min-w-0">
                 <button
                   type="button"
                   aria-label={`${index + 1}. ${step.label}`}
-                  onClick={() => {
-                    if (index <= stepIndex) setStepIndex(index);
-                  }}
-                  className={`flex min-h-10 w-full items-center justify-center gap-1 rounded-xl border px-1 text-center text-xs font-semibold transition sm:min-h-12 sm:justify-start sm:gap-2 sm:px-3 sm:text-left ${
+                  onClick={() => setStepIndex(index)}
+                  disabled={index > furthestStepIndex}
+                  className={`flex min-h-11 w-full items-center justify-center gap-1 rounded-xl border px-1 text-center text-xs font-semibold transition sm:min-h-12 sm:gap-2 sm:px-3 ${
                     index === stepIndex
-                      ? "border-primary bg-primary/10 text-foreground shadow-sm"
-                      : index < stepIndex
-                        ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                        : "border-border bg-card text-muted-foreground"
+                      ? "border-primary bg-primary/15 text-foreground shadow-[0_0_0_3px_rgba(240,106,95,0.13)]"
+                      : index <= furthestStepIndex
+                        ? "border-border bg-card text-foreground hover:border-emerald-300"
+                        : "cursor-not-allowed border-border bg-muted/50 text-muted-foreground opacity-55"
                   }`}
                 >
-                  <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] ${index === stepIndex ? "bg-primary/15 text-foreground" : index < stepIndex ? "bg-emerald-100" : "bg-muted"}`}>
-                    {index < stepIndex ? <Check className="h-3.5 w-3.5" /> : index + 1}
+                  <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] ${index === stepIndex ? "bg-primary text-primary-foreground" : index <= furthestStepIndex ? "bg-emerald-100 text-emerald-700" : "bg-muted"}`}>
+                    {index !== stepIndex && index <= furthestStepIndex ? <Check className="h-3.5 w-3.5" /> : index + 1}
                   </span>
                   <span className="hidden sm:inline">{step.label}</span>
                 </button>
-                {index < captainsOnboardingSteps.length - 1 ? <span className={`mx-1 hidden h-px w-5 shrink-0 sm:block ${index < stepIndex ? "bg-emerald-300" : "bg-border"}`} /> : null}
                 </li>
               ))}
             </ol>
@@ -2259,9 +2270,9 @@ export const CaptainsAdminForm = ({ edit = false }: { edit?: boolean }) => {
         wedding_context: hostConfig.wedding,
         character_1_config: hostConfig.character_1,
         character_2_config: hostConfig.character_2,
-        host_characters_enabled: hostConfig.enabled,
-        host_tone: hostConfig.tone,
-        host_frequency: hostConfig.frequency,
+        host_characters_enabled: true,
+        host_tone: "divertido" as const,
+        host_frequency: "high" as const,
       };
 
       if (edit && eventId) {
@@ -2857,6 +2868,8 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
   const [generalDraft, setGeneralDraft] = useState({
     name: "",
     description: "",
+    startDate: "",
+    startHour: "",
     endDate: "",
     endHour: "",
     contactName: "",
@@ -2865,7 +2878,10 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
   });
   const generalDraftRef = useRef(generalDraft);
   const generalSavedFingerprintRef = useRef("");
+  const initializedDetailEventIdRef = useRef("");
   const [generalSaveStatus, setGeneralSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [hostDraft, setHostDraft] = useState<CaptainsHostConfig>(() => defaultCaptainsHostConfig(true));
+  const [hostSaveStatus, setHostSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [editingTable, setEditingTable] = useState<CaptainsTable | null>(null);
   const [tableSaveStatus, setTableSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const tableSavedFingerprintRef = useRef("");
@@ -2910,11 +2926,15 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
   }, [contentView, eventId]);
 
   useEffect(() => {
-    if (!detail) return;
+    if (!detail || initializedDetailEventIdRef.current === detail.event.id) return;
+    initializedDetailEventIdRef.current = detail.event.id;
+    const start = splitDateTimeInput(detail.event.start_time);
     const end = splitDateTimeInput(detail.event.end_time);
     const nextDraft = {
       name: detail.event.name,
       description: detail.event.description || "",
+      startDate: start.date,
+      startHour: start.time,
       endDate: end.date,
       endHour: end.time,
       contactName: detail.event.contact_name || "",
@@ -2924,6 +2944,8 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
     generalDraftRef.current = nextDraft;
     generalSavedFingerprintRef.current = JSON.stringify(nextDraft);
     setGeneralDraft(nextDraft);
+    setHostDraft({ ...normalizeCaptainsHostConfig(detail.event), enabled: true, tone: "divertido", frequency: "high" });
+    setHostSaveStatus("idle");
   }, [detail]);
 
   useEffect(() => {
@@ -3046,8 +3068,9 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
     if (!generalSavedFingerprintRef.current || fingerprint === generalSavedFingerprintRef.current) return;
 
     const timer = window.setTimeout(async () => {
+      const startTime = dateTimePartsToIso(draft.startDate, draft.startHour);
       const endTime = dateTimePartsToIso(draft.endDate, draft.endHour);
-      if (!draft.name.trim() || !endTime || new Date(endTime).getTime() <= new Date(detail.event.start_time || detail.event.created_at).getTime()) {
+      if (!draft.name.trim() || !startTime || !endTime || new Date(endTime).getTime() <= new Date(startTime).getTime()) {
         setGeneralSaveStatus("error");
         return;
       }
@@ -3056,6 +3079,7 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
         const updatedEvent = await updateCaptainsEvent(detail.event.id, {
           name: draft.name.trim(),
           description: draft.description.trim(),
+          start_time: startTime,
           end_time: endTime,
           scoring_mode: "automatic",
           theme_style: "pixel",
@@ -3084,6 +3108,29 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
 
     return () => window.clearTimeout(timer);
   }, [detail, eventId, generalDraft, queryClient]);
+
+  const saveHostDraft = async () => {
+    if (!detail || !eventId) return;
+    try {
+      setHostSaveStatus("saving");
+      const updatedEvent = await updateCaptainsEvent(detail.event.id, {
+        wedding_context: hostDraft.wedding,
+        character_1_config: hostDraft.character_1,
+        character_2_config: hostDraft.character_2,
+        host_characters_enabled: true,
+        host_tone: "divertido",
+        host_frequency: "high",
+      });
+      queryClient.setQueryData<CaptainsEventDetail | null>(captainsQueryKeys.event(eventId), current => current ? { ...current, event: updatedEvent } : current);
+      setHostDraft({ ...normalizeCaptainsHostConfig(updatedEvent), enabled: true, tone: "divertido", frequency: "high" });
+      setHostSaveStatus("saved");
+      toast({ title: "Boda y novios actualizados", description: "La personalización se ha guardado correctamente." });
+    } catch (error) {
+      console.error("Error saving captains wedding information:", error);
+      setHostSaveStatus("error");
+      toast({ title: "Error", description: "No hemos podido guardar la información de la boda.", variant: "destructive" });
+    }
+  };
 
   const openTableEditor = (table: CaptainsTable) => {
     const normalized = {
@@ -3437,7 +3484,6 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
   }
 
 	  const { event, tables, challenges } = detail;
-	  const detailHostConfig = normalizeCaptainsHostConfig(event);
 	  const eventIsFinished = isCaptainsEventFinished(event);
 	  const eventStatusLabel = eventIsFinished ? "Terminado" : "En curso";
 	  const publicUrl = normalizeCaptainsPublicUrl(event.public_url, event.slug);
@@ -3623,9 +3669,12 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
 	      </Card>
 
 	      <Tabs value={activeDetailTab} onValueChange={(value) => setActiveDetailTab(value as CaptainsDetailTab)} className="space-y-6">
-        <TabsList className="grid h-auto w-full grid-cols-2 !rounded-none bg-muted/50 p-1 sm:grid-cols-4">
+        <TabsList className="grid h-auto w-full grid-cols-2 gap-1 rounded-xl bg-muted/50 p-1 sm:grid-cols-5">
           <TabsTrigger value="general" className="!rounded-none data-[state=active]:!bg-foreground data-[state=active]:!text-background data-[state=active]:shadow-sm">
             General
+          </TabsTrigger>
+          <TabsTrigger value="wedding" className="!rounded-none data-[state=active]:!bg-foreground data-[state=active]:!text-background data-[state=active]:shadow-sm">
+            Boda y novios
           </TabsTrigger>
           <TabsTrigger value="tables" className="!rounded-none data-[state=active]:!bg-foreground data-[state=active]:!text-background data-[state=active]:shadow-sm">
 	            Capitanes
@@ -3671,6 +3720,16 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
 	                  </div>
                   <div className="grid gap-2 sm:grid-cols-[1fr_110px]">
                     <label className="space-y-1">
+                      <span className="text-xs font-medium text-muted-foreground">Inicio</span>
+                      <Input type="date" value={generalDraft.startDate} onChange={(inputEvent) => setGeneralDraft((prev) => ({ ...prev, startDate: inputEvent.target.value }))} />
+                    </label>
+                    <label className="space-y-1">
+                      <span className="text-xs font-medium text-muted-foreground">Hora</span>
+                      <Input type="time" value={generalDraft.startHour} onChange={(inputEvent) => setGeneralDraft((prev) => ({ ...prev, startHour: inputEvent.target.value }))} />
+                    </label>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-[1fr_110px]">
+                    <label className="space-y-1">
                       <span className="text-xs font-medium text-muted-foreground">Fin</span>
                       <Input type="date" value={generalDraft.endDate} onChange={(inputEvent) => setGeneralDraft((prev) => ({ ...prev, endDate: inputEvent.target.value }))} />
                     </label>
@@ -3688,7 +3747,7 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
                     {generalSaveStatus === "saving"
                       ? "Guardando cambios..."
                       : generalSaveStatus === "error"
-                        ? "Revisa los datos: el nombre y una fecha de fin posterior a la creación son obligatorios."
+                        ? "Revisa los datos: el nombre y unas fechas válidas, con el fin posterior al inicio, son obligatorios."
                         : "Los cambios se guardan automáticamente."}
                   </p>
                   <Button variant="outline" className="gap-2 rounded-full" onClick={() => setDeleteEventOpen(true)}>
@@ -3699,24 +3758,16 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
               </div>
             </div>
           </Card>
-          <Card className="rounded-2xl p-5 shadow-sm">
-            <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
-              <div className="flex items-center gap-4">
-                <div className="flex w-28 items-end">
-                  <HostCharacterAvatar config={detailHostConfig.character_1} />
-                  <HostCharacterAvatar config={detailHostConfig.character_2} className="-ml-10" />
-                </div>
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Personalización</p>
-                  <h3 className="mt-1 text-lg font-bold">{getHostDisplayName(detailHostConfig, 1)} + {getHostDisplayName(detailHostConfig, 2)}</h3>
-                  <p className="text-sm text-muted-foreground">{[detailHostConfig.wedding.years_together ? `${detailHostConfig.wedding.years_together} años juntos` : "", detailHostConfig.wedding.venue_name, detailHostConfig.wedding.venue_city].filter(Boolean).join(" · ") || "Contexto pendiente de completar"}</p>
-                  <div className="mt-2 flex flex-wrap gap-2 text-xs"><Badge variant="outline">Tono: {detailHostConfig.tone}</Badge><Badge variant="outline">Frecuencia: {detailHostConfig.frequency === "low" ? "Baja" : detailHostConfig.frequency === "high" ? "Alta" : "Normal"}</Badge><Badge variant={detailHostConfig.enabled ? "default" : "outline"}>{detailHostConfig.enabled ? "Activo" : "Desactivado"}</Badge></div>
-                </div>
-              </div>
-              <Button variant="outline" onClick={() => navigate(`/admin/capitanes/${event.id}/edit`)}>Editar personalización</Button>
-            </div>
-          </Card>
 	        </TabsContent>
+
+          <TabsContent value="wedding" className="mt-0 space-y-4">
+            <CaptainsPersonalizationEditor value={hostDraft} onChange={(next) => { setHostDraft(next); setHostSaveStatus("idle"); }} />
+            <div className="flex flex-wrap items-center justify-end gap-3">
+              {hostSaveStatus === "saved" ? <span className="inline-flex items-center gap-1 text-sm text-emerald-700"><Check className="h-4 w-4" /> Guardado</span> : null}
+              {hostSaveStatus === "error" ? <span className="text-sm text-destructive">No se han podido guardar los cambios.</span> : null}
+              <Button type="button" className="rounded-full" onClick={saveHostDraft} disabled={hostSaveStatus === "saving"}>{hostSaveStatus === "saving" ? "Guardando..." : "Guardar boda y novios"}</Button>
+            </div>
+          </TabsContent>
 
 	        <TabsContent value="tables" className="mt-0 space-y-6">
 	          <RankingCard

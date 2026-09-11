@@ -18,10 +18,12 @@ export default function CaptainModel({ sprite, config, photoUrl, className = "",
   const photo = Boolean(photoUrl && photoUrl !== failedPhoto);
   const visual = getCaptainSpriteVisual(sprite, config);
   const kind = visual.outfitType;
-  const formal = kind === "suit" || kind === "tuxedo";
-  const casual = kind === "casual";
+  const formal = ["suit", "tuxedo", "vest", "blazer"].includes(kind);
+  const casual = kind === "casual" || kind === "polo";
+  const neckwear = config?.neckwear ?? (kind === "tuxedo" ? "bowtie" : kind === "blazer" ? "none" : "tie");
+  const color = (value: string | undefined, fallback: string) => /^#[0-9a-f]{6}$/i.test(value || "") ? value : fallback;
   const weddingDress = kind === "wedding_dress";
-  const longDress = kind === "long_dress" || weddingDress;
+  const longDress = kind === "long_dress" || weddingDress || kind === "boho_dress";
   const hairstyle = config?.hair_length || "short";
   const fill = (name: string) => `url(#${id}-${name})`;
   return <span className={`captain-model ${visual.dressLike ? "is-dress" : "is-suit"} ${className}`} data-outfit={kind} style={getCaptainSpriteCss(sprite, config)} aria-hidden="true">
@@ -43,10 +45,10 @@ export default function CaptainModel({ sprite, config, photoUrl, className = "",
           <stop stopColor={visual.hair} className="captain-hair-light" /><stop offset=".48" stopColor={visual.hair} /><stop offset="1" stopColor={visual.hair} className="captain-hair-dark" />
         </linearGradient>
         <linearGradient id={`${id}-shoe`} x1="0" y1="0" x2=".65" y2="1">
-          <stop stopColor="#6f6460" /><stop offset=".4" stopColor="#332c2d" /><stop offset="1" stopColor="#171417" />
+          <stop stopColor={color(config?.shoe_color, "#332c2d")} /><stop offset="1" stopColor={color(config?.shoe_color, "#332c2d")} stopOpacity=".8" />
         </linearGradient>
         <linearGradient id={`${id}-shirt`} x1="0" y1="0" x2="1" y2="1">
-          <stop stopColor="#fffef9" /><stop offset=".55" stopColor="#f0e8df" /><stop offset="1" stopColor="#b7aaa3" />
+          <stop stopColor={color(config?.shirt_color, "#fffaf4")} /><stop offset="1" stopColor={color(config?.shirt_color, "#fffaf4")} stopOpacity=".8" />
         </linearGradient>
         <linearGradient id={`${id}-gold`} x1="0" y1="0" x2="1" y2="1">
           <stop stopColor="#fff0c0" /><stop offset=".4" stopColor="#e8bd70" /><stop offset="1" stopColor="#9e6938" />
@@ -64,13 +66,13 @@ export default function CaptainModel({ sprite, config, photoUrl, className = "",
         <path d="M93 166h27l-3 48c-7 4-17 3-22-1l-3-34Z" fill={visual.dressLike ? fill("skin") : fill("trouser")} />
         {!visual.dressLike && <><path d="m72 180 1 27m31-27 1 28" stroke="#fff" strokeOpacity=".13" strokeWidth="2" /><path d="M62 206h23m10 1h22" stroke="#000" strokeOpacity=".16" /></>}
         {kind === "jumpsuit" && <path d="M60 158h28l-2 53H57Zm33 0h29l2 53H95Z" fill={fill("cloth")} />}
-        <path d="M62 207c7 3 15 3 23 0l2 11c0 6-9 8-23 8-9 0-12-4-9-9Z" fill={casual ? fill("shirt") : fill("shoe")} />
-        <path d="M96 207c7 3 15 3 22 0l9 11c3 7-7 9-20 8-9 0-14-3-13-8Z" fill={casual ? fill("shirt") : fill("shoe")} />
+        <path d="M62 207c7 3 15 3 23 0l2 11c0 6-9 8-23 8-9 0-12-4-9-9Z" fill={casual && !config?.shoe_color ? fill("shirt") : fill("shoe")} />
+        <path d="M96 207c7 3 15 3 22 0l9 11c3 7-7 9-20 8-9 0-14-3-13-8Z" fill={casual && !config?.shoe_color ? fill("shirt") : fill("shoe")} />
         <path d="M57 222c9 3 21 2 28 0m12 0c9 3 22 3 29 0" stroke="#121014" strokeWidth="2" />
         <path d="m64 213 10-1m31 1 9 1" stroke="#fff" strokeOpacity=".33" strokeWidth="2" />
         {/* Sleeves curve away from the torso; hands have separate thumbs. */}
-        <path d="M60 108c-9-2-17 4-20 14l-9 33c-1 6 13 10 17 3l15-28Z" fill={casual ? fill("skin") : fill("cloth")} />
-        <path d="M121 109c9-2 16 5 19 14l8 32c2 7-13 11-17 4l-14-29Z" fill={casual ? fill("skin") : fill("cloth")} />
+        <path d="M60 108c-9-2-17 4-20 14l-9 33c-1 6 13 10 17 3l15-28Z" fill={casual ? fill("skin") : kind === "vest" ? fill("shirt") : fill("cloth")} />
+        <path d="M121 109c9-2 16 5 19 14l8 32c2 7-13 11-17 4l-14-29Z" fill={casual ? fill("skin") : kind === "vest" ? fill("shirt") : fill("cloth")} />
         {casual && <path d="M61 106c-11-1-19 7-23 22l-2 9 18 5 10-26Zm57 1c12-1 20 9 23 21l3 10-18 5-10-27Z" fill={fill("cloth")} />}
         <path d="m43 121-8 31m100-29 8 28" stroke="#fff" strokeOpacity=".17" strokeWidth="2.5" />
         {!casual && <path d="m32 153 16 5-2 7-16-5Zm99 6 16-5 2 7-16 5Z" fill={formal ? fill("shirt") : fill("lapel")} />}
@@ -94,24 +96,28 @@ export default function CaptainModel({ sprite, config, photoUrl, className = "",
           <path d={longDress ? "M46 206c27 10 61 10 89-1" : "M50 190c24 10 57 10 80-1"} stroke="#000" strokeOpacity=".15" strokeWidth="2" />
         </> : formal ? <>
           <path d="M72 101c12-5 25-5 37 0l13 7c9 15 4 43 4 61l-3 9c-10 5-23 3-33-1-10 5-26 5-34 0l-2-10c0-21-5-45 4-59Z" fill={fill("cloth")} />
-          <path d="m75 102 15 51 17-51-16-6Z" fill={fill("shirt")} />
+          <path d="M74 102 82 153h16l10-51-17-6Z" fill={fill("shirt")} />
           <path d="m76 98 14 12-10 9-9-16m34-5-15 12 12 9 8-16" fill={fill("shirt")} stroke="#c3b6ad" strokeWidth=".7" />
-          {kind === "tuxedo" ? <>
+          {neckwear === "bowtie" ? <>
             <path d="m89 114-11-6v13l11-4 12 4v-13Z" fill={visual.accent} />
             <rect x="87" y="112" width="6" height="7" rx="2" fill={visual.accent} stroke="#fff" strokeOpacity=".3" />
             <path d="M89 126v19" stroke="#b7aaa3" /><circle cx="89" cy="130" r="1.5" fill="#332c2d" /><circle cx="89" cy="141" r="1.5" fill="#332c2d" />
-          </> : <>
-            <path d="m87 112-4 7 5 27 5 5 5-7-7-25 4-7Z" fill={visual.accent} />
-            <path d="m88 122 3 19" stroke="#fff" strokeOpacity=".28" strokeWidth="2" />
-          </>}
-          <path d={kind === "tuxedo" ? "M72 101c-17 14-10 36 18 57l-13-55Zm36 0c19 15 11 36-18 57l14-55Z" : "m70 103-7 17 9 4-5 7 23 27-12-55Zm41 0 8 17-10 5 6 7-25 26 15-54Z"} fill={fill("lapel")} stroke="#fff" strokeOpacity=".14" strokeWidth=".8" />
+          </> : neckwear === "tie" ? <g data-detail="tie">
+            <path d="M86 111h8l-1.5 7h-5Z" fill={visual.accent} stroke="#000" strokeOpacity=".18" strokeWidth=".7" />
+            <path d="M88 118h4l3 25-5 5-5-5Z" fill={visual.accent} stroke="#000" strokeOpacity=".18" strokeWidth=".7" />
+            <path d="m89 121-1 20" stroke="#fff" strokeOpacity=".3" strokeWidth="1.2" />
+          </g> : null}
+          <path d={kind === "vest" ? "M73 102 83 152 78 174 61 169V117Zm35 0-11 50 6 22 17-5v-52Z" : kind === "tuxedo" ? "M72 101c-17 14-10 36 12 57l-7-55Zm36 0c19 15 11 36-12 57l8-55Z" : "M70 103 63 120 72 124 67 131 84 158 75 103Zm41 0 8 17-10 5 6 7-19 26 12-55Z"} fill={fill("lapel")} stroke="#fff" strokeOpacity=".14" strokeWidth=".8" />
           <path d="m90 158-1 18m-25-23 13 1m27 0 13-2" stroke="#000" strokeOpacity=".2" strokeWidth="1.5" />
           <path d="m106 129 9-1-1 5-9 1Z" fill={fill("shirt")} />
           <path d="m103 134 13-1" stroke="#fff" strokeOpacity=".28" />
           <circle cx="91" cy="159" r="2.4" fill={fill("gold")} /><circle cx="91" cy="170" r="2.2" fill={fill("gold")} />
         </> : <>
           <path d={kind === "jumpsuit" ? "M74 101c11-6 25-5 34 0l15 10-2 39 2 30H57l2-30-3-39Z" : "M74 101c11-6 25-5 34 0l15 10-1 61c-21 7-44 7-65 0l-1-61Z"} fill={fill("cloth")} />
-          {casual ? <>
+          {kind === "polo" ? <>
+            <path d="m76 101 14 10-9 10-9-17m33-3-15 10 12 10 7-17" fill={fill("lapel")} stroke="#fff" strokeOpacity=".4" />
+            <path d="M90 112v19" stroke="#fff" strokeOpacity=".5" strokeWidth="2" /><circle cx="90" cy="120" r="1.5" fill="#fff" /><circle cx="90" cy="127" r="1.5" fill="#fff" />
+          </> : casual ? <>
             <path d="M76 102c1 17 28 17 29 0" stroke={fill("lapel")} strokeWidth="6" />
             <path d="M60 168q30 5 60 0" stroke="#fff" strokeOpacity=".2" strokeWidth="2" />
             <path d="m107 132 6 8-9 2-4-6Z" fill={fill("shirt")} />
@@ -127,6 +133,7 @@ export default function CaptainModel({ sprite, config, photoUrl, className = "",
             <path d="M104 128h12v12l-6 4-6-4Z" stroke="#fff" strokeOpacity=".3" />
           </>}
         </>}
+        {kind === "boho_dress" && <g stroke="#fffaf4" strokeOpacity=".75" strokeWidth="2"><path d="M62 157q28 14 57 0l7 19q-36 15-71 0Zm-7 21q35 16 71 0l9 25q-44 16-88 0Z" fill={fill("lapel")} /><path d="M72 107q18 22 37 0m-30 5 5 10m14-10-5 10" /></g>}
         {weddingDress && <g fill="#fffefc" stroke="#e7dfd4" strokeWidth=".7">
           {[70, 80, 90, 100, 110].map((x, i) => <circle key={x} cx={x} cy={108 + (2 - Math.abs(i - 2)) * 3} r="2" />)}
           <path d="M66 145q24 10 51 0" fill="none" strokeWidth="3" />
@@ -139,18 +146,26 @@ export default function CaptainModel({ sprite, config, photoUrl, className = "",
           <path d="M140 132c-7-5-10 9-1 7" stroke="#25311b" strokeWidth="2.4" />
         </g>}
         {!photo && <>
+          {hairstyle === "ponytail" && <path d="M116 22q33-15 27 21l-3 61q-21-8-16-35l-7-30Z" fill={fill("hair")} />}
+          {hairstyle === "braids" && <g fill={fill("hair")} stroke="#ffffff" strokeOpacity=".15">{[49, 131].flatMap(x => [50, 63, 76, 89, 102].map(y => <ellipse key={`${x}-${y}`} cx={x} cy={y} rx="9" ry="10" />))}</g>}
+          {hairstyle === "afro" && <g fill={fill("hair")}>{[[48,30],[65,14],[88,9],[111,14],[132,30],[139,50],[42,50]].map(([x,y]) => <circle key={x} cx={x} cy={y} r="20" />)}</g>}
           {hairstyle === "bun" && <><circle cx="91" cy="12" r="15" fill={fill("hair")} /><path d="M82 4q-7 10 0 16m10-18q-7 12 0 20" stroke="#fff" strokeOpacity=".15" strokeWidth="2" /></>}
           {hairstyle === "bob" && <path d="M47 45q-2-35 44-35t44 35l4 43q-11 13-23 2H64q-13 10-23-2Z" fill={fill("hair")} />}
           {visual.longHair && <path d="M49 49c-2-39 82-40 84 0l5 50c-7 14-25 15-34 5H76c-12 11-30 5-31-5Z" fill={fill("hair")} />}
           <ellipse cx="49" cy="61" rx="8" ry="12" fill={fill("skin")} /><ellipse cx="131" cy="61" rx="8" ry="12" fill={fill("skin")} />
-          <path d="M49 45c0-43 82-43 82 0v18c0 23-18 36-41 36S49 85 49 63Z" fill={fill("skin")} />
+          <path d={config?.face_shape === "oval" ? "M54 44c0-42 72-42 72 0v20c0 24-17 39-36 39S54 88 54 64Z" : config?.face_shape === "square" ? "M49 45c0-43 82-43 82 0v30q0 24-25 24H74q-25 0-25-24Z" : "M49 45c0-43 82-43 82 0v18c0 23-18 36-41 36S49 85 49 63Z"} fill={fill("skin")} />
           <ellipse cx="69" cy="68" rx="9" ry="5" fill="#e78e7f" opacity=".3" /><ellipse cx="112" cy="68" rx="9" ry="5" fill="#e78e7f" opacity=".3" />
           <path d="M63 51q7-4 13-1m28 0q7-3 13 1" stroke={visual.hair} strokeWidth="3" />
-          <ellipse cx="71" cy="61" rx="4" ry="5" fill="#332b29" /><ellipse cx="110" cy="61" rx="4" ry="5" fill="#332b29" />
-          <circle cx="70" cy="59" r="1.3" fill="#fff" /><circle cx="109" cy="59" r="1.3" fill="#fff" />
+          <ellipse cx="71" cy="61" rx="4" ry="5" fill="#332b29" />{config?.expression === "wink" ? <path d="m104 62q6-6 12 0" stroke="#332b29" strokeWidth="3" /> : <><ellipse cx="110" cy="61" rx="4" ry="5" fill="#332b29" /><circle cx="109" cy="59" r="1.3" fill="#fff" /></>}
+          <circle cx="70" cy="59" r="1.3" fill="#fff" />
           <path d="M88 63q-5 10 4 9" stroke="#9f6144" strokeOpacity=".4" strokeWidth="2" />
-          <path d="M78 80q12 9 24-1" stroke="#9b5548" strokeWidth="2.5" /><path d="m83 81 13-1" stroke="#ffebdc" strokeWidth="2" />
-          {hairstyle !== "bald" && <>
+          {config?.facial_hair === "beard" && <path d="M55 70q8 10 14 4l10 3q11-5 23 0l9-3q8 5 16-4-2 31-36 32Q59 100 55 70Z" fill={fill("hair")} />}
+          {config?.facial_hair === "stubble" && <path d="M57 75q32 31 67 0-5 27-34 27-27 0-33-27Z" fill={visual.hair} opacity=".3" />}
+          {config?.expression === "grin" ? <><path d="M76 78h28q-3 17-14 16T76 78Z" fill="#773e39" /><path d="M79 80h22l-2 5H81Z" fill="#fffaf4" /></> : <path d={config?.expression === "calm" ? "M81 82q9 2 18 0" : "M78 80q12 9 24-1"} stroke="#9b5548" strokeWidth="2.5" />}
+          {config?.facial_hair === "mustache" && <path d="M90 74q-7-8-16 5 9 4 16-1 8 5 17-1-9-12-17-3Z" fill={fill("hair")} />}
+          {config?.freckles && <g fill="#975331" opacity=".65">{[[61,69],[68,73],[76,70],[105,70],[114,73],[120,69]].map(([x,y]) => <circle key={x} cx={x} cy={y} r="1.3" />)}</g>}
+          {config?.glasses && config.glasses !== "none" && <g stroke="#302a2a" strokeWidth="2.5" fill={config.glasses === "sun" ? "#292b37" : "#ffffff"} fillOpacity={config.glasses === "sun" ? ".9" : ".12"}>{config.glasses === "round" ? <><circle cx="71" cy="61" r="12" /><circle cx="110" cy="61" r="12" /></> : <><rect x="58" y="51" width="26" height="20" rx="5" /><rect x="97" y="51" width="26" height="20" rx="5" /></>}<path d="M84 59q6-4 13 0m-47-5 8 4m65 0 8-4" fill="none" /></g>}
+          {hairstyle === "pixie" ? <path d="M49 51q-8-39 32-40 48-10 52 36l-11-16-7 12-12-16-16 18-9-9-19 10-7 12Z" fill={fill("hair")} /> : hairstyle === "side_part" ? <><path d="M48 54q-8-41 39-43 45-4 47 42l-12-16-14-14q-23 22-52 18l-3 14Z" fill={fill("hair")} /><path d="M107 17q-5 12-10 18" stroke="#fff" strokeOpacity=".35" strokeWidth="2" /></> : hairstyle !== "bald" && <>
             <path d={hairstyle === "bun" ? "M48 55q-10-45 43-45t43 45l-12-20q-31 0-62 0Z" : hairstyle === "bob" ? "M46 58q-8-49 44-48t44 48l-12-24q-30 13-60 0l-5 25Z" : hairstyle === "wavy" ? "M47 58C29 23 52 1 72 13 85-7 116 3 119 17c23-3 27 22 13 41l-12-23q-15 17-28 1-15 13-30 5l-5 17Z" : visual.longHair ? "M47 58C35 4 82 3 96 12c29-8 45 14 37 47l-11-9-4-19c-15 8-25 0-28-7-7 13-20 20-35 19l-2 16Z" : "M48 58C35 22 53 5 78 12c15-14 30-4 35 2 20-2 28 14 20 43l-10-9-4-17c-24 16-36 13-54 9l-8 18Z"} fill={fill("hair")} />
             {hairstyle === "curly" ? <g fill={fill("hair")} stroke="#ffffff" strokeOpacity=".12" strokeWidth="1.5">{[[49,31],[61,20],[77,16],[94,15],[112,19],[128,29],[56,40],[72,32],[89,31],[107,33],[124,41]].map(([x,y]) => <circle key={x + ":" + y} cx={x} cy={y} r="11" />)}</g> : <path d="M57 28c14-12 36-9 43-6m-37 9c10-5 20-5 27-6" stroke="#fff" strokeOpacity=".15" strokeWidth="2.5" />}
           </>}

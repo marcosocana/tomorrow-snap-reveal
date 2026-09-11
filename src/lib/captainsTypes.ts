@@ -76,10 +76,10 @@ export interface CaptainsHostInterventionRecord {
 }
 export type CaptainsSpriteStyle = "suit" | "dress" | "jacket" | "skirt" | "festival" | "tunic" | "uniform" | "kimono";
 export type CaptainsSpriteSex = "female" | "male" | "unspecified";
-export type CaptainsSpriteHairLength = "short" | "long" | "wavy" | "curly" | "bob" | "bun" | "bald";
-export type CaptainsSpriteHairColor = "blonde" | "dark" | "brown";
+export type CaptainsSpriteHairLength = "short" | "long" | "wavy" | "curly" | "bob" | "bun" | "bald" | "ponytail" | "braids" | "afro" | "pixie" | "side_part";
+export type CaptainsSpriteHairColor = "blonde" | "dark" | "brown" | "red" | "gray" | "white" | "pink";
 export type CaptainsSpriteSkinColor = "very_fair" | "fair" | "tan" | "dark";
-export type CaptainsSpriteOutfitType = "dress" | "long_dress" | "suit" | "tuxedo" | "shirt" | "casual" | "jumpsuit" | "skirt" | "wedding_dress";
+export type CaptainsSpriteOutfitType = "dress" | "long_dress" | "suit" | "tuxedo" | "shirt" | "casual" | "jumpsuit" | "skirt" | "wedding_dress" | "vest" | "blazer" | "polo" | "boho_dress";
 
 export interface CaptainsSpriteConfig {
   sex: CaptainsSpriteSex;
@@ -92,6 +92,14 @@ export interface CaptainsSpriteConfig {
   tie_color: string;
   outfit_color?: string;
   bottom_color?: string;
+  shirt_color?: string;
+  shoe_color?: string;
+  neckwear?: "tie" | "bowtie" | "none";
+  face_shape?: "round" | "oval" | "square";
+  expression?: "smile" | "grin" | "wink" | "calm";
+  facial_hair?: "none" | "stubble" | "beard" | "mustache";
+  glasses?: "none" | "round" | "square" | "sun";
+  freckles?: boolean;
 }
 export type CaptainsTableChallengeStatus =
   | "pending"

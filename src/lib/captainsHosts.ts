@@ -2,8 +2,10 @@ import type { CaptainsEvent, CaptainsHostCharacterConfig, CaptainsHostConfig, Ca
 
 export const getHostSpriteConfig = (config: CaptainsHostCharacterConfig): CaptainsSpriteConfig => ({
   sex: config.outfit.includes("dress") ? "female" : "male",
-  hair_length: config.hair_style === "long" ? "long" : "short",
-  hair_color: config.hair_color === "blonde" ? "blonde" : config.hair_color === "brown" ? "brown" : "dark",
+  hair_length: config.hair_style === "wave" ? "wavy" : config.hair_style,
+  hair_color: config.hair_color,
+  facial_hair: config.facial_hair,
+  glasses: config.glasses,
   skin_color: ({ light: "very_fair", medium: "fair", tan: "tan", deep: "dark" } as const)[config.skin_tone],
   outfit_type: config.outfit === "classic_dress" ? "long_dress" : config.outfit === "modern_dress" ? "dress" : config.outfit === "casual" ? "casual" : config.outfit === "informal_suit" ? "shirt" : "suit",
   dress_color: config.primary_color,
@@ -70,5 +72,5 @@ export const getHostDisplayName = (config: CaptainsHostConfig, character: 1 | 2)
   const partner = character === 1
     ? config.wedding.partner_1_nickname || config.wedding.partner_1_name
     : config.wedding.partner_2_nickname || config.wedding.partner_2_name;
-  return avatar.display_name.trim() || partner.trim() || (character === 1 ? "Capitán" : "Capitana");
+  return partner.trim() || avatar.display_name.trim() || (character === 1 ? "Novio 1" : "Novio 2");
 };

@@ -572,6 +572,7 @@ const spritePalettes: Record<
 
 const spriteStyleOrder = Object.keys(spritePalettes) as CaptainsSpriteStyle[];
 const spriteHairColors: Record<CaptainsSpriteConfig["hair_color"], string> = {
+  red: "#b54e28", gray: "#99999e", white: "#eee8df", pink: "#d76eae",
   blonde: "#e8c85b",
   dark: "#151515",
   brown: "#6b4328",

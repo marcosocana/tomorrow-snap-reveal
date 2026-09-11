@@ -17,6 +17,10 @@ const hairColors: Record<CaptainsSpriteConfig["hair_color"], string> = {
   blonde: "#d4a72c",
   dark: "#151515",
   brown: "#6b4328",
+  red: "#b54e28",
+  gray: "#99999e",
+  white: "#eee8df",
+  pink: "#d76eae",
 };
 
 const skinColors: Record<CaptainsSpriteConfig["skin_color"], string> = {
@@ -37,8 +41,8 @@ export const getCaptainSpriteVisual = (value?: CaptainsSpriteStyle | null, confi
   const definition = getCaptainOutfit(config.outfit_type);
   const primary = definition.colors[0];
   const outfit = safeColor(config[primary.field], primary.fallback);
-  const dressLike = ["dress", "long_dress", "wedding_dress", "skirt"].includes(definition.value);
-  const separateBottom = ["shirt", "casual", "skirt"].includes(definition.value);
+  const dressLike = ["dress", "long_dress", "wedding_dress", "skirt", "boho_dress"].includes(definition.value);
+  const separateBottom = ["shirt", "casual", "skirt", "vest", "blazer", "polo"].includes(definition.value);
   return {
     hair: hairColors[config.hair_color] || hairColors.dark,
     skin: skinColors[config.skin_color] || skinColors.fair,
