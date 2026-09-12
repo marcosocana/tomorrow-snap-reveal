@@ -1542,13 +1542,12 @@ export const CaptainsOnboarding = () => {
 	                          key={challenge.id}
 	                          type="button"
 	                          onClick={() => toggleOnboardingCatalogChallenge(challenge)}
-	                          className={`border p-4 text-left text-foreground transition hover:border-[#f06a5f] hover:bg-[#f06a5f]/5 ${selected ? "" : "rounded-2xl border-border bg-card"}`}
+	                          className="rounded-2xl border border-border bg-card p-4 text-left text-foreground transition-colors hover:bg-muted/50"
 	                          style={
 	                            selected
 	                              ? {
 	                                  borderColor: DEFAULT_PRIMARY_COLOR,
 	                                  backgroundColor: "rgba(240, 106, 95, 0.12)",
-	                                  borderRadius: "0.375rem",
 	                                }
 	                              : undefined
 	                          }
@@ -1669,7 +1668,7 @@ export const CaptainsOnboarding = () => {
                     index === stepIndex
                       ? "border-primary bg-primary/15 text-foreground shadow-[0_0_0_3px_rgba(240,106,95,0.13)]"
                       : index <= furthestStepIndex
-                        ? "border-border bg-card text-foreground hover:border-emerald-300"
+                        ? "border-border bg-card text-foreground hover:bg-muted/50"
                         : "cursor-not-allowed border-border bg-muted/50 text-muted-foreground opacity-55"
                   }`}
                 >
@@ -3876,7 +3875,7 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
 	              >
 	                {contentGroups.map((group) => (
 	                  <AccordionItem key={group.id} value={group.id} className="rounded-xl border border-border px-4">
-	                    <AccordionTrigger className="text-left text-sm font-semibold hover:no-underline">
+	                    <AccordionTrigger className="rounded-lg px-2 text-left text-sm font-semibold transition-colors hover:bg-muted/50 hover:no-underline">
 	                      {group.label} ({group.count})
 	                    </AccordionTrigger>
 	                    <AccordionContent>

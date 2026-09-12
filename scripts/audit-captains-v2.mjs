@@ -187,6 +187,8 @@ assert.equal(await evaluate(`document.querySelector('.cv2-active-quest .cv2-prim
 const attach=async (kind,challenge)=>{
  assert.equal(await evaluate(`document.querySelectorAll('.cv2-capture input[type=file]').length`),0);
  assert.equal(await evaluate(`document.querySelector('.cv2-mission-submit')===null`),true);
+ assert.equal(await evaluate(`getComputedStyle(document.querySelector('.cv2-camera-start-actions')).position`),'fixed');
+ assert.equal(await evaluate(`Math.abs(document.querySelector('.cv2-camera-start-actions').getBoundingClientRect().bottom-innerHeight)<2`),true);
  assert.equal(await evaluate(`getComputedStyle(document.querySelector('.cv2-camera-button')).backgroundColor`),'rgb(240, 106, 95)');
  assert.equal(await evaluate(`document.querySelector('.cv2-camera-button').getBoundingClientRect().bottom<document.querySelector('.cv2-cancel-button').getBoundingClientRect().top`),true);
  assert.equal(await evaluate(`innerHeight-document.querySelector('.cv2-cancel-button').getBoundingClientRect().bottom<60`),true);
@@ -201,6 +203,7 @@ const attach=async (kind,challenge)=>{
  assert.equal(await evaluate(`document.querySelector('.cv2-camera-challenge p').textContent.trim()`),challenge.description);
  assert.equal(await evaluate(`getComputedStyle(document.querySelector('.cv2-camera-challenge h2')).color`),'rgb(255, 255, 255)');
  assert.equal(await evaluate(`getComputedStyle(document.querySelector('.cv2-camera-challenge')).backgroundImage.includes('linear-gradient')`),true);
+ assert.equal(await evaluate(`document.querySelector(${JSON.stringify(kind==='photo'?'.cv2-shutter':'.cv2-record')}).getBoundingClientRect().width`),96);
  assert.equal(await evaluate(`!!document.querySelector('.cv2-camera-controls [aria-label^="Cambiar a cámara"]')`),true);
  assert.equal(await evaluate(`!!document.querySelector('.cv2-camera-close[aria-label="Cerrar cámara"]')`),true);
  assert.equal(await evaluate(`document.querySelector('.cv2-dialog-detail')===null`),true);

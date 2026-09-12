@@ -314,7 +314,7 @@ export default function MediaCapture({ kind, challengeTitle, challengeDescriptio
           : <button type="button" className={`cv2-record ${recording ? "is-recording" : ""}`} onClick={recording ? stopRecording : startRecording} disabled={!cameraReady} aria-label={recording ? "Detener grabación" : "Empezar grabación"}>{recording ? <Square size={20} /> : <Film size={23} />}</button>}
         <button type="button" onClick={() => void switchCamera()} disabled={recording} aria-label={facingMode === "environment" ? "Cambiar a cámara delantera" : "Cambiar a cámara trasera"} title={facingMode === "environment" ? "Cámara delantera" : "Cámara trasera"}><SwitchCamera size={20} /></button>
       </div>
-    </div> : <><button className="cv2-primary cv2-camera-button cv2-centered-action" disabled={disabled} onClick={() => void openCamera()}>{kind === "photo" ? <Camera size={19} /> : <Film size={19} />}{kind === "photo" ? "Abrir cámara" : "Abrir cámara de vídeo"}</button><button type="button" className="cv2-secondary cv2-cancel-button cv2-centered-action" disabled={disabled} onClick={onCancel}>Cancelar</button></>}
+    </div> : <div className="cv2-camera-start-actions"><button className="cv2-primary cv2-camera-button cv2-centered-action" disabled={disabled} onClick={() => void openCamera()}>{kind === "photo" ? <Camera size={19} /> : <Film size={19} />}{kind === "photo" ? "Abrir cámara" : "Abrir cámara de vídeo"}</button><button type="button" className="cv2-secondary cv2-cancel-button cv2-centered-action" disabled={disabled} onClick={onCancel}>Cancelar</button></div>}
     {error && <p role="alert" className="cv2-error">{error}</p>}
   </div>;
 }
