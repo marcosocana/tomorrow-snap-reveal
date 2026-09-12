@@ -224,20 +224,20 @@ export default function CaptainsDemoV2({ eventSlug: requestedEventSlug }: { even
 
   const isDemoEvent = eventSlug === CAPTAINS_V2_SLUG;
 
-  return <div className={`cv2 cv2-mobile ${isDemoEvent ? "is-demo-event" : ""}`} style={{ "--team": team?.color ?? "#f06a5f" } as CSSProperties}>
-    {isDemoEvent && <aside className="cv2-demo-banner">
+  return <div className={`cv2 cv2-mobile ${isDemoEvent ? "is-demo-event" : ""} ${cameraActive ? "is-camera-active" : ""}`} style={{ "--team": team?.color ?? "#f06a5f" } as CSSProperties}>
+    {isDemoEvent && !cameraActive && <aside className="cv2-demo-banner">
       <a href="https://revelao.cam/capitanes" className="cv2-demo-return"><strong>Evento demo</strong>, haz click aquí para volver a la web.</a>
     </aside>}
-    <header className="cv2-header">
+    {!cameraActive && <header className="cv2-header">
       <Link to={`/capitanes/${eventSlug}`} className="cv2-brand" aria-label="Volver al inicio de Capitanes" onClick={returnToStart}><img src="/capitanes-logo.svg" alt="Capitanes" className="cv2-revelao-logo" /></Link>
-    </header>
+    </header>}
     <main ref={mainRef} className={`cv2-mobile-main ${showWelcome || (!started && !game.eventEnded) ? "is-welcome" : ""} ${activeMission ? "is-mission" : ""} ${file ? "has-media-preview" : ""}`}>
       {started && game.connectionError && <div className="cv2-connection-error" role="alert"><p>{game.connectionError}</p><button className="cv2-secondary" disabled={game.busy} onClick={() => void game.refresh()}>Volver a conectar <RotateCcw size={16} /></button></div>}
       {(started || game.eventEnded) && game.data && joined && activeMission ? <section className="cv2-mission-screen" aria-labelledby="cv2-mission-title">
         <div className="cv2-mission-heading"><button className="cv2-mission-back" type="button" aria-label="Volver a los retos" disabled={game.busy || mediaPreparing} onClick={closeMission}><ArrowLeft size={22} /></button><h1 id="cv2-mission-title" className="cv2-mission-title">{celebrating ? result.correct ? "¡Respuesta correcta!" : "Respuesta incorrecta" : activeMission.title}</h1></div>
         {(celebrating || !isQuestion) && <p className="cv2-mission-description">{celebrating ? `${result.correct ? `Sumáis ${result.pointsAwarded} puntos.` : "Esta vez la respuesta no era correcta. No sumáis puntos."} ${finished ? "¡Habéis completado toda la aventura!" : "El siguiente reto ya os está esperando."}` : activeMission.description}</p>}
         {celebrating ? <><div className="cv2-celebration-points">+{result.pointsAwarded}<span>puntos para vuestra mesa</span></div><button className="cv2-primary cv2-centered-action cv2-mission-submit" onClick={closeMission}>{finished ? "Ver nuestra victoria" : "Descubrir siguiente reto"}</button></> : <>
-          {isQuestion ? <div className="cv2-answer-options" role="group" aria-label="Elige una respuesta">{(activeMission.question_options ?? []).map(option => <button key={option} disabled={game.busy} onClick={() => { game.clearError(); setAnswer(option); }} aria-pressed={answer === option}>{option}{answer === option && <Check size={17} />}</button>)}</div> : <MediaCapture key={rowId} kind={activeMission.evidence_type === "photo" ? "photo" : "video"} file={file} onChange={value => { game.clearError(); setFile(value); }} thumbnail={thumbnail} previewActions={retry => <div className="cv2-mission-actions">{retry}{submitButton}</div>} onThumbnailChange={setThumbnail} onPreparingChange={setMediaPreparing} onCameraOpenChange={setCameraActive} onCancel={closeMission} disabled={game.busy} />}
+          {isQuestion ? <div className="cv2-answer-options" role="group" aria-label="Elige una respuesta">{(activeMission.question_options ?? []).map(option => <button key={option} disabled={game.busy} onClick={() => { game.clearError(); setAnswer(option); }} aria-pressed={answer === option}>{option}{answer === option && <Check size={17} />}</button>)}</div> : <MediaCapture key={rowId} kind={activeMission.evidence_type === "photo" ? "photo" : "video"} challengeTitle={activeMission.title} challengeDescription={activeMission.description} file={file} onChange={value => { game.clearError(); setFile(value); }} thumbnail={thumbnail} previewActions={retry => <div className="cv2-mission-actions">{retry}{submitButton}</div>} onThumbnailChange={setThumbnail} onPreparingChange={setMediaPreparing} onCameraOpenChange={setCameraActive} onCancel={closeMission} disabled={game.busy} />}
           {!cameraActive && !file && <div className="cv2-mission-facts"><span><activeMission.icon size={22} />{activeMission.type}</span><strong><Trophy size={22} />+{activeMission.points} puntos</strong></div>}
           {game.remaining !== null && <span className="cv2-timer" role="timer"><Clock3 size={15} /> {game.remaining} s restantes</span>}
           {game.error && <p className="cv2-error" role="alert">{game.error}</p>}

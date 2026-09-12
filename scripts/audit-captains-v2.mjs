@@ -73,7 +73,7 @@ const click=async selector=>{await evaluate(`document.querySelector(${JSON.strin
 const screenshot=async name=>{const img=await send('Page.captureScreenshot',{format:'png'});fs.writeFileSync(`/tmp/captains-revelao-${name}.png`,Buffer.from(img.data,'base64'));};
 await send('Page.enable');await send('Runtime.enable');await send('Fetch.enable',{patterns:[{urlPattern:'*supabase.co/*'}]});
 await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
-await send('Page.addScriptToEvaluateOnNewDocument',{source:`Object.defineProperty(navigator,'mediaDevices',{configurable:true,value:{getUserMedia:async constraints=>{const canvas=document.createElement('canvas');canvas.width=640;canvas.height=480;const context=canvas.getContext('2d');context.fillStyle='#f06a5f';context.fillRect(0,0,640,480);const stream=canvas.captureStream(15);if(constraints.audio){const audio=new AudioContext();const oscillator=audio.createOscillator();const destination=audio.createMediaStreamDestination();oscillator.connect(destination);oscillator.start();stream.addTrack(destination.stream.getAudioTracks()[0]);}window.__captainsAuditCanvas=canvas;return stream;}}});`});
+await send('Page.addScriptToEvaluateOnNewDocument',{source:`window.__captainsAuditMediaRequests=[];Object.defineProperty(navigator,'mediaDevices',{configurable:true,value:{getUserMedia:async constraints=>{window.__captainsAuditMediaRequests.push(constraints);const canvas=document.createElement('canvas');canvas.width=640;canvas.height=480;const context=canvas.getContext('2d');context.fillStyle='#f06a5f';context.fillRect(0,0,640,480);const stream=canvas.captureStream(15);if(constraints.audio){const audio=new AudioContext();const oscillator=audio.createOscillator();const destination=audio.createMediaStreamDestination();oscillator.connect(destination);oscillator.start();stream.addTrack(destination.stream.getAudioTracks()[0]);}window.__captainsAuditCanvas=canvas;return stream;}}});`});
 await send('Page.navigate',{url:`${origin}/capitanes`});
 await wait(`!!document.querySelector('.cl-page')`);
 assert.equal(await evaluate(`document.querySelector('.cl-hero h1').textContent.includes('Una misión')`),true);
@@ -120,7 +120,10 @@ assert.equal(await evaluate(`getComputedStyle(document.querySelector('#cv2-welco
 assert.equal(await evaluate(`getComputedStyle(document.querySelector('.cv2-welcome > p')).textAlign`),'left');
 await new Promise(r=>setTimeout(r,300));
 await screenshot('welcome');await click('.cv2-join-bar button');await wait(`!!document.querySelector('.cv2-pick') || !!document.querySelector('.cv2-player-strip')`);if(eventSlug==='demo-capitanes-v2')assert.equal(await evaluate(`!!document.querySelector('.cv2-pick')`),true,'The demo must always forget the previous captain before showing the picker.');else if(await evaluate(`!!document.querySelector('.cv2-player-strip')`)){await evaluate(`localStorage.removeItem(${JSON.stringify(`captains-v2-player:${eventSlug}`)})`);await send('Page.reload');await wait(`!!document.querySelector('.cv2-welcome')`);await click('.cv2-join-bar button');await wait(`!!document.querySelector('.cv2-pick')`);}
-assert.equal(await evaluate(`/demo|simula/i.test(document.body.innerText)`),false);
+if(eventSlug==='demo-capitanes-v2'){
+ assert.equal(await evaluate(`document.querySelector('.cv2-demo-return')?.textContent.includes('Evento demo')`),true);
+ assert.equal(await evaluate(`document.querySelector('.cv2-demo-return')?.getAttribute('href')`),'https://revelao.cam/capitanes');
+}else assert.equal(await evaluate(`/demo|simula/i.test(document.body.innerText)`),false);
 assert.equal(await evaluate(`document.querySelector('.cv2-join-bar button').disabled`),true);
 assert.equal(await evaluate(`document.querySelector('.cv2-join-bar button').textContent.trim()`),'Continuar');
 assert.equal(await evaluate(`!!document.querySelector('.cv2-join-bar p')`),false);
@@ -181,7 +184,7 @@ assert.equal(await evaluate(`document.querySelector('.cv2-cancel-button').textCo
 assert.equal(await evaluate(`getComputedStyle(document.querySelector('.cv2-cancel-button')).backgroundColor`),'rgb(255, 255, 255)');
 await click('.cv2-cancel-button');await wait(`!!document.querySelector('.cv2-active-quest')`);
 assert.equal(await evaluate(`document.querySelector('.cv2-active-quest .cv2-primary').textContent.trim()`),'Continuar reto');
-const attach=async kind=>{
+const attach=async (kind,challenge)=>{
  assert.equal(await evaluate(`document.querySelectorAll('.cv2-capture input[type=file]').length`),0);
  assert.equal(await evaluate(`document.querySelector('.cv2-mission-submit')===null`),true);
  assert.equal(await evaluate(`getComputedStyle(document.querySelector('.cv2-camera-button')).backgroundColor`),'rgb(240, 106, 95)');
@@ -190,10 +193,19 @@ const attach=async kind=>{
  await click('.cv2-camera-button');
  await wait(`!!document.querySelector('.cv2-capture-live') && !document.querySelector(${JSON.stringify(kind==='photo'?'.cv2-shutter':'.cv2-record')}).disabled`);
  assert.equal(await evaluate(`document.querySelector('[role=dialog]')===null`),true);
- assert.equal(await evaluate(`document.querySelector('.cv2-camera-controls [aria-label="Cerrar cámara"]')===null`),true);
+ assert.equal(await evaluate(`document.querySelector('.cv2-header')===null`),true);
+ assert.equal(await evaluate(`document.querySelector('.cv2-demo-banner')===null`),true);
+ assert.equal(await evaluate(`window.__captainsAuditMediaRequests[0].audio`),true);
+ assert.equal(await evaluate(`(()=>{const rect=document.querySelector('.cv2-camera-stage').getBoundingClientRect();return Math.abs(rect.top)<1&&Math.abs(rect.left)<1&&Math.abs(rect.width-innerWidth)<1&&Math.abs(rect.height-innerHeight)<1})()`),true);
+ assert.equal(await evaluate(`document.querySelector('.cv2-camera-challenge h2').textContent.trim()`),challenge.title);
+ assert.equal(await evaluate(`document.querySelector('.cv2-camera-challenge p').textContent.trim()`),challenge.description);
+ assert.equal(await evaluate(`getComputedStyle(document.querySelector('.cv2-camera-challenge h2')).color`),'rgb(255, 255, 255)');
+ assert.equal(await evaluate(`getComputedStyle(document.querySelector('.cv2-camera-challenge')).backgroundImage.includes('linear-gradient')`),true);
+ assert.equal(await evaluate(`!!document.querySelector('.cv2-camera-controls [aria-label^="Cambiar a cámara"]')`),true);
+ assert.equal(await evaluate(`!!document.querySelector('.cv2-camera-close[aria-label="Cerrar cámara"]')`),true);
  assert.equal(await evaluate(`document.querySelector('.cv2-dialog-detail')===null`),true);
  await click(kind==='photo'?'.cv2-shutter':'.cv2-record');
- if(kind==='video'){await new Promise(r=>setTimeout(r,350));await evaluate(`(()=>{const canvas=window.__captainsAuditCanvas;const context=canvas.getContext('2d');context.fillStyle='#0000ff';context.fillRect(0,0,canvas.width,canvas.height);})()`);await new Promise(r=>setTimeout(r,350));await click('.cv2-record');}
+ if(kind==='video'){await evaluate(`(()=>{const canvas=window.__captainsAuditCanvas;const context=canvas.getContext('2d');context.fillStyle='#f06a5f';context.fillRect(0,0,canvas.width,canvas.height);})()`);await new Promise(r=>setTimeout(r,350));await evaluate(`(()=>{const canvas=window.__captainsAuditCanvas;const context=canvas.getContext('2d');context.fillStyle='#0000ff';context.fillRect(0,0,canvas.width,canvas.height);})()`);await new Promise(r=>setTimeout(r,350));await click('.cv2-record');}
  await wait(`!!document.querySelector('.cv2-capture-preview') && !document.querySelector('.cv2-mission-submit').disabled`);
  assert.equal(await evaluate(`document.querySelector('.cv2-dialog-detail')===null && document.querySelector('.cv2-mission-facts')===null`),true);
  assert.equal(await evaluate(`getComputedStyle(document.querySelector('.cv2-mission-actions')).position`),'fixed');
@@ -211,7 +223,7 @@ for(let i=0;i<5;i++){
  assert.equal(await evaluate(`!!document.querySelector('.cv2-mission-back svg')`),true);
  assert.equal(await evaluate(`document.querySelector('.cv2-mission-heading').textContent.trim()`),challenges[i].title);
  assert.equal(await evaluate(`document.querySelector('.cv2-dialog-icon')===null`),true);
- if(i===1){assert.equal(await evaluate(`document.querySelector('.cv2-mission-description')===null`),true);assert.equal(await evaluate(`document.querySelectorAll('.cv2-answer-options button').length`),4);assert.equal(await evaluate(`document.querySelector('.cv2-mission-submit').disabled`),true);await click('.cv2-answer-options button:first-child');assert.equal(await evaluate(`document.querySelector('.cv2-mission-submit').textContent.trim()`),'Continuar');}else await attach(challenges[i].evidence_type);
+ if(i===1){assert.equal(await evaluate(`document.querySelector('.cv2-mission-description')===null`),true);assert.equal(await evaluate(`document.querySelectorAll('.cv2-answer-options button').length`),4);assert.equal(await evaluate(`document.querySelector('.cv2-mission-submit').disabled`),true);await click('.cv2-answer-options button:first-child');assert.equal(await evaluate(`document.querySelector('.cv2-mission-submit').textContent.trim()`),'Continuar');}else await attach(challenges[i].evidence_type,challenges[i]);
  if(i===0){await screenshot('photo');rejectUpload=true;await click('.cv2-mission-submit');await wait(`!!document.querySelector('.cv2-mission-screen .cv2-error')`);assert.equal(rows.filter(r=>r.table_id===tables[1].id&&r.status==='completed').length,0);}
  await click('.cv2-mission-submit');
  if(i===1){await wait(`!!document.querySelector('.cv2-celebration-points')`);await click('.cv2-mission-submit');}
@@ -270,7 +282,7 @@ await click('.cv2-bottom-nav button:nth-child(2)');assert.match(await evaluate(`
 for(const width of [320,390,430,1440]){await send('Emulation.setDeviceMetricsOverride',{width,height:844,deviceScaleFactor:1,mobile:width<500});for(let tab=1;tab<=2;tab++){await click(`.cv2-bottom-nav button:nth-child(${tab})`);assert.equal(await evaluate(`document.documentElement.scrollWidth>innerWidth`),false);}}
 // A wrong answer is only revealed after submission and never adds points.
 await click('.cv2-bottom-nav button:first-child');
-await click('.cv2-active-quest .cv2-primary');await wait(`!!document.querySelector('.cv2-capture')`);await attach('photo');
+await click('.cv2-active-quest .cv2-primary');await wait(`!!document.querySelector('.cv2-capture')`);await attach('photo',challenges[0]);
 await click('.cv2-mission-submit');await wait(`!document.querySelector('.cv2-mission-screen')`);
 await click('.cv2-active-quest .cv2-primary');await wait(`!!document.querySelector('.cv2-answer-options')`);
 await click('.cv2-answer-options button:nth-child(2)');
@@ -294,8 +306,8 @@ assert.equal(await evaluate(`document.querySelector('.cv2-confirm-dialog .cv2-se
 await click('.cv2-confirm-dialog .cv2-primary');await wait(`!document.querySelector('.cv2-confirm-dialog')`);
 assert.equal(rows.find(row=>row.table_id===tables[2].id&&row.challenge_id===challenges[2].id).status,'failed');
 assert.equal(tables[2].total_points,20);
-for(const kind of ['photo','video']){
- await click('.cv2-active-quest .cv2-primary');await wait(`!!document.querySelector('.cv2-capture')`);await attach(kind);
+for(const challenge of [challenges[3],challenges[4]]){
+ await click('.cv2-active-quest .cv2-primary');await wait(`!!document.querySelector('.cv2-capture')`);await attach(challenge.evidence_type,challenge);
  await click('.cv2-mission-submit');await wait(`!document.querySelector('.cv2-mission-screen')`);
 }
 assert.equal(await evaluate(`document.querySelector('.cv2-bottom-nav').textContent.includes('Retos')`),true);

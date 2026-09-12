@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Camera, Film, RotateCcw, Square, SwitchCamera } from "lucide-react";
+import { Camera, Film, RotateCcw, Square, SwitchCamera, X } from "lucide-react";
 
 const MAX_VIDEO_SECONDS = 30;
 const MAX_VIDEO_BYTES = 25 * 1024 * 1024;
@@ -7,6 +7,7 @@ const VIDEO_BITS_PER_SECOND = 1_800_000;
 const AUDIO_BITS_PER_SECOND = 96_000;
 const PHOTO_MAX_DIMENSION = 1600;
 const THUMBNAIL_MAX_WIDTH = 480;
+let hasRequestedMediaPermissions = false;
 
 const supportedVideoType = () => {
   if (typeof MediaRecorder === "undefined" || typeof MediaRecorder.isTypeSupported !== "function") return "";
@@ -70,8 +71,10 @@ const firstVideoFrame = (blob: Blob, name: string) => new Promise<File>((resolve
   video.src = url;
 });
 
-export default function MediaCapture({ kind, file, thumbnail, previewActions, onChange, onThumbnailChange, onPreparingChange, onCameraOpenChange, onCancel, disabled }: {
+export default function MediaCapture({ kind, challengeTitle, challengeDescription, file, thumbnail, previewActions, onChange, onThumbnailChange, onPreparingChange, onCameraOpenChange, onCancel, disabled }: {
   kind: "photo" | "video";
+  challengeTitle: string;
+  challengeDescription: string;
   file: File | null;
   thumbnail?: File | null;
   previewActions?: (retry: ReactNode) => ReactNode;
@@ -93,6 +96,7 @@ export default function MediaCapture({ kind, file, thumbnail, previewActions, on
   }, [thumbnail]);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
+  const [streamVersion, setStreamVersion] = useState(0);
   const [recording, setRecording] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(MAX_VIDEO_SECONDS);
   const [facingMode, setFacingMode] = useState<"environment" | "user">("environment");
@@ -116,13 +120,15 @@ export default function MediaCapture({ kind, file, thumbnail, previewActions, on
     stopTimeoutRef.current = null;
   };
 
-  const stopStream = () => {
+  const stopStream = (closeCamera = true) => {
     streamRef.current?.getTracks().forEach(track => track.stop());
     streamRef.current = null;
     if (videoRef.current) videoRef.current.srcObject = null;
-    setCameraOpen(false);
     setCameraReady(false);
-    if (mountedRef.current) cameraOpenChangeRef.current?.(false);
+    if (closeCamera) {
+      setCameraOpen(false);
+      if (mountedRef.current) cameraOpenChangeRef.current?.(false);
+    }
   };
 
   useEffect(() => {
@@ -159,13 +165,25 @@ export default function MediaCapture({ kind, file, thumbnail, previewActions, on
     }
     onPreparingChange?.(true);
     try {
-      stopStream();
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: nextFacing }, width: { ideal: 1280 }, height: { ideal: 720 } },
-        audio: kind === "video",
-      });
+      stopStream(false);
+      const video = { facingMode: { ideal: nextFacing }, width: { ideal: 1280 }, height: { ideal: 720 } };
+      let stream: MediaStream;
+      if (!hasRequestedMediaPermissions) {
+        try {
+          // Request camera and microphone together once, so later photo/video challenges
+          // can reuse the browser permission without a second prompt.
+          stream = await navigator.mediaDevices.getUserMedia({ video, audio: true });
+        } catch (initialPermissionError) {
+          if (kind === "video") throw initialPermissionError;
+          stream = await navigator.mediaDevices.getUserMedia({ video, audio: false });
+        }
+        hasRequestedMediaPermissions = true;
+      } else {
+        stream = await navigator.mediaDevices.getUserMedia({ video, audio: kind === "video" });
+      }
       streamRef.current = stream;
       setCameraOpen(true);
+      setStreamVersion(value => value + 1);
       cameraOpenChangeRef.current?.(true);
       setSecondsLeft(MAX_VIDEO_SECONDS);
     } catch {
@@ -182,7 +200,7 @@ export default function MediaCapture({ kind, file, thumbnail, previewActions, on
       setError("No se ha podido iniciar la cámara.");
       stopStream();
     }).finally(() => preparingChangeRef.current?.(false));
-  }, [cameraOpen]);
+  }, [cameraOpen, streamVersion]);
 
   const takePhoto = async () => {
     const video = videoRef.current;
@@ -283,13 +301,18 @@ export default function MediaCapture({ kind, file, thumbnail, previewActions, on
   return <div className={`cv2-capture ${cameraOpen ? "is-live" : "is-idle"}`}>
     {cameraOpen ? <div className="cv2-camera-stage">
       <video ref={videoRef} className="cv2-capture-live" muted playsInline style={{ transform: facingMode === "user" ? "scaleX(-1)" : undefined }} />
-      {kind === "video" && <span className={`cv2-recording-time ${recording ? "is-recording" : ""}`}>{recording ? `00:${String(MAX_VIDEO_SECONDS - secondsLeft).padStart(2, "0")} / 00:30` : "Máximo 30 s"}</span>}
+      <div className="cv2-camera-challenge">
+        <h2>{challengeTitle}</h2>
+        <p>{challengeDescription}</p>
+        {kind === "video" && <span className={`cv2-recording-time ${recording ? "is-recording" : ""}`}>{recording ? `00:${String(MAX_VIDEO_SECONDS - secondsLeft).padStart(2, "0")} / 00:30` : "Máximo 30 s"}</span>}
+      </div>
+      <button type="button" className="cv2-camera-close" onClick={() => stopStream()} disabled={recording} aria-label="Cerrar cámara"><X size={22} /></button>
       <div className="cv2-camera-controls">
         <span className="cv2-camera-control-spacer" aria-hidden="true" />
         {kind === "photo"
           ? <button type="button" className="cv2-shutter" onClick={() => void takePhoto()} disabled={!cameraReady} aria-label="Hacer foto"><Camera size={25} /></button>
           : <button type="button" className={`cv2-record ${recording ? "is-recording" : ""}`} onClick={recording ? stopRecording : startRecording} disabled={!cameraReady} aria-label={recording ? "Detener grabación" : "Empezar grabación"}>{recording ? <Square size={20} /> : <Film size={23} />}</button>}
-        <button type="button" onClick={() => void switchCamera()} disabled={recording} aria-label="Cambiar cámara"><SwitchCamera size={20} /></button>
+        <button type="button" onClick={() => void switchCamera()} disabled={recording} aria-label={facingMode === "environment" ? "Cambiar a cámara delantera" : "Cambiar a cámara trasera"} title={facingMode === "environment" ? "Cámara delantera" : "Cámara trasera"}><SwitchCamera size={20} /></button>
       </div>
     </div> : <><button className="cv2-primary cv2-camera-button cv2-centered-action" disabled={disabled} onClick={() => void openCamera()}>{kind === "photo" ? <Camera size={19} /> : <Film size={19} />}{kind === "photo" ? "Abrir cámara" : "Abrir cámara de vídeo"}</button><button type="button" className="cv2-secondary cv2-cancel-button cv2-centered-action" disabled={disabled} onClick={onCancel}>Cancelar</button></>}
     {error && <p role="alert" className="cv2-error">{error}</p>}
