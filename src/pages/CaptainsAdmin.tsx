@@ -74,6 +74,7 @@ import {
   updateCaptainsTables,
 } from "@/lib/captainsService";
 import { normalizeCaptainsPublicUrl, resolveCaptainsQrImageUrl } from "@/lib/captainsUtils";
+import { CAPTAINS_EVENT_MANAGEMENT_VIEW, eventManagementViewFromLocationState } from "@/lib/eventManagementViewState";
 import CaptainOutfitEditor from "@/components/captains-v2/CaptainOutfitEditor";
 import { getCaptainOutfit, captainOutfitForSex } from "@/lib/captainsOutfits";
 import CaptainModel from "@/components/captains-v2/CaptainModel";
@@ -2838,6 +2839,11 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
   const detailAccessCode = (detailSearchParams.get("code") || "").trim().toUpperCase();
   useRequireAdmin(Boolean(detailAccessCode));
   const navigate = useNavigate();
+  const eventManagementView = eventManagementViewFromLocationState(location.state) ?? CAPTAINS_EVENT_MANAGEMENT_VIEW;
+  const returnToEventManagement = (replace = false) => navigate("/event-management", {
+    replace,
+    state: { eventManagementView },
+  });
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [codeAccessState, setCodeAccessState] = useState<"checking" | "valid" | "invalid">(detailAccessCode ? "checking" : "valid");
@@ -3459,7 +3465,7 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
     try {
       await deleteCaptainsEvent(detail.event.id);
       toast({ title: "Evento eliminado", description: "El juego de Capitanes se ha eliminado." });
-      navigate("/admin/capitanes");
+      returnToEventManagement(true);
     } catch (error) {
       console.error("Error deleting captains event:", error);
       toast({ title: "Error", description: "No hemos podido eliminar el evento.", variant: "destructive" });
@@ -3586,7 +3592,7 @@ export const CaptainsAdminDetail = ({ view = "detail" }: { view?: "detail" | "re
   return (
 	    <AdminFrame
 	      title={event.name}
-	      backAction={() => navigate((location.state as { fromEventManagement?: boolean } | null)?.fromEventManagement ? "/event-management" : "/admin/capitanes")}
+	      backAction={() => returnToEventManagement()}
 	      hideUtilityActions
 	      actions={(
 	        <Button variant="outline" className="gap-2 rounded-full" onClick={refreshAll}>

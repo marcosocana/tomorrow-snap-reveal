@@ -3,7 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useEffect } from "react";
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { BrowserRouter, Navigate, Routes, Route, useLocation } from "react-router-dom";
 import Login from "./pages/Login";
 import Logout from "./pages/Logout";
 import Camera from "./pages/Camera";
@@ -25,7 +25,7 @@ import { AdminI18nProvider } from "@/lib/adminI18n";
 import RedeemEvent from "./pages/RedeemEvent";
 import PaidEventSummary from "./pages/PaidEventSummary";
 import Register from "./pages/Register";
-import { CaptainsAdminDetail, CaptainsAdminForm, CaptainsAdminList, CaptainsOnboarding } from "./pages/CaptainsAdmin";
+import { CaptainsAdminDetail, CaptainsAdminForm, CaptainsOnboarding } from "./pages/CaptainsAdmin";
 import CaptainsDemoV2 from "./pages/CaptainsDemoV2";
 import CaptainsExperience from "./pages/CaptainsExperience";
 import CaptainsLanding from "./pages/CaptainsLanding";
@@ -35,6 +35,7 @@ import OAuthConsent from "./pages/OAuthConsent";
 import PhotostripPublic from "./pages/PhotostripPublic";
 import { PhotostripAdminDetail, PhotostripAdminForm } from "./pages/PhotostripAdmin";
 import NewPhotostripDemo from "./pages/NewPhotostripDemo";
+import { CAPTAINS_EVENT_MANAGEMENT_VIEW } from "./lib/eventManagementViewState";
 
 const queryClient = new QueryClient();
 
@@ -197,7 +198,7 @@ const App = () => {
               <Route path="/nuevoeventodemo/resumen" element={<DemoEventSummary />} />
               <Route path="/evento-pago/resumen" element={<PaidEventSummary />} />
               <Route path="/planes" element={<PricingPlans />} />
-              <Route path="/admin/capitanes" element={<CaptainsAdminList />} />
+              <Route path="/admin/capitanes" element={<Navigate to="/event-management" replace state={{ eventManagementView: CAPTAINS_EVENT_MANAGEMENT_VIEW }} />} />
               <Route path="/admin/capitanes/onboarding" element={<CaptainsOnboarding />} />
               <Route path="/admin/capitanes/new" element={<CaptainsAdminForm />} />
               <Route path="/admin/capitanes/:eventId" element={<CaptainsAdminDetail />} />

@@ -37,6 +37,12 @@ import { TimeCapsuleCheckoutPlans } from "@/components/TimeCapsuleCheckoutPlans"
 import { TIME_CAPSULE_REDEEM_PLANS, type TimeCapsuleRedeemPlanId } from "@/lib/timeCapsule";
 import type { Session } from "@supabase/supabase-js";
 import { PhotostripDashboardSection } from "@/pages/PhotostripAdmin";
+import {
+  eventManagementViewFromLocationState,
+  saveEventManagementReturnView,
+  takeEventManagementReturnView,
+  type EventManagementViewState,
+} from "@/lib/eventManagementViewState";
 
 interface Event {
   id: string;
@@ -265,6 +271,12 @@ const MediaUsageTag = ({
 };
 
 const EventManagement = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [restoredView] = useState<EventManagementViewState | null>(() => {
+    const storedView = takeEventManagementReturnView();
+    return eventManagementViewFromLocationState(location.state) ?? storedView;
+  });
   const [events, setEvents] = useState<Event[]>([]);
   const [captainsEvents, setCaptainsEvents] = useState<CaptainsManagedEvent[]>([]);
   const [folders, setFolders] = useState<EventFolder[]>([]);
@@ -298,20 +310,20 @@ const EventManagement = () => {
     planLabel: string;
     product: ProductSection;
   } | null>(null);
-  const [adminSearch, setAdminSearch] = useState("");
-  const [activeProduct, setActiveProduct] = useState<ProductSection>("revelao");
+  const [adminSearch, setAdminSearch] = useState(restoredView?.adminSearch ?? "");
+  const [activeProduct, setActiveProduct] = useState<ProductSection>(restoredView?.activeProduct ?? "revelao");
   const [productAction, setProductAction] = useState<ProductAction | null>(null);
-  const [adminTypeFilter, setAdminTypeFilter] = useState<"all" | "Demo" | "Start" | "Plus" | "Pro">("all");
-  const [adminPhoneFilter, setAdminPhoneFilter] = useState<"all" | "yes" | "no">("all");
-  const [adminActiveTab, setAdminActiveTab] = useState<AdminEventTab>("upcoming");
+  const [adminTypeFilter, setAdminTypeFilter] = useState<"all" | "Demo" | "Start" | "Plus" | "Pro">(restoredView?.adminTypeFilter ?? "all");
+  const [adminPhoneFilter, setAdminPhoneFilter] = useState<"all" | "yes" | "no">(restoredView?.adminPhoneFilter ?? "all");
+  const [adminActiveTab, setAdminActiveTab] = useState<AdminEventTab>(restoredView?.adminActiveTab ?? "upcoming");
   const [adminSort, setAdminSort] = useState<{ key: "name" | "type" | "start" | "creation" | "email" | "photos"; direction: "asc" | "desc" }>({
-    key: "start",
-    direction: "desc",
+    key: restoredView?.adminSort.key ?? "start",
+    direction: restoredView?.adminSort.direction ?? "desc",
   });
   const [qrPreview, setQrPreview] = useState<{ src?: string; value: string } | null>(null);
-  const [adminPage, setAdminPage] = useState(1);
-  const [adminPageSize, setAdminPageSize] = useState<number | "all">(30);
-  const [adminView, setAdminView] = useState<"list" | "calendar">("list");
+  const [adminPage, setAdminPage] = useState(restoredView?.adminPage ?? 1);
+  const [adminPageSize, setAdminPageSize] = useState<number | "all">(restoredView?.adminPageSize ?? 30);
+  const [adminView, setAdminView] = useState<"list" | "calendar">(restoredView?.adminView ?? "list");
   // pageSize computed after superAdminEvents below
   const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(new Set());
   const [redeemGeneratorOpen, setRedeemGeneratorOpen] = useState(false);
@@ -327,8 +339,8 @@ const EventManagement = () => {
   const [giftForm, setGiftForm] = useState(emptyGiftForm);
   const [isSendingGift, setIsSendingGift] = useState(false);
   const [giftError, setGiftError] = useState<string | null>(null);
-  const [captainsStatusFilter, setCaptainsStatusFilter] = useState<"all" | "in_progress" | "finished">("all");
-  const [capsuleStatusFilter, setCapsuleStatusFilter] = useState<"all" | "pending" | "in_progress" | "past">("all");
+  const [captainsStatusFilter, setCaptainsStatusFilter] = useState<"all" | "in_progress" | "finished">(restoredView?.captainsStatusFilter ?? "all");
+  const [capsuleStatusFilter, setCapsuleStatusFilter] = useState<"all" | "pending" | "in_progress" | "past">(restoredView?.capsuleStatusFilter ?? "all");
   const [selectedCaptainsIds, setSelectedCaptainsIds] = useState<Set<string>>(new Set());
   const [createdSummary, setCreatedSummary] = useState<{
     id: string;
@@ -342,14 +354,33 @@ const EventManagement = () => {
     max_audios?: number | null;
     owner_email: string | null;
   } | null>(null);
-  const didChooseInitialProduct = useRef(false);
+  const didChooseInitialProduct = useRef(Boolean(restoredView));
+  const skipInitialPaginationReset = useRef(Boolean(restoredView));
   
   // Dialogs
 
-  const navigate = useNavigate();
-  const location = useLocation();
   const { toast } = useToast();
   const { t, dateLocale, pathPrefix } = useAdminI18n();
+
+  const currentEventManagementView = (): EventManagementViewState => ({
+    activeProduct,
+    adminSearch,
+    adminTypeFilter,
+    adminPhoneFilter,
+    adminActiveTab,
+    adminSort,
+    adminPage,
+    adminPageSize,
+    adminView,
+    captainsStatusFilter,
+    capsuleStatusFilter,
+  });
+
+  const openCaptainsDetail = (eventId: string) => {
+    const eventManagementView = currentEventManagementView();
+    saveEventManagementReturnView(eventManagementView);
+    navigate(`/admin/capitanes/${eventId}`, { state: { eventManagementView } });
+  };
 
   const openProductAction = (action: ProductAction) => setProductAction(action);
 
@@ -1093,6 +1124,10 @@ const EventManagement = () => {
   const pageSize = adminPageSize === "all" ? superAdminEvents.length || 1 : adminPageSize;
 
   useEffect(() => {
+    if (skipInitialPaginationReset.current) {
+      skipInitialPaginationReset.current = false;
+      return;
+    }
     setAdminPage(1);
   }, [adminSearch, adminTypeFilter, adminPhoneFilter, adminActiveTab, capsuleStatusFilter, adminSort, adminPageSize]);
 
@@ -1716,8 +1751,7 @@ const EventManagement = () => {
   const renderCaptainsEventCard = (event: CaptainsManagedEvent) => {
     const hasFinished = Boolean(event.end_time && new Date(event.end_time).getTime() <= Date.now());
     const publicUrl = event.public_url || `${window.location.origin}/capitanes/${event.slug}`;
-    const detailUrl = `/admin/capitanes/${event.id}`;
-    const openDetail = () => navigate(detailUrl, { state: { fromEventManagement: true } });
+    const openDetail = () => openCaptainsDetail(event.id);
 
     return (
       <Card key={`captains-${event.id}`} className="p-4 md:p-6">
@@ -2025,7 +2059,7 @@ const EventManagement = () => {
       {adminView === "calendar" ? (
         <AdminEventsCalendar
           events={filteredCalendarEvents}
-          onOpen={(event) => navigate(`/admin/capitanes/${event.id}`, { state: { fromEventManagement: true } })}
+          onOpen={(event) => openCaptainsDetail(event.id)}
         />
       ) : filteredCaptainsEvents.length > 0 ? (
         <div className="overflow-x-auto">
@@ -2051,9 +2085,9 @@ const EventManagement = () => {
                     role="link"
                     tabIndex={0}
                     className="cursor-pointer border-b transition-colors hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none last:border-b-0"
-                    onClick={() => navigate(`/admin/capitanes/${event.id}`, { state: { fromEventManagement: true } })}
+                    onClick={() => openCaptainsDetail(event.id)}
                     onKeyDown={(keyboardEvent) => {
-                      if (keyboardEvent.key === "Enter") navigate(`/admin/capitanes/${event.id}`, { state: { fromEventManagement: true } });
+                      if (keyboardEvent.key === "Enter") openCaptainsDetail(event.id);
                     }}
                   >
                     <td className="py-3 pr-3">
@@ -2320,7 +2354,7 @@ const EventManagement = () => {
                   events={filteredCalendarEvents}
                   onOpen={(event) => {
                     if (event.kind === "captains") {
-                      navigate(`/admin/capitanes/${event.id}`, { state: { fromEventManagement: true } });
+                      openCaptainsDetail(event.id);
                     } else {
                       navigate(`${pathPrefix}/event-form/${event.id}`);
                     }
