@@ -376,13 +376,12 @@ const PhotostripExperience = ({ slug }: { slug: string }) => {
           style={event.coverImageUrl ? { backgroundImage: `linear-gradient(rgba(24,18,15,.48), rgba(24,18,15,.72)), url("${event.coverImageUrl}")` } : undefined}
         >
           <div className="photostrip-cover-content">
-          {event.logoUrl ? <img className="photostrip-event-logo" src={event.logoUrl} alt="Revelao" /> : null}
-          <p className="photostrip-kicker">PHOTOSTRIP</p>
           <h1>{event.name}</h1>
           <p>4 fotos. {event.countdownSeconds} segundos entre cada una.<br />Una tira para recordar esta noche.</p>
           {error ? <p className="photostrip-error">{error}</p> : null}
           <button className="photostrip-ink-button" onClick={() => event.photoMode === "both" ? setStage("mode") : void openCamera(event.photoMode)}>ENTRAR AL FOTOMATÓN</button>
           {event.galleryAllowed ? <Link className="photostrip-text-link" to={`/photostrip/${slug}/gallery`}>VER FOTOS DE OTROS INVITADOS</Link> : null}
+          {event.logoUrl ? <img className="photostrip-event-logo photostrip-event-logo-bottom" src={event.logoUrl} alt="Revelao" /> : null}
           </div>
         </div>
       ) : null}

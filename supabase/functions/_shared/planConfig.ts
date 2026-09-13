@@ -18,6 +18,7 @@ export type PlanConfig = {
   maxVideos: number | null;
   maxAudios: number | null;
   stripePriceIdEnv: string;
+  stripePriceId?: string;
   product?: "revelao" | "capsule" | "photostrip";
   maxStrips?: number | null;
 };
@@ -92,34 +93,42 @@ export const PLANS: Record<PlanId, PlanConfig> = {
   },
   photostrip_100: {
     id: "photostrip_100",
-    label: "Photostrip · 100 tiras",
+    label: "Photostrip · Pack 100",
     maxPhotos: 0,
     maxVideos: 0,
     maxAudios: 0,
-    stripePriceIdEnv: "STRIPE_PRICE_PHOTOSTRIP_100",
-    product: "photostrip",
     maxStrips: 100,
+    stripePriceIdEnv: "STRIPE_PRICE_PHOTOSTRIP_100",
+    stripePriceId: "price_1UFKF75qbMQlPRrsorEh7OnX",
+    product: "photostrip",
   },
   photostrip_200: {
     id: "photostrip_200",
-    label: "Photostrip · 200 tiras",
+    label: "Photostrip · Pack 200",
     maxPhotos: 0,
     maxVideos: 0,
     maxAudios: 0,
-    stripePriceIdEnv: "STRIPE_PRICE_PHOTOSTRIP_200",
-    product: "photostrip",
     maxStrips: 200,
+    stripePriceIdEnv: "STRIPE_PRICE_PHOTOSTRIP_200",
+    stripePriceId: "price_1UFKFJ5qbMQlPRrsuq98Poc9",
+    product: "photostrip",
   },
   photostrip_unlimited: {
     id: "photostrip_unlimited",
-    label: "Photostrip · Tiras ilimitadas",
+    label: "Photostrip · Ilimitado",
     maxPhotos: 0,
     maxVideos: 0,
     maxAudios: 0,
-    stripePriceIdEnv: "STRIPE_PRICE_PHOTOSTRIP_UNLIMITED",
-    product: "photostrip",
     maxStrips: null,
+    stripePriceIdEnv: "STRIPE_PRICE_PHOTOSTRIP_UNLIMITED",
+    stripePriceId: "price_1UFKFN5qbMQlPRrssDdJRou3",
+    product: "photostrip",
   },
+};
+
+export const getPlanPriceId = (plan: PlanConfig, livemode = true) => {
+  const suffix = livemode ? "" : "_TEST";
+  return Deno.env.get(`${plan.stripePriceIdEnv}${suffix}`) ?? (livemode ? plan.stripePriceId : undefined) ?? null;
 };
 
 export const getPlanById = (planId: string | null | undefined): PlanConfig | null => {
@@ -133,7 +142,7 @@ export const getPlanByPriceId = (priceId: string | null | undefined, livemode = 
   const suffix = livemode ? "" : "_TEST";
   return (
     Object.values(PLANS).find(
-      (plan) => Deno.env.get(`${plan.stripePriceIdEnv}${suffix}`) === priceId,
+      (plan) => (Deno.env.get(`${plan.stripePriceIdEnv}${suffix}`) ?? (livemode ? plan.stripePriceId : undefined)) === priceId,
     ) ?? null
   );
 };

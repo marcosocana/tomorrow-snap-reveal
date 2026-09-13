@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-import { getPlanById } from "../_shared/planConfig.ts";
+import { getPlanById, getPlanPriceId } from "../_shared/planConfig.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
@@ -29,6 +29,13 @@ const normalizeTableCount = (value: unknown) => {
   const count = Number(value);
   if (!Number.isFinite(count)) return null;
   return Math.max(1, Math.min(999, Math.floor(count)));
+};
+
+const checkoutTrackingLabel = () => {
+  const alphabet = "abcdefghijklmnopqrstuvwxyz";
+  const values = new Uint8Array(8);
+  crypto.getRandomValues(values);
+  return `revelao_${Array.from(values, (value) => alphabet[value % alphabet.length]).join("")}`;
 };
 
 const fetchStripePrice = async (priceId: string) => {
@@ -84,6 +91,7 @@ serve(async (req) => {
 
     const params = new URLSearchParams();
     params.set("mode", "payment");
+    params.set("integration_identifier", checkoutTrackingLabel());
 
     if (userEmail) {
       params.set("customer_email", userEmail);
@@ -142,16 +150,18 @@ serve(async (req) => {
         return json({ error: "INVALID_PLAN" }, 400);
       }
 
-      const priceId = Deno.env.get(plan.stripePriceIdEnv) ?? "";
+      const priceId = getPlanPriceId(plan);
       if (!priceId) {
         return json({ error: "MISSING_PRICE_ID" }, 500);
       }
 
-      const successPath = plan.product === "photostrip"
-        ? "/admin/photostrip/new?checkout=success"
-        : "/?checkout=success";
-      params.set("success_url", `${APP_ORIGIN}${successPath}`);
-      params.set("cancel_url", `${APP_ORIGIN}/?checkout=cancel`);
+      const isPhotostrip = plan.product === "photostrip";
+      params.set("success_url", isPhotostrip
+        ? `${APP_ORIGIN}/event-management?product=photostrip&checkout=success`
+        : `${APP_ORIGIN}/?checkout=success`);
+      params.set("cancel_url", isPhotostrip
+        ? `${APP_ORIGIN}/event-management?product=photostrip&checkout=cancel`
+        : `${APP_ORIGIN}/?checkout=cancel`);
       params.append("line_items[0][price]", priceId);
       params.append("line_items[0][quantity]", "1");
       params.append("metadata[planId]", plan.id);

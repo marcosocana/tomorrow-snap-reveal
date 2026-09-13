@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Copy, Download, Eye, EyeOff, ExternalLink, Image as ImageIcon, Pencil, Trash2 } from "lucide-react";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { ArrowLeft, Copy, Download, Eye, EyeOff, ExternalLink, Image as ImageIcon, Pencil, ShoppingBag, Trash2 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { PhotostripPricingDialog } from "@/components/photostrip/PhotostripPricingDialog";
 
 type ManagedEvent = {
   id: string;
@@ -18,6 +19,8 @@ type ManagedEvent = {
   upload_end_time: string | null;
   timezone: string;
   owner_id: string | null;
+  is_demo?: boolean | null;
+  plan_id?: string | null;
 };
 
 type Config = {
@@ -31,6 +34,7 @@ type Config = {
   logo_path: string | null;
   logo_url: string | null;
   gallery_views: number;
+  max_strips?: number | null;
 };
 
 type AdminParticipation = {
@@ -66,6 +70,8 @@ const AdminHeader = ({ title }: { title: string }) => (
 export const PhotostripAdminForm = ({ edit = false }: { edit?: boolean }) => {
   const { eventId } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const redeemToken = edit ? null : searchParams.get("redeem")?.trim().toUpperCase() || null;
   const { toast } = useToast();
   const [loading, setLoading] = useState(edit);
   const [saving, setSaving] = useState(false);
@@ -83,6 +89,11 @@ export const PhotostripAdminForm = ({ edit = false }: { edit?: boolean }) => {
     void (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { navigate("/admin-login"); return; }
+      if (!edit && !redeemToken && user.email?.toLowerCase() !== "revelao.cam@gmail.com") {
+        toast({ title: "Elige un plan para crear tu Photostrip" });
+        navigate("/event-management?product=photostrip");
+        return;
+      }
       if (!edit || !eventId) { setLoading(false); return; }
       const { data: event, error: eventError } = await supabase.from("events").select("id,name,upload_start_time,upload_end_time,timezone,background_image_url").eq("id", eventId).single();
       const { data: config, error: configError } = await supabase.from("photostrip_event_configs").select("*").eq("event_id", eventId).single();
@@ -99,7 +110,7 @@ export const PhotostripAdminForm = ({ edit = false }: { edit?: boolean }) => {
       setBackgroundPreview(event.background_image_url || "");
       setLoading(false);
     })();
-  }, [edit, eventId, navigate, toast]);
+  }, [edit, eventId, navigate, redeemToken, toast]);
 
   useEffect(() => () => {
     if (backgroundPreview.startsWith("blob:")) URL.revokeObjectURL(backgroundPreview);
@@ -119,6 +130,7 @@ export const PhotostripAdminForm = ({ edit = false }: { edit?: boolean }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("UNAUTHORIZED");
       let targetId = eventId;
+      let createdWithPurchase = false;
       const eventValues = {
         name: form.name.trim(), upload_start_time: startsAt.toISOString(), upload_end_time: endsAt.toISOString(),
         reveal_time: endsAt.toISOString(), timezone: form.timezone, type: "photostrip", plan_id: "photostrip",
@@ -127,6 +139,25 @@ export const PhotostripAdminForm = ({ edit = false }: { edit?: boolean }) => {
       };
       if (edit && eventId) {
         const { error } = await supabase.from("events").update(eventValues).eq("id", eventId); if (error) throw error;
+      } else if (redeemToken) {
+        const { data, error } = await supabase.functions.invoke("redeem-create-photostrip", {
+          body: {
+            token: redeemToken,
+            event: eventValues,
+            config: {
+              slug: form.slug,
+              enabled: form.enabled,
+              photo_mode: form.photoMode,
+              gallery_visibility: form.galleryVisibility,
+              strip_display_name: form.stripDisplayName.trim() || null,
+              strip_footer_text: form.stripFooterText.trim() || null,
+              logo_url: form.logoUrl.trim() || DEFAULT_PHOTOSTRIP_LOGO_URL,
+            },
+          },
+        });
+        if (error || !data?.eventId) throw error || new Error("PURCHASE_REDEEM_FAILED");
+        targetId = data.eventId;
+        createdWithPurchase = true;
       } else {
         const { data, error } = await supabase.from("events").insert({ ...eventValues, owner_id: user.id, password_hash: `photostrip-${crypto.randomUUID()}` }).select("id").single();
         if (error || !data) throw error || new Error("CREATE_FAILED");
@@ -158,7 +189,9 @@ export const PhotostripAdminForm = ({ edit = false }: { edit?: boolean }) => {
         ...(logoPath ? { logo_path: logoPath } : {}),
       };
       const query = supabase.from("photostrip_event_configs");
-      const { error: configError } = edit ? await query.update(configValues).eq("event_id", targetId) : await query.insert({ event_id: targetId, ...configValues });
+      const { error: configError } = edit || createdWithPurchase
+        ? await query.update(configValues).eq("event_id", targetId)
+        : await query.insert({ event_id: targetId, ...configValues });
       if (configError) throw configError;
       toast({ title: edit ? "Photostrip actualizado" : "Photostrip creado" });
       navigate(`/admin/photostrip/${targetId}`);
@@ -199,11 +232,12 @@ export const PhotostripAdminDetail = () => {
   const [hasMore, setHasMore] = useState(false);
   const [metrics, setMetrics] = useState<AdminMetrics>({ participations: 0, completed: 0, incomplete: 0, downloads: 0, latest: null });
   const [loading, setLoading] = useState(true);
+  const [pricingOpen, setPricingOpen] = useState(false);
 
   const load = useCallback(async (nextPage = 0, append = false) => {
     const { data: auth } = await supabase.auth.getUser();
     if (!auth.user) { navigate("/admin-login"); return; }
-    const { data: eventData, error: eventError } = await supabase.from("events").select("id,name,upload_start_time,upload_end_time,timezone,owner_id").eq("id", eventId).single();
+    const { data: eventData, error: eventError } = await supabase.from("events").select("id,name,upload_start_time,upload_end_time,timezone,owner_id,is_demo,plan_id").eq("id", eventId).single();
     const { data: configData, error: configError } = await supabase.from("photostrip_event_configs").select("*").eq("event_id", eventId).single();
     if (eventError || configError || !eventData || !configData) { toast({ title: "Photostrip no encontrado", variant: "destructive" }); navigate("/event-management"); return; }
     setEvent(eventData as ManagedEvent); setConfig(configData as Config);
@@ -252,15 +286,16 @@ export const PhotostripAdminDetail = () => {
   const url = publicUrl(config.slug);
   const now = Date.now();
   const eventStatus = !config.enabled ? "Pausado" : event.upload_start_time && now < new Date(event.upload_start_time).getTime() ? "Próximo" : event.upload_end_time && now > new Date(event.upload_end_time).getTime() ? "Finalizado" : "Activo";
+  const isDemo = Boolean(event.is_demo || event.plan_id === "photostrip-demo");
   return <div className="min-h-screen overflow-x-hidden bg-muted/20"><AdminHeader title={event.name} /><main className="mx-auto max-w-6xl space-y-6 p-4 py-8">
-    <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm text-muted-foreground">{eventStatus} · /photostrip/{config.slug}</p></div><div className="flex gap-2"><Button variant="outline" onClick={() => navigate(`/admin/photostrip/${event.id}/edit`)}><Pencil className="mr-2 h-4 w-4" />Editar</Button><Button asChild><a href={url} target="_blank" rel="noreferrer"><ExternalLink className="mr-2 h-4 w-4" />Abrir</a></Button></div></div>
+    <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm text-muted-foreground">{eventStatus} · /photostrip/{config.slug}</p></div><div className="flex flex-wrap gap-2">{isDemo ? <Button className="rounded-full bg-[#f06a5f] text-white hover:bg-[#dc5b51]" onClick={() => setPricingOpen(true)}><ShoppingBag className="mr-2 h-4 w-4" />Crear Photostrip</Button> : null}<Button variant="outline" onClick={() => navigate(`/admin/photostrip/${event.id}/edit`)}><Pencil className="mr-2 h-4 w-4" />Editar</Button><Button asChild><a href={url} target="_blank" rel="noreferrer"><ExternalLink className="mr-2 h-4 w-4" />Abrir</a></Button></div></div>
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">{[["Participaciones", metrics.participations], ["Tiras creadas", metrics.completed], ["Incompletas", metrics.incomplete], ["Descargas", metrics.downloads], ["Visitas galería", config.gallery_views], ["Última participación", metrics.latest ? new Date(metrics.latest).toLocaleDateString("es-ES") : "—"]].map(([label, value]) => <Card key={label} className="p-5"><p className="text-sm text-muted-foreground">{label}</p><p className="mt-1 text-2xl font-semibold">{value}</p></Card>)}</div>
     <Card className="grid gap-6 p-5 md:grid-cols-[180px_1fr] md:p-7"><div ref={qrRef} className="w-fit rounded-lg bg-white p-3"><QRCodeSVG value={url} size={150} level="H" includeMargin /></div><div className="space-y-4"><div><h2 className="font-semibold">Acceso del evento</h2><p className="break-all text-sm text-muted-foreground">{url}</p><p className="mt-2 text-sm text-muted-foreground">{event.upload_start_time ? formatInTimeZone(new Date(event.upload_start_time), event.timezone, "dd/MM/yyyy HH:mm") : "—"} – {event.upload_end_time ? formatInTimeZone(new Date(event.upload_end_time), event.timezone, "dd/MM/yyyy HH:mm") : "—"} · {event.timezone}</p></div><div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => void copyUrl()}><Copy className="mr-2 h-4 w-4" />Copiar URL</Button><Button variant="outline" onClick={downloadPng}><Download className="mr-2 h-4 w-4" />QR PNG</Button><Button variant="outline" onClick={downloadSvg}><Download className="mr-2 h-4 w-4" />QR SVG</Button></div></div></Card>
     <section><div className="mb-4 flex items-end justify-between"><div><h2 className="text-xl font-semibold">Galería y moderación</h2><p className="text-sm text-muted-foreground">Se actualiza en tiempo real.</p></div><Button variant="outline" size="sm" onClick={() => void load()}>Actualizar</Button></div>
       {items.length === 0 ? <Card className="p-10 text-center text-muted-foreground"><ImageIcon className="mx-auto mb-3" />Todavía no hay participaciones.</Card> : <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{items.map((item) => <Card key={item.id} className={`overflow-hidden ${item.removed ? "opacity-55" : ""}`}><div className="aspect-[1/1.8] bg-muted">{item.thumbnailUrl ? <img src={item.thumbnailUrl} alt={`Tira de ${item.guestLabel}`} className="h-full w-full object-contain" loading="lazy" /> : <div className="grid h-full place-items-center text-sm text-muted-foreground">{item.removed ? "Eliminada" : item.status}</div>}</div><div className="space-y-3 p-4"><div className="flex justify-between"><div><p className="font-medium">{item.guestLabel}</p><p className="text-xs text-muted-foreground">{item.completedAt ? new Date(item.completedAt).toLocaleString("es-ES") : item.status}</p></div><span className="text-xs uppercase">{item.mode}</span></div>{!item.removed ? <div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={() => void mutate("admin-visibility", item)}>{item.isVisible ? <EyeOff className="mr-1 h-4 w-4" /> : <Eye className="mr-1 h-4 w-4" />}{item.isVisible ? "Ocultar" : "Mostrar"}</Button>{item.stripUrl ? <Button size="sm" variant="outline" onClick={() => void downloadPhotostrip(item.stripUrl!, config.slug)}><Download className="h-4 w-4" /></Button> : null}<Button size="sm" variant="destructive" onClick={() => void mutate("admin-delete", item)}><Trash2 className="h-4 w-4" /></Button></div> : null}</div></Card>)}</div>}
       {hasMore ? <div className="mt-5 text-center"><Button variant="outline" onClick={() => void load(page + 1, true)}>Cargar más</Button></div> : null}
     </section>
-  </main></div>;
+  </main><PhotostripPricingDialog open={pricingOpen} onOpenChange={setPricingOpen} /></div>;
 };
 
 type PhotostripDashboardEvent = {
@@ -278,11 +313,12 @@ type PhotostripDashboardEvent = {
 
 export const PhotostripDashboardSection = ({ events }: { events: PhotostripDashboardEvent[] }) => {
   const navigate = useNavigate();
-  if (!events.length) return <Card className="p-12 text-center"><ImageIcon className="mx-auto mb-4 h-12 w-12 text-muted-foreground" /><p className="font-medium">Todavía no tienes ningún Photostrip</p><p className="mt-1 text-sm text-muted-foreground">Crea tu primer fotomatón móvil.</p><Button asChild className="mt-5"><Link to="/admin/photostrip/new">Crear Photostrip</Link></Button></Card>;
+  const [pricingOpen, setPricingOpen] = useState(false);
+  if (!events.length) return <><Card className="p-12 text-center"><ImageIcon className="mx-auto mb-4 h-12 w-12 text-muted-foreground" /><p className="font-medium">Todavía no tienes ningún Photostrip</p><p className="mt-1 text-sm text-muted-foreground">Crea tu primer fotomatón móvil.</p><Button className="mt-5" onClick={() => setPricingOpen(true)}>Crear Photostrip</Button></Card><PhotostripPricingDialog open={pricingOpen} onOpenChange={setPricingOpen} /></>;
 
   return (
     <Card className="space-y-4 p-4">
-      <div className="flex items-center justify-between gap-3 border-b pb-3"><div><p className="text-sm font-semibold">Vista de eventos</p><p className="text-xs text-muted-foreground">Photostrip creados y demos.</p></div><Button asChild size="sm"><Link to="/admin/photostrip/new">Crear Photostrip</Link></Button></div>
+      <div className="flex items-center justify-between gap-3 border-b pb-3"><div><p className="text-sm font-semibold">Vista de eventos</p><p className="text-xs text-muted-foreground">Photostrip creados y demos.</p></div><Button size="sm" onClick={() => setPricingOpen(true)}>Crear Photostrip</Button></div>
       <div className="overflow-x-auto">
         <table className="min-w-[980px] w-full text-sm">
           <thead><tr className="border-b text-left text-muted-foreground"><th className="py-3 pr-4 font-medium">ID</th><th className="py-3 pr-4 font-medium">Evento</th><th className="py-3 pr-4 font-medium">Tipo</th><th className="py-3 pr-4 font-medium">Creación</th><th className="py-3 pr-4 font-medium">Email</th><th className="py-3 pr-4 font-medium">Estado</th><th className="py-3 pr-4 font-medium">Tiras</th><th className="py-3 pr-4 font-medium">Inicio</th><th className="py-3 font-medium">Fin</th></tr></thead>
@@ -293,10 +329,12 @@ export const PhotostripDashboardSection = ({ events }: { events: PhotostripDashb
             const status = upcoming ? "Próximo" : finished ? "Finalizado" : "En curso";
             const timezone = event.timezone || "Europe/Madrid";
             const isDemo = Boolean(event.is_demo || event.plan_id === "photostrip-demo");
-            return <tr key={event.id} role="link" tabIndex={0} className="cursor-pointer border-b transition-colors hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none last:border-0" onClick={() => navigate(`/admin/photostrip/${event.id}`)} onKeyDown={(keyboardEvent) => { if (keyboardEvent.key === "Enter") navigate(`/admin/photostrip/${event.id}`); }}><td className="py-3 pr-4 text-muted-foreground">{event.event_number ?? "—"}</td><td className="py-3 pr-4 font-medium">{event.name}</td><td className="py-3 pr-4"><span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${isDemo ? "bg-amber-100 text-amber-800" : "bg-rose-100 text-rose-800"}`}>{isDemo ? "DEMO" : "PHOTOSTRIP"}</span></td><td className="py-3 pr-4">{event.created_at ? new Date(event.created_at).toLocaleDateString("es-ES") : "—"}</td><td className="max-w-[190px] truncate py-3 pr-4">{event.owner_email || "—"}</td><td className="py-3 pr-4">{status}</td><td className="py-3 pr-4">{isDemo ? "3" : "Ilimitadas"}</td><td className="py-3 pr-4">{event.upload_start_time ? formatInTimeZone(new Date(event.upload_start_time), timezone, "dd/MM/yyyy HH:mm") : "—"}</td><td className="py-3">{event.upload_end_time ? formatInTimeZone(new Date(event.upload_end_time), timezone, "dd/MM/yyyy HH:mm") : "—"}</td></tr>;
+            const stripLimit = isDemo ? "3" : event.plan_id === "photostrip_100" ? "100" : event.plan_id === "photostrip_200" ? "200" : "Ilimitadas";
+            return <tr key={event.id} role="link" tabIndex={0} className="cursor-pointer border-b transition-colors hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none last:border-0" onClick={() => navigate(`/admin/photostrip/${event.id}`)} onKeyDown={(keyboardEvent) => { if (keyboardEvent.key === "Enter") navigate(`/admin/photostrip/${event.id}`); }}><td className="py-3 pr-4 text-muted-foreground">{event.event_number ?? "—"}</td><td className="py-3 pr-4 font-medium">{event.name}</td><td className="py-3 pr-4"><span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${isDemo ? "bg-amber-100 text-amber-800" : "bg-rose-100 text-rose-800"}`}>{isDemo ? "DEMO" : "PHOTOSTRIP"}</span></td><td className="py-3 pr-4">{event.created_at ? new Date(event.created_at).toLocaleDateString("es-ES") : "—"}</td><td className="max-w-[190px] truncate py-3 pr-4">{event.owner_email || "—"}</td><td className="py-3 pr-4">{status}</td><td className="py-3 pr-4">{stripLimit}</td><td className="py-3 pr-4">{event.upload_start_time ? formatInTimeZone(new Date(event.upload_start_time), timezone, "dd/MM/yyyy HH:mm") : "—"}</td><td className="py-3">{event.upload_end_time ? formatInTimeZone(new Date(event.upload_end_time), timezone, "dd/MM/yyyy HH:mm") : "—"}</td></tr>;
           })}</tbody>
         </table>
       </div>
+      <PhotostripPricingDialog open={pricingOpen} onOpenChange={setPricingOpen} />
     </Card>
   );
 };

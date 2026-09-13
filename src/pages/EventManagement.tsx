@@ -37,6 +37,7 @@ import { TimeCapsuleCheckoutPlans } from "@/components/TimeCapsuleCheckoutPlans"
 import { TIME_CAPSULE_REDEEM_PLANS, type TimeCapsuleRedeemPlanId } from "@/lib/timeCapsule";
 import type { Session } from "@supabase/supabase-js";
 import { PhotostripDashboardSection } from "@/pages/PhotostripAdmin";
+import { PhotostripPricingDialog } from "@/components/photostrip/PhotostripPricingDialog";
 import {
   eventManagementViewFromLocationState,
   saveEventManagementReturnView,
@@ -302,6 +303,7 @@ const EventManagement = () => {
   const [pricingOpen, setPricingOpen] = useState(false);
   const [captainsCheckoutOpen, setCaptainsCheckoutOpen] = useState(false);
   const [capsuleCheckoutOpen, setCapsuleCheckoutOpen] = useState(false);
+  const [photostripCheckoutOpen, setPhotostripCheckoutOpen] = useState(false);
   const [pricingStep, setPricingStep] = useState<"plans" | "redeem">("plans");
   const [redeemCode, setRedeemCode] = useState("");
   const [redeemError, setRedeemError] = useState<string | null>(null);
@@ -311,7 +313,10 @@ const EventManagement = () => {
     product: ProductSection;
   } | null>(null);
   const [adminSearch, setAdminSearch] = useState(restoredView?.adminSearch ?? "");
-  const [activeProduct, setActiveProduct] = useState<ProductSection>(restoredView?.activeProduct ?? "revelao");
+  const [activeProduct, setActiveProduct] = useState<ProductSection>(() => {
+    const requestedProduct = new URLSearchParams(location.search).get("product");
+    return requestedProduct === "photostrip" ? "photostrip" : restoredView?.activeProduct ?? "revelao";
+  });
   const [productAction, setProductAction] = useState<ProductAction | null>(null);
   const [adminTypeFilter, setAdminTypeFilter] = useState<"all" | "Demo" | "Start" | "Plus" | "Pro">(restoredView?.adminTypeFilter ?? "all");
   const [adminPhoneFilter, setAdminPhoneFilter] = useState<"all" | "yes" | "no">(restoredView?.adminPhoneFilter ?? "all");
@@ -356,11 +361,27 @@ const EventManagement = () => {
   } | null>(null);
   const didChooseInitialProduct = useRef(Boolean(restoredView));
   const skipInitialPaginationReset = useRef(Boolean(restoredView));
+  const checkoutNoticeHandled = useRef(false);
   
   // Dialogs
 
   const { toast } = useToast();
   const { t, dateLocale, pathPrefix } = useAdminI18n();
+
+  useEffect(() => {
+    if (checkoutNoticeHandled.current) return;
+    const params = new URLSearchParams(location.search);
+    const checkout = params.get("checkout");
+    if (!checkout || params.get("product") !== "photostrip") return;
+    checkoutNoticeHandled.current = true;
+    if (checkout === "success") {
+      toast({ title: "¡Gracias por tu compra!", description: "Te hemos enviado por email el enlace para crear tu Photostrip." });
+    } else if (checkout === "cancel") {
+      toast({ title: "Pago cancelado", description: "No se ha realizado ningún cargo." });
+    }
+    params.delete("checkout");
+    window.history.replaceState(window.history.state, "", `${location.pathname}?${params.toString()}`);
+  }, [location.pathname, location.search, toast]);
 
   const currentEventManagementView = (): EventManagementViewState => ({
     activeProduct,
@@ -392,7 +413,8 @@ const EventManagement = () => {
 
     if (action === "new") {
       if (product === "photostrip") {
-        navigate("/admin/photostrip/new");
+        if (isSuperAdmin) navigate("/admin/photostrip/new");
+        else setPhotostripCheckoutOpen(true);
       }
       else if (product === "captains") {
         if (isSuperAdmin) navigate("/admin/capitanes/onboarding");
@@ -2939,6 +2961,8 @@ const EventManagement = () => {
           <TimeCapsuleCheckoutPlans customerEmail={currentUserEmail} />
         </DialogContent>
       </Dialog>
+
+      <PhotostripPricingDialog open={photostripCheckoutOpen} onOpenChange={setPhotostripCheckoutOpen} />
 
       <Dialog
         open={productAction !== null}

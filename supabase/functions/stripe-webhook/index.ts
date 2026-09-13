@@ -186,10 +186,8 @@ const fulfillPaidSession = async (
   }
   if (!plan) throw new Error("UNKNOWN_PLAN");
 
-  const isPhotostrip = plan.product === "photostrip";
   const redeemToken = generateRedeemToken(16);
-  const redeemDays = isPhotostrip ? 30 : 7;
-  const redeemExpiresAt = new Date(Date.now() + redeemDays * 24 * 60 * 60_000).toISOString();
+  const redeemExpiresAt = new Date(Date.now() + (plan.product === "photostrip" ? 30 : 7) * 24 * 60 * 60_000).toISOString();
   const purchase = await ensurePurchase(admin, {
     user_id: userId,
     user_email: userEmail,
@@ -199,10 +197,8 @@ const fulfillPaidSession = async (
     redeem_token_expires_at: redeemExpiresAt,
   });
   const finalToken = purchase.redeem_token;
-
-  if (isPhotostrip) {
-    const onboardingPath = `/admin/photostrip/new?redeem=${encodeURIComponent(finalToken)}`;
-    const onboardingUrl = `${APP_ORIGIN}/admin-login?email=${encodeURIComponent(userEmail)}&redirect=${encodeURIComponent(onboardingPath)}`;
+  if (plan.product === "photostrip") {
+    const createPath = `/admin/photostrip/new?redeem=${encodeURIComponent(finalToken)}`;
     await enqueueEmail(admin, {
       stripe_event_id: event.id,
       stripe_session_id: session.id,
@@ -210,15 +206,14 @@ const fulfillPaidSession = async (
       email_type: "photostrip_purchase",
       recipient: userEmail,
       payload: {
-        onboardingUrl,
-        planLabel: plan.label,
-        maxStrips: plan.maxStrips ?? null,
+        onboardingUrl: `${APP_ORIGIN}/admin-login?email=${encodeURIComponent(userEmail)}&redirect=${encodeURIComponent(createPath)}`,
         redeemCode: finalToken,
+        planLabel: plan.label,
+        maxStrips: plan.maxStrips,
       },
     });
     return "photostrip_enqueued";
   }
-
   const capsulePath = `/event-form?product=capsule&redeem=${encodeURIComponent(finalToken)}`;
   const redeemUrl = plan.product === "capsule"
     ? `${APP_ORIGIN}/admin-login?email=${encodeURIComponent(userEmail)}&redirect=${encodeURIComponent(capsulePath)}`

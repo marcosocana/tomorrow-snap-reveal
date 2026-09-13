@@ -21,6 +21,8 @@ assert(webhook.includes("stripe.customers.retrieve"), "Customer email fallback i
 assert(webhook.includes('throw new Error("CUSTOMER_EMAIL_NOT_FOUND")'), "Missing emails can still be silently accepted");
 assert(webhook.includes('email_type: "captains_purchase"'), "Captains purchase email is not queued");
 assert(webhook.includes('email_type: "revelao_purchase"'), "Revelao purchase email is not queued");
+assert(webhook.includes('email_type: "photostrip_purchase"'), "Photostrip purchase email is not queued");
+assert(sender.includes('job.email_type === "photostrip_purchase"'), "Photostrip purchase email template is missing");
 assert(!webhook.includes("api.resend.com/emails"), "Webhook still sends email inline instead of using the durable outbox");
 
 assert(migration.includes("UNIQUE (stripe_session_id, email_type)"), "Outbox does not prevent duplicate purchase emails");
@@ -35,4 +37,4 @@ assert(sender.includes("provider" ) || worker.includes("provider_message_id"), "
 assert(worker.includes('status: "sent"'), "Successful deliveries are not marked sent");
 assert(worker.includes('dead ? "dead" : "pending"'), "Failed deliveries do not retry or terminate");
 
-console.log("Stripe purchase email audit passed: signature, both products, async payments, idempotency, retries and observability are covered.");
+console.log("Stripe purchase email audit passed: signature, all products, async payments, idempotency, retries and observability are covered.");

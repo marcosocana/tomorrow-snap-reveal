@@ -16,6 +16,10 @@ const demoFunction = read("supabase/functions/create-photostrip-demo/index.ts");
 const demoPage = read("src/pages/NewPhotostripDemo.tsx");
 const demoEmail = read("supabase/functions/send-demo-event-email/index.ts");
 const styles = read("src/index.css");
+const checkout = read("supabase/functions/stripe-create-checkout-session/index.ts");
+const plans = read("supabase/functions/_shared/planConfig.ts");
+const redeem = read("supabase/functions/redeem-create-photostrip/index.ts");
+const pricing = read("src/components/photostrip/PhotostripPricingDialog.tsx");
 
 for (const route of [
   "/photostrip/:eventSlug",
@@ -52,6 +56,11 @@ expect("no microphone request", publicPage.includes("audio: false") && !publicPa
 expect("demo creation is limited to three strips", demoFunction.includes("max_strips: 3") && demoMigration.includes("PHOTOSTRIP_LIMIT_REACHED"));
 expect("demo limit is claimed atomically", api.includes('rpc("claim_photostrip_participation"') && demoMigration.includes("FOR UPDATE"));
 expect("regular Photostrips remain unlimited", demoMigration.includes("ADD COLUMN IF NOT EXISTS max_strips integer") && demoMigration.includes("max_strips IS NULL"));
+expect("pricing modal matches public prices", pricing.includes("price: 29") && pricing.includes("price: 49") && pricing.includes("price: 79"));
+expect("paid plans map to Stripe prices", ["photostrip_100", "photostrip_200", "photostrip_unlimited"].every((id) => plans.includes(id)) && checkout.includes("getPlanPriceId"));
+expect("paid Photostrip creation redeems purchase", redeem.includes('plan.product !== "photostrip"') && redeem.includes('status: "redeemed"') && redeem.includes("max_strips: plan.maxStrips"));
+expect("paid creation is tied to the buyer", redeem.includes("ACCOUNT_MISMATCH") && redeem.includes("purchase.user_id !== user.id"));
+expect("Photostrip public shell follows Captains visual language", styles.includes("box-shadow: 8px 8px 0 var(--ps-ink)") && styles.includes("background: var(--ps-red)") && styles.includes("border-radius: 999px"));
 expect("Revelao logo is the default", demoFunction.includes("LogoMiniRevelao.svg") && demoMigration.includes("ALTER COLUMN logo_url SET DEFAULT"));
 expect("cover image reaches the public experience", api.includes("coverImageUrl: event.background_image_url") && publicPage.includes("event.coverImageUrl"));
 expect("result links to guest gallery", publicPage.includes("VER FOTOS DE OTROS INVITADOS"));

@@ -64,3 +64,24 @@ Deno.test("Captains email contains the purchased configuration and onboarding li
   assertStringIncludes(body.html, "Mesas:</strong> 12");
   assertStringIncludes(body.html, "Pack Capitán:</strong> Sí");
 });
+
+Deno.test("Photostrip email contains its creation link, plan and limit", async () => {
+  const { request } = await withMockFetch({
+    id: "job_3",
+    stripe_session_id: "cs_test_photostrip",
+    email_type: "photostrip_purchase",
+    recipient: "photostrip@example.com",
+    attempts: 1,
+    payload: {
+      onboardingUrl: "https://acceso.revelao.cam/admin-login?redirect=%2Fadmin%2Fphotostrip%2Fnew%3Fredeem%3DPHOTO123",
+      redeemCode: "PHOTO123",
+      planLabel: "Photostrip · Pack 100",
+      maxStrips: 100,
+    },
+  });
+  const body = await request.json();
+  assertEquals(request.headers.get("Idempotency-Key"), "stripe-cs_test_photostrip-photostrip_purchase");
+  assertStringIncludes(body.subject, "Photostrip");
+  assertStringIncludes(body.html, "Hasta 100 tiras");
+  assertStringIncludes(body.html, "PHOTO123");
+});
