@@ -100,7 +100,7 @@ const enqueueEmail = async (
     stripe_event_id: string;
     stripe_session_id: string;
     purchase_id: string;
-    email_type: "revelao_purchase" | "captains_purchase";
+    email_type: "revelao_purchase" | "captains_purchase" | "photostrip_purchase";
     recipient: string;
     payload: Record<string, unknown>;
   },
