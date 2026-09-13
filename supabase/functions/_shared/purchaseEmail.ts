@@ -1,4 +1,4 @@
-export type PurchaseEmailType = "revelao_purchase" | "captains_purchase";
+export type PurchaseEmailType = "revelao_purchase" | "captains_purchase" | "photostrip_purchase";
 
 export type PurchaseEmailJob = {
   id: string;
@@ -55,6 +55,27 @@ const renderEmail = (job: PurchaseEmailJob, logoUrl: string) => {
         <p style="text-align:center;"><a href="${escapeHtml(onboardingUrl)}" style="display:inline-block;background:#f06a5f;color:#fff;padding:12px 24px;border-radius:999px;text-decoration:none;font-weight:700;">Crear mi juego de Capitanes</a></p>
         <div style="background:#f5f5f5;border-radius:12px;padding:16px;margin:20px 0;text-align:center;">
           <p style="font-size:13px;color:#777;">Código de acceso</p><p style="font-size:22px;font-weight:800;letter-spacing:3px;">${escapeHtml(job.payload.creationCode)}</p>
+        </div></div>`,
+    };
+  }
+
+  if (job.email_type === "photostrip_purchase") {
+    const onboardingUrl = safeUrl(job.payload.onboardingUrl);
+    const maxStrips = job.payload.maxStrips === null || job.payload.maxStrips === undefined
+      ? null
+      : Math.max(1, Math.floor(Number(job.payload.maxStrips)));
+    return {
+      subject: "Tu enlace para crear tu Photostrip",
+      html: `<div style="font-family:sans-serif;max-width:520px;margin:auto;padding:24px;">
+        ${logo}<h2 style="text-align:center;">Tu Photostrip ya está listo</h2>
+        <p style="text-align:center;color:#444;">Inicia sesión con la misma cuenta con la que has realizado la compra y crea tu Photostrip.</p>
+        <div style="background:#f5f5f5;border-radius:12px;padding:16px;margin:20px 0;">
+          <p><strong>Plan:</strong> ${escapeHtml(job.payload.planLabel)}</p>
+          <p><strong>Tiras incluidas:</strong> ${maxStrips === null ? "Sin límite" : maxStrips}</p>
+        </div>
+        <p style="text-align:center;"><a href="${escapeHtml(onboardingUrl)}" style="display:inline-block;background:#f06a5f;color:#fff;padding:12px 24px;border-radius:999px;text-decoration:none;font-weight:700;">Crear mi Photostrip</a></p>
+        <div style="background:#f5f5f5;border-radius:12px;padding:16px;margin:20px 0;text-align:center;">
+          <p style="font-size:13px;color:#777;">Código de creación</p><p style="font-size:22px;font-weight:800;letter-spacing:3px;">${escapeHtml(job.payload.redeemCode)}</p>
         </div></div>`,
     };
   }

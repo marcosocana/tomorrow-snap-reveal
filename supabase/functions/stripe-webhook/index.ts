@@ -100,7 +100,7 @@ const enqueueEmail = async (
     stripe_event_id: string;
     stripe_session_id: string;
     purchase_id: string;
-    email_type: "revelao_purchase" | "captains_purchase";
+    email_type: "revelao_purchase" | "captains_purchase" | "photostrip_purchase";
     recipient: string;
     payload: Record<string, unknown>;
   },
@@ -186,8 +186,10 @@ const fulfillPaidSession = async (
   }
   if (!plan) throw new Error("UNKNOWN_PLAN");
 
+  const isPhotostrip = plan.product === "photostrip";
   const redeemToken = generateRedeemToken(16);
-  const redeemExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60_000).toISOString();
+  const redeemDays = isPhotostrip ? 30 : 7;
+  const redeemExpiresAt = new Date(Date.now() + redeemDays * 24 * 60 * 60_000).toISOString();
   const purchase = await ensurePurchase(admin, {
     user_id: userId,
     user_email: userEmail,
@@ -197,6 +199,26 @@ const fulfillPaidSession = async (
     redeem_token_expires_at: redeemExpiresAt,
   });
   const finalToken = purchase.redeem_token;
+
+  if (isPhotostrip) {
+    const onboardingPath = `/admin/photostrip/new?redeem=${encodeURIComponent(finalToken)}`;
+    const onboardingUrl = `${APP_ORIGIN}/admin-login?email=${encodeURIComponent(userEmail)}&redirect=${encodeURIComponent(onboardingPath)}`;
+    await enqueueEmail(admin, {
+      stripe_event_id: event.id,
+      stripe_session_id: session.id,
+      purchase_id: purchase.id,
+      email_type: "photostrip_purchase",
+      recipient: userEmail,
+      payload: {
+        onboardingUrl,
+        planLabel: plan.label,
+        maxStrips: plan.maxStrips ?? null,
+        redeemCode: finalToken,
+      },
+    });
+    return "photostrip_enqueued";
+  }
+
   const capsulePath = `/event-form?product=capsule&redeem=${encodeURIComponent(finalToken)}`;
   const redeemUrl = plan.product === "capsule"
     ? `${APP_ORIGIN}/admin-login?email=${encodeURIComponent(userEmail)}&redirect=${encodeURIComponent(capsulePath)}`

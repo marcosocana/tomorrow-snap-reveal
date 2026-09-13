@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.unlock-time-capsule]
 verify_jwt = false
+
+[functions.redeem-create-photostrip]
+verify_jwt = true

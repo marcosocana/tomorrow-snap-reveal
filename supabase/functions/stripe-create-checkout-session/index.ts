@@ -147,7 +147,10 @@ serve(async (req) => {
         return json({ error: "MISSING_PRICE_ID" }, 500);
       }
 
-      params.set("success_url", `${APP_ORIGIN}/?checkout=success`);
+      const successPath = plan.product === "photostrip"
+        ? "/admin/photostrip/new?checkout=success"
+        : "/?checkout=success";
+      params.set("success_url", `${APP_ORIGIN}${successPath}`);
       params.set("cancel_url", `${APP_ORIGIN}/?checkout=cancel`);
       params.append("line_items[0][price]", priceId);
       params.append("line_items[0][quantity]", "1");
