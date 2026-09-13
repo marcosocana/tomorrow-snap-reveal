@@ -6,7 +6,10 @@ export type PlanId =
   | "xxl"
   | "capsule_basic"
   | "capsule_pro"
-  | "capsule_unlimited";
+  | "capsule_unlimited"
+  | "photostrip_100"
+  | "photostrip_200"
+  | "photostrip_unlimited";
 
 export type PlanConfig = {
   id: PlanId;
@@ -15,7 +18,8 @@ export type PlanConfig = {
   maxVideos: number | null;
   maxAudios: number | null;
   stripePriceIdEnv: string;
-  product?: "revelao" | "capsule";
+  product?: "revelao" | "capsule" | "photostrip";
+  maxStrips?: number | null;
 };
 
 export const PLANS: Record<PlanId, PlanConfig> = {
@@ -85,6 +89,36 @@ export const PLANS: Record<PlanId, PlanConfig> = {
     maxAudios: 0,
     stripePriceIdEnv: "STRIPE_PRICE_CAPSULE_UNLIMITED",
     product: "capsule",
+  },
+  photostrip_100: {
+    id: "photostrip_100",
+    label: "Photostrip · 100 tiras",
+    maxPhotos: 0,
+    maxVideos: 0,
+    maxAudios: 0,
+    stripePriceIdEnv: "STRIPE_PRICE_PHOTOSTRIP_100",
+    product: "photostrip",
+    maxStrips: 100,
+  },
+  photostrip_200: {
+    id: "photostrip_200",
+    label: "Photostrip · 200 tiras",
+    maxPhotos: 0,
+    maxVideos: 0,
+    maxAudios: 0,
+    stripePriceIdEnv: "STRIPE_PRICE_PHOTOSTRIP_200",
+    product: "photostrip",
+    maxStrips: 200,
+  },
+  photostrip_unlimited: {
+    id: "photostrip_unlimited",
+    label: "Photostrip · Tiras ilimitadas",
+    maxPhotos: 0,
+    maxVideos: 0,
+    maxAudios: 0,
+    stripePriceIdEnv: "STRIPE_PRICE_PHOTOSTRIP_UNLIMITED",
+    product: "photostrip",
+    maxStrips: null,
   },
 };
 
