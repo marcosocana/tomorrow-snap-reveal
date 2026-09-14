@@ -1155,12 +1155,13 @@ const EventManagement = () => {
 
   useEffect(() => {
     if (selectedEventIds.size === 0) return;
-    const currentIds = new Set(superAdminEvents.map((event) => event.id));
+    const selectableEvents = activeProduct === "photostrip" ? photostripEvents : superAdminEvents;
+    const currentIds = new Set(selectableEvents.map((event) => event.id));
     const next = new Set(Array.from(selectedEventIds).filter((id) => currentIds.has(id)));
     if (next.size !== selectedEventIds.size) {
       setSelectedEventIds(next);
     }
-  }, [superAdminEvents, selectedEventIds]);
+  }, [activeProduct, photostripEvents, superAdminEvents, selectedEventIds]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -1201,7 +1202,7 @@ const EventManagement = () => {
   const handleDeleteSelection = async () => {
     const ids = Array.from(selectedEventIds);
     if (ids.length === 0) return;
-    const selectedEvents = superAdminEvents.filter((event) => ids.includes(event.id));
+    const selectedEvents = events.filter((event) => ids.includes(event.id));
     const lockedEvents = selectedEvents.filter((event) => isEventDeletionLocked(event));
 
     for (const event of lockedEvents) {
@@ -2303,7 +2304,19 @@ const EventManagement = () => {
         ) : null}
 
         {activeProduct === "photostrip" ? (
-          <PhotostripDashboardSection events={photostripEvents} />
+          <PhotostripDashboardSection
+            events={photostripEvents}
+            bulkActions={isSuperAdmin ? {
+              selectedIds: selectedEventIds,
+              onToggleSelection: toggleEventSelection,
+              onLockSelection: handleLockSelection,
+              onDeleteSelection: handleDeleteSelection,
+              isLocked: (eventId) => {
+                const event = photostripEvents.find((candidate) => candidate.id === eventId);
+                return event ? isEventDeletionLocked(event) : false;
+              },
+            } : undefined}
+          />
         ) : isSuperAdmin ? activeProduct === "captains" ? renderCaptainsAdminView() : (
           <Card className="p-4 space-y-4">
             <div className="flex items-center justify-between gap-3 border-b border-border pb-3">

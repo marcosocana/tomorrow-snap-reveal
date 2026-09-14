@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Copy, Download, Eye, EyeOff, ExternalLink, Image as ImageIcon, Pencil, ShoppingBag, Trash2 } from "lucide-react";
+import { ArrowLeft, Copy, Download, Eye, EyeOff, ExternalLink, Image as ImageIcon, Lock, Pencil, ShoppingBag, Trash2 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 import { supabase } from "@/integrations/supabase/client";
@@ -311,7 +311,15 @@ type PhotostripDashboardEvent = {
   owner_email?: string | null;
 };
 
-export const PhotostripDashboardSection = ({ events }: { events: PhotostripDashboardEvent[] }) => {
+type PhotostripBulkActions = {
+  selectedIds: Set<string>;
+  onToggleSelection: (eventId: string) => void;
+  onLockSelection: () => void | Promise<void>;
+  onDeleteSelection: () => void | Promise<void>;
+  isLocked: (eventId: string) => boolean;
+};
+
+export const PhotostripDashboardSection = ({ events, bulkActions }: { events: PhotostripDashboardEvent[]; bulkActions?: PhotostripBulkActions }) => {
   const navigate = useNavigate();
   const [pricingOpen, setPricingOpen] = useState(false);
   if (!events.length) return <><Card className="p-12 text-center"><ImageIcon className="mx-auto mb-4 h-12 w-12 text-muted-foreground" /><p className="font-medium">Todavía no tienes ningún Photostrip</p><p className="mt-1 text-sm text-muted-foreground">Crea tu primer fotomatón móvil.</p><Button className="mt-5" onClick={() => setPricingOpen(true)}>Crear Photostrip</Button></Card><PhotostripPricingDialog open={pricingOpen} onOpenChange={setPricingOpen} /></>;
@@ -319,9 +327,22 @@ export const PhotostripDashboardSection = ({ events }: { events: PhotostripDashb
   return (
     <Card className="space-y-4 p-4">
       <div className="flex items-center justify-between gap-3 border-b pb-3"><div><p className="text-sm font-semibold">Vista de eventos</p><p className="text-xs text-muted-foreground">Photostrip creados y demos.</p></div><Button size="sm" onClick={() => setPricingOpen(true)}>Crear Photostrip</Button></div>
+      {bulkActions && bulkActions.selectedIds.size > 0 ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-muted/50 px-3 py-2">
+          <p className="text-xs text-muted-foreground">{bulkActions.selectedIds.size} seleccionados</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" size="sm" className="gap-1" onClick={() => void bulkActions.onLockSelection()}>
+              <Lock className="h-4 w-4" /> Bloquear
+            </Button>
+            <Button variant="destructive" size="sm" onClick={() => void bulkActions.onDeleteSelection()}>
+              Eliminar selección
+            </Button>
+          </div>
+        </div>
+      ) : null}
       <div className="overflow-x-auto">
         <table className="min-w-[980px] w-full text-sm">
-          <thead><tr className="border-b text-left text-muted-foreground"><th className="py-3 pr-4 font-medium">ID</th><th className="py-3 pr-4 font-medium">Evento</th><th className="py-3 pr-4 font-medium">Tipo</th><th className="py-3 pr-4 font-medium">Creación</th><th className="py-3 pr-4 font-medium">Email</th><th className="py-3 pr-4 font-medium">Estado</th><th className="py-3 pr-4 font-medium">Tiras</th><th className="py-3 pr-4 font-medium">Inicio</th><th className="py-3 font-medium">Fin</th></tr></thead>
+          <thead><tr className="border-b text-left text-muted-foreground">{bulkActions ? <th className="w-10 py-3 pr-3 font-medium"> </th> : null}<th className="py-3 pr-4 font-medium">ID</th><th className="py-3 pr-4 font-medium">Evento</th><th className="py-3 pr-4 font-medium">Tipo</th><th className="py-3 pr-4 font-medium">Creación</th><th className="py-3 pr-4 font-medium">Email</th><th className="py-3 pr-4 font-medium">Estado</th><th className="py-3 pr-4 font-medium">Tiras</th><th className="py-3 pr-4 font-medium">Inicio</th><th className="py-3 font-medium">Fin</th></tr></thead>
           <tbody>{events.map((event) => {
             const now = Date.now();
             const upcoming = Boolean(event.upload_start_time && new Date(event.upload_start_time).getTime() > now);
@@ -330,7 +351,7 @@ export const PhotostripDashboardSection = ({ events }: { events: PhotostripDashb
             const timezone = event.timezone || "Europe/Madrid";
             const isDemo = Boolean(event.is_demo || event.plan_id === "photostrip-demo");
             const stripLimit = isDemo ? "3" : event.plan_id === "photostrip_100" ? "100" : event.plan_id === "photostrip_200" ? "200" : "Ilimitadas";
-            return <tr key={event.id} role="link" tabIndex={0} className="cursor-pointer border-b transition-colors hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none last:border-0" onClick={() => navigate(`/admin/photostrip/${event.id}`)} onKeyDown={(keyboardEvent) => { if (keyboardEvent.key === "Enter") navigate(`/admin/photostrip/${event.id}`); }}><td className="py-3 pr-4 text-muted-foreground">{event.event_number ?? "—"}</td><td className="py-3 pr-4 font-medium">{event.name}</td><td className="py-3 pr-4"><span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${isDemo ? "bg-amber-100 text-amber-800" : "bg-rose-100 text-rose-800"}`}>{isDemo ? "DEMO" : "PHOTOSTRIP"}</span></td><td className="py-3 pr-4">{event.created_at ? new Date(event.created_at).toLocaleDateString("es-ES") : "—"}</td><td className="max-w-[190px] truncate py-3 pr-4">{event.owner_email || "—"}</td><td className="py-3 pr-4">{status}</td><td className="py-3 pr-4">{stripLimit}</td><td className="py-3 pr-4">{event.upload_start_time ? formatInTimeZone(new Date(event.upload_start_time), timezone, "dd/MM/yyyy HH:mm") : "—"}</td><td className="py-3">{event.upload_end_time ? formatInTimeZone(new Date(event.upload_end_time), timezone, "dd/MM/yyyy HH:mm") : "—"}</td></tr>;
+            return <tr key={event.id} role="link" tabIndex={0} className="cursor-pointer border-b transition-colors hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none last:border-0" onClick={() => navigate(`/admin/photostrip/${event.id}`)} onKeyDown={(keyboardEvent) => { if (keyboardEvent.key === "Enter") navigate(`/admin/photostrip/${event.id}`); }}>{bulkActions ? <td className="py-3 pr-3"><input type="checkbox" checked={bulkActions.selectedIds.has(event.id)} onChange={() => bulkActions.onToggleSelection(event.id)} onClick={(clickEvent) => clickEvent.stopPropagation()} onKeyDown={(keyboardEvent) => keyboardEvent.stopPropagation()} aria-label={`Seleccionar ${event.name}`} className="h-4 w-4 rounded border-border text-primary focus:ring-primary" /></td> : null}<td className="py-3 pr-4 text-muted-foreground">{event.event_number ?? "—"}</td><td className="py-3 pr-4 font-medium"><span className="inline-flex items-center gap-1.5">{bulkActions?.isLocked(event.id) ? <Lock className="h-3.5 w-3.5 text-foreground/80" /> : null}<span>{event.name}</span></span></td><td className="py-3 pr-4"><span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${isDemo ? "bg-amber-100 text-amber-800" : "bg-rose-100 text-rose-800"}`}>{isDemo ? "DEMO" : "PHOTOSTRIP"}</span></td><td className="py-3 pr-4">{event.created_at ? new Date(event.created_at).toLocaleDateString("es-ES") : "—"}</td><td className="max-w-[190px] truncate py-3 pr-4">{event.owner_email || "—"}</td><td className="py-3 pr-4">{status}</td><td className="py-3 pr-4">{stripLimit}</td><td className="py-3 pr-4">{event.upload_start_time ? formatInTimeZone(new Date(event.upload_start_time), timezone, "dd/MM/yyyy HH:mm") : "—"}</td><td className="py-3">{event.upload_end_time ? formatInTimeZone(new Date(event.upload_end_time), timezone, "dd/MM/yyyy HH:mm") : "—"}</td></tr>;
           })}</tbody>
         </table>
       </div>

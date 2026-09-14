@@ -73,6 +73,7 @@ expect("public experience allows vertical scrolling without horizontal overflow"
 expect("camera action says Empezar", publicPage.includes("EMPEZAR") && !publicPage.includes("> START<"));
 expect("result exposes download, share and guest gallery", publicPage.includes("photostrip-result-actions") && publicPage.includes("> DESCARGAR</button>") && publicPage.includes("shareOwnStrip") && publicPage.includes("VER FOTOS DE OTROS INVITADOS"));
 expect("Photostrip admin uses Revelao-style table", adminPage.includes("PhotostripDashboardEvent") && adminPage.includes("<table") && adminPage.includes('"DEMO"'));
+expect("Photostrip admin supports bulk lock and delete", adminPage.includes('type="checkbox"') && adminPage.includes("Bloquear") && adminPage.includes("Eliminar selección") && dashboard.includes("bulkActions={isSuperAdmin"));
 expect("mobile camera waits for a real video frame", publicPage.includes("waitForUsableVideo") && publicPage.includes("HAVE_CURRENT_DATA") && publicPage.includes("video.videoWidth"));
 expect("mobile video uses inline autoplay", publicPage.includes("autoPlay playsInline muted"));
 expect("mobile camera resumes after browser interruption", publicPage.includes("visibilitychange") && publicPage.includes("pageshow"));
