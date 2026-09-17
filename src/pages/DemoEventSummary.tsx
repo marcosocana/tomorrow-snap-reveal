@@ -25,6 +25,12 @@ interface EventData {
   max_photos: number;
   max_videos?: number | null;
   max_audios?: number | null;
+  limits_json?: {
+    demo_contact?: {
+      email?: string | null;
+      phone?: string | null;
+    } | null;
+  } | null;
 }
 
 const DemoEventSummary = () => {
@@ -46,7 +52,10 @@ const DemoEventSummary = () => {
   const eventUrl = event ? `https://acceso.revelao.cam/events/${event.password_hash}` : "";
   const slideshowUrl = event ? `${window.location.origin}/slideshow/${event.id}` : "";
   const slideshowLabel = lang === "en" ? "Live slideshow" : lang === "it" ? "Slideshow in diretta" : "Slideshow en directo";
-  const credentialEmail = contactInfo?.email?.trim().toLowerCase() || "";
+  const savedContact = event?.limits_json?.demo_contact;
+  const resolvedContactEmail = contactInfo?.email?.trim().toLowerCase() || savedContact?.email?.trim().toLowerCase() || "";
+  const resolvedContactPhone = contactInfo?.phone?.trim() || savedContact?.phone?.trim() || "";
+  const credentialEmail = resolvedContactEmail;
   const eventTz = event?.timezone || "Europe/Madrid";
   const shouldShowPricing = /^\d{8}$/.test(event?.password_hash || "");
   const demoPhotos = event?.max_photos ?? 10;
@@ -114,23 +123,27 @@ const DemoEventSummary = () => {
   }, [event, qrFromState, qrImageUrl]);
 
   useEffect(() => {
-    if (!event || !contactInfo?.email || !qrImageUrl || isSendingEmail) return;
+    if (!event || !resolvedContactEmail || !qrImageUrl || isSendingEmail) return;
     const sentKey = `demo-email-sent-${event.id}`;
     if (localStorage.getItem(sentKey)) return;
 
     const timer = window.setTimeout(async () => {
       setIsSendingEmail(true);
       try {
-        await supabase.functions.invoke("send-demo-event-email", {
+        const { error } = await supabase.functions.invoke("send-demo-event-email", {
           body: {
             event,
             qrUrl: qrImageUrl,
-            contactInfo,
+            contactInfo: {
+              email: resolvedContactEmail,
+              phone: resolvedContactPhone,
+            },
             eventType: "demo",
             planLabel: "Demo",
             lang,
           },
         });
+        if (error) throw error;
         localStorage.setItem(sentKey, "1");
       } catch (error) {
         console.error("Error sending demo email:", error);
@@ -140,7 +153,7 @@ const DemoEventSummary = () => {
     }, 1500);
 
     return () => window.clearTimeout(timer);
-  }, [event, contactInfo, qrImageUrl, isSendingEmail, lang]);
+  }, [event, resolvedContactEmail, resolvedContactPhone, qrImageUrl, isSendingEmail, lang]);
 
   // Keep all hooks unconditional before redirecting when navigation state is missing.
   if (!event) {

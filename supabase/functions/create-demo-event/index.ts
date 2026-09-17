@@ -5,6 +5,14 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 const DEMO_LOGO_URL = "https://acceso.revelao.cam/LogoMiniRevelao.svg";
+const FIELD_LIMITS = {
+  eventName: 120,
+  description: 200,
+  contactName: 120,
+  email: 254,
+  phone: 40,
+  password: 72,
+} as const;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -118,14 +126,42 @@ serve(async (req) => {
     const event = payload?.event;
     const email = requestedEmail;
 
-    if (!email || !isEmail(email)) {
+    if (!email || email.length > FIELD_LIMITS.email || !isEmail(email)) {
       return json({ error: "INVALID_EMAIL" }, 400);
     }
-    if (!password || password.length < 8) {
+    if (
+      !contactName ||
+      Array.from(contactName).length > FIELD_LIMITS.contactName ||
+      !phone ||
+      Array.from(phone).length > FIELD_LIMITS.phone
+    ) {
+      return json({ error: "INVALID_CONTACT" }, 400);
+    }
+    if (!password || password.length < 8 || password.length > FIELD_LIMITS.password) {
       return json({ error: "INVALID_PASSWORD" }, 400);
     }
     if (!event?.name || !event.password_hash || !event.admin_password) {
       return json({ error: "INVALID_EVENT" }, 400);
+    }
+    const eventName = event.name.trim();
+    const description = event.description?.trim() || null;
+    if (!eventName || Array.from(eventName).length > FIELD_LIMITS.eventName) {
+      return json({ error: "INVALID_EVENT_NAME" }, 400);
+    }
+    if (description && Array.from(description).length > FIELD_LIMITS.description) {
+      return json({ error: "INVALID_DESCRIPTION" }, 400);
+    }
+    const uploadStartTime = new Date(event.upload_start_time);
+    const uploadEndTime = new Date(event.upload_end_time);
+    const revealTime = new Date(event.reveal_time);
+    if (
+      Number.isNaN(uploadStartTime.getTime()) ||
+      Number.isNaN(uploadEndTime.getTime()) ||
+      Number.isNaN(revealTime.getTime()) ||
+      uploadEndTime <= uploadStartTime ||
+      revealTime < uploadEndTime
+    ) {
+      return json({ error: "INVALID_DATETIME" }, 400);
     }
 
     const existingAuthUser = await findAuthUserByEmail(supabaseAdmin, email);
@@ -201,12 +237,12 @@ serve(async (req) => {
     const { data: createdEvent, error: eventError } = await supabaseAdmin
       .from("events")
       .insert({
-        name: event.name,
+        name: eventName,
         password_hash: event.password_hash,
         admin_password: managementPassword,
-        upload_start_time: event.upload_start_time,
-        upload_end_time: event.upload_end_time,
-        reveal_time: event.reveal_time,
+        upload_start_time: uploadStartTime.toISOString(),
+        upload_end_time: uploadEndTime.toISOString(),
+        reveal_time: revealTime.toISOString(),
         max_photos: event.max_photos ?? 10,
         custom_image_url: resolvedCustomImageUrl,
         background_image_url: event.background_image_url ?? null,
@@ -231,7 +267,7 @@ serve(async (req) => {
         country_code: event.country_code ?? "ES",
         timezone: event.timezone ?? "Europe/Madrid",
         language: event.language ?? "es",
-        description: event.description ?? null,
+        description,
         expiry_date: expiryDate.toISOString(),
         expiry_redirect_url: null,
         allow_photo_deletion: true,
@@ -261,6 +297,11 @@ serve(async (req) => {
       userId,
       event: createdEvent,
       createdNewUser,
+      contactInfo: {
+        name: contactName,
+        email,
+        phone,
+      },
     });
   } catch (error) {
     console.error("create-demo-event error:", error);

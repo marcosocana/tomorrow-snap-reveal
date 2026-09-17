@@ -15,6 +15,7 @@ import LanguageSelect from "@/components/LanguageSelect";
 import { Language } from "@/lib/translations";
 import { EventFontFamily, FONT_OPTIONS, getFontById, loadGoogleFont } from "@/lib/eventFonts";
 import { FilterType, FILTER_LABELS, FILTER_ORDER, getFilterClass } from "@/lib/photoFilters";
+import { useDemoI18n } from "@/lib/demoI18n";
 import weddingPreview from "@/assets/testimonial-wedding.jpg";
 
 type StepId = "name" | "place" | "upload" | "reveal" | "style" | "contact";
@@ -31,6 +32,14 @@ const steps: Array<{ id: StepId; label: string }> = [
 
 const REVELAO_RED = "#f06a5f";
 const DEFAULT_LOGO_URL = "/LogoMiniRevelao.svg";
+const FIELD_LIMITS = {
+  eventName: 120,
+  description: 200,
+  contactName: 120,
+  email: 254,
+  phone: 40,
+  password: 72,
+} as const;
 const dateInputClass =
   "h-9 min-w-0 rounded px-1.5 text-[14px] sm:h-12 sm:rounded-full sm:px-4 sm:text-base [appearance:textfield] [color-scheme:light] [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none";
 const timeInputClass =
@@ -38,6 +47,16 @@ const timeInputClass =
 
 const RequiredMark = () => (
   <Asterisk className="h-3.5 w-3.5 text-[#f06a5f]" aria-hidden="true" />
+);
+
+const countCharacters = (value: string) => Array.from(value).length;
+const limitCharacters = (value: string, maximum: number) =>
+  Array.from(value).slice(0, maximum).join("");
+
+const CharacterCounter = ({ value, maximum }: { value: string; maximum: number }) => (
+  <p className="text-right text-xs tabular-nums text-muted-foreground" aria-live="polite">
+    {countCharacters(value)}/{maximum}
+  </p>
 );
 
 const generateHash = (): string =>
@@ -48,6 +67,7 @@ const today = new Date();
 const PublicDemoEventWizard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { pathPrefix } = useDemoI18n();
   const generatedEventPassword = useMemo(generateHash, []);
   const [stepIndex, setStepIndex] = useState(0);
   const [demoTiming, setDemoTiming] = useState<DemoTiming | null>(null);
@@ -149,6 +169,14 @@ const PublicDemoEventWizard = () => {
       showError("El nombre del evento es obligatorio.");
       return false;
     }
+    if (step === "name" && Array.from(formData.name.trim()).length > FIELD_LIMITS.eventName) {
+      showError(`El nombre no puede superar ${FIELD_LIMITS.eventName} caracteres.`);
+      return false;
+    }
+    if (step === "name" && Array.from(formData.description.trim()).length > FIELD_LIMITS.description) {
+      showError(`La descripción no puede superar ${FIELD_LIMITS.description} caracteres.`);
+      return false;
+    }
     if (step === "upload") {
       if (!demoTiming) {
         showError("Elige si quieres probar la demo ahora o programarla.");
@@ -194,8 +222,24 @@ const PublicDemoEventWizard = () => {
         showError("Introduce un email válido.");
         return false;
       }
+      if (Array.from(formData.contactName.trim()).length > FIELD_LIMITS.contactName) {
+        showError(`El nombre de contacto no puede superar ${FIELD_LIMITS.contactName} caracteres.`);
+        return false;
+      }
+      if (formData.contactEmail.trim().length > FIELD_LIMITS.email) {
+        showError(`El email no puede superar ${FIELD_LIMITS.email} caracteres.`);
+        return false;
+      }
+      if (Array.from(formData.contactPhone.trim()).length > FIELD_LIMITS.phone) {
+        showError(`El teléfono no puede superar ${FIELD_LIMITS.phone} caracteres.`);
+        return false;
+      }
       if (formData.password.length < 8) {
-        showError("La contraseña debe contener al menos 8 dígitos.");
+        showError("La contraseña debe contener al menos 8 caracteres.");
+        return false;
+      }
+      if (formData.password.length > FIELD_LIMITS.password) {
+        showError(`La contraseña no puede superar ${FIELD_LIMITS.password} caracteres.`);
         return false;
       }
       if (formData.password !== formData.passwordConfirm) {
@@ -211,7 +255,7 @@ const PublicDemoEventWizard = () => {
   };
 
   const isStepComplete = (step: StepId) => {
-    if (step === "name") return !!formData.name.trim();
+    if (step === "name") return !!formData.name.trim() && Array.from(formData.name.trim()).length <= FIELD_LIMITS.eventName && Array.from(formData.description.trim()).length <= FIELD_LIMITS.description;
     if (step === "place") return !!formData.countryCode && !!formData.language;
     if (step === "upload") {
       if (demoTiming === "now") return true;
@@ -231,9 +275,13 @@ const PublicDemoEventWizard = () => {
     if (step === "contact") {
       return (
         !!formData.contactName.trim() &&
+        Array.from(formData.contactName.trim()).length <= FIELD_LIMITS.contactName &&
         /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.contactEmail.trim()) &&
+        formData.contactEmail.trim().length <= FIELD_LIMITS.email &&
         !!formData.contactPhone.trim() &&
+        Array.from(formData.contactPhone.trim()).length <= FIELD_LIMITS.phone &&
         formData.password.length >= 8 &&
+        formData.password.length <= FIELD_LIMITS.password &&
         formData.password === formData.passwordConfirm
       );
     }
@@ -441,15 +489,17 @@ const PublicDemoEventWizard = () => {
           .eq("id", newEvent.id);
       }
 
-      navigate("/nuevoeventodemo/resumen", {
+      const savedContactInfo = createResult.contactInfo || {
+        name: formData.contactName.trim(),
+        email: normalizedContactEmail,
+        phone: formData.contactPhone.trim(),
+      };
+
+      navigate(`${pathPrefix}/nuevoeventodemo/resumen`, {
         state: {
           event: eventForSummary,
           qrUrl,
-          contactInfo: {
-            name: formData.contactName.trim(),
-            email: formData.contactEmail.trim(),
-            phone: formData.contactPhone.trim(),
-          },
+          contactInfo: savedContactInfo,
         },
       });
     } catch (error) {
@@ -462,7 +512,7 @@ const PublicDemoEventWizard = () => {
           <>
             Este usuario ya existe y tiene otra contraseña. Introduce la contraseña correcta o{" "}
             <a
-              href="https://acceso.revelao.cam/reset-password"
+              href={`https://acceso.revelao.cam${pathPrefix}/reset-password`}
               target="_blank"
               rel="noopener noreferrer"
               className="font-semibold underline underline-offset-2"
@@ -502,22 +552,26 @@ const PublicDemoEventWizard = () => {
               <Input
                 id="name"
                 value={formData.name}
-                onChange={(event) => update("name", event.target.value)}
+                onChange={(event) => update("name", limitCharacters(event.target.value, FIELD_LIMITS.eventName))}
+                maxLength={FIELD_LIMITS.eventName}
                 placeholder="Ej: Boda María y Juan"
                 autoFocus
                 className="h-12 rounded-full px-4 text-base"
               />
+              <CharacterCounter value={formData.name} maximum={FIELD_LIMITS.eventName} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="description">Añade una descripción breve</Label>
               <Textarea
                 id="description"
                 value={formData.description}
-                onChange={(event) => update("description", event.target.value)}
+                onChange={(event) => update("description", limitCharacters(event.target.value, FIELD_LIMITS.description))}
+                maxLength={FIELD_LIMITS.description}
                 placeholder={'Por ejemplo: "¡Bienvenidos a nuestra boda!"'}
                 rows={4}
                 className="min-h-28 rounded-2xl px-4 py-3 text-base leading-relaxed"
               />
+              <CharacterCounter value={formData.description} maximum={FIELD_LIMITS.description} />
             </div>
             <p className="text-sm text-muted-foreground">
               Crearemos un espacio demo para que pruebes la experiencia Revelao antes de tu evento real.
@@ -773,21 +827,24 @@ const PublicDemoEventWizard = () => {
                 Tu nombre
                 <RequiredMark />
               </Label>
-              <Input id="contactName" value={formData.contactName} onChange={(event) => update("contactName", event.target.value)} placeholder="Tu nombre" className="h-12 rounded-full px-4 text-base" />
+              <Input id="contactName" value={formData.contactName} onChange={(event) => update("contactName", limitCharacters(event.target.value, FIELD_LIMITS.contactName))} maxLength={FIELD_LIMITS.contactName} placeholder="Tu nombre" className="h-12 rounded-full px-4 text-base" />
+              <CharacterCounter value={formData.contactName} maximum={FIELD_LIMITS.contactName} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="contactEmail" className="flex items-center gap-1.5">
                 Email
                 <RequiredMark />
               </Label>
-              <Input id="contactEmail" type="email" value={formData.contactEmail} onChange={(event) => update("contactEmail", event.target.value)} placeholder="tu@email.com" className="h-12 rounded-full px-4 text-base" autoComplete="email" />
+              <Input id="contactEmail" type="email" value={formData.contactEmail} onChange={(event) => update("contactEmail", limitCharacters(event.target.value, FIELD_LIMITS.email))} maxLength={FIELD_LIMITS.email} placeholder="tu@email.com" className="h-12 rounded-full px-4 text-base" autoComplete="email" />
+              <CharacterCounter value={formData.contactEmail} maximum={FIELD_LIMITS.email} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="contactPhone" className="flex items-center gap-1.5">
                 Teléfono
                 <RequiredMark />
               </Label>
-              <Input id="contactPhone" type="tel" value={formData.contactPhone} onChange={(event) => update("contactPhone", event.target.value)} placeholder="+34 600 000 000" className="h-12 rounded-full px-4 text-base" />
+              <Input id="contactPhone" type="tel" value={formData.contactPhone} onChange={(event) => update("contactPhone", limitCharacters(event.target.value, FIELD_LIMITS.phone))} maxLength={FIELD_LIMITS.phone} placeholder="+34 600 000 000" className="h-12 rounded-full px-4 text-base" autoComplete="tel" />
+              <CharacterCounter value={formData.contactPhone} maximum={FIELD_LIMITS.phone} />
             </div>
             <div className="grid gap-5 sm:grid-cols-2">
                 <div className="space-y-2">
@@ -799,20 +856,24 @@ const PublicDemoEventWizard = () => {
                     id="password"
                     type="password"
                     value={formData.password}
-                    onChange={(event) => update("password", event.target.value)}
-                    placeholder="Mínimo 8 dígitos"
+                    onChange={(event) => update("password", limitCharacters(event.target.value, FIELD_LIMITS.password))}
+                    maxLength={FIELD_LIMITS.password}
+                    placeholder="Mínimo 8 caracteres"
                     className={`h-12 rounded-full px-4 text-base ${passwordTooShort ? "border-destructive ring-1 ring-destructive focus-visible:ring-destructive" : ""}`}
                     autoComplete="new-password"
                     aria-invalid={passwordTooShort}
                     aria-describedby="password-requirement"
                     required
                   />
-                  <p
-                    id="password-requirement"
-                    className={`text-sm ${passwordTooShort ? "font-semibold text-destructive" : "text-muted-foreground"}`}
-                  >
-                    La contraseña debe contener al menos 8 dígitos.
-                  </p>
+                  <div className="flex items-start justify-between gap-3">
+                    <p
+                      id="password-requirement"
+                      className={`text-sm ${passwordTooShort ? "font-semibold text-destructive" : "text-muted-foreground"}`}
+                    >
+                      Mínimo 8 caracteres.
+                    </p>
+                    <CharacterCounter value={formData.password} maximum={FIELD_LIMITS.password} />
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="passwordConfirm" className="flex items-center gap-1.5">
@@ -823,12 +884,14 @@ const PublicDemoEventWizard = () => {
                     id="passwordConfirm"
                     type="password"
                     value={formData.passwordConfirm}
-                    onChange={(event) => update("passwordConfirm", event.target.value)}
+                    onChange={(event) => update("passwordConfirm", limitCharacters(event.target.value, FIELD_LIMITS.password))}
+                    maxLength={FIELD_LIMITS.password}
                     placeholder="Repite la contraseña"
                     className="h-12 rounded-full px-4 text-base"
                     autoComplete="new-password"
                     required
                   />
+                  <CharacterCounter value={formData.passwordConfirm} maximum={FIELD_LIMITS.password} />
                 </div>
             </div>
             <p className="text-sm text-muted-foreground">
