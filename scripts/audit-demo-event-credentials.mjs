@@ -24,12 +24,12 @@ assert.match(summary, /Datos para gestionar tu evento[\s\S]*Usuario[\s\S]*creden
 assert.match(summary, /savedContact[\s\S]*demo_contact[\s\S]*resolvedContactEmail/);
 assert.match(summary, /const \{ error \} = await supabase\.functions\.invoke\("send-demo-event-email"[\s\S]*if \(error\) throw error/);
 assert.match(app, /path="\/nuevoeventodemo2" element=\{<PublicDemoEventWizard \/>\}/);
-assert.match(wizard, /const FIELD_LIMITS = \{[\s\S]*eventName: 120[\s\S]*description: 200[\s\S]*contactName: 120[\s\S]*email: 254[\s\S]*phone: 40[\s\S]*password: 72/);
+assert.match(wizard, /const FIELD_LIMITS = \{[\s\S]*eventName: 80[\s\S]*description: 200[\s\S]*contactName: 120[\s\S]*email: 254[\s\S]*phone: 40[\s\S]*password: 72/);
 assert.match(wizard, /maxLength=\{FIELD_LIMITS\.eventName\}[\s\S]*maxLength=\{FIELD_LIMITS\.description\}[\s\S]*maxLength=\{FIELD_LIMITS\.contactName\}[\s\S]*maxLength=\{FIELD_LIMITS\.email\}[\s\S]*maxLength=\{FIELD_LIMITS\.phone\}/);
 assert.match(wizard, /const CharacterCounter[\s\S]*countCharacters\(value\)[\s\S]*maximum/);
 assert.match(wizard, /limitCharacters\(event\.target\.value, FIELD_LIMITS\.eventName\)[\s\S]*limitCharacters\(event\.target\.value, FIELD_LIMITS\.description\)[\s\S]*limitCharacters\(event\.target\.value, FIELD_LIMITS\.contactName\)[\s\S]*limitCharacters\(event\.target\.value, FIELD_LIMITS\.email\)[\s\S]*limitCharacters\(event\.target\.value, FIELD_LIMITS\.phone\)/);
 assert.match(wizard, /CharacterCounter value=\{formData\.name\}[\s\S]*CharacterCounter value=\{formData\.description\}[\s\S]*CharacterCounter value=\{formData\.contactName\}[\s\S]*CharacterCounter value=\{formData\.contactEmail\}[\s\S]*CharacterCounter value=\{formData\.contactPhone\}[\s\S]*CharacterCounter value=\{formData\.password\}[\s\S]*CharacterCounter value=\{formData\.passwordConfirm\}/);
-assert.match(createFunction, /const FIELD_LIMITS = \{[\s\S]*eventName: 120[\s\S]*description: 200[\s\S]*contactName: 120[\s\S]*email: 254[\s\S]*phone: 40[\s\S]*password: 72/);
+assert.match(createFunction, /const FIELD_LIMITS = \{[\s\S]*eventName: 80[\s\S]*description: 200[\s\S]*contactName: 120[\s\S]*email: 254[\s\S]*phone: 40[\s\S]*password: 72/);
 assert.match(emailFunction, /isDemo[\s\S]*credentialsTitle[\s\S]*credentialEmail[\s\S]*event\.admin_password[\s\S]*manageButton/);
 assert.match(login, /if \(prefEmail\)[\s\S]*setEmail\(prefEmail\)/);
 assert.match(wizard, /passwordConfirm/);

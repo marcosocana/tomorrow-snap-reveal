@@ -33,7 +33,7 @@ const steps: Array<{ id: StepId; label: string }> = [
 const REVELAO_RED = "#f06a5f";
 const DEFAULT_LOGO_URL = "/LogoMiniRevelao.svg";
 const FIELD_LIMITS = {
-  eventName: 120,
+  eventName: 80,
   description: 200,
   contactName: 120,
   email: 254,

@@ -6,7 +6,7 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 const DEMO_LOGO_URL = "https://acceso.revelao.cam/LogoMiniRevelao.svg";
 const FIELD_LIMITS = {
-  eventName: 120,
+  eventName: 80,
   description: 200,
   contactName: 120,
   email: 254,
