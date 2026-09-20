@@ -2,40 +2,53 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { BrowserRouter, Navigate, Routes, Route, useLocation } from "react-router-dom";
-import Login from "./pages/Login";
-import Logout from "./pages/Logout";
-import Camera from "./pages/Camera";
-import Gallery from "./pages/Gallery";
-import EventManagement from "./pages/EventManagement";
-import EventForm from "./pages/EventForm";
-import BulkUpload from "./pages/BulkUpload";
-import EventAccess from "./pages/EventAccess";
-import AdminLogin from "./pages/AdminLogin";
-import AdminResetPassword from "./pages/AdminResetPassword";
-import NotFound from "./pages/NotFound";
-import TermsAndConditions from "./pages/TermsAndConditions";
-import PrivacyPolicy from "./pages/PrivacyPolicy";
-import PublicDemoEventForm from "./pages/PublicDemoEventForm";
-import PublicDemoEventWizard from "./pages/PublicDemoEventWizard";
-import DemoEventSummary from "./pages/DemoEventSummary";
-import PricingPlans from "./pages/PricingPlans";
 import { AdminI18nProvider } from "@/lib/adminI18n";
-import RedeemEvent from "./pages/RedeemEvent";
-import PaidEventSummary from "./pages/PaidEventSummary";
-import Register from "./pages/Register";
-import { CaptainsAdminDetail, CaptainsAdminForm, CaptainsOnboarding } from "./pages/CaptainsAdmin";
-import CaptainsDemoV2 from "./pages/CaptainsDemoV2";
-import CaptainsExperience from "./pages/CaptainsExperience";
-import CaptainsLanding from "./pages/CaptainsLanding";
-import LiveSlideshow from "./pages/LiveSlideshow";
-import TimeCapsule from "./pages/TimeCapsule";
-import OAuthConsent from "./pages/OAuthConsent";
-import PhotostripPublic from "./pages/PhotostripPublic";
-import { PhotostripAdminDetail, PhotostripAdminForm } from "./pages/PhotostripAdmin";
-import NewPhotostripDemo from "./pages/NewPhotostripDemo";
+import { lazyWithRetry } from "@/lib/lazyWithRetry";
+import RouteFallback from "@/components/RouteFallback";
 import { CAPTAINS_EVENT_MANAGEMENT_VIEW } from "./lib/eventManagementViewState";
+
+// Cada ruta viaja en su propio chunk: quien abre /camera ya no descarga el
+// panel de administración, Capitanes, Photostrip ni el checkout.
+const Login = lazyWithRetry("login", () => import("./pages/Login"));
+const Logout = lazyWithRetry("logout", () => import("./pages/Logout"));
+const Camera = lazyWithRetry("camera", () => import("./pages/Camera"));
+const Gallery = lazyWithRetry("gallery", () => import("./pages/Gallery"));
+const EventManagement = lazyWithRetry("event-management", () => import("./pages/EventManagement"));
+const EventForm = lazyWithRetry("event-form", () => import("./pages/EventForm"));
+const BulkUpload = lazyWithRetry("bulk-upload", () => import("./pages/BulkUpload"));
+const EventAccess = lazyWithRetry("event-access", () => import("./pages/EventAccess"));
+const AdminLogin = lazyWithRetry("admin-login", () => import("./pages/AdminLogin"));
+const AdminResetPassword = lazyWithRetry("admin-reset-password", () => import("./pages/AdminResetPassword"));
+const NotFound = lazyWithRetry("not-found", () => import("./pages/NotFound"));
+const TermsAndConditions = lazyWithRetry("terms", () => import("./pages/TermsAndConditions"));
+const PrivacyPolicy = lazyWithRetry("privacy", () => import("./pages/PrivacyPolicy"));
+const PublicDemoEventForm = lazyWithRetry("demo-form", () => import("./pages/PublicDemoEventForm"));
+const PublicDemoEventWizard = lazyWithRetry("demo-wizard", () => import("./pages/PublicDemoEventWizard"));
+const DemoEventSummary = lazyWithRetry("demo-summary", () => import("./pages/DemoEventSummary"));
+const PricingPlans = lazyWithRetry("pricing-plans", () => import("./pages/PricingPlans"));
+const RedeemEvent = lazyWithRetry("redeem-event", () => import("./pages/RedeemEvent"));
+const PaidEventSummary = lazyWithRetry("paid-summary", () => import("./pages/PaidEventSummary"));
+const Register = lazyWithRetry("register", () => import("./pages/Register"));
+const CaptainsAdminDetail = lazyWithRetry("captains-admin-detail", () =>
+  import("./pages/CaptainsAdmin").then((m) => ({ default: m.CaptainsAdminDetail })));
+const CaptainsAdminForm = lazyWithRetry("captains-admin-form", () =>
+  import("./pages/CaptainsAdmin").then((m) => ({ default: m.CaptainsAdminForm })));
+const CaptainsOnboarding = lazyWithRetry("captains-onboarding", () =>
+  import("./pages/CaptainsAdmin").then((m) => ({ default: m.CaptainsOnboarding })));
+const CaptainsDemoV2 = lazyWithRetry("captains-demo-v2", () => import("./pages/CaptainsDemoV2"));
+const CaptainsExperience = lazyWithRetry("captains-experience", () => import("./pages/CaptainsExperience"));
+const CaptainsLanding = lazyWithRetry("captains-landing", () => import("./pages/CaptainsLanding"));
+const LiveSlideshow = lazyWithRetry("live-slideshow", () => import("./pages/LiveSlideshow"));
+const TimeCapsule = lazyWithRetry("time-capsule", () => import("./pages/TimeCapsule"));
+const OAuthConsent = lazyWithRetry("oauth-consent", () => import("./pages/OAuthConsent"));
+const PhotostripPublic = lazyWithRetry("photostrip-public", () => import("./pages/PhotostripPublic"));
+const PhotostripAdminDetail = lazyWithRetry("photostrip-admin-detail", () =>
+  import("./pages/PhotostripAdmin").then((m) => ({ default: m.PhotostripAdminDetail })));
+const PhotostripAdminForm = lazyWithRetry("photostrip-admin-form", () =>
+  import("./pages/PhotostripAdmin").then((m) => ({ default: m.PhotostripAdminForm })));
+const NewPhotostripDemo = lazyWithRetry("new-photostrip-demo", () => import("./pages/NewPhotostripDemo"));
 
 const queryClient = new QueryClient();
 
@@ -169,6 +182,7 @@ const App = () => {
             <Toaster />
             <Sonner />
             <ScrollToTop />
+            <Suspense fallback={<RouteFallback />}>
             <Routes>
               <Route path="/" element={<AdminLogin />} />
               <Route path="/login" element={<AdminLogin />} />
@@ -261,6 +275,7 @@ const App = () => {
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
+            </Suspense>
           </AdminI18nProvider>
         </BrowserRouter>
       </TooltipProvider>

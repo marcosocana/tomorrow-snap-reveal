@@ -15,8 +15,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
 import { es, enUS, it } from "date-fns/locale";
-import confetti from "canvas-confetti";
-import JSZip from "jszip";
 import heartOutline from "@/assets/heart-outline.svg";
 import heartFilled from "@/assets/heart-filled.svg";
 import ShareDialog from "@/components/ShareDialog";
@@ -631,35 +629,48 @@ const Gallery = () => {
     // Always scroll to top when gallery loads
     window.scrollTo(0, 0);
 
-    // Trigger confetti every time gallery loads
-    const duration = 3000;
-    const end = Date.now() + duration;
+    // Trigger confetti every time gallery loads (loaded on demand)
+    let confettiCancelled = false;
+    void import("canvas-confetti")
+      .then(({ default: confetti }) => {
+        if (confettiCancelled) return;
+        const duration = 3000;
+        const end = Date.now() + duration;
 
-    const frame = () => {
-      confetti({
-        particleCount: 3,
-        angle: 60,
-        spread: 55,
-        origin: { x: 0 },
-        colors: ['#f5e6d3', '#d4a574', '#8b4513']
-      });
-      confetti({
-        particleCount: 3,
-        angle: 120,
-        spread: 55,
-        origin: { x: 1 },
-        colors: ['#f5e6d3', '#d4a574', '#8b4513']
-      });
+        const frame = () => {
+          if (confettiCancelled) return;
+          confetti({
+            particleCount: 3,
+            angle: 60,
+            spread: 55,
+            origin: { x: 0 },
+            colors: ['#f5e6d3', '#d4a574', '#8b4513']
+          });
+          confetti({
+            particleCount: 3,
+            angle: 120,
+            spread: 55,
+            origin: { x: 1 },
+            colors: ['#f5e6d3', '#d4a574', '#8b4513']
+          });
 
-      if (Date.now() < end) {
-        requestAnimationFrame(frame);
-      }
-    };
-    frame();
+          if (Date.now() < end) {
+            requestAnimationFrame(frame);
+          }
+        };
+        frame();
+      })
+      .catch(() => {
+        // el confetti es decorativo: si no carga, la galeria sigue funcionando
+      });
 
     loadPhotos(0);
     loadVideos();
     loadAudios();
+
+    return () => {
+      confettiCancelled = true;
+    };
   }, [eventId, eventConfigReady, galleryAccessStatus, loadPhotos, loadVideos, loadAudios]);
 
   useEffect(() => {
@@ -1468,6 +1479,7 @@ const Gallery = () => {
       if (allowAudioRecording && audiosError) throw audiosError;
       const visibleAudios = allowAudioRecording ? (allAudios || []) : [];
 
+      const { default: JSZip } = await import("jszip");
       const zip = new JSZip();
       let exportedCount = 0;
       
