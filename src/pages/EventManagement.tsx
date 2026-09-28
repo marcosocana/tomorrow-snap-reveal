@@ -38,6 +38,8 @@ import { TIME_CAPSULE_REDEEM_PLANS, type TimeCapsuleRedeemPlanId } from "@/lib/t
 import type { Session } from "@supabase/supabase-js";
 import { PhotostripDashboardSection } from "@/pages/PhotostripAdmin";
 import { PhotostripPricingDialog } from "@/components/photostrip/PhotostripPricingDialog";
+import { CarreteoDashboardSection } from "@/pages/CarreteoAdmin";
+import { CarreteoPricingDialog } from "@/components/carreteo/CarreteoPricingDialog";
 import {
   eventManagementViewFromLocationState,
   saveEventManagementReturnView,
@@ -110,7 +112,7 @@ interface CaptainsManagedEvent {
 
 type AdminEventTab = "new" | "upcoming" | "past" | "tests" | "others";
 type ManualAdminEventTab = Exclude<AdminEventTab, "others">;
-type ProductSection = "revelao" | "captains" | "capsule" | "photostrip";
+type ProductSection = "revelao" | "captains" | "capsule" | "photostrip" | "carreteo";
 type ProductAction = "new" | "code" | "gift";
 
 const PRODUCT_SECTIONS: Array<{ value: ProductSection; label: string }> = [
@@ -118,6 +120,7 @@ const PRODUCT_SECTIONS: Array<{ value: ProductSection; label: string }> = [
   { value: "captains", label: "Capitanes" },
   { value: "capsule", label: "Cápsula del tiempo" },
   { value: "photostrip", label: "Photostrip" },
+  { value: "carreteo", label: "Carreteo" },
 ];
 
 const ADMIN_EVENT_TAB_KEY = "admin_event_tab";
@@ -304,6 +307,7 @@ const EventManagement = () => {
   const [captainsCheckoutOpen, setCaptainsCheckoutOpen] = useState(false);
   const [capsuleCheckoutOpen, setCapsuleCheckoutOpen] = useState(false);
   const [photostripCheckoutOpen, setPhotostripCheckoutOpen] = useState(false);
+  const [carreteoCheckoutOpen, setCarreteoCheckoutOpen] = useState(false);
   const [pricingStep, setPricingStep] = useState<"plans" | "redeem">("plans");
   const [redeemCode, setRedeemCode] = useState("");
   const [redeemError, setRedeemError] = useState<string | null>(null);
@@ -315,7 +319,7 @@ const EventManagement = () => {
   const [adminSearch, setAdminSearch] = useState(restoredView?.adminSearch ?? "");
   const [activeProduct, setActiveProduct] = useState<ProductSection>(() => {
     const requestedProduct = new URLSearchParams(location.search).get("product");
-    return requestedProduct === "photostrip" ? "photostrip" : restoredView?.activeProduct ?? "revelao";
+    return requestedProduct === "photostrip" || requestedProduct === "carreteo" ? requestedProduct : restoredView?.activeProduct ?? "revelao";
   });
   const [productAction, setProductAction] = useState<ProductAction | null>(null);
   const [adminTypeFilter, setAdminTypeFilter] = useState<"all" | "Demo" | "Start" | "Plus" | "Pro">(restoredView?.adminTypeFilter ?? "all");
@@ -372,10 +376,11 @@ const EventManagement = () => {
     if (checkoutNoticeHandled.current) return;
     const params = new URLSearchParams(location.search);
     const checkout = params.get("checkout");
-    if (!checkout || params.get("product") !== "photostrip") return;
+    const checkoutProduct = params.get("product");
+    if (!checkout || (checkoutProduct !== "photostrip" && checkoutProduct !== "carreteo")) return;
     checkoutNoticeHandled.current = true;
     if (checkout === "success") {
-      toast({ title: "¡Gracias por tu compra!", description: "Te hemos enviado por email el enlace para crear tu Photostrip." });
+      toast({ title: "¡Gracias por tu compra!", description: `Te hemos enviado por email el enlace para crear tu ${checkoutProduct === "carreteo" ? "Carreteo" : "Photostrip"}.` });
     } else if (checkout === "cancel") {
       toast({ title: "Pago cancelado", description: "No se ha realizado ningún cargo." });
     }
@@ -416,6 +421,10 @@ const EventManagement = () => {
         if (isSuperAdmin) navigate("/admin/photostrip/new");
         else setPhotostripCheckoutOpen(true);
       }
+      else if (product === "carreteo") {
+        if (isSuperAdmin) navigate("/admin/carreteo/new");
+        else setCarreteoCheckoutOpen(true);
+      }
       else if (product === "captains") {
         if (isSuperAdmin) navigate("/admin/capitanes/onboarding");
         else setCaptainsCheckoutOpen(true);
@@ -450,9 +459,11 @@ const EventManagement = () => {
     event.plan_id === "capsule" || event.type === "capsule";
   const isPhotostripEvent = (event: Event) =>
     event.plan_id === "photostrip" || event.type === "photostrip";
+  const isCarreteoEvent = (event: Event) =>
+    event.type === "carreteo" || Boolean(event.plan_id?.startsWith("carreteo"));
 
   const revelaoEvents = useMemo(
-    () => events.filter((event) => !isCapsuleEvent(event) && !isPhotostripEvent(event)),
+    () => events.filter((event) => !isCapsuleEvent(event) && !isPhotostripEvent(event) && !isCarreteoEvent(event)),
     [events],
   );
   const capsuleEvents = useMemo(
@@ -463,12 +474,17 @@ const EventManagement = () => {
     () => events.filter(isPhotostripEvent),
     [events],
   );
+  const carreteoEvents = useMemo(
+    () => events.filter(isCarreteoEvent),
+    [events],
+  );
   const productCounts = useMemo<Record<ProductSection, number>>(() => ({
     revelao: revelaoEvents.length,
     captains: captainsEvents.length,
     capsule: capsuleEvents.length,
     photostrip: photostripEvents.length,
-  }), [revelaoEvents.length, captainsEvents.length, capsuleEvents.length, photostripEvents.length]);
+    carreteo: carreteoEvents.length,
+  }), [revelaoEvents.length, captainsEvents.length, capsuleEvents.length, photostripEvents.length, carreteoEvents.length]);
   const orderedProductSections = useMemo(() => {
     if (isSuperAdmin) return PRODUCT_SECTIONS;
     return [...PRODUCT_SECTIONS].sort((left, right) => {
@@ -477,7 +493,7 @@ const EventManagement = () => {
       return rightHasEvents - leftHasEvents;
     });
   }, [isSuperAdmin, productCounts]);
-  const productEvents = activeProduct === "capsule" ? capsuleEvents : activeProduct === "photostrip" ? photostripEvents : revelaoEvents;
+  const productEvents = activeProduct === "capsule" ? capsuleEvents : activeProduct === "photostrip" ? photostripEvents : activeProduct === "carreteo" ? carreteoEvents : revelaoEvents;
 
   useEffect(() => {
     if (isLoading || isSuperAdmin || didChooseInitialProduct.current) return;
@@ -702,7 +718,7 @@ const EventManagement = () => {
             setPendingRedeem({
               token: pending.token,
               planLabel: pending.label ?? pending.plan?.label ?? "evento",
-              product: ["captains", "capsule"].includes(pending.product) ? pending.product : "revelao",
+              product: ["captains", "capsule", "carreteo"].includes(pending.product) ? pending.product : "revelao",
             });
           } else {
             setPendingRedeem(null);
@@ -1155,13 +1171,13 @@ const EventManagement = () => {
 
   useEffect(() => {
     if (selectedEventIds.size === 0) return;
-    const selectableEvents = activeProduct === "photostrip" ? photostripEvents : superAdminEvents;
+    const selectableEvents = activeProduct === "photostrip" ? photostripEvents : activeProduct === "carreteo" ? carreteoEvents : superAdminEvents;
     const currentIds = new Set(selectableEvents.map((event) => event.id));
     const next = new Set(Array.from(selectedEventIds).filter((id) => currentIds.has(id)));
     if (next.size !== selectedEventIds.size) {
       setSelectedEventIds(next);
     }
-  }, [activeProduct, photostripEvents, superAdminEvents, selectedEventIds]);
+  }, [activeProduct, photostripEvents, carreteoEvents, superAdminEvents, selectedEventIds]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -2243,7 +2259,7 @@ const EventManagement = () => {
             </div>
           </div>
 
-          <div role="tablist" aria-label="Tipo de producto" className="grid grid-cols-2 md:grid-cols-4 rounded-xl border border-border bg-muted/30 p-1">
+          <div role="tablist" aria-label="Tipo de producto" className="grid grid-cols-2 md:grid-cols-5 rounded-xl border border-border bg-muted/30 p-1">
             {orderedProductSections.map((product) => {
               const selected = activeProduct === product.value;
               const count = productCounts[product.value];
@@ -2256,7 +2272,7 @@ const EventManagement = () => {
                   onClick={() => {
                     setActiveProduct(product.value);
                     if (product.value === "capsule" || product.value === "captains") setAdminActiveTab("others");
-                    if (product.value === "revelao" || product.value === "photostrip") setAdminActiveTab("upcoming");
+                    if (product.value === "revelao" || product.value === "photostrip" || product.value === "carreteo") setAdminActiveTab("upcoming");
                     if (product.value === "captains") {
                       setCaptainsStatusFilter("all");
                       setAdminView("list");
@@ -2292,6 +2308,8 @@ const EventManagement = () => {
                     navigate(`/nuevoeventocapitanes?code=${encodeURIComponent(pendingRedeem.token)}`);
                   } else if (pendingRedeem.product === "capsule") {
                     navigate(`${pathPrefix}/event-form?product=capsule&redeem=${encodeURIComponent(pendingRedeem.token)}`);
+                  } else if (pendingRedeem.product === "carreteo") {
+                    navigate(`/admin/carreteo/new?redeem=${encodeURIComponent(pendingRedeem.token)}`);
                   } else {
                     navigate(`${pathPrefix}/redeem/${pendingRedeem.token}`);
                   }
@@ -2303,7 +2321,21 @@ const EventManagement = () => {
           </Card>
         ) : null}
 
-        {activeProduct === "photostrip" ? (
+        {activeProduct === "carreteo" ? (
+          <CarreteoDashboardSection
+            events={carreteoEvents}
+            bulkActions={isSuperAdmin ? {
+              selectedIds: selectedEventIds,
+              onToggleSelection: toggleEventSelection,
+              onLockSelection: handleLockSelection,
+              onDeleteSelection: handleDeleteSelection,
+              isLocked: (eventId) => {
+                const event = carreteoEvents.find((candidate) => candidate.id === eventId);
+                return event ? isEventDeletionLocked(event) : false;
+              },
+            } : undefined}
+          />
+        ) : activeProduct === "photostrip" ? (
           <PhotostripDashboardSection
             events={photostripEvents}
             bulkActions={isSuperAdmin ? {
@@ -2976,6 +3008,7 @@ const EventManagement = () => {
       </Dialog>
 
       <PhotostripPricingDialog open={photostripCheckoutOpen} onOpenChange={setPhotostripCheckoutOpen} />
+      <CarreteoPricingDialog open={carreteoCheckoutOpen} onOpenChange={setCarreteoCheckoutOpen} />
 
       <Dialog
         open={productAction !== null}
@@ -2995,7 +3028,7 @@ const EventManagement = () => {
             <DialogDescription className="sr-only">Selecciona uno de los productos de Revelao para continuar.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-3">
-            {PRODUCT_SECTIONS.filter((product) => productAction === "new" || product.value !== "photostrip").map((product) => (
+            {PRODUCT_SECTIONS.filter((product) => productAction === "new" || (product.value !== "photostrip" && product.value !== "carreteo")).map((product) => (
               <button
                 key={product.value}
                 type="button"

@@ -156,12 +156,17 @@ serve(async (req) => {
       }
 
       const isPhotostrip = plan.product === "photostrip";
+      const isCarreteo = plan.product === "carreteo";
       params.set("success_url", isPhotostrip
         ? `${APP_ORIGIN}/event-management?product=photostrip&checkout=success`
-        : `${APP_ORIGIN}/?checkout=success`);
+        : isCarreteo
+          ? `${APP_ORIGIN}/event-management?product=carreteo&checkout=success`
+          : `${APP_ORIGIN}/?checkout=success`);
       params.set("cancel_url", isPhotostrip
         ? `${APP_ORIGIN}/event-management?product=photostrip&checkout=cancel`
-        : `${APP_ORIGIN}/?checkout=cancel`);
+        : isCarreteo
+          ? `${APP_ORIGIN}/event-management?product=carreteo&checkout=cancel`
+          : `${APP_ORIGIN}/?checkout=cancel`);
       params.append("line_items[0][price]", priceId);
       params.append("line_items[0][quantity]", "1");
       params.append("metadata[planId]", plan.id);

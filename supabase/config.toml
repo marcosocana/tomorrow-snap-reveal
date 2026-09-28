@@ -29,3 +29,9 @@ verify_jwt = false
 
 [functions.redeem-create-photostrip]
 verify_jwt = true
+
+[functions.carreteo-api]
+verify_jwt = false
+
+[functions.redeem-create-carreteo]
+verify_jwt = true

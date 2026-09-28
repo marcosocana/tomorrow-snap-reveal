@@ -49,6 +49,11 @@ const PhotostripAdminDetail = lazyWithRetry("photostrip-admin-detail", () =>
 const PhotostripAdminForm = lazyWithRetry("photostrip-admin-form", () =>
   import("./pages/PhotostripAdmin").then((m) => ({ default: m.PhotostripAdminForm })));
 const NewPhotostripDemo = lazyWithRetry("new-photostrip-demo", () => import("./pages/NewPhotostripDemo"));
+const CarreteoPublic = lazyWithRetry("carreteo-public", () => import("./pages/CarreteoPublic"));
+const CarreteoAdminDetail = lazyWithRetry("carreteo-admin-detail", () =>
+  import("./pages/CarreteoAdmin").then((m) => ({ default: m.CarreteoAdminDetail })));
+const CarreteoAdminForm = lazyWithRetry("carreteo-admin-form", () =>
+  import("./pages/CarreteoAdmin").then((m) => ({ default: m.CarreteoAdminForm })));
 
 const queryClient = new QueryClient();
 
@@ -232,6 +237,10 @@ const App = () => {
               <Route path="/admin/photostrip/new" element={<PhotostripAdminForm />} />
               <Route path="/admin/photostrip/:eventId" element={<PhotostripAdminDetail />} />
               <Route path="/admin/photostrip/:eventId/edit" element={<PhotostripAdminForm edit />} />
+              <Route path="/carreteo/:eventSlug" element={<CarreteoPublic />} />
+              <Route path="/admin/carreteo/new" element={<CarreteoAdminForm />} />
+              <Route path="/admin/carreteo/:eventId" element={<CarreteoAdminDetail />} />
+              <Route path="/admin/carreteo/:eventId/edit" element={<CarreteoAdminForm edit />} />
 
               {/* Admin translations via URL prefix */}
               <Route path="/en/login" element={<AdminLogin />} />

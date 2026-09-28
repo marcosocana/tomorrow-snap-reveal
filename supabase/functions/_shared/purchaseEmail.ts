@@ -1,4 +1,4 @@
-export type PurchaseEmailType = "revelao_purchase" | "captains_purchase" | "photostrip_purchase";
+export type PurchaseEmailType = "revelao_purchase" | "captains_purchase" | "photostrip_purchase" | "carreteo_purchase";
 
 export type PurchaseEmailJob = {
   id: string;
@@ -72,6 +72,25 @@ const renderEmail = (job: PurchaseEmailJob, logoUrl: string) => {
         <p style="text-align:center;color:#444;">Has comprado <strong>${escapeHtml(job.payload.planLabel)}</strong> · ${escapeHtml(limit)}.</p>
         <p style="text-align:center;color:#444;">Inicia sesión con la misma cuenta con la que realizaste la compra para crear tu evento.</p>
         <p style="text-align:center;"><a href="${escapeHtml(onboardingUrl)}" style="display:inline-block;background:#f06a5f;color:#fff;padding:12px 24px;border-radius:999px;text-decoration:none;font-weight:700;">Crear mi evento Photostrip</a></p>
+        <div style="background:#f5f5f5;border-radius:12px;padding:16px;margin:20px 0;text-align:center;">
+          <p style="font-size:13px;color:#777;">Código de creación</p><p style="font-size:22px;font-weight:800;letter-spacing:3px;">${escapeHtml(job.payload.redeemCode)}</p>
+        </div></div>`,
+    };
+  }
+
+  if (job.email_type === "carreteo_purchase") {
+    const onboardingUrl = safeUrl(job.payload.onboardingUrl);
+    const maxCameras = job.payload.maxCameras === null || job.payload.maxCameras === undefined
+      ? null
+      : Math.max(1, Math.floor(Number(job.payload.maxCameras)));
+    const limit = maxCameras === null ? "Cámaras ilimitadas" : `Hasta ${maxCameras} cámaras`;
+    return {
+      subject: "Tu enlace para crear Carreteo",
+      html: `<div style="font-family:sans-serif;max-width:520px;margin:auto;padding:24px;">
+        ${logo}<h2 style="text-align:center;">Tu Carreteo ya está listo</h2>
+        <p style="text-align:center;color:#444;">Has comprado <strong>${escapeHtml(job.payload.planLabel)}</strong> · ${escapeHtml(limit)}.</p>
+        <p style="text-align:center;color:#444;">Inicia sesión con la misma cuenta con la que realizaste la compra para crear tu evento.</p>
+        <p style="text-align:center;"><a href="${escapeHtml(onboardingUrl)}" style="display:inline-block;background:#f06a5f;color:#fff;padding:12px 24px;border-radius:999px;text-decoration:none;font-weight:700;">Crear mi evento Carreteo</a></p>
         <div style="background:#f5f5f5;border-radius:12px;padding:16px;margin:20px 0;text-align:center;">
           <p style="font-size:13px;color:#777;">Código de creación</p><p style="font-size:22px;font-weight:800;letter-spacing:3px;">${escapeHtml(job.payload.redeemCode)}</p>
         </div></div>`,

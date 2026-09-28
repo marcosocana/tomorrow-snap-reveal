@@ -1,4 +1,4 @@
-export type EventManagementProduct = "revelao" | "captains" | "capsule" | "photostrip";
+export type EventManagementProduct = "revelao" | "captains" | "capsule" | "photostrip" | "carreteo";
 export type EventManagementAdminTab = "new" | "upcoming" | "past" | "tests" | "others";
 export type EventManagementView = "list" | "calendar";
 export type CaptainsStatusFilter = "all" | "in_progress" | "finished";

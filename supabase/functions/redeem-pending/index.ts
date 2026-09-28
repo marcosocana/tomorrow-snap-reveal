@@ -79,7 +79,9 @@ serve(async (req) => {
       ? "captains"
       : plan?.product === "capsule"
         ? "capsule"
-        : "revelao";
+        : plan?.product === "carreteo"
+          ? "carreteo"
+          : "revelao";
 
     return json({
       pending: {
