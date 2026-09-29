@@ -167,7 +167,7 @@ const CarreteoPublic = () => {
     return () => window.clearTimeout(timer);
   }, [event, loadEvent]);
 
-  const totalShots = event?.shotsPerCamera ?? 27;
+  const totalShots = event?.shotsPerCamera ?? 25;
   const rollFinished = shotsTaken >= totalShots;
   const isActive = event?.availability === "active";
 
@@ -377,7 +377,7 @@ const CarreteoPublic = () => {
   if (loadState === "not-found" || loadState === "error" || !event) {
     return (
       <div className="crt-center-message">
-        <h1>REVELAO.</h1>
+        <h1>CARRETEO.</h1>
         <p>{loadState === "not-found" ? "Este carrete no existe o ya no está disponible." : "No hemos podido cargar el carrete. Inténtalo de nuevo en unos segundos."}</p>
       </div>
     );
@@ -411,7 +411,7 @@ const CarreteoPublic = () => {
         ))}
 
         <header className="crt-brand">
-          <h1 className="crt-brand-name">REVELAO<span>.</span></h1>
+          <h1 className="crt-brand-name">CARRETEO<span>.</span></h1>
           <p className="crt-brand-sub">CÁMARA DE UN SOLO USO</p>
         </header>
 
@@ -511,7 +511,7 @@ const CarreteoPublic = () => {
         </div>
 
         <div className="crt-legal" aria-hidden="true">
-          <p>REVELAO™ · CÁMARA DE UN SOLO USO · APPAREIL PHOTO JETABLE</p>
+          <p>CARRETEO™ · CÁMARA DE UN SOLO USO · APPAREIL PHOTO JETABLE</p>
           <p>PELÍCULA 400 · {totalShots} EXPOSICIONES · HECHO PARA RECORDAR</p>
           <p>DEVELOP · WIND · SHOOT · REPEAT — Nº {legalNumber} / ES</p>
         </div>

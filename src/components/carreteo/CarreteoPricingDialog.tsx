@@ -9,9 +9,9 @@ import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious
 // Precios mostrados en el selector; el importe real lo fija el Price de Stripe
 // configurado en STRIPE_PRICE_CARRETEO_* (ver _shared/planConfig.ts).
 const plans = [
-  { id: "carreteo_50", name: "Pack 50", price: 29, limit: "Hasta 50 cámaras", ideal: "Ideal para celebraciones íntimas", featured: false },
-  { id: "carreteo_150", name: "Pack 150", price: 49, limit: "Hasta 150 cámaras", ideal: "Ideal para bodas y eventos medianos", featured: true },
-  { id: "carreteo_unlimited", name: "Ilimitado", price: 79, limit: "Cámaras ilimitadas", ideal: "Ideal para eventos grandes", featured: false },
+  { id: "carreteo_50", name: "Pack 50", price: 39, limit: "Hasta 50 cámaras", ideal: "Ideal para celebraciones íntimas", featured: false },
+  { id: "carreteo_150", name: "Pack 150", price: 69, limit: "Hasta 150 cámaras", ideal: "Ideal para bodas y eventos medianos", featured: true },
+  { id: "carreteo_250", name: "Pack 250", price: 85, limit: "Hasta 250 cámaras", ideal: "Ideal para eventos grandes", featured: false },
 ] as const;
 
 type Props = { open: boolean; onOpenChange: (open: boolean) => void };
@@ -59,7 +59,7 @@ export const CarreteoPricingDialog = ({ open, onOpenChange }: Props) => {
         </div>
       </div>
       <ul className="mb-6 space-y-3">
-        {[plan.limit, "Código QR de acceso", "Fotos por invitado a tu elección", "Galería al revelarse"].map((feature) => (
+        {[plan.limit, "25 fotos por cámara", "Código QR de acceso", "Galería al revelarse"].map((feature) => (
           <li key={feature} className="flex items-start gap-3"><Check className="mt-0.5 h-4 w-4 shrink-0 text-[#f06a5f]" /><span className="text-sm text-foreground">{feature}</span></li>
         ))}
         <li className="flex items-start gap-3"><Star className="mt-0.5 h-4 w-4 shrink-0 text-foreground" /><span className="text-sm text-foreground">{plan.ideal}</span></li>

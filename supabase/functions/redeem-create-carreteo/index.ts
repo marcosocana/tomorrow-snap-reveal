@@ -56,7 +56,8 @@ serve(async (req) => {
     const uploadStart = new Date(String(event.upload_start_time || ""));
     const uploadEnd = new Date(String(event.upload_end_time || ""));
     const revealAt = new Date(String(event.reveal_time || ""));
-    const shotsPerCamera = Math.floor(Number(config.shots_per_camera));
+    // Los planes de pago fijan las fotos por cámara; el valor del formulario no cuenta.
+    const shotsPerCamera = plan.maxShotsPerCamera ?? Math.floor(Number(config.shots_per_camera));
     if (
       !name || !slugPattern.test(slug)
       || [uploadStart, uploadEnd, revealAt].some((date) => Number.isNaN(date.getTime()))

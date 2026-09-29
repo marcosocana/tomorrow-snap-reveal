@@ -83,7 +83,8 @@ const renderEmail = (job: PurchaseEmailJob, logoUrl: string) => {
     const maxCameras = job.payload.maxCameras === null || job.payload.maxCameras === undefined
       ? null
       : Math.max(1, Math.floor(Number(job.payload.maxCameras)));
-    const limit = maxCameras === null ? "Cámaras ilimitadas" : `Hasta ${maxCameras} cámaras`;
+    const shots = Math.floor(Number(job.payload.maxShotsPerCamera));
+    const limit = `${maxCameras === null ? "Cámaras ilimitadas" : `Hasta ${maxCameras} cámaras`}${shots > 0 ? ` · ${shots} fotos por cámara` : ""}`;
     return {
       subject: "Tu enlace para crear Carreteo",
       html: `<div style="font-family:sans-serif;max-width:520px;margin:auto;padding:24px;">

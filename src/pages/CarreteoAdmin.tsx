@@ -44,6 +44,7 @@ type AdminPhoto = {
 type AdminMetrics = { cameras: number; finishedRolls: number; photos: number; latest: string | null; galleryViews: number };
 
 const ADMIN_EMAIL = "revelao.cam@gmail.com";
+const PAID_SHOTS_PER_CAMERA = 25;
 const slugify = (value: string) => value.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
   .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60);
 const toLocalInput = (value: string | null, timezone: string) => value ? formatInTimeZone(new Date(value), timezone, "yyyy-MM-dd'T'HH:mm") : "";
@@ -69,10 +70,12 @@ export const CarreteoAdminForm = ({ edit = false }: { edit?: boolean }) => {
   const [saving, setSaving] = useState(false);
   const [slugTouched, setSlugTouched] = useState(edit);
   const [hasShots, setHasShots] = useState(false);
+  // Los eventos comprados traen 25 fotos por cámara fijas; solo el superadmin elige.
+  const [paidPlan, setPaidPlan] = useState(Boolean(redeemToken));
   const [backgroundImage, setBackgroundImage] = useState<File | null>(null);
   const [backgroundPreview, setBackgroundPreview] = useState("");
   const [form, setForm] = useState({
-    name: "", slug: "", startsAt: "", endsAt: "", revealAt: "", timezone: "Europe/Madrid", enabled: true, shotsPerCamera: 27,
+    name: "", slug: "", startsAt: "", endsAt: "", revealAt: "", timezone: "Europe/Madrid", enabled: true, shotsPerCamera: PAID_SHOTS_PER_CAMERA,
   });
 
   useEffect(() => {
@@ -85,7 +88,7 @@ export const CarreteoAdminForm = ({ edit = false }: { edit?: boolean }) => {
         return;
       }
       if (!edit || !eventId) { setLoading(false); return; }
-      const { data: event, error: eventError } = await supabase.from("events").select("id,name,upload_start_time,upload_end_time,reveal_time,timezone,background_image_url").eq("id", eventId).single();
+      const { data: event, error: eventError } = await supabase.from("events").select("id,name,upload_start_time,upload_end_time,reveal_time,timezone,background_image_url,plan_id").eq("id", eventId).single();
       const { data: config, error: configError } = await supabase.from("carreteo_event_configs").select("*").eq("event_id", eventId).single();
       if (eventError || configError || !event || !config) {
         toast({ title: "No se pudo abrir el evento", variant: "destructive" }); navigate("/event-management?product=carreteo"); return;
@@ -97,6 +100,7 @@ export const CarreteoAdminForm = ({ edit = false }: { edit?: boolean }) => {
         revealAt: toLocalInput(event.reveal_time, timezone), timezone, enabled: config.enabled, shotsPerCamera: config.shots_per_camera,
       });
       setHasShots(Boolean(count));
+      setPaidPlan(Boolean(event.plan_id?.startsWith("carreteo_")));
       setBackgroundPreview(event.background_image_url || "");
       setLoading(false);
     })();
@@ -187,7 +191,7 @@ export const CarreteoAdminForm = ({ edit = false }: { edit?: boolean }) => {
       <div><h2 className="text-lg font-semibold">Datos del evento</h2><p className="text-sm text-muted-foreground">Cada invitado escanea el QR y recibe una cámara desechable con su propio carrete.</p></div>
       <label className="block space-y-2 text-sm font-medium">Nombre<Input required maxLength={200} value={form.name} onChange={(e) => { update("name", e.target.value); if (!slugTouched) update("slug", slugify(e.target.value)); }} /></label>
       <label className="block min-w-0 space-y-2 text-sm font-medium">URL pública<div className="flex min-w-0 items-center rounded-md border bg-background"><span className="shrink-0 pl-3 text-xs text-muted-foreground">/carreteo/</span><Input required pattern="[a-z0-9]+(?:-[a-z0-9]+)*" className="min-w-0 border-0" value={form.slug} onChange={(e) => { setSlugTouched(true); update("slug", slugify(e.target.value)); }} /></div></label>
-      <label className="block space-y-2 text-sm font-medium">Fotos por cámara<Input required type="number" min={1} max={99} disabled={hasShots} value={form.shotsPerCamera} onChange={(e) => update("shotsPerCamera", Number(e.target.value))} /><span className="block text-xs font-normal text-muted-foreground">{hasShots ? "Ya hay fotos hechas: el tamaño del carrete no se puede cambiar." : "Exposiciones del carrete de cada invitado. Las desechables clásicas traen 27."}</span></label>
+      <label className="block space-y-2 text-sm font-medium">Fotos por cámara<Input required type="number" min={1} max={99} disabled={hasShots || paidPlan} value={form.shotsPerCamera} onChange={(e) => update("shotsPerCamera", Number(e.target.value))} /><span className="block text-xs font-normal text-muted-foreground">{paidPlan ? `Tu plan incluye ${PAID_SHOTS_PER_CAMERA} fotos por cámara.` : hasShots ? "Ya hay fotos hechas: el tamaño del carrete no se puede cambiar." : "Exposiciones del carrete de cada invitado."}</span></label>
       <div className="grid gap-4 sm:grid-cols-2"><label className="space-y-2 text-sm font-medium">Se abre el carrete<Input required type="datetime-local" value={form.startsAt} onChange={(e) => update("startsAt", e.target.value)} /></label><label className="space-y-2 text-sm font-medium">Se cierra el carrete<Input required type="datetime-local" value={form.endsAt} onChange={(e) => update("endsAt", e.target.value)} /></label></div>
       <label className="block space-y-2 text-sm font-medium">Revelado de las fotos<Input required type="datetime-local" value={form.revealAt} onChange={(e) => update("revealAt", e.target.value)} /><span className="block text-xs font-normal text-muted-foreground">Hasta entonces nadie ve las fotos. Después, el mismo QR abre la galería.</span></label>
       <p className="-mt-4 text-xs text-muted-foreground">Zona horaria: {form.timezone}</p>
@@ -299,7 +303,7 @@ type CarreteoBulkActions = {
 };
 
 const planCameraLimit = (planId?: string | null) =>
-  planId === "carreteo_50" ? "50" : planId === "carreteo_150" ? "150" : "Ilimitadas";
+  planId === "carreteo_50" ? "50" : planId === "carreteo_150" ? "150" : planId === "carreteo_250" ? "250" : "Ilimitadas";
 
 export const CarreteoDashboardSection = ({ events, bulkActions }: { events: CarreteoDashboardEvent[]; bulkActions?: CarreteoBulkActions }) => {
   const navigate = useNavigate();

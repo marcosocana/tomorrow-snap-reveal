@@ -227,6 +227,7 @@ const fulfillPaidSession = async (
         redeemCode: finalToken,
         planLabel: plan.label,
         maxCameras: plan.maxCameras,
+        maxShotsPerCamera: plan.maxShotsPerCamera,
       },
     });
     return "carreteo_enqueued";

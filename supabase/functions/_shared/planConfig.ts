@@ -12,7 +12,7 @@ export type PlanId =
   | "photostrip_unlimited"
   | "carreteo_50"
   | "carreteo_150"
-  | "carreteo_unlimited";
+  | "carreteo_250";
 
 export type PlanConfig = {
   id: PlanId;
@@ -25,6 +25,7 @@ export type PlanConfig = {
   product?: "revelao" | "capsule" | "photostrip" | "carreteo";
   maxStrips?: number | null;
   maxCameras?: number | null;
+  maxShotsPerCamera?: number;
 };
 
 export const PLANS: Record<PlanId, PlanConfig> = {
@@ -135,6 +136,7 @@ export const PLANS: Record<PlanId, PlanConfig> = {
     maxVideos: 0,
     maxAudios: 0,
     maxCameras: 50,
+    maxShotsPerCamera: 25,
     stripePriceIdEnv: "STRIPE_PRICE_CARRETEO_50",
     product: "carreteo",
   },
@@ -145,17 +147,19 @@ export const PLANS: Record<PlanId, PlanConfig> = {
     maxVideos: 0,
     maxAudios: 0,
     maxCameras: 150,
+    maxShotsPerCamera: 25,
     stripePriceIdEnv: "STRIPE_PRICE_CARRETEO_150",
     product: "carreteo",
   },
-  carreteo_unlimited: {
-    id: "carreteo_unlimited",
-    label: "Carreteo · Cámaras ilimitadas",
+  carreteo_250: {
+    id: "carreteo_250",
+    label: "Carreteo · Hasta 250 cámaras",
     maxPhotos: 0,
     maxVideos: 0,
     maxAudios: 0,
-    maxCameras: null,
-    stripePriceIdEnv: "STRIPE_PRICE_CARRETEO_UNLIMITED",
+    maxCameras: 250,
+    maxShotsPerCamera: 25,
+    stripePriceIdEnv: "STRIPE_PRICE_CARRETEO_250",
     product: "carreteo",
   },
 };
