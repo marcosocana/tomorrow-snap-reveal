@@ -161,6 +161,9 @@ const CarreteoPublic = () => {
   const [event, setEvent] = useState<PublicCarreteoEvent | null>(null);
   const [loadState, setLoadState] = useState<"loading" | "ready" | "not-found" | "error">("loading");
   const [shotsTaken, setShotsTaken] = useState(0);
+  // false cuando el evento ya ha llegado a su máximo de cámaras y este móvil
+  // aún no ha hecho ninguna foto.
+  const [cameraAvailable, setCameraAvailable] = useState(true);
   const [wound, setWound] = useState(false);
   const [saving, setSaving] = useState(false);
   const [flashOn, setFlashOn] = useState(false);
@@ -179,7 +182,7 @@ const CarreteoPublic = () => {
 
   const loadEvent = useCallback(async () => {
     try {
-      const response = await carreteoApi<{ event: PublicCarreteoEvent; shotsTaken: number }>({
+      const response = await carreteoApi<{ event: PublicCarreteoEvent; shotsTaken: number; cameraAvailable?: boolean }>({
         action: "event",
         slug,
         participantId: identity.id,
@@ -187,6 +190,7 @@ const CarreteoPublic = () => {
       });
       setEvent(response.event);
       setShotsTaken(response.shotsTaken);
+      setCameraAvailable(response.cameraAvailable !== false);
       setLoadState("ready");
     } catch (error) {
       setLoadState(error instanceof Error && error.message === "EVENT_NOT_FOUND" ? "not-found" : "error");
@@ -238,9 +242,9 @@ const CarreteoPublic = () => {
   }, [stopCamera]);
 
   useEffect(() => {
-    if (!isActive || rollFinished) { stopCamera(); return; }
+    if (!isActive || rollFinished || !cameraAvailable) { stopCamera(); return; }
     if (cameraState === "idle") void startCamera();
-  }, [cameraState, isActive, rollFinished, startCamera, stopCamera]);
+  }, [cameraAvailable, cameraState, isActive, rollFinished, startCamera, stopCamera]);
 
   useEffect(() => stopCamera, [stopCamera]);
 
@@ -268,8 +272,8 @@ const CarreteoPublic = () => {
     };
   }, [showsCamera]);
 
-  const canWind = isActive && !wound && !saving && !rollFinished;
-  const canShoot = isActive && wound && !saving && !rollFinished && cameraState === "ready";
+  const canWind = isActive && cameraAvailable && !wound && !saving && !rollFinished;
+  const canShoot = isActive && cameraAvailable && wound && !saving && !rollFinished && cameraState === "ready";
 
   const paintWheel = () => {
     wheelRef.current?.style.setProperty("--crt-wheel-offset", `${wheelOffset.current}px`);
@@ -404,6 +408,7 @@ const CarreteoPublic = () => {
         void loadEvent();
       } else if (code === "CAMERA_LIMIT_REACHED") {
         setShotsTaken(previousShots);
+        setCameraAvailable(false);
         toast({ title: "No quedan cámaras libres", description: "Este evento ha alcanzado el máximo de cámaras.", variant: "destructive" });
       } else {
         // La foto no llegó a guardarse: el carrete sigue avanzado para reintentar.
@@ -436,6 +441,7 @@ const CarreteoPublic = () => {
     if (event.availability === "closed") return { text: `SE REVELA EL ${formatMoment(event.revealAt)}` };
     if (event.availability === "inactive") return { text: "CÁMARA EN PAUSA" };
     if (rollFinished) return { text: "CARRETE COMPLETO" };
+    if (!cameraAvailable) return { text: "NO QUEDAN CÁMARAS LIBRES" };
     if (saving) return { text: "GUARDANDO…" };
     if (cameraState === "error") return { text: "PERMITE EL ACCESO A LA CÁMARA", retry: true };
     if (wound) return { text: "LISTA PARA DISPARAR", icon: <ArrowRight aria-hidden="true" /> };

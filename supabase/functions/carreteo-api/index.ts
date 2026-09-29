@@ -190,7 +190,17 @@ const handleJson = async (req: Request, body: JsonBody) => {
 
   if (action === "event") {
     const camera = await findCamera(event.id, readString(body, "participantId"), readString(body, "participantToken"));
-    return json({ event: publicEventPayload(event, config), shotsTaken: camera?.shots_taken ?? 0 });
+    const shotsTaken = camera?.shots_taken ?? 0;
+    // Solo cuentan las cámaras que ya han hecho alguna foto; esta cámara, si
+    // ya disparó, conserva su hueco.
+    let cameraAvailable = true;
+    if (shotsTaken === 0 && config.max_cameras !== null) {
+      const { count, error } = await admin.from("carreteo_cameras").select("id", { count: "exact", head: true })
+        .eq("event_id", event.id).gt("shots_taken", 0);
+      if (error) throw new Error("CAMERA_COUNT_FAILED");
+      cameraAvailable = (count ?? 0) < config.max_cameras;
+    }
+    return json({ event: publicEventPayload(event, config), shotsTaken, cameraAvailable });
   }
 
   if (action === "gallery") {
@@ -291,7 +301,6 @@ const handleShot = async (form: FormData) => {
     target_participant_id: participantId,
     target_access_token_hash: await hashToken(participantToken),
   });
-  if (claimError?.message.includes("CARRETEO_CAMERA_LIMIT_REACHED")) return json({ error: "CAMERA_LIMIT_REACHED" }, 409);
   if (claimError) throw new Error("CAMERA_CLAIM_FAILED");
   const camera = await findCamera(event.id, participantId, participantToken);
   if (!camera) return json({ error: "INVALID_PARTICIPANT" }, 403);
@@ -319,6 +328,10 @@ const handleShot = async (form: FormData) => {
     if (error?.message.includes("CARRETEO_ROLL_FINISHED")) {
       await admin.storage.from(BUCKET).remove([imagePath, thumbnailPath]);
       return json({ error: "ROLL_FINISHED", shotsTaken: config.shots_per_camera }, 409);
+    }
+    if (error?.message.includes("CARRETEO_CAMERA_LIMIT_REACHED")) {
+      await admin.storage.from(BUCKET).remove([imagePath, thumbnailPath]);
+      return json({ error: "CAMERA_LIMIT_REACHED" }, 409);
     }
     if (error || !data) throw new Error("RECORD_FAILED");
     return json({ shotsTaken: (data as Photo).frame_number });

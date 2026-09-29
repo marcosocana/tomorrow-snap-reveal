@@ -75,7 +75,7 @@ export const CarreteoAdminForm = ({ edit = false }: { edit?: boolean }) => {
   const [backgroundImage, setBackgroundImage] = useState<File | null>(null);
   const [backgroundPreview, setBackgroundPreview] = useState("");
   const [form, setForm] = useState({
-    name: "", slug: "", startsAt: "", endsAt: "", revealAt: "", timezone: "Europe/Madrid", enabled: true, shotsPerCamera: PAID_SHOTS_PER_CAMERA,
+    name: "", slug: "", startsAt: "", endsAt: "", revealAt: "", timezone: "Europe/Madrid", enabled: true, shotsPerCamera: PAID_SHOTS_PER_CAMERA, maxCameras: "50",
   });
 
   useEffect(() => {
@@ -86,6 +86,18 @@ export const CarreteoAdminForm = ({ edit = false }: { edit?: boolean }) => {
         toast({ title: "Elige un plan para crear tu Carreteo" });
         navigate("/event-management?product=carreteo");
         return;
+      }
+      if (!edit && redeemToken) {
+        // Las cámaras y las fotos por cámara de una compra vienen de su plan.
+        const { data: redeem } = await supabase.functions.invoke(`redeem-get?token=${encodeURIComponent(redeemToken)}`, { method: "GET" });
+        const plan = redeem?.plan as { maxCameras?: number | null; maxShotsPerCamera?: number } | undefined;
+        if (plan) {
+          setForm((current) => ({
+            ...current,
+            maxCameras: plan.maxCameras ? String(plan.maxCameras) : "",
+            shotsPerCamera: plan.maxShotsPerCamera ?? current.shotsPerCamera,
+          }));
+        }
       }
       if (!edit || !eventId) { setLoading(false); return; }
       const { data: event, error: eventError } = await supabase.from("events").select("id,name,upload_start_time,upload_end_time,reveal_time,timezone,background_image_url,plan_id").eq("id", eventId).single();
@@ -98,6 +110,7 @@ export const CarreteoAdminForm = ({ edit = false }: { edit?: boolean }) => {
       setForm({
         name: event.name, slug: config.slug, startsAt: toLocalInput(event.upload_start_time, timezone), endsAt: toLocalInput(event.upload_end_time, timezone),
         revealAt: toLocalInput(event.reveal_time, timezone), timezone, enabled: config.enabled, shotsPerCamera: config.shots_per_camera,
+        maxCameras: config.max_cameras ? String(config.max_cameras) : "",
       });
       setHasShots(Boolean(count));
       setPaidPlan(Boolean(event.plan_id?.startsWith("carreteo_")));
@@ -126,6 +139,10 @@ export const CarreteoAdminForm = ({ edit = false }: { edit?: boolean }) => {
     if (revealAt < endsAt) {
       toast({ title: "Revisa la fecha de revelado", description: "Las fotos se revelan cuando el carrete ya está cerrado.", variant: "destructive" }); return;
     }
+    const maxCameras = Math.floor(Number(form.maxCameras));
+    if (!paidPlan && (!Number.isFinite(maxCameras) || maxCameras < 1 || maxCameras > 10000)) {
+      toast({ title: "Indica cuántas cámaras incluye el evento", description: "Entre 1 y 10.000.", variant: "destructive" }); return;
+    }
     const shotsPerCamera = Math.floor(Number(form.shotsPerCamera));
     if (!Number.isFinite(shotsPerCamera) || shotsPerCamera < 1 || shotsPerCamera > 99) {
       toast({ title: "Fotos por cámara entre 1 y 99", variant: "destructive" }); return;
@@ -143,7 +160,10 @@ export const CarreteoAdminForm = ({ edit = false }: { edit?: boolean }) => {
         is_demo: false, max_photos: 0, allow_video_recording: false, allow_audio_recording: false,
         ...(!backgroundImage ? { background_image_url: backgroundPreview || null } : {}),
       };
-      const configValues = { slug: form.slug, enabled: form.enabled, shots_per_camera: shotsPerCamera };
+      // En los eventos comprados las cámaras y las fotos las fija el plan (y la base de datos lo impone).
+      const configValues = paidPlan
+        ? { slug: form.slug, enabled: form.enabled }
+        : { slug: form.slug, enabled: form.enabled, shots_per_camera: shotsPerCamera, max_cameras: maxCameras };
       if (edit && eventId) {
         const { error } = await supabase.from("events").update(eventValues).eq("id", eventId); if (error) throw error;
       } else if (redeemToken) {
@@ -191,6 +211,7 @@ export const CarreteoAdminForm = ({ edit = false }: { edit?: boolean }) => {
       <div><h2 className="text-lg font-semibold">Datos del evento</h2><p className="text-sm text-muted-foreground">Cada invitado escanea el QR y recibe una cámara desechable con su propio carrete.</p></div>
       <label className="block space-y-2 text-sm font-medium">Nombre<Input required maxLength={200} value={form.name} onChange={(e) => { update("name", e.target.value); if (!slugTouched) update("slug", slugify(e.target.value)); }} /></label>
       <label className="block min-w-0 space-y-2 text-sm font-medium">URL pública<div className="flex min-w-0 items-center rounded-md border bg-background"><span className="shrink-0 pl-3 text-xs text-muted-foreground">/carreteo/</span><Input required pattern="[a-z0-9]+(?:-[a-z0-9]+)*" className="min-w-0 border-0" value={form.slug} onChange={(e) => { setSlugTouched(true); update("slug", slugify(e.target.value)); }} /></div></label>
+      <label className="block space-y-2 text-sm font-medium">Cámaras incluidas<Input required={!paidPlan} type="number" min={1} max={10000} disabled={paidPlan} placeholder={paidPlan ? "Según tu plan" : undefined} value={form.maxCameras} onChange={(e) => update("maxCameras", e.target.value)} /><span className="block text-xs font-normal text-muted-foreground">{paidPlan ? "Las cámaras incluidas las fija tu plan." : "Máximo de móviles distintos que pueden usar el QR."} Un móvil solo gasta cámara cuando hace su primera foto.</span></label>
       <label className="block space-y-2 text-sm font-medium">Fotos por cámara<Input required type="number" min={1} max={99} disabled={hasShots || paidPlan} value={form.shotsPerCamera} onChange={(e) => update("shotsPerCamera", Number(e.target.value))} /><span className="block text-xs font-normal text-muted-foreground">{paidPlan ? `Tu plan incluye ${PAID_SHOTS_PER_CAMERA} fotos por cámara.` : hasShots ? "Ya hay fotos hechas: el tamaño del carrete no se puede cambiar." : "Exposiciones del carrete de cada invitado."}</span></label>
       <div className="grid gap-4 sm:grid-cols-2"><label className="space-y-2 text-sm font-medium">Se abre el carrete<Input required type="datetime-local" value={form.startsAt} onChange={(e) => update("startsAt", e.target.value)} /></label><label className="space-y-2 text-sm font-medium">Se cierra el carrete<Input required type="datetime-local" value={form.endsAt} onChange={(e) => update("endsAt", e.target.value)} /></label></div>
       <label className="block space-y-2 text-sm font-medium">Revelado de las fotos<Input required type="datetime-local" value={form.revealAt} onChange={(e) => update("revealAt", e.target.value)} /><span className="block text-xs font-normal text-muted-foreground">Hasta entonces nadie ve las fotos. Después, el mismo QR abre la galería.</span></label>
@@ -302,17 +323,23 @@ type CarreteoBulkActions = {
   isLocked: (eventId: string) => boolean;
 };
 
-const planCameraLimit = (planId?: string | null) =>
-  planId === "carreteo_50" ? "50" : planId === "carreteo_150" ? "150" : planId === "carreteo_250" ? "250" : "Ilimitadas";
 
 export const CarreteoDashboardSection = ({ events, bulkActions }: { events: CarreteoDashboardEvent[]; bulkActions?: CarreteoBulkActions }) => {
   const navigate = useNavigate();
   const [pricingOpen, setPricingOpen] = useState(false);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [cameraLimits, setCameraLimits] = useState<Record<string, number | null>>({});
 
   useEffect(() => {
     void supabase.auth.getUser().then(({ data }) => setIsSuperAdmin((data.user?.email || "").toLowerCase() === ADMIN_EMAIL));
   }, []);
+
+  const eventIds = events.map((event) => event.id).join(",");
+  useEffect(() => {
+    if (!eventIds) return;
+    void supabase.from("carreteo_event_configs").select("event_id,max_cameras").in("event_id", eventIds.split(","))
+      .then(({ data }) => setCameraLimits(Object.fromEntries((data ?? []).map((config) => [config.event_id, config.max_cameras]))));
+  }, [eventIds]);
 
   const create = () => { if (isSuperAdmin) navigate("/admin/carreteo/new"); else setPricingOpen(true); };
 
@@ -345,7 +372,7 @@ export const CarreteoDashboardSection = ({ events, bulkActions }: { events: Carr
             const closed = Boolean(event.upload_end_time && new Date(event.upload_end_time).getTime() < now);
             const status = revealed ? "Revelado" : upcoming ? "Próximo" : closed ? "Pendiente de revelar" : "En curso";
             const open = () => navigate(`/admin/carreteo/${event.id}`);
-            return <tr key={event.id} role="link" tabIndex={0} className="cursor-pointer border-b transition-colors hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none last:border-0" onClick={open} onKeyDown={(keyboardEvent) => { if (keyboardEvent.key === "Enter") open(); }}>{bulkActions ? <td className="py-3 pr-3"><input type="checkbox" checked={bulkActions.selectedIds.has(event.id)} onChange={() => bulkActions.onToggleSelection(event.id)} onClick={(clickEvent) => clickEvent.stopPropagation()} onKeyDown={(keyboardEvent) => keyboardEvent.stopPropagation()} aria-label={`Seleccionar ${event.name}`} className="h-4 w-4 rounded border-border text-primary focus:ring-primary" /></td> : null}<td className="py-3 pr-4 text-muted-foreground">{event.event_number ?? "—"}</td><td className="py-3 pr-4 font-medium"><span className="inline-flex items-center gap-1.5">{bulkActions?.isLocked(event.id) ? <Lock className="h-3.5 w-3.5 text-foreground/80" /> : null}<span>{event.name}</span></span></td><td className="py-3 pr-4">{event.created_at ? new Date(event.created_at).toLocaleDateString("es-ES") : "—"}</td><td className="max-w-[190px] truncate py-3 pr-4">{event.owner_email || "—"}</td><td className="py-3 pr-4">{status}</td><td className="py-3 pr-4">{planCameraLimit(event.plan_id)}</td><td className="py-3 pr-4">{event.upload_start_time ? formatInTimeZone(new Date(event.upload_start_time), timezone, "dd/MM/yyyy HH:mm") : "—"}</td><td className="py-3 pr-4">{event.upload_end_time ? formatInTimeZone(new Date(event.upload_end_time), timezone, "dd/MM/yyyy HH:mm") : "—"}</td><td className="py-3">{event.reveal_time ? formatInTimeZone(new Date(event.reveal_time), timezone, "dd/MM/yyyy HH:mm") : "—"}</td></tr>;
+            return <tr key={event.id} role="link" tabIndex={0} className="cursor-pointer border-b transition-colors hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none last:border-0" onClick={open} onKeyDown={(keyboardEvent) => { if (keyboardEvent.key === "Enter") open(); }}>{bulkActions ? <td className="py-3 pr-3"><input type="checkbox" checked={bulkActions.selectedIds.has(event.id)} onChange={() => bulkActions.onToggleSelection(event.id)} onClick={(clickEvent) => clickEvent.stopPropagation()} onKeyDown={(keyboardEvent) => keyboardEvent.stopPropagation()} aria-label={`Seleccionar ${event.name}`} className="h-4 w-4 rounded border-border text-primary focus:ring-primary" /></td> : null}<td className="py-3 pr-4 text-muted-foreground">{event.event_number ?? "—"}</td><td className="py-3 pr-4 font-medium"><span className="inline-flex items-center gap-1.5">{bulkActions?.isLocked(event.id) ? <Lock className="h-3.5 w-3.5 text-foreground/80" /> : null}<span>{event.name}</span></span></td><td className="py-3 pr-4">{event.created_at ? new Date(event.created_at).toLocaleDateString("es-ES") : "—"}</td><td className="max-w-[190px] truncate py-3 pr-4">{event.owner_email || "—"}</td><td className="py-3 pr-4">{status}</td><td className="py-3 pr-4">{event.id in cameraLimits ? cameraLimits[event.id] ?? "Ilimitadas" : "—"}</td><td className="py-3 pr-4">{event.upload_start_time ? formatInTimeZone(new Date(event.upload_start_time), timezone, "dd/MM/yyyy HH:mm") : "—"}</td><td className="py-3 pr-4">{event.upload_end_time ? formatInTimeZone(new Date(event.upload_end_time), timezone, "dd/MM/yyyy HH:mm") : "—"}</td><td className="py-3">{event.reveal_time ? formatInTimeZone(new Date(event.reveal_time), timezone, "dd/MM/yyyy HH:mm") : "—"}</td></tr>;
           })}</tbody>
         </table>
       </div>
