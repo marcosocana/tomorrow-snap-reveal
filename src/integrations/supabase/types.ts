@@ -770,6 +770,136 @@ export type Database = {
           },
         ]
       }
+      carreteo_cameras: {
+        Row: {
+          access_token_hash: string
+          created_at: string
+          event_id: string
+          id: string
+          last_shot_at: string | null
+          participant_id: string
+          shots_taken: number
+        }
+        Insert: {
+          access_token_hash: string
+          created_at?: string
+          event_id: string
+          id?: string
+          last_shot_at?: string | null
+          participant_id: string
+          shots_taken?: number
+        }
+        Update: {
+          access_token_hash?: string
+          created_at?: string
+          event_id?: string
+          id?: string
+          last_shot_at?: string | null
+          participant_id?: string
+          shots_taken?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "carreteo_cameras_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      carreteo_event_configs: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          event_id: string
+          gallery_views: number
+          max_cameras: number | null
+          shots_per_camera: number
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          event_id: string
+          gallery_views?: number
+          max_cameras?: number | null
+          shots_per_camera?: number
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          event_id?: string
+          gallery_views?: number
+          max_cameras?: number | null
+          shots_per_camera?: number
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "carreteo_event_configs_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: true
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      carreteo_photos: {
+        Row: {
+          camera_id: string
+          created_at: string
+          deleted_at: string | null
+          event_id: string
+          frame_number: number
+          id: string
+          image_path: string | null
+          is_visible: boolean
+          thumbnail_path: string | null
+        }
+        Insert: {
+          camera_id: string
+          created_at?: string
+          deleted_at?: string | null
+          event_id: string
+          frame_number: number
+          id?: string
+          image_path?: string | null
+          is_visible?: boolean
+          thumbnail_path?: string | null
+        }
+        Update: {
+          camera_id?: string
+          created_at?: string
+          deleted_at?: string | null
+          event_id?: string
+          frame_number?: number
+          id?: string
+          image_path?: string | null
+          is_visible?: boolean
+          thumbnail_path?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "carreteo_photos_camera_id_fkey"
+            columns: ["camera_id"]
+            isOneToOne: false
+            referencedRelation: "carreteo_cameras"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "carreteo_photos_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       demo_lifecycle_email_jobs: {
         Row: {
           attempts: number
@@ -1751,6 +1881,28 @@ export type Database = {
         }
         Returns: Json
       }
+      claim_carreteo_camera: {
+        Args: {
+          target_access_token_hash: string
+          target_event_id: string
+          target_participant_id: string
+        }
+        Returns: {
+          access_token_hash: string
+          created_at: string
+          event_id: string
+          id: string
+          last_shot_at: string | null
+          participant_id: string
+          shots_taken: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "carreteo_cameras"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       claim_demo_lifecycle_email_jobs: {
         Args: { batch_limit?: number; stale_before: string; worker_now: string }
         Returns: {
@@ -1857,6 +2009,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      get_carreteo_admin_metrics: {
+        Args: { target_event_id: string }
+        Returns: Json
+      }
       get_event_media_counts: {
         Args: { target_event_id: string }
         Returns: {
@@ -1878,6 +2034,10 @@ export type Database = {
         Args: { target_event_id: string }
         Returns: Json
       }
+      increment_carreteo_gallery_views: {
+        Args: { target_event_id: string }
+        Returns: undefined
+      }
       increment_photostrip_gallery_views: {
         Args: { target_event_id: string }
         Returns: undefined
@@ -1887,6 +2047,31 @@ export type Database = {
         Returns: {
           name: string
         }[]
+      }
+      record_carreteo_shot: {
+        Args: {
+          target_camera_id: string
+          target_event_id: string
+          target_image_path: string
+          target_thumbnail_path: string
+        }
+        Returns: {
+          camera_id: string
+          created_at: string
+          deleted_at: string | null
+          event_id: string
+          frame_number: number
+          id: string
+          image_path: string | null
+          is_visible: boolean
+          thumbnail_path: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "carreteo_photos"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       resolve_public_event_access: {
         Args: { candidate_password: string }
