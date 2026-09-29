@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { useParams } from "react-router-dom";
-import { Aperture, ArrowRight, ArrowUpRight, ChevronRight, Lock, Smartphone, ZapOff } from "lucide-react";
+import { Aperture, ArrowRight, ArrowUpRight, ChevronRight, Lock, ZapOff } from "lucide-react";
 import { formatInTimeZone } from "date-fns-tz";
 import {
   CarreteoApiError,
@@ -32,6 +32,33 @@ const vibrate = (pattern: number | number[]) => {
     navigator.vibrate?.(pattern);
   } catch {
     // Vibration is a nicety; some browsers throw outside a user gesture.
+  }
+};
+
+// En vertical la cámara se dibuja girada 90° (ver CarreteoPublic.css), así que
+// el eje de la rueda pasa a ser el vertical de la pantalla.
+const isRotatedLayout = () => window.matchMedia("(orientation: portrait)").matches;
+
+type FullscreenTarget = HTMLElement & { webkitRequestFullscreen?: () => Promise<void> | void };
+type FullscreenDocument = Document & { webkitFullscreenElement?: Element | null };
+type LockableOrientation = ScreenOrientation & { lock?: (orientation: string) => Promise<void> };
+
+// Pantalla completa y horizontal al primer toque donde el navegador lo permite
+// (Android). En iPhone no existe esta API y la cámara ocupa el área visible.
+const enterFullscreen = () => {
+  const doc = document as FullscreenDocument;
+  if (doc.fullscreenElement || doc.webkitFullscreenElement) return;
+  const root = document.documentElement as FullscreenTarget;
+  const request = root.requestFullscreen
+    ? () => root.requestFullscreen({ navigationUI: "hide" })
+    : root.webkitRequestFullscreen?.bind(root);
+  if (!request) return;
+  try {
+    void Promise.resolve(request())
+      .then(() => (screen.orientation as LockableOrientation | undefined)?.lock?.("landscape"))
+      .catch(() => undefined);
+  } catch {
+    // Algunos navegadores lanzan en vez de rechazar; la cámara sigue funcionando.
   }
 };
 
@@ -176,6 +203,24 @@ const CarreteoPublic = () => {
 
   useEffect(() => stopCamera, [stopCamera]);
 
+  // Mientras se ve la cámara la página no puede desplazarse, rebotar ni hacer zoom.
+  const showsCamera = loadState === "ready" && Boolean(event) && event?.availability !== "revealed";
+  useEffect(() => {
+    if (!showsCamera) return;
+    const roots = [document.documentElement, document.body];
+    roots.forEach((element) => element.classList.add("crt-locked"));
+    const preventScroll = (touchEvent: TouchEvent) => { if (touchEvent.cancelable) touchEvent.preventDefault(); };
+    const preventGesture = (gestureEvent: Event) => gestureEvent.preventDefault();
+    document.addEventListener("touchmove", preventScroll, { passive: false });
+    document.addEventListener("gesturestart", preventGesture);
+    window.scrollTo(0, 0);
+    return () => {
+      roots.forEach((element) => element.classList.remove("crt-locked"));
+      document.removeEventListener("touchmove", preventScroll);
+      document.removeEventListener("gesturestart", preventGesture);
+    };
+  }, [showsCamera]);
+
   const canWind = isActive && !wound && !saving && !rollFinished;
   const canShoot = isActive && wound && !saving && !rollFinished && cameraState === "ready";
 
@@ -210,7 +255,8 @@ const CarreteoPublic = () => {
     if (state.travel >= WIND_TRAVEL) completeWind();
   };
 
-  const unitPx = () => (wheelRef.current?.getBoundingClientRect().width ?? WHEEL_WIDTH_UNITS) / WHEEL_WIDTH_UNITS;
+  // offsetWidth ignora la rotación CSS: mide la rueda en píxeles de la propia cámara.
+  const unitPx = () => (wheelRef.current?.offsetWidth ?? WHEEL_WIDTH_UNITS) / WHEEL_WIDTH_UNITS;
 
   // Un toque sin arrastre avanza unos dientes, como empujar la rueda con el pulgar.
   const nudgeWheel = () => {
@@ -225,14 +271,16 @@ const CarreteoPublic = () => {
     unlockCarreteoAudio();
     if (!canWind) return;
     pointerEvent.currentTarget.setPointerCapture(pointerEvent.pointerId);
-    drag.current = { ...drag.current, active: true, pointerId: pointerEvent.pointerId, lastX: pointerEvent.clientX, moved: 0 };
+    const position = isRotatedLayout() ? pointerEvent.clientY : pointerEvent.clientX;
+    drag.current = { ...drag.current, active: true, pointerId: pointerEvent.pointerId, lastX: position, moved: 0 };
   };
 
   const onWheelPointerMove = (pointerEvent: ReactPointerEvent<HTMLButtonElement>) => {
     const state = drag.current;
     if (!state.active || pointerEvent.pointerId !== state.pointerId) return;
-    const dx = pointerEvent.clientX - state.lastX;
-    state.lastX = pointerEvent.clientX;
+    const position = isRotatedLayout() ? pointerEvent.clientY : pointerEvent.clientX;
+    const dx = position - state.lastX;
+    state.lastX = position;
     const units = Math.abs(dx) / unitPx();
     state.moved += units;
     advanceWheel(units, dx);
@@ -351,122 +399,129 @@ const CarreteoPublic = () => {
   const legalNumber = String(event.eventNumber ?? 1).padStart(4, "0");
 
   return (
-    <main className="crt-page" onPointerDown={unlockCarreteoAudio} aria-label={`Carreteo · ${event.name}`}>
+    <main
+      className="crt-page"
+      onPointerDown={() => { unlockCarreteoAudio(); enterFullscreen(); }}
+      aria-label={`Carreteo · ${event.name}`}
+    >
       <div className="crt-top"><CarreteoWave /></div>
-      {[[5, 10], [95, 10], [5, 90], [95, 90]].map(([left, top]) => (
-        <span key={`${left}-${top}`} className="crt-at crt-screw" style={{ left: `${left}%`, top: `${top}%` }} aria-hidden="true" />
-      ))}
+      <div className="crt-stage">
+        {[[5, 10], [95, 10], [5, 90], [95, 90]].map(([left, top]) => (
+          <span key={`${left}-${top}`} className="crt-at crt-screw" style={{ left: `${left}%`, top: `${top}%` }} aria-hidden="true" />
+        ))}
 
-      <header className="crt-brand">
-        <h1 className="crt-brand-name">REVELAO<span>.</span></h1>
-        <p className="crt-brand-sub">CÁMARA DE UN SOLO USO</p>
-      </header>
+        <header className="crt-brand">
+          <h1 className="crt-brand-name">REVELAO<span>.</span></h1>
+          <p className="crt-brand-sub">CÁMARA DE UN SOLO USO</p>
+        </header>
 
-      <button
-        ref={wheelRef}
-        type="button"
-        className={`crt-at crt-wheel ${canWind ? "" : "is-locked"}`}
-        aria-label="Rueda de arrastre: gírala para avanzar el carrete"
-        aria-disabled={!canWind}
-        onPointerDown={onWheelPointerDown}
-        onPointerMove={onWheelPointerMove}
-        onPointerUp={onWheelPointerUp}
-        onPointerCancel={() => { drag.current.active = false; }}
-        onKeyDown={(keyboardEvent) => {
-          if (["Enter", " ", "ArrowRight", "ArrowLeft"].includes(keyboardEvent.key)) {
-            keyboardEvent.preventDefault();
-            unlockCarreteoAudio();
-            nudgeWheel();
-          }
-        }}
-      />
-      <div className={`crt-at crt-step crt-step-wind ${canWind ? "is-pulsing" : "is-hidden"}`} aria-hidden="true">
-        <span className="crt-step-badge">1</span><ArrowRight />
-      </div>
-
-      <button
-        type="button"
-        className={`crt-viewfinder-handle crt-at ${viewfinderOpen ? "is-open" : ""}`}
-        aria-label={viewfinderOpen ? "Cerrar visor" : "Abrir visor"}
-        aria-expanded={viewfinderOpen}
-        onClick={() => setViewfinderOpen((open) => !open)}
-      >
-        <span className={`crt-viewfinder-dot ${cameraState === "ready" ? "is-ready" : cameraState === "error" ? "is-error" : ""}`} />
-        <span className="crt-viewfinder-tab"><ChevronRight aria-hidden="true" /></span>
-      </button>
-      <div className={`crt-viewfinder ${viewfinderOpen ? "is-open" : ""}`} aria-hidden={!viewfinderOpen}>
-        <video ref={videoRef} muted playsInline autoPlay />
-        <span className="crt-viewfinder-frame" />
-      </div>
-
-      <span className={`crt-at crt-led ${flashOn ? "is-on" : ""}`} aria-hidden="true" />
-      <button
-        type="button"
-        role="switch"
-        aria-checked={flashOn}
-        aria-label="Flash"
-        className={`crt-at crt-flash-toggle ${flashOn ? "is-on" : ""}`}
-        onClick={() => setFlashOn((on) => !on)}
-      >
-        <span className="crt-flash-knob" />
-        <svg className="crt-flash-bolt" viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5 2 4 14h6.5L9.5 22 20 9.5h-6.8L13.5 2Z" /></svg>
-      </button>
-      <span className="crt-at crt-label crt-flash-label">FLASH</span>
-      <span className="crt-at crt-range"><PersonIcon />1–3 m</span>
-
-      <div className="crt-at crt-dial" role="status" aria-label={`${shotsTaken} de ${totalShots} fotos`}>
-        <div className="crt-dial-face">
-          <span className="crt-dial-marker" />
-          <span key={tickKey} className={`crt-dial-number ${tickKey ? "is-ticking" : ""}`}>{shotsTaken}</span>
-          <span className="crt-dial-total">de {totalShots}</span>
+        <button
+          ref={wheelRef}
+          type="button"
+          className={`crt-at crt-wheel ${canWind ? "" : "is-locked"}`}
+          aria-label="Rueda de arrastre: gírala para avanzar el carrete"
+          aria-disabled={!canWind}
+          onPointerDown={onWheelPointerDown}
+          onPointerMove={onWheelPointerMove}
+          onPointerUp={onWheelPointerUp}
+          onPointerCancel={() => { drag.current.active = false; }}
+          onKeyDown={(keyboardEvent) => {
+            if (["Enter", " ", "ArrowRight", "ArrowLeft"].includes(keyboardEvent.key)) {
+              keyboardEvent.preventDefault();
+              unlockCarreteoAudio();
+              nudgeWheel();
+            }
+          }}
+        />
+        <div className={`crt-at crt-step crt-step-wind ${canWind ? "is-pulsing" : "is-hidden"}`} aria-hidden="true">
+          <span className="crt-step-badge">1</span><ArrowRight />
         </div>
-      </div>
-      {status.retry ? (
-        <button type="button" className="crt-at crt-status is-alert" onClick={() => void startCamera()}>{status.text}</button>
-      ) : (
-        <p className="crt-at crt-status" aria-live="polite" style={{ margin: 0 }}>{status.text}{status.icon ?? null}</p>
-      )}
-      <div
-        className="crt-at crt-bars"
-        style={{ gridTemplateColumns: `repeat(${totalShots}, 1fr)`, columnGap: `calc(var(--u) * ${barGap})` }}
-        aria-hidden="true"
-      >
-        {Array.from({ length: totalShots }, (_, index) => <span key={index} className={index < shotsTaken ? "is-on" : ""} />)}
-      </div>
 
-      <button
-        type="button"
-        className="crt-at crt-film"
-        aria-label={`Película Gold 400. Se revela el ${formatMoment(event.revealAt)}`}
-        onClick={() => setFilmTipOpen((open) => !open)}
-      >
-        <Lock aria-hidden="true" />GOLD 400
-      </button>
-      {filmTipOpen ? <div className="crt-at crt-film-tooltip" role="tooltip">Tus fotos se revelan el {formatMoment(event.revealAt)}</div> : null}
+        <button
+          type="button"
+          className={`crt-viewfinder-handle crt-at ${viewfinderOpen ? "is-open" : ""}`}
+          aria-label={viewfinderOpen ? "Cerrar visor" : "Abrir visor"}
+          aria-expanded={viewfinderOpen}
+          onClick={() => setViewfinderOpen((open) => !open)}
+        >
+          <span className={`crt-viewfinder-dot ${cameraState === "ready" ? "is-ready" : cameraState === "error" ? "is-error" : ""}`} />
+          <span className="crt-viewfinder-tab"><ChevronRight aria-hidden="true" /></span>
+        </button>
+        <div className={`crt-viewfinder ${viewfinderOpen ? "is-open" : ""}`} aria-hidden={!viewfinderOpen}>
+          <video ref={videoRef} muted playsInline autoPlay />
+          <span className="crt-viewfinder-frame" />
+        </div>
 
-      <button
-        type="button"
-        className={`crt-at crt-shutter ${canShoot ? "is-ready" : ""}`}
-        aria-label="Disparar"
-        disabled={!canShoot}
-        onClick={() => void shoot()}
-      >
-        <span className="crt-shutter-ring"><Aperture aria-hidden="true" /></span>
-      </button>
-      <div className={`crt-at crt-step crt-step-shoot ${canShoot ? "is-pulsing" : "is-hidden"}`} aria-hidden="true">
-        <span className="crt-step-badge">2</span>
-      </div>
+        <span className={`crt-at crt-led ${flashOn ? "is-on" : ""}`} aria-hidden="true" />
+        <button
+          type="button"
+          role="switch"
+          aria-checked={flashOn}
+          aria-label="Flash"
+          className={`crt-at crt-flash-toggle ${flashOn ? "is-on" : ""}`}
+          onClick={() => setFlashOn((on) => !on)}
+        >
+          <span className="crt-flash-knob" />
+          <svg className="crt-flash-bolt" viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5 2 4 14h6.5L9.5 22 20 9.5h-6.8L13.5 2Z" /></svg>
+        </button>
+        <span className="crt-at crt-label crt-flash-label">FLASH</span>
+        <span className="crt-at crt-range"><PersonIcon />1–3 m</span>
 
-      <div className="crt-legal" aria-hidden="true">
-        <p>REVELAO™ · CÁMARA DE UN SOLO USO · APPAREIL PHOTO JETABLE</p>
-        <p>PELÍCULA 400 · {totalShots} EXPOSICIONES · HECHO PARA RECORDAR</p>
-        <p>DEVELOP · WIND · SHOOT · REPEAT — Nº {legalNumber} / ES</p>
-      </div>
-      <div className="crt-marks" aria-hidden="true">
-        <span className="crt-mark-ce">CE</span>
-        <WeeeIcon />
-        <ZapOff />
-        <span className="crt-mark-iso">800</span>
+        <div className="crt-at crt-dial" role="status" aria-label={`${shotsTaken} de ${totalShots} fotos`}>
+          <div className="crt-dial-face">
+            <span className="crt-dial-marker" />
+            <span key={tickKey} className={`crt-dial-number ${tickKey ? "is-ticking" : ""}`}>{shotsTaken}</span>
+            <span className="crt-dial-total">de {totalShots}</span>
+          </div>
+        </div>
+        {status.retry ? (
+          <button type="button" className="crt-at crt-status is-alert" onClick={() => void startCamera()}>{status.text}</button>
+        ) : (
+          <p className="crt-at crt-status" aria-live="polite" style={{ margin: 0 }}>{status.text}{status.icon ?? null}</p>
+        )}
+        <div
+          className="crt-at crt-bars"
+          style={{ gridTemplateColumns: `repeat(${totalShots}, 1fr)`, columnGap: `calc(var(--u) * ${barGap})` }}
+          aria-hidden="true"
+        >
+          {Array.from({ length: totalShots }, (_, index) => <span key={index} className={index < shotsTaken ? "is-on" : ""} />)}
+        </div>
+
+        <button
+          type="button"
+          className="crt-at crt-film"
+          aria-label={`Película Gold 400. Se revela el ${formatMoment(event.revealAt)}`}
+          onClick={() => setFilmTipOpen((open) => !open)}
+        >
+          <Lock aria-hidden="true" />GOLD 400
+        </button>
+        {filmTipOpen ? <div className="crt-at crt-film-tooltip" role="tooltip">Tus fotos se revelan el {formatMoment(event.revealAt)}</div> : null}
+
+        <button
+          type="button"
+          className={`crt-at crt-shutter ${canShoot ? "is-ready" : ""}`}
+          aria-label="Disparar"
+          disabled={!canShoot}
+          onClick={() => void shoot()}
+        >
+          <span className="crt-shutter-ring"><Aperture aria-hidden="true" /></span>
+        </button>
+        <div className={`crt-at crt-step crt-step-shoot ${canShoot ? "is-pulsing" : "is-hidden"}`} aria-hidden="true">
+          <span className="crt-step-badge">2</span>
+        </div>
+
+        <div className="crt-legal" aria-hidden="true">
+          <p>REVELAO™ · CÁMARA DE UN SOLO USO · APPAREIL PHOTO JETABLE</p>
+          <p>PELÍCULA 400 · {totalShots} EXPOSICIONES · HECHO PARA RECORDAR</p>
+          <p>DEVELOP · WIND · SHOOT · REPEAT — Nº {legalNumber} / ES</p>
+        </div>
+        <div className="crt-marks" aria-hidden="true">
+          <span className="crt-mark-ce">CE</span>
+          <WeeeIcon />
+          <ZapOff />
+          <span className="crt-mark-iso">800</span>
+        </div>
+
       </div>
 
       {effect ? (
@@ -476,12 +531,6 @@ const CarreteoPublic = () => {
           onAnimationEnd={() => setEffect(null)}
         />
       ) : null}
-
-      <div className="crt-rotate" role="dialog" aria-label="Gira el móvil">
-        <Smartphone aria-hidden="true" />
-        <h1>Gira el móvil</h1>
-        <p>La cámara de {event.name} se usa en horizontal, como una desechable de verdad.</p>
-      </div>
     </main>
   );
 };
