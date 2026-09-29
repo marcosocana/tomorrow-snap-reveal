@@ -838,7 +838,7 @@ const EventForm = () => {
     setIsSubmitting(true);
 
     try {
-      if (Array.from(formData.description).length > 200) {
+      if (Array.from(formData.description).length > 300) {
         toast({
           title: t("form.errorTitle"),
           description: t("form.descriptionTooLong"),
@@ -1826,12 +1826,12 @@ const EventForm = () => {
                 }
                 placeholder={t("form.descriptionPlaceholder")}
                 rows={3}
-                maxLength={200}
+                maxLength={300}
               />
               <div className="flex items-start justify-between gap-3 text-xs text-muted-foreground">
                 <p>{t("form.descriptionHint")}</p>
                 <span className="shrink-0" aria-live="polite">
-                  {Array.from(formData.description).length}/200
+                  {Array.from(formData.description).length}/300
                 </span>
               </div>
             </div>

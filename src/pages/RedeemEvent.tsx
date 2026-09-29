@@ -35,6 +35,22 @@ import type { Json } from "@/integrations/supabase/types";
 
 const generateHash = (): string => Math.random().toString(36).substring(2, 10);
 
+// Mismos límites que el alta de demo; la descripción está limitada a 300 en la BD.
+const FIELD_LIMITS = {
+  eventName: 80,
+  description: 300,
+} as const;
+
+const countCharacters = (value: string) => Array.from(value).length;
+const limitCharacters = (value: string, maximum: number) =>
+  Array.from(value).slice(0, maximum).join("");
+
+const CharacterCounter = ({ value, maximum }: { value: string; maximum: number }) => (
+  <p className="text-right text-xs tabular-nums text-muted-foreground" aria-live="polite">
+    {countCharacters(value)}/{maximum}
+  </p>
+);
+
 type RedeemPlan = {
   id: string;
   label: string;
@@ -329,14 +345,16 @@ const RedeemEvent = () => {
   const handleStepBack = () => setCurrentStep(1);
 
   const isStep1Complete = () => {
-    const hasName = formData.name.trim().length > 0;
+    const hasName =
+      formData.name.trim().length > 0 && countCharacters(formData.name.trim()) <= FIELD_LIMITS.eventName;
+    const hasValidDescription = countCharacters(formData.description.trim()) <= FIELD_LIMITS.description;
     const hasStart = Boolean(formData.uploadStartDate && formData.uploadStartTime);
     const hasEnd = Boolean(formData.uploadEndDate && formData.uploadEndTime);
     const hasReveal = Boolean(formData.revealDate && formData.revealTime);
     const hasQrPassword = !formData.qrPasswordEnabled || formData.qrPassword.trim().length > 0;
     const hasQrPasswordScope =
       !formData.qrPasswordEnabled || formData.qrPasswordScope.camera || formData.qrPasswordScope.gallery;
-    return hasName && hasStart && hasEnd && hasReveal && hasQrPassword && hasQrPasswordScope;
+    return hasName && hasValidDescription && hasStart && hasEnd && hasReveal && hasQrPassword && hasQrPasswordScope;
   };
 
   const handleImageUpload = async (file: File): Promise<string | null> => {
@@ -698,10 +716,14 @@ const RedeemEvent = () => {
                     <Input
                       id="name"
                       value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, name: limitCharacters(e.target.value, FIELD_LIMITS.eventName) })
+                      }
+                      maxLength={FIELD_LIMITS.eventName}
                       placeholder="Por ejemplo: Boda de Ana y Fran."
                       required
                     />
+                    <CharacterCounter value={formData.name} maximum={FIELD_LIMITS.eventName} />
                   </div>
 
                   <div className="space-y-2">
@@ -718,10 +740,17 @@ const RedeemEvent = () => {
                     <Textarea
                       id="description"
                       value={formData.description}
-                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          description: limitCharacters(e.target.value, FIELD_LIMITS.description),
+                        })
+                      }
+                      maxLength={FIELD_LIMITS.description}
                       placeholder="Escribe el texto que quieres que aparezca en la pantalla"
                       rows={3}
                     />
+                    <CharacterCounter value={formData.description} maximum={FIELD_LIMITS.description} />
                   </div>
 
                   <div className="space-y-2">

@@ -34,7 +34,7 @@ const REVELAO_RED = "#f06a5f";
 const DEFAULT_LOGO_URL = "/LogoMiniRevelao.svg";
 const FIELD_LIMITS = {
   eventName: 80,
-  description: 200,
+  description: 300,
   contactName: 120,
   email: 254,
   phone: 40,

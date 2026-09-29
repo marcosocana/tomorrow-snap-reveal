@@ -197,8 +197,8 @@ serve(async (req) => {
     if (!event?.name || !event.password_hash || !event.admin_password) {
       return json({ error: "INVALID_EVENT" }, 400);
     }
-    if (event.description && Array.from(event.description).length > 200) {
-      return json({ error: "INVALID_DESCRIPTION", detail: "Description cannot exceed 200 characters" }, 400);
+    if (event.description && Array.from(event.description).length > 300) {
+      return json({ error: "INVALID_DESCRIPTION", detail: "Description cannot exceed 300 characters" }, 400);
     }
     const isCapsule = event.plan_id === "capsule" || event.type === "capsule";
     const ownerPassword = event.admin_password;
