@@ -8,6 +8,13 @@
       "when": 1790660888931,
       "tag": "0000_add_carreteo_product",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1790662320101,
+      "tag": "0001_carreteo_camera_limit",
+      "breakpoints": true
     }
   ]
 }
