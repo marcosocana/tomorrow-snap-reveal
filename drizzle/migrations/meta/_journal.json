@@ -15,6 +15,13 @@
       "when": 1790662320101,
       "tag": "0001_carreteo_camera_limit",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790684282188,
+      "tag": "0002_update_events_description_max_length",
+      "breakpoints": true
     }
   ]
 }
