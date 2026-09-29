@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
 import { useParams } from "react-router-dom";
 import { Aperture, ArrowRight, ArrowUpRight, ChevronRight, Lock, ZapOff } from "lucide-react";
 import { formatInTimeZone } from "date-fns-tz";
@@ -35,9 +35,50 @@ const vibrate = (pattern: number | number[]) => {
   }
 };
 
-// En vertical la cámara se dibuja girada 90° (ver CarreteoPublic.css), así que
-// el eje de la rueda pasa a ser el vertical de la pantalla.
-const isRotatedLayout = () => window.matchMedia("(orientation: portrait)").matches;
+// Lienzo de diseño de la cámara (ver CarreteoPublic.css).
+const DESIGN_WIDTH = 1000;
+const DESIGN_HEIGHT = 461.5;
+
+type ScreenSize = { width: number; height: number };
+
+const measureScreen = (): ScreenSize => ({ width: window.innerWidth, height: window.innerHeight });
+
+/**
+ * Tamaño real del área visible. Las unidades vh/dvh de CSS se quedan con
+ * valores antiguos al girar el móvil o cuando la barra del navegador cambia
+ * (Chrome y Safari en iPhone), así que se mide en JS y se vuelve a medir unos
+ * instantes después, cuando el navegador termina de recolocar sus barras.
+ */
+const useScreenSize = (enabled: boolean) => {
+  const [size, setSize] = useState<ScreenSize>(() => measureScreen());
+  useEffect(() => {
+    if (!enabled) return;
+    const timers: number[] = [];
+    const update = () => {
+      setSize((current) => {
+        const next = measureScreen();
+        return current.width === next.width && current.height === next.height ? current : next;
+      });
+      window.scrollTo(0, 0);
+    };
+    const settle = () => {
+      update();
+      timers.splice(0).forEach((timer) => window.clearTimeout(timer));
+      [60, 180, 400, 800].forEach((delay) => timers.push(window.setTimeout(update, delay)));
+    };
+    settle();
+    window.addEventListener("resize", settle);
+    window.addEventListener("orientationchange", settle);
+    window.visualViewport?.addEventListener("resize", settle);
+    return () => {
+      timers.forEach((timer) => window.clearTimeout(timer));
+      window.removeEventListener("resize", settle);
+      window.removeEventListener("orientationchange", settle);
+      window.visualViewport?.removeEventListener("resize", settle);
+    };
+  }, [enabled]);
+  return size;
+};
 
 type FullscreenTarget = HTMLElement & { webkitRequestFullscreen?: () => Promise<void> | void };
 type FullscreenDocument = Document & { webkitFullscreenElement?: Element | null };
@@ -205,6 +246,12 @@ const CarreteoPublic = () => {
 
   // Mientras se ve la cámara la página no puede desplazarse, rebotar ni hacer zoom.
   const showsCamera = loadState === "ready" && Boolean(event) && event?.availability !== "revealed";
+  const screenSize = useScreenSize(showsCamera);
+  // Con el móvil en vertical la cámara se dibuja girada 90° para ocupar toda
+  // la pantalla; el eje de la rueda pasa a ser el vertical de la pantalla.
+  const rotated = screenSize.height > screenSize.width;
+  const rotatedRef = useRef(rotated);
+  rotatedRef.current = rotated;
   useEffect(() => {
     if (!showsCamera) return;
     const roots = [document.documentElement, document.body];
@@ -271,14 +318,14 @@ const CarreteoPublic = () => {
     unlockCarreteoAudio();
     if (!canWind) return;
     pointerEvent.currentTarget.setPointerCapture(pointerEvent.pointerId);
-    const position = isRotatedLayout() ? pointerEvent.clientY : pointerEvent.clientX;
+    const position = rotatedRef.current ? pointerEvent.clientY : pointerEvent.clientX;
     drag.current = { ...drag.current, active: true, pointerId: pointerEvent.pointerId, lastX: position, moved: 0 };
   };
 
   const onWheelPointerMove = (pointerEvent: ReactPointerEvent<HTMLButtonElement>) => {
     const state = drag.current;
     if (!state.active || pointerEvent.pointerId !== state.pointerId) return;
-    const position = isRotatedLayout() ? pointerEvent.clientY : pointerEvent.clientX;
+    const position = rotatedRef.current ? pointerEvent.clientY : pointerEvent.clientX;
     const dx = position - state.lastX;
     state.lastX = position;
     const units = Math.abs(dx) / unitPx();
@@ -396,11 +443,20 @@ const CarreteoPublic = () => {
   })();
 
   const barGap = Math.min(3.4, 186 / (totalShots * 2));
+  const cameraWidth = rotated ? screenSize.height : screenSize.width;
+  const cameraHeight = rotated ? screenSize.width : screenSize.height;
+  const cameraStyle = {
+    width: `${cameraWidth}px`,
+    height: `${cameraHeight}px`,
+    transform: rotated ? `translateX(${screenSize.width}px) rotate(90deg)` : "none",
+    "--u": `${Math.min(cameraWidth / DESIGN_WIDTH, cameraHeight / DESIGN_HEIGHT)}px`,
+  } as CSSProperties;
   const legalNumber = String(event.eventNumber ?? 1).padStart(4, "0");
 
   return (
     <main
-      className="crt-page"
+      className={`crt-page ${rotated ? "is-rotated" : ""}`}
+      style={cameraStyle}
       onPointerDown={() => { unlockCarreteoAudio(); enterFullscreen(); }}
       aria-label={`Carreteo · ${event.name}`}
     >

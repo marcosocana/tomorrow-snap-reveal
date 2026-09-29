@@ -6,7 +6,8 @@
  * y las posiciones van en porcentaje para ocupar siempre todo el viewport.
  */
 .crt-page {
-  --u: min(0.1dvw, 0.2167dvh);
+  /* Valor provisional: el componente fija --u, el tamaño y el giro midiendo la pantalla. */
+  --u: min(0.1vw, 0.2167vh);
   --crt-body: #25262a;
   --crt-body-deep: #1f2023;
   --crt-yellow-top: #ffcb22;
@@ -19,7 +20,11 @@
   --crt-bar-on: #f5b400;
   --crt-cream: #ebe4d3;
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  transform-origin: top left;
   overflow: hidden;
   background: radial-gradient(120% 90% at 50% 60%, #2b2c31 0%, var(--crt-body) 45%, var(--crt-body-deep) 100%);
   color: #f2f2f2;
@@ -37,6 +42,8 @@ body.crt-locked {
   height: 100%;
   overflow: hidden !important;
   overscroll-behavior: none;
+  /* Si el navegador tarda en recolocar sus barras, lo que asome es el cuerpo de la cámara. */
+  background: #25262a !important;
 }
 body.crt-locked {
   position: fixed;
@@ -54,23 +61,8 @@ body.crt-locked {
   left: env(safe-area-inset-left, 0px);
 }
 
-/*
- * Móvil en vertical: la cámara se dibuja girada 90° para ocupar toda la
- * pantalla; al girar el móvil queda en su posición natural.
- */
-@media (orientation: portrait) {
-  .crt-page {
-    --u: min(0.1dvh, 0.2167dvw);
-    inset: auto;
-    top: 0;
-    left: 100dvw;
-    width: 100dvh;
-    height: 100dvw;
-    transform: rotate(90deg);
-    transform-origin: top left;
-  }
-  .crt-stage { inset: 0; }
-}
+/* Girada: la muesca queda arriba/abajo del móvil, fuera del lienzo girado. */
+.crt-page.is-rotated .crt-stage { inset: 0; }
 
 :where(.crt-page) :where(button) {
   font: inherit;
