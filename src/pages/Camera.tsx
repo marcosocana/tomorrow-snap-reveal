@@ -14,7 +14,7 @@ import ShareDialog from "@/components/ShareDialog";
 import { PricingPreview } from "@/components/PricingPreview";
 import { getTranslations, getEventLanguage, getEventTimezone, getLocalDateInTimezone, Language } from "@/lib/translations";
 import { EventFontFamily, getEventFontFamily } from "@/lib/eventFonts";
-import { clearPersistedGuestEventPassword, getPersistedGuestEventPassword } from "@/lib/guestEventAccess";
+import { clearPersistedGuestEventPassword, getPersistedGuestEventPassword, GUEST_EVENT_QUERY_KEY, guestPagePath } from "@/lib/guestEventAccess";
 import { getEventMediaCounts } from "@/lib/eventMediaCounts";
 import { useLiveEventConfig } from "@/hooks/useLiveEventConfig";
 import {
@@ -1352,7 +1352,8 @@ const Camera = () => {
 
   // Photos already revealed - go straight to gallery
   if (hasRevealed) {
-    return <Navigate to="/gallery" replace />;
+    // Conserva el evento en la URL (`?e=`) al pasar a la galería.
+    return <Navigate to={guestPagePath("/gallery", searchParams.get(GUEST_EVENT_QUERY_KEY), isDemoEnvironmentFromQuery)} replace />;
   }
 
   // Event hasn't started yet

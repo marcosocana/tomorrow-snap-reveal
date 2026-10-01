@@ -8,6 +8,7 @@ import { AdminI18nProvider } from "@/lib/adminI18n";
 import { lazyWithRetry } from "@/lib/lazyWithRetry";
 import RouteFallback from "@/components/RouteFallback";
 import GuestEventManifest from "@/components/GuestEventManifest";
+import GuestEventLinkGate from "@/components/GuestEventLinkGate";
 import { CAPTAINS_EVENT_MANAGEMENT_VIEW } from "./lib/eventManagementViewState";
 
 // Cada ruta viaja en su propio chunk: quien abre /camera ya no descarga el
@@ -205,8 +206,8 @@ const App = () => {
               <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
               <Route path="/logout" element={<Logout />} />
               <Route path="/event-login" element={<Login />} />
-              <Route path="/camera" element={<Camera />} />
-              <Route path="/gallery" element={<Gallery />} />
+              <Route path="/camera" element={<GuestEventLinkGate><Camera /></GuestEventLinkGate>} />
+              <Route path="/gallery" element={<GuestEventLinkGate><Gallery /></GuestEventLinkGate>} />
               <Route path="/admin-login" element={<AdminLogin />} />
               <Route path="/register" element={<Register />} />
               <Route path="/reset-password" element={<AdminResetPassword />} />

@@ -23,7 +23,7 @@ import { FilterType, getFilterClass, getGrainClass, applyFilterToCanvas } from "
 import { getTranslations, getEventLanguage, getEventTimezone, getLocalDateInTimezone, Language } from "@/lib/translations";
 import { EventFontFamily, getEventFontFamily } from "@/lib/eventFonts";
 import { getDeviceId } from "@/lib/deviceId";
-import { clearPersistedGuestEventPassword, getPersistedGuestEventPassword } from "@/lib/guestEventAccess";
+import { clearPersistedGuestEventPassword, getPersistedGuestEventPassword, GUEST_EVENT_QUERY_KEY, guestPagePath } from "@/lib/guestEventAccess";
 import { Skeleton } from "@/components/ui/skeleton";
 import { compressImage } from "@/lib/imageCompression";
 import { getSignedUrlCached, getSignedUrlsCached } from "@/lib/signedUrlCache";
@@ -1782,13 +1782,12 @@ const Gallery = () => {
     );
   }
 
-  const demoEnvSuffix = isDemoEnvironmentFromQuery ? "?demo_env=1" : "";
   const now = new Date();
   const revealDate = revealTime ? new Date(revealTime) : null;
   const hasRevealed = revealDate ? now >= revealDate : false;
 
   if (!hasRevealed) {
-    return <Navigate to={`/camera${demoEnvSuffix}`} replace />;
+    return <Navigate to={guestPagePath("/camera", searchParams.get(GUEST_EVENT_QUERY_KEY), isDemoEnvironmentFromQuery)} replace />;
   }
 
   const effectiveGalleryViewMode = isDesktopView ? "grid" : galleryViewMode;

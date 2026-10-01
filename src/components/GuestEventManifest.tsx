@@ -4,10 +4,10 @@ import { syncGuestEventManifest } from "@/lib/guestEventAccess";
 
 /** Mantiene el manifest de la PWA apuntando al evento del invitado. */
 const GuestEventManifest = () => {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   useEffect(() => {
-    syncGuestEventManifest(pathname);
-  }, [pathname]);
+    syncGuestEventManifest(pathname, search);
+  }, [pathname, search]);
   return null;
 };
 

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Database } from "@/integrations/supabase/types";
-import { persistGuestEventPassword } from "@/lib/guestEventAccess";
+import { guestPagePath, persistGuestEventPassword } from "@/lib/guestEventAccess";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import logoRevelao from "@/assets/logo__revelao.png";
@@ -62,14 +62,14 @@ const EventAccess = () => {
     const now = new Date();
 
     if (now >= revealTime) {
-      navigate(demoEnvEnabled ? "/gallery?demo_env=1" : "/gallery", {
+      navigate(guestPagePath("/gallery", actualPassword, demoEnvEnabled), {
         state:
           qrPasswordGrantedTarget === "gallery"
             ? { qrPasswordGrantedForEventId: event.id, qrPasswordGrantedTarget: "gallery" }
             : undefined,
       });
     } else {
-      navigate(demoEnvEnabled ? "/camera?demo_env=1" : "/camera");
+      navigate(guestPagePath("/camera", actualPassword, demoEnvEnabled));
     }
   }, [navigate]);
 
