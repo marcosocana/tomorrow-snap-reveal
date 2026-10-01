@@ -7,6 +7,7 @@ import { BrowserRouter, Navigate, Routes, Route, useLocation } from "react-route
 import { AdminI18nProvider } from "@/lib/adminI18n";
 import { lazyWithRetry } from "@/lib/lazyWithRetry";
 import RouteFallback from "@/components/RouteFallback";
+import GuestEventManifest from "@/components/GuestEventManifest";
 import { CAPTAINS_EVENT_MANAGEMENT_VIEW } from "./lib/eventManagementViewState";
 
 // Cada ruta viaja en su propio chunk: quien abre /camera ya no descarga el
@@ -140,11 +141,20 @@ const App = () => {
     if ("scrollRestoration" in window.history) {
       window.history.scrollRestoration = "manual";
     }
-    const storedVersion = localStorage.getItem(APP_VERSION_KEY);
-    if (storedVersion === APP_VERSION) return;
-    RESET_KEYS.forEach((key) => localStorage.removeItem(key));
-    localStorage.setItem(APP_VERSION_KEY, APP_VERSION);
-    window.location.reload();
+    try {
+      const storedVersion = localStorage.getItem(APP_VERSION_KEY);
+      if (storedVersion === APP_VERSION) return;
+      localStorage.setItem(APP_VERSION_KEY, APP_VERSION);
+      // Solo hace falta limpiar y recargar si quedan datos de una versión
+      // anterior. Un visitante nuevo (p. ej. el primer escaneo de un QR) no
+      // tiene nada que limpiar y se ahorra cargar la página dos veces.
+      const staleKeys = RESET_KEYS.filter((key) => localStorage.getItem(key) !== null);
+      if (staleKeys.length === 0) return;
+      staleKeys.forEach((key) => localStorage.removeItem(key));
+      window.location.reload();
+    } catch {
+      // Sin acceso a localStorage no hay datos antiguos que limpiar.
+    }
   }, []);
 
   useEffect(() => {
@@ -187,6 +197,7 @@ const App = () => {
             <Toaster />
             <Sonner />
             <ScrollToTop />
+            <GuestEventManifest />
             <Suspense fallback={<RouteFallback />}>
             <Routes>
               <Route path="/" element={<AdminLogin />} />

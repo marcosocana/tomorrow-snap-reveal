@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Database } from "@/integrations/supabase/types";
-import { useToast } from "@/hooks/use-toast";
 import { persistGuestEventPassword } from "@/lib/guestEventAccess";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,15 +21,22 @@ type EventAccessRow = Pick<EventRow, "id" | "name" | "language" | "timezone" | "
   qr_password_required_gallery: boolean;
 };
 const EVENT_ACCESS_COLUMNS = "id,name,language,timezone,reveal_time" as const;
+// Reintentos automáticos ante fallos de red (cobertura mala en el evento)
+// antes de mostrar la pantalla de error.
+const AUTO_RETRY_DELAYS_MS = [1200, 3000];
+
+type AccessError = "not-found" | "network";
 
 const EventAccess = () => {
   const { password } = useParams<{ password: string }>();
   const location = useLocation();
   const navigate = useNavigate();
-  const { toast } = useToast();
   const [accessChallenge, setAccessChallenge] = useState<AccessChallenge | null>(null);
   const [qrPassword, setQrPassword] = useState("");
   const [qrPasswordError, setQrPasswordError] = useState("");
+  const [accessError, setAccessError] = useState<AccessError | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const [manualRetry, setManualRetry] = useState(0);
 
   const completeGuestAccess = useCallback((
     event: EventAccessRow,
@@ -92,11 +98,14 @@ const EventAccess = () => {
   };
 
   useEffect(() => {
+    let cancelled = false;
+    let retryTimer: number | undefined;
     const handleEventAccess = async () => {
       if (!password) {
-        navigate("/");
+        setAccessError("not-found");
         return;
       }
+      setAccessError(null);
 
       const searchParams = new URLSearchParams(location.search);
       const demoEnvEnabled = searchParams.get("demo_env") === "1";
@@ -118,6 +127,7 @@ const EventAccess = () => {
           .eq("admin_password", actualPassword)
           .limit(1);
 
+        if (cancelled) return;
         if (!adminError && adminEvents && adminEvents.length > 0) {
           localStorage.setItem("eventId", adminEvents[0].id);
           localStorage.setItem("eventName", adminEvents[0].name);
@@ -140,6 +150,7 @@ const EventAccess = () => {
         } as never);
 
         if (error) throw error;
+        if (cancelled) return;
 
         const publicEvents = events as unknown as EventAccessRow[] | null;
         if (publicEvents && publicEvents.length > 0) {
@@ -158,26 +169,62 @@ const EventAccess = () => {
 
           completeGuestAccess(event, actualPassword, isBulkMode, demoEnvEnabled);
         } else {
-          toast({
-            title: "Evento no encontrado",
-            description: "La URL del evento no es válida",
-            variant: "destructive",
-          });
-          navigate("/");
+          // Nunca se manda al invitado al login de administración: se le
+          // explica qué pasa y puede reintentar.
+          setAccessError("not-found");
         }
       } catch (error) {
+        if (cancelled) return;
         console.error("Error accessing event:", error);
-        toast({
-          title: "Error",
-          description: "Hubo un problema al acceder al evento",
-          variant: "destructive",
-        });
-        navigate("/");
+        const delay = AUTO_RETRY_DELAYS_MS[attempt];
+        if (delay !== undefined) {
+          retryTimer = window.setTimeout(() => setAttempt((value) => value + 1), delay);
+        } else {
+          setAccessError("network");
+        }
       }
     };
 
     handleEventAccess();
-  }, [password, navigate, toast, location.search, completeGuestAccess]);
+    return () => {
+      cancelled = true;
+      if (retryTimer !== undefined) window.clearTimeout(retryTimer);
+    };
+  }, [password, navigate, location.search, completeGuestAccess, attempt, manualRetry]);
+
+  if (accessError) {
+    const isNetworkError = accessError === "network";
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-background">
+        <div className="w-full max-w-md space-y-6 text-center animate-fade-in">
+          <div className="flex justify-center">
+            <img src={logoRevelao} alt="Revelao.com" className="w-48 h-auto" style={{ imageRendering: "pixelated" }} />
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-2xl font-semibold text-foreground">
+              {isNetworkError ? "No hemos podido conectar" : "No encontramos este evento"}
+            </h1>
+            <p className="text-muted-foreground">
+              {isNetworkError
+                ? "Parece que la conexión falla. Comprueba que tienes cobertura o wifi y vuelve a intentarlo."
+                : "Revisa que has escaneado el código QR correcto del evento o vuelve a intentarlo en unos segundos."}
+            </p>
+          </div>
+          <Button
+            type="button"
+            onClick={() => {
+              setAccessError(null);
+              setAttempt(0);
+              setManualRetry((value) => value + 1);
+            }}
+            className="w-full h-14 text-lg bg-[hsl(5_85%_65%)] hover:bg-[hsl(5_85%_60%)] text-white font-semibold rounded-xl"
+          >
+            Reintentar
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   if (accessChallenge) {
     return (

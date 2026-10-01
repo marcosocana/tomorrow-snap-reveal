@@ -39,8 +39,9 @@
   </head>
 
   <body>
-    <div id="root"><div id="app-boot" role="status" aria-label="Cargando"><img id="app-boot-captains" src="/capitanes-logo.svg" alt="Capitanes" /><span aria-hidden="true"></span></div></div>
-    <script>if(location.pathname.startsWith('/capitanes'))document.getElementById('app-boot-captains').style.display='block'</script>
+    <div id="root"><div id="app-boot" role="status" aria-label="Cargando"><img id="app-boot-captains" alt="Capitanes" /><span aria-hidden="true"></span></div></div>
+    <!-- El logo de Capitanes pesa ~1 MB: solo se pide en las páginas de Capitanes. -->
+    <script>if(location.pathname.startsWith('/capitanes')){var l=document.getElementById('app-boot-captains');l.src='/capitanes-logo.svg';l.style.display='block'}</script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
