@@ -23,6 +23,7 @@ import { FilterType, getFilterClass, getGrainClass, applyFilterToCanvas } from "
 import { getTranslations, getEventLanguage, getEventTimezone, getLocalDateInTimezone, Language } from "@/lib/translations";
 import { EventFontFamily, getEventFontFamily } from "@/lib/eventFonts";
 import { getDeviceId } from "@/lib/deviceId";
+import { photoMetadataFor, photoStoragePaths, thumbnailPathFromMetadata, uploadPhotoThumbnail } from "@/lib/photoThumbnails";
 import { clearPersistedGuestEventPassword, getPersistedGuestEventPassword, GUEST_EVENT_QUERY_KEY, guestPagePath } from "@/lib/guestEventAccess";
 import { Skeleton } from "@/components/ui/skeleton";
 import { compressImage } from "@/lib/imageCompression";
@@ -78,7 +79,33 @@ interface MixedMediaItem {
   hasLiked?: boolean;
 }
 
-const PHOTOS_PER_PAGE = 12;
+const PHOTOS_PER_PAGE = 24;
+// Supabase devuelve como máximo 1000 filas por consulta y una URL con miles de
+// IDs es demasiado larga: Stories pide por páginas y los «me gusta» por tandas.
+const SUPABASE_MAX_ROWS = 1000;
+const LIKE_IDS_PER_REQUEST = 150;
+
+type RowsPage<T> = { data: T[] | null; error: unknown };
+
+const fetchAllRows = async <T,>(fetchPage: (from: number, to: number) => PromiseLike<RowsPage<T>>) => {
+  const rows: T[] = [];
+  for (let from = 0; ; from += SUPABASE_MAX_ROWS) {
+    const { data, error } = await fetchPage(from, from + SUPABASE_MAX_ROWS - 1);
+    if (error) throw error;
+    rows.push(...(data ?? []));
+    if (!data || data.length < SUPABASE_MAX_ROWS) return rows;
+  }
+};
+
+/** Filas de «me gusta» de muchos elementos; como antes, un fallo no rompe Stories. */
+const fetchLikeRows = async (table: "photo_likes" | "video_likes" | "audio_likes", column: string, ids: string[]) => {
+  const batches: string[][] = [];
+  for (let index = 0; index < ids.length; index += LIKE_IDS_PER_REQUEST) batches.push(ids.slice(index, index + LIKE_IDS_PER_REQUEST));
+  const results = await Promise.all(batches.map((batch) => fetchAllRows<Record<string, string>>((from, to) =>
+    supabase.from(table as never).select(column).in(column, batch).range(from, to) as unknown as PromiseLike<RowsPage<Record<string, string>>>,
+  ).catch(() => [])));
+  return results.flat();
+};
 
 const GalleryLoadingSkeleton = () => (
   <div className="w-full">
@@ -233,7 +260,7 @@ const Gallery = () => {
 
       const { data, error, count } = await supabase
         .from("photos")
-        .select("id,image_url,captured_at", { count: 'exact' })
+        .select("id,image_url,captured_at,metadata", { count: 'exact' })
         .eq("event_id", eventId)
         .order("captured_at", { ascending: true })
         .range(from, to);
@@ -254,15 +281,21 @@ const Gallery = () => {
       // Check which photos current user has liked
       const likedPhotos = JSON.parse(localStorage.getItem("likedPhotos") || "[]");
 
-      // Get signed URLs for thumbnails and full quality
+      // Get signed URLs for thumbnails and full quality. Las fotos nuevas traen
+      // su miniatura (metadata.thumbnail_path) y se firman junto con las fotos
+      // en una sola petición; las antiguas siguen usando la transformación.
       const photoRows = data || [];
-      const [fullQualityUrls, thumbnailUrls] = await Promise.all([
+      const ownThumbnailPaths = photoRows.map((photo) => thumbnailPathFromMetadata(photo.metadata));
+      const [signedUrls, transformedThumbnailUrls] = await Promise.all([
         getSignedUrlsCached({
           bucket: "event-photos",
-          paths: photoRows.map((photo) => photo.image_url),
+          paths: [
+            ...photoRows.map((photo) => photo.image_url),
+            ...ownThumbnailPaths.filter((path): path is string => Boolean(path)),
+          ],
           expiresInSeconds: 3600,
         }),
-        Promise.all(photoRows.map((photo) => getSignedUrlCached({
+        Promise.all(photoRows.map((photo, index) => ownThumbnailPaths[index] ? null : getSignedUrlCached({
             bucket: "event-photos",
             path: photo.image_url,
             expiresInSeconds: 3600,
@@ -275,10 +308,13 @@ const Gallery = () => {
             },
           }))),
       ]);
-      const photosWithUrls = photoRows.map((photo, index) => ({
+      const photosWithUrls = photoRows.map(({ metadata: _metadata, ...photo }, index) => ({
         ...photo,
-        thumbnailUrl: thumbnailUrls[index],
-        fullQualityUrl: fullQualityUrls.get(photo.image_url) || "",
+        thumbnailUrl: (ownThumbnailPaths[index] && signedUrls.get(ownThumbnailPaths[index]!))
+          || transformedThumbnailUrls[index]
+          || signedUrls.get(photo.image_url)
+          || "",
+        fullQualityUrl: signedUrls.get(photo.image_url) || "",
         likeCount: likeCounts[photo.id] || 0,
         hasLiked: likedPhotos.includes(photo.id),
       }));
@@ -822,16 +858,19 @@ const Gallery = () => {
     const compressedFile = await compressImage(file, 1);
     const fileName = `${eventId}/${generateHash()}_${Date.now()}.jpg`;
 
-    const { error: uploadError } = await supabase.storage
-      .from("event-photos")
-      .upload(fileName, compressedFile);
+    const [{ error: uploadError }, thumbnailPath] = await Promise.all([
+      supabase.storage.from("event-photos").upload(fileName, compressedFile),
+      uploadPhotoThumbnail(fileName, compressedFile),
+    ]);
     if (uploadError) {
+      if (thumbnailPath) void supabase.storage.from("event-photos").remove([thumbnailPath]);
       throw uploadError;
     }
 
     const { error: dbError } = await supabase.from("photos").insert({
       event_id: eventId,
       image_url: fileName,
+      metadata: photoMetadataFor(thumbnailPath),
     });
     if (dbError) {
       throw dbError;
@@ -991,7 +1030,7 @@ const Gallery = () => {
       // Delete from storage
       const { error: storageError } = await supabase.storage
         .from("event-photos")
-        .remove([imageUrl]);
+        .remove(photoStoragePaths([imageUrl]));
 
       if (storageError) throw storageError;
 
@@ -1157,33 +1196,35 @@ const Gallery = () => {
     
     setLoadingStories(true);
     try {
-      const [{ data: allPhotos, error: photosError }, { data: allVideos, error: videosError }, { data: allAudios, error: audiosError }] = await Promise.all([
-        supabase
-        .from("photos")
-        .select("id,image_url,captured_at")
-        .eq("event_id", eventId)
-        .order("captured_at", { ascending: true }),
-        supabase
+      // Paginado: con más de 1000 fotos, una sola consulta se quedaba corta.
+      const [allPhotos, allVideos, visibleAudios] = await Promise.all([
+        fetchAllRows((from, to) => supabase
+          .from("photos")
+          .select("id,image_url,captured_at")
+          .eq("event_id", eventId)
+          .order("captured_at", { ascending: true })
+          .order("id", { ascending: true })
+          .range(from, to)),
+        fetchAllRows((from, to) => supabase
           .from("videos")
           .select("id,video_url,captured_at,duration_seconds")
           .eq("event_id", eventId)
-          .order("captured_at", { ascending: true }),
-        supabase
-          .from("audios")
-          .select("id,audio_url,captured_at,duration_seconds")
-          .eq("event_id", eventId)
-          .order("captured_at", { ascending: true }),
+          .order("captured_at", { ascending: true })
+          .order("id", { ascending: true })
+          .range(from, to)),
+        allowAudioRecording
+          ? fetchAllRows((from, to) => supabase
+            .from("audios")
+            .select("id,audio_url,captured_at,duration_seconds")
+            .eq("event_id", eventId)
+            .order("captured_at", { ascending: true })
+            .order("id", { ascending: true })
+            .range(from, to))
+          : Promise.resolve([]),
       ]);
 
-      if (photosError) throw photosError;
-      if (videosError) throw videosError;
-      if (allowAudioRecording && audiosError) throw audiosError;
-      const visibleAudios = allowAudioRecording ? (allAudios || []) : [];
-
       const photoIds = (allPhotos || []).map(p => p.id);
-      const { data: likesData } = photoIds.length > 0
-        ? await supabase.from("photo_likes").select("photo_id").in("photo_id", photoIds)
-        : { data: [] };
+      const likesData = photoIds.length > 0 ? await fetchLikeRows("photo_likes", "photo_id", photoIds) : [];
 
       const likeCounts = (likesData || []).reduce((acc: any, like: any) => {
         acc[like.photo_id] = (acc[like.photo_id] || 0) + 1;
@@ -1196,20 +1237,14 @@ const Gallery = () => {
       const likedAudios = JSON.parse(localStorage.getItem("likedAudios") || "[]");
 
       const videoIds = (allVideos || []).map((v) => v.id);
-      const { data: videoLikesData } = await supabase
-        .from("video_likes" as any)
-        .select("video_id")
-        .in("video_id", videoIds);
+      const videoLikesData = videoIds.length > 0 ? await fetchLikeRows("video_likes", "video_id", videoIds) : [];
       const videoLikeCounts = (videoLikesData || []).reduce((acc: any, like: any) => {
         acc[like.video_id] = (acc[like.video_id] || 0) + 1;
         return acc;
       }, {});
 
       const audioIds = visibleAudios.map((a) => a.id);
-      const { data: audioLikesData } = await supabase
-        .from("audio_likes" as any)
-        .select("audio_id")
-        .in("audio_id", audioIds);
+      const audioLikesData = audioIds.length > 0 ? await fetchLikeRows("audio_likes", "audio_id", audioIds) : [];
       const audioLikeCounts = (audioLikesData || []).reduce((acc: any, like: any) => {
         acc[like.audio_id] = (acc[like.audio_id] || 0) + 1;
         return acc;
@@ -1242,13 +1277,14 @@ const Gallery = () => {
         type: "video" as const,
       }));
 
+      const storyAudioUrlsByPath = await getSignedUrlsCached({
+        bucket: "event-audios",
+        paths: visibleAudios.map((audio) => audio.audio_url),
+        expiresInSeconds: 3600,
+      });
       const audiosWithUrls = await Promise.all(
         visibleAudios.map(async (audio) => {
-          const signedUrl = await getSignedUrlCached({
-            bucket: "event-audios",
-            path: audio.audio_url,
-            expiresInSeconds: 3600,
-          });
+          const signedUrl = storyAudioUrlsByPath.get(audio.audio_url) || "";
           return {
             ...audio,
             signedUrl,

@@ -71,7 +71,9 @@ serve(async (req) => {
 
     const storagePath = storagePathFromValue(photo.image_url);
     if (storagePath) {
-      const { error: storageError } = await admin.storage.from("event-photos").remove([storagePath]);
+      // También la miniatura generada al subir (<foto>_thumb.jpg), si existe.
+      const thumbnailPath = storagePath.replace(/\.[a-z0-9]+$/i, "") + "_thumb.jpg";
+      const { error: storageError } = await admin.storage.from("event-photos").remove([storagePath, thumbnailPath]);
       if (storageError) return json({ error: "STORAGE_DELETE_FAILED" }, 500);
     }
 

@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { LogOut, Upload, X, CheckCircle2 } from "lucide-react";
 import { compressImage } from "@/lib/imageCompression";
 import { useAdminI18n } from "@/lib/adminI18n";
+import { photoMetadataFor, uploadPhotoThumbnail } from "@/lib/photoThumbnails";
 
 interface UploadItem {
   id: string;
@@ -89,11 +90,15 @@ const BulkUpload = () => {
         const fileName = `${eventId}/${Date.now()}-${i}.jpg`;
 
         // Upload to storage
-        const { error: uploadError } = await supabase.storage
-          .from("event-photos")
-          .upload(fileName, compressedFile);
+        const [{ error: uploadError }, thumbnailPath] = await Promise.all([
+          supabase.storage.from("event-photos").upload(fileName, compressedFile),
+          uploadPhotoThumbnail(fileName, compressedFile),
+        ]);
 
-        if (uploadError) throw uploadError;
+        if (uploadError) {
+          if (thumbnailPath) void supabase.storage.from("event-photos").remove([thumbnailPath]);
+          throw uploadError;
+        }
 
         // Update progress
         setUploadItems((prev) =>
@@ -104,6 +109,7 @@ const BulkUpload = () => {
         const { error: dbError } = await supabase.from("photos").insert({
           event_id: eventId,
           image_url: fileName,
+          metadata: photoMetadataFor(thumbnailPath),
         });
 
         if (dbError) throw dbError;

@@ -14,6 +14,7 @@ import ShareDialog from "@/components/ShareDialog";
 import { PricingPreview } from "@/components/PricingPreview";
 import { getTranslations, getEventLanguage, getEventTimezone, getLocalDateInTimezone, Language } from "@/lib/translations";
 import { EventFontFamily, getEventFontFamily } from "@/lib/eventFonts";
+import { photoMetadataFor, uploadPhotoThumbnail } from "@/lib/photoThumbnails";
 import { clearPersistedGuestEventPassword, getPersistedGuestEventPassword, GUEST_EVENT_QUERY_KEY, guestPagePath } from "@/lib/guestEventAccess";
 import { getEventMediaCounts } from "@/lib/eventMediaCounts";
 import { useLiveEventConfig } from "@/hooks/useLiveEventConfig";
@@ -593,10 +594,14 @@ const Camera = () => {
       const hash = generateHash();
       const fileName = `${eventId}/${hash}_${Date.now()}.jpg`;
 
-      // Upload to storage
-      const { error: uploadError } = await supabase.storage
-        .from("event-photos")
-        .upload(fileName, compressedFile);
+      // Upload to storage (la miniatura se sube en paralelo y nunca bloquea la foto)
+      const [{ error: uploadError }, thumbnailPath] = await Promise.all([
+        supabase.storage.from("event-photos").upload(fileName, compressedFile),
+        uploadPhotoThumbnail(fileName, compressedFile),
+      ]);
+      if (uploadError && thumbnailPath) {
+        void supabase.storage.from("event-photos").remove([thumbnailPath]);
+      }
       if (uploadError) {
         if (!options?.skipFailedState) {
           setFailedUpload({ file });
@@ -617,6 +622,7 @@ const Camera = () => {
       const { error: dbError } = await supabase.from("photos").insert({
         event_id: eventId,
         image_url: fileName,
+        metadata: photoMetadataFor(thumbnailPath),
       });
       if (dbError) {
         if (!options?.skipFailedState) {

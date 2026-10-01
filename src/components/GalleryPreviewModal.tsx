@@ -11,6 +11,7 @@ import { getSignedUrlCached, getSignedUrlsCached } from "@/lib/signedUrlCache";
 import DeferredImage from "@/components/DeferredImage";
 import DeferredPosterVideo from "@/components/DeferredPosterVideo";
 import JSZip from "jszip";
+import { photoStoragePaths } from "@/lib/photoThumbnails";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -357,7 +358,7 @@ export const GalleryPreviewModal = ({
       // Delete from storage
       const { error: storageError } = await supabase.storage
         .from("event-photos")
-        .remove([photo.image_url]);
+        .remove(photoStoragePaths([photo.image_url]));
 
       if (storageError) throw storageError;
 
@@ -464,8 +465,10 @@ export const GalleryPreviewModal = ({
         const imageUrls = (data || []).map((photo) => photo.image_url).filter(Boolean);
         const photoIds = (data || []).map((photo) => photo.id);
 
-        if (imageUrls.length > 0) {
-          const { error: storageError } = await supabase.storage.from("event-photos").remove(imageUrls);
+        // Fotos y miniaturas, por tandas para no superar el límite por petición.
+        const storagePaths = photoStoragePaths(imageUrls);
+        for (let index = 0; index < storagePaths.length; index += 500) {
+          const { error: storageError } = await supabase.storage.from("event-photos").remove(storagePaths.slice(index, index + 500));
           if (storageError) throw storageError;
         }
         if (photoIds.length > 0) {
