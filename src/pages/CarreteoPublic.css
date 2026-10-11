@@ -73,7 +73,8 @@ body.crt-locked {
   cursor: pointer;
 }
 :where(.crt-page) button:focus-visible { outline: calc(var(--u) * 2) solid #fff6; outline-offset: calc(var(--u) * 3); }
-:where(.crt-page) button:disabled { cursor: default; }
+:where(.crt-page) button:disabled,
+:where(.crt-page) button[aria-disabled="true"] { cursor: default; }
 
 .crt-at { position: absolute; transform: translate(-50%, -50%); }
 
@@ -152,18 +153,18 @@ body.crt-locked {
 .crt-step-badge {
   display: grid;
   place-items: center;
-  width: calc(var(--u) * 19);
-  height: calc(var(--u) * 19);
+  width: calc(var(--u) * 28);
+  height: calc(var(--u) * 28);
   border-radius: 50%;
   background: var(--crt-red);
   color: #fff;
-  font-size: calc(var(--u) * 12);
+  font-size: calc(var(--u) * 17);
   font-weight: 900;
   line-height: 1;
 }
-.crt-step svg { width: calc(var(--u) * 14); height: calc(var(--u) * 14); stroke-width: 3; }
+.crt-step svg { width: calc(var(--u) * 20); height: calc(var(--u) * 20); stroke-width: 3; }
 .crt-step.is-pulsing .crt-step-badge { animation: crt-pulse 1.4s ease-in-out infinite; }
-.crt-step-wind { left: 77.5%; top: 19.8%; }
+.crt-step-wind { left: 77.5%; top: 22%; }
 .crt-step-shoot { left: 88%; top: 74%; }
 .crt-step.is-hidden { opacity: 0; }
 
@@ -266,16 +267,16 @@ body.crt-locked {
 /* ---------- Contador ---------- */
 .crt-dial {
   left: 50%;
-  top: 52%;
-  width: calc(var(--u) * 125);
-  height: calc(var(--u) * 125);
+  top: 50%;
+  width: calc(var(--u) * 150);
+  height: calc(var(--u) * 150);
   border-radius: 50%;
   background: radial-gradient(circle at 50% 40%, #1b1b1d 0%, #0a0a0b 100%);
   box-shadow: 0 calc(var(--u) * 5) calc(var(--u) * 12) #0008, inset 0 calc(var(--u) * 1) calc(var(--u) * 2) #ffffff12;
 }
 .crt-dial-face {
   position: absolute;
-  inset: calc(var(--u) * 8);
+  inset: calc(var(--u) * 9);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -289,14 +290,14 @@ body.crt-locked {
   position: absolute;
   left: 50%;
   top: calc(var(--u) * 2);
-  width: calc(var(--u) * 6.5);
-  height: calc(var(--u) * 6.5);
+  width: calc(var(--u) * 8);
+  height: calc(var(--u) * 8);
   transform: translateX(-50%);
   background: var(--crt-red);
 }
 .crt-dial-number {
   margin-top: calc(var(--u) * 6);
-  font-size: calc(var(--u) * 44);
+  font-size: calc(var(--u) * 56);
   font-weight: 900;
   line-height: 0.95;
   font-variant-numeric: tabular-nums;
@@ -305,13 +306,13 @@ body.crt-locked {
 .crt-dial-total {
   margin-top: calc(var(--u) * 2);
   color: #6a6258;
-  font-size: calc(var(--u) * 11.5);
+  font-size: calc(var(--u) * 14);
   font-weight: 800;
 }
 
 .crt-status {
   left: 50%;
-  top: 70%;
+  top: 71%;
   display: flex;
   align-items: center;
   gap: calc(var(--u) * 5);
@@ -372,8 +373,8 @@ button.crt-status { cursor: pointer; text-decoration: underline; text-underline-
 .crt-shutter {
   left: 88%;
   top: 52%;
-  width: calc(var(--u) * 125);
-  height: calc(var(--u) * 125);
+  width: calc(var(--u) * 145);
+  height: calc(var(--u) * 145);
   border-radius: 50%;
   background: radial-gradient(circle at 50% 35%, #34353a 0%, #232428 55%, #19191c 100%) !important;
   box-shadow:
@@ -384,7 +385,7 @@ button.crt-status { cursor: pointer; text-decoration: underline; text-underline-
 }
 .crt-shutter-ring {
   position: absolute;
-  inset: calc(var(--u) * 15);
+  inset: calc(var(--u) * 17);
   display: grid;
   place-items: center;
   border: calc(var(--u) * 1.4) solid #4a4c52;
@@ -392,20 +393,24 @@ button.crt-status { cursor: pointer; text-decoration: underline; text-underline-
   background: radial-gradient(circle at 50% 30%, #2c2d31 0%, #202124 100%);
   transition: border-color 250ms ease, box-shadow 250ms ease;
 }
-.crt-shutter-ring svg { width: calc(var(--u) * 38); height: calc(var(--u) * 38); color: #6e7177; stroke-width: 1.7; transition: color 250ms ease; }
+.crt-shutter-ring svg { width: calc(var(--u) * 44); height: calc(var(--u) * 44); color: #6e7177; stroke-width: 1.7; transition: color 250ms ease; }
 .crt-shutter.is-ready .crt-shutter-ring { border-color: #f5b40099; box-shadow: 0 0 calc(var(--u) * 12) #f5b40033; }
 .crt-shutter.is-ready .crt-shutter-ring svg { color: #b9bcc2; }
-.crt-shutter:active:not(:disabled) { transform: translate(-50%, -50%) scale(0.95); }
+.crt-shutter:active:not([aria-disabled="true"]) { transform: translate(-50%, -50%) scale(0.95); }
 
 /* ---------- Aviso al tocar fuera de los controles ---------- */
 .crt-hint {
   z-index: 5;
-  border: calc(var(--u) * 3) solid var(--crt-bar-on);
+  border: calc(var(--u) * 4) solid var(--crt-bar-on);
+  background: #f5b40026;
+  box-shadow: 0 0 calc(var(--u) * 22) calc(var(--u) * 4) #f5b400aa, inset 0 0 calc(var(--u) * 14) #f5b40088;
   pointer-events: none;
-  animation: crt-hint 520ms ease-out 2;
+  animation: crt-hint 560ms ease-out 3;
 }
-.crt-hint-wind { left: 77.45%; top: 11.9%; width: calc(var(--u) * 147); height: calc(var(--u) * 63); border-radius: calc(var(--u) * 30); }
-.crt-hint-shoot { left: 88%; top: 52%; width: calc(var(--u) * 141); height: calc(var(--u) * 141); border-radius: 50%; }
+.crt-hint-wind { left: 77.45%; top: 11.9%; width: calc(var(--u) * 150); height: calc(var(--u) * 66); border-radius: calc(var(--u) * 32); }
+.crt-hint-shoot { left: 88%; top: 52%; width: calc(var(--u) * 163); height: calc(var(--u) * 163); border-radius: 50%; }
+/* Mientras dura el aviso, el número del paso también salta. */
+.crt-step.is-hinted .crt-step-badge { animation: crt-pulse 560ms ease-in-out 3; }
 
 /* ---------- Guía de la primera vez ---------- */
 .crt-coach { position: absolute; inset: 0; z-index: 20; cursor: pointer; }
@@ -415,44 +420,44 @@ button.crt-status { cursor: pointer; text-decoration: underline; text-underline-
   pointer-events: none;
   transition: left 280ms ease, top 280ms ease, width 280ms ease, height 280ms ease, border-radius 280ms ease;
 }
-.crt-coach-spot-dial { left: 50%; top: 52%; width: calc(var(--u) * 145); height: calc(var(--u) * 145); border-radius: 50%; }
+.crt-coach-spot-dial { left: 50%; top: 50%; width: calc(var(--u) * 172); height: calc(var(--u) * 172); border-radius: 50%; }
 .crt-coach-spot-flash { left: 12%; top: 52%; width: calc(var(--u) * 105); height: calc(var(--u) * 110); }
-.crt-coach-spot-wind { left: 77.45%; top: 14%; width: calc(var(--u) * 165); height: calc(var(--u) * 82); border-radius: calc(var(--u) * 32); }
-.crt-coach-spot-shoot { left: 88%; top: 56%; width: calc(var(--u) * 150); height: calc(var(--u) * 180); border-radius: calc(var(--u) * 75); }
+.crt-coach-spot-wind { left: 77.45%; top: 15.5%; width: calc(var(--u) * 170); height: calc(var(--u) * 100); border-radius: calc(var(--u) * 36); }
+.crt-coach-spot-shoot { left: 88%; top: 57%; width: calc(var(--u) * 172); height: calc(var(--u) * 212); border-radius: calc(var(--u) * 86); }
 
 .crt-coach-card {
-  width: calc(var(--u) * 235);
-  padding: calc(var(--u) * 13) calc(var(--u) * 15);
-  border-radius: calc(var(--u) * 14);
+  width: calc(var(--u) * 330);
+  padding: calc(var(--u) * 18) calc(var(--u) * 22);
+  border-radius: calc(var(--u) * 18);
   background: #f2ede0;
   color: #2a2521;
   box-shadow: 0 calc(var(--u) * 10) calc(var(--u) * 28) #000a;
   cursor: default;
 }
-.crt-coach-card-dial { left: 27%; top: 52%; }
-.crt-coach-card-flash { left: 34%; top: 52%; }
-.crt-coach-card-wind { left: 58%; top: 38%; }
-.crt-coach-card-shoot { left: 63%; top: 52%; }
-.crt-coach-count { margin: 0; color: #8a8174; font-size: calc(var(--u) * 9); font-weight: 900; letter-spacing: 0.2em; }
+.crt-coach-card-dial { left: 24.5%; top: 50%; }
+.crt-coach-card-flash { left: 36%; top: 52%; }
+.crt-coach-card-wind { left: 54%; top: 45%; }
+.crt-coach-card-shoot { left: 61%; top: 52%; }
+.crt-coach-count { margin: 0; color: #8a8174; font-size: calc(var(--u) * 12); font-weight: 900; letter-spacing: 0.2em; }
 .crt-coach-card h2 {
   display: flex;
   align-items: center;
-  gap: calc(var(--u) * 6);
-  margin: calc(var(--u) * 4) 0 0;
+  gap: calc(var(--u) * 9);
+  margin: calc(var(--u) * 5) 0 0;
   color: var(--crt-red);
-  font-size: calc(var(--u) * 17);
+  font-size: calc(var(--u) * 25);
   font-weight: 900;
   line-height: 1.1;
 }
-.crt-coach-text { margin: calc(var(--u) * 6) 0 0; font-size: calc(var(--u) * 11.5); font-weight: 800; line-height: 1.35; }
-.crt-coach-actions { display: flex; justify-content: flex-end; align-items: center; gap: calc(var(--u) * 12); margin-top: calc(var(--u) * 11); }
-.crt-page .crt-coach-skip { color: #8a8174; font-size: calc(var(--u) * 11); font-weight: 900; }
+.crt-coach-text { margin: calc(var(--u) * 8) 0 0; font-size: calc(var(--u) * 17); font-weight: 800; line-height: 1.35; }
+.crt-coach-actions { display: flex; justify-content: flex-end; align-items: center; gap: calc(var(--u) * 16); margin-top: calc(var(--u) * 16); }
+.crt-page .crt-coach-skip { padding: calc(var(--u) * 10) calc(var(--u) * 6); color: #8a8174; font-size: calc(var(--u) * 16); font-weight: 900; }
 .crt-page .crt-coach-next {
-  padding: calc(var(--u) * 7) calc(var(--u) * 14);
-  border-radius: calc(var(--u) * 16);
+  padding: calc(var(--u) * 11) calc(var(--u) * 22);
+  border-radius: calc(var(--u) * 22);
   background: var(--crt-red);
   color: #fff;
-  font-size: calc(var(--u) * 11.5);
+  font-size: calc(var(--u) * 17);
   font-weight: 900;
 }
 
@@ -523,14 +528,16 @@ button.crt-status { cursor: pointer; text-decoration: underline; text-underline-
 @keyframes crt-blink { 0% { opacity: 0.85; } 100% { opacity: 0; } }
 @keyframes crt-spin { to { transform: rotate(360deg); } }
 @keyframes crt-hint {
-  0% { opacity: 0.95; transform: translate(-50%, -50%) scale(0.92); box-shadow: 0 0 0 0 #f5b40088; }
-  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.18); box-shadow: 0 0 calc(var(--u) * 18) calc(var(--u) * 6) #f5b40000; }
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.94); }
+  25% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.14); }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .crt-step.is-pulsing .crt-step-badge,
   .crt-dial-number.is-ticking { animation: none; }
-  .crt-hint { animation: crt-hint 900ms linear 1; }
+  .crt-hint { animation: crt-hint 1500ms linear 1; }
+  .crt-step.is-hinted .crt-step-badge { animation: none; }
   .crt-coach-spot { transition: none; }
   .crt-flash-burst { animation-duration: 200ms; }
 }

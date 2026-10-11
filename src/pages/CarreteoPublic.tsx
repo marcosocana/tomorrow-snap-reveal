@@ -508,13 +508,16 @@ const CarreteoPublic = () => {
       onPointerDown={(pointerEvent) => {
         unlockCarreteoAudio();
         enterFullscreen();
-        // Un toque fuera de los controles señala lo que toca hacer ahora.
-        if (coachOpen || (pointerEvent.target as Element).closest("button")) return;
+        // Tocar cualquier cosa que no sea el paso que toca (la rueda o el
+        // disparador) lo ilumina. El flash y la película siguen libres.
+        if (coachOpen) return;
         const target = canWind ? "wind" : canShoot ? "shoot" : null;
-        if (target) {
-          setHint({ target, key: Date.now() });
-          vibrate(10);
-        }
+        if (!target) return;
+        const touched = (pointerEvent.target as Element).closest(".crt-wheel, .crt-shutter, .crt-flash-toggle, .crt-film, .crt-status");
+        const expected = target === "wind" ? "crt-wheel" : "crt-shutter";
+        if (touched && (touched.classList.contains(expected) || !touched.matches(".crt-wheel, .crt-shutter"))) return;
+        setHint({ target, key: Date.now() });
+        vibrate(10);
       }}
       aria-label={`Carreteo · ${event.name}`}
     >
@@ -547,7 +550,7 @@ const CarreteoPublic = () => {
             }
           }}
         />
-        <div className={`crt-at crt-step crt-step-wind ${canWind ? "is-pulsing" : "is-hidden"}`} aria-hidden="true">
+        <div className={`crt-at crt-step crt-step-wind ${canWind ? "is-pulsing" : "is-hidden"} ${hint?.target === "wind" ? "is-hinted" : ""}`} aria-hidden="true">
           <span className="crt-step-badge">1</span><ArrowRight />
         </div>
 
@@ -605,12 +608,14 @@ const CarreteoPublic = () => {
           type="button"
           className={`crt-at crt-shutter ${canShoot ? "is-ready" : ""}`}
           aria-label="Disparar"
-          disabled={!canShoot}
+          // aria-disabled y no disabled: un botón desactivado se traga el toque y no
+          // podríamos iluminar la rueda cuando alguien pulsa el disparador antes de tiempo.
+          aria-disabled={!canShoot}
           onClick={() => void shoot()}
         >
           <span className="crt-shutter-ring"><Aperture aria-hidden="true" /></span>
         </button>
-        <div className={`crt-at crt-step crt-step-shoot ${canShoot ? "is-pulsing" : "is-hidden"}`} aria-hidden="true">
+        <div className={`crt-at crt-step crt-step-shoot ${canShoot ? "is-pulsing" : "is-hidden"} ${hint?.target === "shoot" ? "is-hinted" : ""}`} aria-hidden="true">
           <span className="crt-step-badge">2</span>
         </div>
 
