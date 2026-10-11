@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
 import { useParams } from "react-router-dom";
-import { Aperture, ArrowRight, ArrowUpRight, ChevronRight, Lock, ZapOff } from "lucide-react";
+import { Aperture, ArrowRight, ArrowUpRight, Lock, ZapOff } from "lucide-react";
 import { formatInTimeZone } from "date-fns-tz";
 import {
   CarreteoApiError,
@@ -25,6 +25,30 @@ const WIND_TRAVEL = 88;
 const TICK_EVERY = 11;
 const WHEEL_WIDTH_UNITS = 131;
 const MAX_TIMEOUT = 2_147_483_000;
+const COACH_STORAGE_KEY = "carreteo-coach-seen-v1";
+
+const readCoachSeen = () => {
+  try {
+    return window.localStorage.getItem(COACH_STORAGE_KEY) === "1";
+  } catch {
+    return false;
+  }
+};
+const saveCoachSeen = () => {
+  try {
+    window.localStorage.setItem(COACH_STORAGE_KEY, "1");
+  } catch {
+    // Sin almacenamiento la guía volverá a salir; no es grave.
+  }
+};
+
+type CoachStep = { id: "dial" | "flash" | "wind" | "shoot"; badge?: string; title: string; text: (shots: number) => string };
+const COACH_STEPS: CoachStep[] = [
+  { id: "dial", title: "Tu carrete", text: (shots) => `Tienes ${shots} fotos. Aquí ves cuántas llevas: cuando se acaban, se acabó el carrete.` },
+  { id: "flash", title: "Flash", text: () => "Actívalo para hacer fotos con poca luz." },
+  { id: "wind", badge: "1", title: "Gira la rueda", text: () => "Antes de cada foto, arrastra la rueda con el dedo hasta que haga clic." },
+  { id: "shoot", badge: "2", title: "Dispara", text: () => "Pulsa el botón para hacer la foto. Las verás todas el día del revelado." },
+];
 
 const wait = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
 const vibrate = (pattern: number | number[]) => {
@@ -167,11 +191,12 @@ const CarreteoPublic = () => {
   const [wound, setWound] = useState(false);
   const [saving, setSaving] = useState(false);
   const [flashOn, setFlashOn] = useState(false);
-  const [viewfinderOpen, setViewfinderOpen] = useState(false);
   const [cameraState, setCameraState] = useState<CameraState>("idle");
   const [effect, setEffect] = useState<Effect>(null);
   const [filmTipOpen, setFilmTipOpen] = useState(false);
   const [tickKey, setTickKey] = useState(0);
+  const [coachStep, setCoachStep] = useState<number | null>(null);
+  const [hint, setHint] = useState<{ target: "wind" | "shoot"; key: number } | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -271,6 +296,23 @@ const CarreteoPublic = () => {
       document.removeEventListener("gesturestart", preventGesture);
     };
   }, [showsCamera]);
+
+  // Guía de la primera vez: solo con la cámara utilizable y el carrete sin estrenar.
+  const coachEligible = showsCamera && isActive && cameraAvailable && !rollFinished && shotsTaken === 0;
+  useEffect(() => {
+    if (coachEligible && coachStep === null && !readCoachSeen()) setCoachStep(0);
+  }, [coachEligible, coachStep]);
+
+  const closeCoach = () => {
+    saveCoachSeen();
+    setCoachStep(-1);
+  };
+  const nextCoachStep = () => {
+    if (coachStep === null || coachStep < 0) return;
+    if (coachStep >= COACH_STEPS.length - 1) closeCoach();
+    else setCoachStep(coachStep + 1);
+  };
+  const coachOpen = coachStep !== null && coachStep >= 0;
 
   const canWind = isActive && cameraAvailable && !wound && !saving && !rollFinished;
   const canShoot = isActive && cameraAvailable && wound && !saving && !rollFinished && cameraState === "ready";
@@ -463,7 +505,17 @@ const CarreteoPublic = () => {
     <main
       className={`crt-page ${rotated ? "is-rotated" : ""}`}
       style={cameraStyle}
-      onPointerDown={() => { unlockCarreteoAudio(); enterFullscreen(); }}
+      onPointerDown={(pointerEvent) => {
+        unlockCarreteoAudio();
+        enterFullscreen();
+        // Un toque fuera de los controles señala lo que toca hacer ahora.
+        if (coachOpen || (pointerEvent.target as Element).closest("button")) return;
+        const target = canWind ? "wind" : canShoot ? "shoot" : null;
+        if (target) {
+          setHint({ target, key: Date.now() });
+          vibrate(10);
+        }
+      }}
       aria-label={`Carreteo · ${event.name}`}
     >
       <div className="crt-top"><CarreteoWave /></div>
@@ -499,19 +551,9 @@ const CarreteoPublic = () => {
           <span className="crt-step-badge">1</span><ArrowRight />
         </div>
 
-        <button
-          type="button"
-          className={`crt-viewfinder-handle crt-at ${viewfinderOpen ? "is-open" : ""}`}
-          aria-label={viewfinderOpen ? "Cerrar visor" : "Abrir visor"}
-          aria-expanded={viewfinderOpen}
-          onClick={() => setViewfinderOpen((open) => !open)}
-        >
-          <span className={`crt-viewfinder-dot ${cameraState === "ready" ? "is-ready" : cameraState === "error" ? "is-error" : ""}`} />
-          <span className="crt-viewfinder-tab"><ChevronRight aria-hidden="true" /></span>
-        </button>
-        <div className={`crt-viewfinder ${viewfinderOpen ? "is-open" : ""}`} aria-hidden={!viewfinderOpen}>
+        {/* Cámara desechable: sin visor. El vídeo queda oculto y solo sirve para capturar. */}
+        <div className="crt-viewfinder" aria-hidden="true">
           <video ref={videoRef} muted playsInline autoPlay />
-          <span className="crt-viewfinder-frame" />
         </div>
 
         <span className={`crt-at crt-led ${flashOn ? "is-on" : ""}`} aria-hidden="true" />
@@ -584,6 +626,33 @@ const CarreteoPublic = () => {
           <span className="crt-mark-iso">800</span>
         </div>
 
+        {hint ? (
+          <span
+            key={hint.key}
+            className={`crt-at crt-hint crt-hint-${hint.target}`}
+            aria-hidden="true"
+            onAnimationEnd={() => setHint(null)}
+          />
+        ) : null}
+
+        {coachOpen ? (() => {
+          const step = COACH_STEPS[coachStep];
+          const last = coachStep === COACH_STEPS.length - 1;
+          return (
+            <div className="crt-coach" role="dialog" aria-modal="true" aria-labelledby="crt-coach-title" onClick={nextCoachStep}>
+              <span className={`crt-at crt-coach-spot crt-coach-spot-${step.id}`} aria-hidden="true" />
+              <div className={`crt-at crt-coach-card crt-coach-card-${step.id}`} onClick={(clickEvent) => clickEvent.stopPropagation()}>
+                <p className="crt-coach-count">{coachStep + 1} / {COACH_STEPS.length}</p>
+                <h2 id="crt-coach-title">{step.badge ? <span className="crt-step-badge">{step.badge}</span> : null}{step.title}</h2>
+                <p className="crt-coach-text">{step.text(totalShots)}</p>
+                <div className="crt-coach-actions">
+                  {!last ? <button type="button" className="crt-coach-skip" onClick={closeCoach}>Saltar</button> : null}
+                  <button type="button" className="crt-coach-next" onClick={nextCoachStep} autoFocus>{last ? "¡A disparar!" : "Siguiente"}</button>
+                </div>
+              </div>
+            </div>
+          );
+        })() : null}
       </div>
 
       {effect ? (
