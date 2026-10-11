@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+
+type AdminClient = SupabaseClient<any, "public", any>;
 
 const url = Deno.env.get("SUPABASE_URL") ?? "";
 const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -24,7 +26,7 @@ const generateManagementPassword = (length = 10) => {
   crypto.getRandomValues(random);
   return Array.from(random, (value) => alphabet[value % alphabet.length]).join("");
 };
-const findAuthUserByEmail = async (admin: ReturnType<typeof createClient>, email: string) => {
+const findAuthUserByEmail = async (admin: AdminClient, email: string) => {
   const normalizedEmail = email.trim().toLowerCase();
   for (let page = 1; page <= 10; page += 1) {
     const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
@@ -72,7 +74,7 @@ const sendOwnerSummaryEmail = async ({
   }
 };
 const resolveManagementAccount = async (
-  admin: ReturnType<typeof createClient>,
+  admin: AdminClient,
   email: string,
   phone?: string | null,
 ) => {
@@ -91,14 +93,14 @@ const resolveManagementAccount = async (
       .maybeSingle();
     if (firstOwnedEventError) throw firstOwnedEventError;
 
-    const storedPassword = existingUser.user_metadata?.management_password;
+    const storedPassword = existingUser?.user_metadata?.management_password;
     managementPassword = String(firstOwnedEvent?.admin_password || storedPassword || "").trim()
       || generateManagementPassword();
 
     const { error: updateUserError } = await admin.auth.admin.updateUserById(ownerId, {
       password: managementPassword,
       user_metadata: {
-        ...(existingUser.user_metadata || {}),
+        ...(existingUser?.user_metadata || {}),
         management_password: managementPassword,
       },
     });
@@ -310,7 +312,8 @@ serve(async (req) => {
   if (eventResult.error && referencesAnyField(eventResult.error.message, HOST_EVENT_FIELDS)) {
     eventResult = await admin.from("captains_events").insert({ ...eventBase, ...withoutFields(eventOptional, HOST_EVENT_FIELDS), slug, public_url: publicUrl, qr_url: qrImageUrl }).select("*").single();
   }
-  if (eventResult.error && Object.keys(eventOptional).some((key) => eventResult.error.message.includes(key))) {
+  const eventErrorMessage = eventResult.error?.message ?? "";
+  if (eventResult.error && Object.keys(eventOptional).some((key) => eventErrorMessage.includes(key))) {
     eventResult = await admin.from("captains_events").insert({ ...eventBase, slug, public_url: publicUrl, qr_url: qrImageUrl }).select("*").single();
   }
   const { data: event, error: eventError } = eventResult;
@@ -338,12 +341,12 @@ serve(async (req) => {
   }));
   let tablesResult = tableRows.length ? await admin.from("captains_tables").insert(tableRows).select("id") : { data: [], error: null };
   if (tablesResult.error && ["captain_photo_url", "captain_sprite", "captain_sprite_config"].some((key) => tablesResult.error!.message.includes(key))) {
-    const fallbackRows = tableRows.map(({ captain_photo_url: _photo, captain_sprite: _sprite, captain_sprite_config: _config, ...row }) => row);
+    const fallbackRows = tableRows.map((row) => withoutFields(row, ["captain_photo_url", "captain_sprite", "captain_sprite_config"]));
     tablesResult = await admin.from("captains_tables").insert(fallbackRows).select("id");
   }
   let challengesResult = challengeRows.length ? await admin.from("captains_event_challenges").insert(challengeRows).select("id") : { data: [], error: null };
   if (challengesResult.error && ["question_options", "question_correct_option"].some((key) => challengesResult.error!.message.includes(key))) {
-    const fallbackRows = challengeRows.map(({ question_options: _options, question_correct_option: _correct, ...row }) => row);
+    const fallbackRows = challengeRows.map((row) => withoutFields(row, ["question_options", "question_correct_option"]));
     challengesResult = await admin.from("captains_event_challenges").insert(fallbackRows).select("id");
   }
   if (tablesResult.error || challengesResult.error) {
