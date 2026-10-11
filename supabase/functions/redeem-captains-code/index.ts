@@ -341,12 +341,12 @@ serve(async (req) => {
   }));
   let tablesResult = tableRows.length ? await admin.from("captains_tables").insert(tableRows).select("id") : { data: [], error: null };
   if (tablesResult.error && ["captain_photo_url", "captain_sprite", "captain_sprite_config"].some((key) => tablesResult.error!.message.includes(key))) {
-    const fallbackRows = tableRows.map((row) => withoutFields(row, ["captain_photo_url", "captain_sprite", "captain_sprite_config"]));
+    const fallbackRows = tableRows.map((row: Record<string, unknown>) => withoutFields(row, ["captain_photo_url", "captain_sprite", "captain_sprite_config"]));
     tablesResult = await admin.from("captains_tables").insert(fallbackRows).select("id");
   }
   let challengesResult = challengeRows.length ? await admin.from("captains_event_challenges").insert(challengeRows).select("id") : { data: [], error: null };
   if (challengesResult.error && ["question_options", "question_correct_option"].some((key) => challengesResult.error!.message.includes(key))) {
-    const fallbackRows = challengeRows.map((row) => withoutFields(row, ["question_options", "question_correct_option"]));
+    const fallbackRows = challengeRows.map((row: Record<string, unknown>) => withoutFields(row, ["question_options", "question_correct_option"]));
     challengesResult = await admin.from("captains_event_challenges").insert(fallbackRows).select("id");
   }
   if (tablesResult.error || challengesResult.error) {
