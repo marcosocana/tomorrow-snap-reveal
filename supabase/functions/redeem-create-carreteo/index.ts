@@ -90,16 +90,22 @@ serve(async (req) => {
     }).select("id").single();
     if (eventError || !createdEvent) return json({ error: "CREATE_EVENT_FAILED", detail: eventError?.message }, 500);
 
-    const { error: configError } = await admin.from("carreteo_event_configs").insert({
-      event_id: createdEvent.id,
-      slug,
-      enabled: config.enabled !== false,
-      shots_per_camera: shotsPerCamera,
-      max_cameras: plan.maxCameras ?? null,
-    });
-    if (configError) {
-      await admin.from("events").delete().eq("id", createdEvent.id);
-      return json({ error: "CREATE_CONFIG_FAILED", detail: configError.message }, 500);
+    // El slug es único en toda la base de datos: si está cogido probamos con sufijos.
+    let finalSlug = slug;
+    for (let attempt = 1; ; attempt++) {
+      finalSlug = attempt === 1 ? slug : `${slug}-${attempt}`;
+      const { error: configError } = await admin.from("carreteo_event_configs").insert({
+        event_id: createdEvent.id,
+        slug: finalSlug,
+        enabled: config.enabled !== false,
+        shots_per_camera: shotsPerCamera,
+        max_cameras: plan.maxCameras ?? null,
+      });
+      if (!configError) break;
+      if (configError.code !== "23505" || !configError.message.includes("slug") || attempt >= 20) {
+        await admin.from("events").delete().eq("id", createdEvent.id);
+        return json({ error: "CREATE_CONFIG_FAILED", detail: configError.message }, 500);
+      }
     }
 
     const { data: redeemed, error: redeemError } = await admin.from("purchases").update({
@@ -113,7 +119,7 @@ serve(async (req) => {
       return json({ error: "TOKEN_ALREADY_USED" }, 409);
     }
 
-    return json({ eventId: createdEvent.id, plan: { id: plan.id, label: plan.label, maxCameras: plan.maxCameras } });
+    return json({ eventId: createdEvent.id, slug: finalSlug, plan: { id: plan.id, label: plan.label, maxCameras: plan.maxCameras } });
   } catch (error) {
     console.error("redeem-create-carreteo error:", error);
     return json({ error: "UNKNOWN_ERROR" }, 500);

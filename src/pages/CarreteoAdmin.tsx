@@ -154,6 +154,7 @@ export const CarreteoAdminForm = ({ edit = false }: { edit?: boolean }) => {
       if (!user) throw new Error("UNAUTHORIZED");
       let targetId = eventId;
       let createdWithPurchase = false;
+      let finalSlug = form.slug;
       const eventValues = {
         name: form.name.trim(), upload_start_time: startsAt.toISOString(), upload_end_time: endsAt.toISOString(),
         reveal_time: revealAt.toISOString(), timezone: form.timezone, type: "carreteo",
@@ -172,6 +173,7 @@ export const CarreteoAdminForm = ({ edit = false }: { edit?: boolean }) => {
         });
         if (error || !data?.eventId) throw error || new Error("PURCHASE_REDEEM_FAILED");
         targetId = data.eventId;
+        if (typeof data.slug === "string") finalSlug = data.slug;
         createdWithPurchase = true;
       } else {
         const { data, error } = await supabase.from("events").insert({ ...eventValues, plan_id: "carreteo", owner_id: user.id, password_hash: `carreteo-${crypto.randomUUID()}` }).select("id").single();
@@ -190,13 +192,20 @@ export const CarreteoAdminForm = ({ edit = false }: { edit?: boolean }) => {
         if (backgroundUpdateError) throw backgroundUpdateError;
       }
       if (!createdWithPurchase) {
-        const query = supabase.from("carreteo_event_configs");
-        const { error: configError } = edit
-          ? await query.update(configValues).eq("event_id", targetId)
-          : await query.insert({ event_id: targetId, ...configValues });
-        if (configError) throw configError;
+        if (edit) {
+          const { error: configError } = await supabase.from("carreteo_event_configs").update(configValues).eq("event_id", targetId);
+          if (configError) throw configError;
+        } else {
+          // El slug es único en toda la base de datos (también entre cuentas), así que si está cogido probamos con sufijos.
+          for (let attempt = 1; ; attempt++) {
+            const slug = attempt === 1 ? form.slug : `${form.slug}-${attempt}`;
+            const { error: configError } = await supabase.from("carreteo_event_configs").insert({ event_id: targetId, ...configValues, slug });
+            if (!configError) { finalSlug = slug; break; }
+            if (configError.code !== "23505" || !configError.message.includes("slug") || attempt >= 20) throw configError;
+          }
+        }
       }
-      toast({ title: edit ? "Carreteo actualizado" : "Carreteo creado" });
+      toast({ title: edit ? "Carreteo actualizado" : "Carreteo creado", description: finalSlug !== form.slug ? `La URL /carreteo/${form.slug} ya estaba en uso; se ha usado /carreteo/${finalSlug}.` : undefined });
       navigate(`/admin/carreteo/${targetId}`);
     } catch (saveError) {
       if (createdId) await supabase.from("events").delete().eq("id", createdId);
