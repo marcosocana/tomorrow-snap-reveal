@@ -29,6 +29,20 @@ const normalizeTableCount = (value: unknown) => {
   return Math.max(1, Math.min(999, Math.floor(count)));
 };
 
+// Páginas externas (la landing de revelao.cam) pueden pedir volver a sí mismas
+// tras el pago; solo se aceptan dominios propios para no abrir una redirección.
+const ALLOWED_RETURN_HOSTS = new Set(["revelao.cam", "www.revelao.cam", "acceso.revelao.cam", "localhost"]);
+const safeReturnUrl = (value: unknown) => {
+  if (typeof value !== "string" || value.length > 500) return null;
+  try {
+    const url = new URL(value);
+    const secure = url.protocol === "https:" || (url.protocol === "http:" && url.hostname === "localhost");
+    return secure && ALLOWED_RETURN_HOSTS.has(url.hostname) ? url.toString() : null;
+  } catch {
+    return null;
+  }
+};
+
 const checkoutTrackingLabel = () => {
   const alphabet = "abcdefghijklmnopqrstuvwxyz";
   const values = new Uint8Array(8);
@@ -70,6 +84,8 @@ serve(async (req) => {
       tableCount?: number;
       captainPack?: boolean;
       quoteOnly?: boolean;
+      successUrl?: string;
+      cancelUrl?: string;
     };
     const planId = body.planId ?? "";
 
@@ -155,16 +171,18 @@ serve(async (req) => {
 
       const isPhotostrip = plan.product === "photostrip";
       const isCarreteo = plan.product === "carreteo";
-      params.set("success_url", isPhotostrip
+      const successUrl = isCarreteo ? safeReturnUrl(body.successUrl) : null;
+      const cancelUrl = isCarreteo ? safeReturnUrl(body.cancelUrl) : null;
+      params.set("success_url", successUrl ?? (isPhotostrip
         ? `${APP_ORIGIN}/event-management?product=photostrip&checkout=success`
         : isCarreteo
           ? `${APP_ORIGIN}/event-management?product=carreteo&checkout=success`
-          : `${APP_ORIGIN}/?checkout=success`);
-      params.set("cancel_url", isPhotostrip
+          : `${APP_ORIGIN}/?checkout=success`));
+      params.set("cancel_url", cancelUrl ?? (isPhotostrip
         ? `${APP_ORIGIN}/event-management?product=photostrip&checkout=cancel`
         : isCarreteo
           ? `${APP_ORIGIN}/event-management?product=carreteo&checkout=cancel`
-          : `${APP_ORIGIN}/?checkout=cancel`);
+          : `${APP_ORIGIN}/?checkout=cancel`));
       params.append("line_items[0][price]", priceId);
       params.append("line_items[0][quantity]", "1");
       params.append("metadata[planId]", plan.id);

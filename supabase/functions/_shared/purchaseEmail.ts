@@ -84,16 +84,26 @@ const renderEmail = (job: PurchaseEmailJob, logoUrl: string) => {
       ? null
       : Math.max(1, Math.floor(Number(job.payload.maxCameras)));
     const shots = Math.floor(Number(job.payload.maxShotsPerCamera));
-    const limit = `${maxCameras === null ? "Cámaras ilimitadas" : `Hasta ${maxCameras} cámaras`}${shots > 0 ? ` · ${shots} fotos por cámara` : ""}`;
+    const limit = `${maxCameras === null ? "Carretes ilimitados" : `Hasta ${maxCameras} carretes`}${shots > 0 ? ` de ${shots} fotos` : ""}`;
+    const step = (number: number, title: string, text: string) => `<tr>
+          <td style="width:34px;vertical-align:top;padding:8px 0;"><span style="display:inline-block;width:26px;height:26px;line-height:26px;border-radius:50%;background:#e3161b;color:#fff;text-align:center;font-weight:800;font-size:13px;">${number}</span></td>
+          <td style="vertical-align:top;padding:8px 0;"><p style="margin:0;font-weight:700;color:#111113;">${title}</p><p style="margin:2px 0 0;color:#555;font-size:14px;">${text}</p></td>
+        </tr>`;
     return {
-      subject: "Tu enlace para crear Carreteo",
+      subject: "Registra tu evento Carreteo",
       html: `<div style="font-family:sans-serif;max-width:520px;margin:auto;padding:24px;">
         ${logo}<h2 style="text-align:center;">Tu Carreteo ya está listo</h2>
         <p style="text-align:center;color:#444;">Has comprado <strong>${escapeHtml(job.payload.planLabel)}</strong> · ${escapeHtml(limit)}.</p>
-        <p style="text-align:center;color:#444;">Inicia sesión con la misma cuenta con la que realizaste la compra para crear tu evento.</p>
-        <p style="text-align:center;"><a href="${escapeHtml(onboardingUrl)}" style="display:inline-block;background:#f06a5f;color:#fff;padding:12px 24px;border-radius:999px;text-decoration:none;font-weight:700;">Crear mi evento Carreteo</a></p>
+        <p style="text-align:center;color:#444;">Ahora registra tu evento: ponle nombre y elige cuándo se abre la cámara, cuándo se cierra y cuándo se revelan las fotos.</p>
+        <p style="text-align:center;"><a href="${escapeHtml(onboardingUrl)}" style="display:inline-block;background:#e3161b;color:#fff;padding:12px 24px;border-radius:999px;text-decoration:none;font-weight:700;">Registrar mi evento</a></p>
+        <table role="presentation" style="width:100%;margin:20px 0;border-collapse:collapse;">
+          ${step(1, "Registra tu evento", "Entra con este mismo email desde el botón de arriba.")}
+          ${step(2, "Descarga tu QR", "Imprímelo en tarjetas para las mesas o compártelo por WhatsApp.")}
+          ${step(3, "Revelad juntos", "Cada invitado tiene su carrete y las fotos se revelan a la hora que elijas.")}
+        </table>
         <div style="background:#f5f5f5;border-radius:12px;padding:16px;margin:20px 0;text-align:center;">
           <p style="font-size:13px;color:#777;">Código de creación</p><p style="font-size:22px;font-weight:800;letter-spacing:3px;">${escapeHtml(job.payload.redeemCode)}</p>
+          <p style="font-size:12px;color:#999;">Guárdalo: lo necesitarás si registras el evento desde otro dispositivo.</p>
         </div></div>`,
     };
   }

@@ -9,9 +9,9 @@ import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious
 // Precios mostrados en el selector; el importe real lo fija el Price de Stripe
 // configurado en STRIPE_PRICE_CARRETEO_* (ver _shared/planConfig.ts).
 const plans = [
-  { id: "carreteo_50", name: "Pack 50", price: 39, limit: "Hasta 50 cámaras", ideal: "Ideal para celebraciones íntimas", featured: false },
-  { id: "carreteo_150", name: "Pack 150", price: 69, limit: "Hasta 150 cámaras", ideal: "Ideal para bodas y eventos medianos", featured: true },
-  { id: "carreteo_250", name: "Pack 250", price: 85, limit: "Hasta 250 cámaras", ideal: "Ideal para eventos grandes", featured: false },
+  { id: "carreteo_50", name: "Básico", price: 25, limit: "Hasta 50 cámaras", ideal: "Ideal para celebraciones íntimas", featured: false },
+  { id: "carreteo_150", name: "Pro", price: 59, limit: "Hasta 150 cámaras", ideal: "Ideal para bodas y eventos medianos", featured: true },
+  { id: "carreteo_250", name: "Ultra", price: 99, limit: "Hasta 250 cámaras", ideal: "Ideal para eventos grandes", featured: false },
 ] as const;
 
 type Props = { open: boolean; onOpenChange: (open: boolean) => void };
