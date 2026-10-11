@@ -1508,7 +1508,6 @@ const EventForm = () => {
                   <option value="medium">{t("events.planMedium")}</option>
                   <option value="xxl">{t("events.planXl")}</option>
                   <option value="custom">{t("events.planCustom")}</option>
-                  <option value="capsule">Cápsula del tiempo</option>
                 </select>
               </div>
             )}

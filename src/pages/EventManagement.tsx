@@ -15,7 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, CalendarDays, List, Plus, Edit, Copy, Download, Eye, LogOut, ArrowLeft, User, Lock, Camera, Video, Mic, MoveRight, ChevronDown, MessageSquareText, KeyRound, Gamepad2, Gift, RefreshCw, ExternalLink, Hourglass, Images } from "lucide-react";
+import { Calendar, CalendarDays, List, Plus, Edit, Copy, Download, Eye, LogOut, ArrowLeft, User, Lock, Camera, Video, Mic, MoveRight, ChevronDown, MessageSquareText, KeyRound, Gamepad2, Gift, RefreshCw, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 import { getCountryByCode } from "@/lib/countries";
@@ -122,6 +122,10 @@ const PRODUCT_SECTIONS: Array<{ value: ProductSection; label: string }> = [
   { value: "photostrip", label: "Photostrip" },
   { value: "carreteo", label: "Carreteo" },
 ];
+// De momento solo se ofrecen Revelao, Capitanes y Carreteo. Cápsula y Photostrip
+// siguen clasificándose aparte para que sus eventos no caigan en Revelao.
+const HIDDEN_PRODUCT_SECTIONS = new Set<ProductSection>(["capsule", "photostrip"]);
+const VISIBLE_PRODUCT_SECTIONS = PRODUCT_SECTIONS.filter((product) => !HIDDEN_PRODUCT_SECTIONS.has(product.value));
 
 const ADMIN_EVENT_TAB_KEY = "admin_event_tab";
 const ADMIN_EVENT_NOTE_KEY = "admin_note";
@@ -319,7 +323,9 @@ const EventManagement = () => {
   const [adminSearch, setAdminSearch] = useState(restoredView?.adminSearch ?? "");
   const [activeProduct, setActiveProduct] = useState<ProductSection>(() => {
     const requestedProduct = new URLSearchParams(location.search).get("product");
-    return requestedProduct === "photostrip" || requestedProduct === "carreteo" ? requestedProduct : restoredView?.activeProduct ?? "revelao";
+    if (requestedProduct === "carreteo") return requestedProduct;
+    const restoredProduct = restoredView?.activeProduct ?? "revelao";
+    return HIDDEN_PRODUCT_SECTIONS.has(restoredProduct) ? "revelao" : restoredProduct;
   });
   const [productAction, setProductAction] = useState<ProductAction | null>(null);
   const [adminTypeFilter, setAdminTypeFilter] = useState<"all" | "Demo" | "Start" | "Plus" | "Pro">(restoredView?.adminTypeFilter ?? "all");
@@ -486,8 +492,8 @@ const EventManagement = () => {
     carreteo: carreteoEvents.length,
   }), [revelaoEvents.length, captainsEvents.length, capsuleEvents.length, photostripEvents.length, carreteoEvents.length]);
   const orderedProductSections = useMemo(() => {
-    if (isSuperAdmin) return PRODUCT_SECTIONS;
-    return [...PRODUCT_SECTIONS].sort((left, right) => {
+    if (isSuperAdmin) return VISIBLE_PRODUCT_SECTIONS;
+    return [...VISIBLE_PRODUCT_SECTIONS].sort((left, right) => {
       const leftHasEvents = productCounts[left.value] > 0 ? 1 : 0;
       const rightHasEvents = productCounts[right.value] > 0 ? 1 : 0;
       return rightHasEvents - leftHasEvents;
@@ -2259,7 +2265,7 @@ const EventManagement = () => {
             </div>
           </div>
 
-          <div role="tablist" aria-label="Tipo de producto" className="grid grid-cols-2 md:grid-cols-5 rounded-xl border border-border bg-muted/30 p-1">
+          <div role="tablist" aria-label="Tipo de producto" className="grid grid-cols-3 rounded-xl border border-border bg-muted/30 p-1">
             {orderedProductSections.map((product) => {
               const selected = activeProduct === product.value;
               const count = productCounts[product.value];
@@ -2784,7 +2790,7 @@ const EventManagement = () => {
           </Card>
         ) : null}
 
-        <section aria-label="Descubre las experiencias Revelao" className="grid gap-4 pt-2 md:grid-cols-2 xl:grid-cols-4">
+        <section aria-label="Descubre las experiencias Revelao" className="grid gap-4 pt-2 md:grid-cols-2">
           <a
             href="https://revelao.cam"
             target="_blank"
@@ -2818,42 +2824,6 @@ const EventManagement = () => {
             </p>
             <span className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-violet-700">
               Descubrir Capitanes <ExternalLink className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-            </span>
-          </a>
-
-          <a
-            href="https://revelao.cam/capsuladeltiempo"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="group flex min-h-56 flex-col rounded-2xl border border-amber-300/50 bg-gradient-to-br from-amber-50 to-background p-6 shadow-sm transition hover:-translate-y-1 hover:border-amber-400/70 hover:shadow-lg"
-          >
-            <span className="mb-5 flex h-11 w-11 items-center justify-center rounded-xl bg-amber-500 text-white shadow-sm">
-              <Hourglass className="h-5 w-5" />
-            </span>
-            <h2 className="text-xl font-bold text-foreground">Cápsula del tiempo</h2>
-            <p className="mt-2 flex-1 text-sm leading-relaxed text-muted-foreground">
-              Guarda mensajes en vídeo de tus invitados y vuelve a vivirlos en el futuro cuando llegue el momento de abrir la cápsula.
-            </p>
-            <span className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-amber-700">
-              Descubrir la Cápsula <ExternalLink className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-            </span>
-          </a>
-
-          <a
-            href="https://www.revelao.cam/photostrip"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="group flex min-h-56 flex-col rounded-2xl border border-rose-300/50 bg-gradient-to-br from-rose-50 to-background p-6 shadow-sm transition hover:-translate-y-1 hover:border-rose-400/70 hover:shadow-lg"
-          >
-            <span className="mb-5 flex h-11 w-11 items-center justify-center rounded-xl bg-[#dc6258] text-white shadow-sm">
-              <Images className="h-5 w-5" />
-            </span>
-            <h2 className="text-xl font-bold text-foreground">Photostrip</h2>
-            <p className="mt-2 flex-1 text-sm leading-relaxed text-muted-foreground">
-              Un fotomatón digital para que tus invitados creen y compartan su propia tira de fotos.
-            </p>
-            <span className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-[#c45148]">
-              Descubrir Photostrip <ExternalLink className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
             </span>
           </a>
         </section>
@@ -3028,7 +2998,7 @@ const EventManagement = () => {
             <DialogDescription className="sr-only">Selecciona uno de los productos de Revelao para continuar.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-3">
-            {PRODUCT_SECTIONS.filter((product) => productAction === "new" || (product.value !== "photostrip" && product.value !== "carreteo")).map((product) => (
+            {VISIBLE_PRODUCT_SECTIONS.filter((product) => productAction === "new" || product.value !== "carreteo").map((product) => (
               <button
                 key={product.value}
                 type="button"
