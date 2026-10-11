@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import Stripe from "npm:stripe@22.4.0";
-import { getPlanById, getPlanByPriceId } from "../_shared/planConfig.ts";
+import { getCaptainsPriceIds, getPlanById, getPlanByPriceId, type PlanConfig } from "../_shared/planConfig.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -110,6 +110,56 @@ const enqueueEmail = async (
   if (error) throw new Error(`EMAIL_ENQUEUE_FAILED:${error.message}`);
 };
 
+type ResolvedPurchase =
+  | { kind: "captains"; tableCount: number; captainPack: boolean }
+  | { kind: "plan"; plan: PlanConfig };
+
+const metadataPlanId = (value: unknown) => {
+  if (!value || typeof value !== "object" || "deleted" in value) return "";
+  const metadata = (value as { metadata?: Record<string, string> }).metadata;
+  return metadata?.planId || metadata?.plan_id || "";
+};
+
+// Qué se ha comprado. Los pagos desde el panel traen metadata.planId; los que
+// llegan por un enlace de pago de Stripe (buy.stripe.com) no, así que se
+// deduce de las líneas: precio de Capitanes, precio configurado de un plan o
+// metadata planId puesta en el precio o el producto en Stripe.
+const resolvePurchase = async (session: Stripe.Checkout.Session): Promise<ResolvedPurchase | null> => {
+  const planId = session.metadata?.planId || "";
+  if (planId === "captains") {
+    const requestedTableCount = Number(session.metadata?.tableCount || 1);
+    return {
+      kind: "captains",
+      tableCount: Number.isFinite(requestedTableCount) ? Math.max(1, Math.min(999, Math.floor(requestedTableCount))) : 1,
+      captainPack: session.metadata?.captainPack === "true",
+    };
+  }
+  const metadataPlan = getPlanById(planId);
+  if (metadataPlan) return { kind: "plan", plan: metadataPlan };
+
+  const lineItems = await stripe.checkout.sessions.listLineItems(session.id, { limit: 10, expand: ["data.price.product"] });
+  const captainsPrices = getCaptainsPriceIds();
+  const captainsGame = lineItems.data.find((item) =>
+    item.price?.id === captainsPrices.game
+    || metadataPlanId(item.price) === "captains"
+    || metadataPlanId(item.price?.product) === "captains"
+  );
+  if (captainsGame) {
+    return {
+      kind: "captains",
+      tableCount: Math.max(1, Math.min(999, Math.floor(captainsGame.quantity ?? 1))),
+      captainPack: Boolean(captainsPrices.pack) && lineItems.data.some((item) => item.price?.id === captainsPrices.pack),
+    };
+  }
+  for (const item of lineItems.data) {
+    const plan = getPlanByPriceId(item.price?.id ?? null, session.livemode)
+      ?? getPlanById(metadataPlanId(item.price))
+      ?? getPlanById(metadataPlanId(item.price?.product));
+    if (plan) return { kind: "plan", plan };
+  }
+  return null;
+};
+
 const fulfillPaidSession = async (
   admin: SupabaseAdminClient,
   event: Stripe.Event,
@@ -121,13 +171,14 @@ const fulfillPaidSession = async (
   if (!userEmail) throw new Error("CUSTOMER_EMAIL_NOT_FOUND");
   const userId = session.metadata?.userId || null;
 
-  const planId = session.metadata?.planId || "";
-  if (planId === "captains") {
-    const requestedTableCount = Number(session.metadata?.tableCount || 1);
-    const tableCount = Number.isFinite(requestedTableCount)
-      ? Math.max(1, Math.min(999, Math.floor(requestedTableCount)))
-      : 1;
-    const captainPack = session.metadata?.captainPack === "true";
+  const resolved = await resolvePurchase(session);
+  if (!resolved) {
+    const lineItems = await stripe.checkout.sessions.listLineItems(session.id, { limit: 10 });
+    const prices = lineItems.data.map((item) => `${item.price?.id ?? "?"}:${item.description ?? ""}`).join(",");
+    throw new Error(`UNKNOWN_PLAN:${prices}`);
+  }
+  if (resolved.kind === "captains") {
+    const { tableCount, captainPack } = resolved;
     const redeemToken = generateRedeemToken(16);
     const redeemExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60_000).toISOString();
     const purchase = await ensurePurchase(admin, {
@@ -179,12 +230,7 @@ const fulfillPaidSession = async (
     return "captains_enqueued";
   }
 
-  let plan = getPlanById(planId);
-  if (!plan) {
-    const lineItems = await stripe.checkout.sessions.listLineItems(session.id, { limit: 1 });
-    plan = getPlanByPriceId(lineItems.data[0]?.price?.id ?? null, session.livemode);
-  }
-  if (!plan) throw new Error("UNKNOWN_PLAN");
+  const { plan } = resolved;
 
   const redeemToken = generateRedeemToken(16);
   const redeemExpiresAt = new Date(Date.now() + (plan.product === "photostrip" || plan.product === "carreteo" ? 30 : 7) * 24 * 60 * 60_000).toISOString();

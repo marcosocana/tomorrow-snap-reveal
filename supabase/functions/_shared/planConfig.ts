@@ -184,3 +184,9 @@ export const getPlanByPriceId = (priceId: string | null | undefined, livemode = 
     ) ?? null
   );
 };
+
+// Precios de Capitanes: "Juego" (uno por mesa) y "Pack Capitán" (opcional, uno por mesa).
+export const getCaptainsPriceIds = () => ({
+  game: Deno.env.get("STRIPE_PRICE_CAPTAINS_GAME") ?? "price_1U51pa5qbMQlPRrsRCs3dWRZ",
+  pack: Deno.env.get("STRIPE_PRICE_CAPTAINS_PACK") ?? "",
+});

@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-import { getPlanById, getPlanPriceId } from "../_shared/planConfig.ts";
+import { getCaptainsPriceIds, getPlanById, getPlanPriceId } from "../_shared/planConfig.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
@@ -8,9 +8,7 @@ const STRIPE_SECRET_KEY = Deno.env.get("STRIPE_SECRET_KEY") ?? "";
 const APP_ORIGIN = Deno.env.get("APP_ORIGIN") ?? "https://acceso.revelao.cam";
 // Stripe Price "Juego" (Capitanes, one-time, 4.95 EUR). Price IDs are safe to
 // keep as a deployable default; the dedicated env var allows future rotation.
-const STRIPE_PRICE_CAPTAINS_GAME =
-  Deno.env.get("STRIPE_PRICE_CAPTAINS_GAME") ?? "price_1U51pa5qbMQlPRrsRCs3dWRZ";
-const STRIPE_PRICE_CAPTAINS_PACK = Deno.env.get("STRIPE_PRICE_CAPTAINS_PACK") ?? "";
+const { game: STRIPE_PRICE_CAPTAINS_GAME, pack: STRIPE_PRICE_CAPTAINS_PACK } = getCaptainsPriceIds();
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
