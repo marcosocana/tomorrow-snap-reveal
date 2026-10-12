@@ -34,36 +34,6 @@ const getDateLocale = (language: Language) => {
   }
 };
 
-const getSupportedRecordingMimeType = (mode: "video" | "audio"): string | null => {
-  if (typeof MediaRecorder === "undefined" || typeof MediaRecorder.isTypeSupported !== "function") {
-    return null;
-  }
-
-  const candidates =
-    mode === "video"
-      ? [
-          "video/mp4;codecs=h264,aac",
-          "video/mp4",
-          "video/webm;codecs=vp8,opus",
-          "video/webm;codecs=vp9,opus",
-          "video/webm",
-        ]
-      : [
-          "audio/mp4;codecs=mp4a.40.2",
-          "audio/mp4",
-          "audio/webm;codecs=opus",
-          "audio/webm",
-          "audio/ogg;codecs=opus",
-        ];
-
-  for (const mimeType of candidates) {
-    if (MediaRecorder.isTypeSupported(mimeType)) {
-      return mimeType;
-    }
-  }
-  return null;
-};
-
 const getExtensionForMimeType = (mimeType: string | null | undefined, mode: "video" | "audio") => {
   const mime = (mimeType || "").toLowerCase();
   if (mime.includes("mp4")) {
@@ -908,13 +878,21 @@ const Camera = () => {
     }
 
     try {
-      const preferredType = getSupportedRecordingMimeType(recordingMode);
-      const options: MediaRecorderOptions = {};
-      if (preferredType) {
-        options.mimeType = preferredType;
+      const recordingStream =
+        recordingMode === "audio"
+          ? new MediaStream(mediaStreamRef.current.getAudioTracks())
+          : mediaStreamRef.current;
+
+      if (recordingMode === "audio" && recordingStream.getAudioTracks().length === 0) {
+        throw new Error("No live audio track available");
       }
-      const recorder = new MediaRecorder(mediaStreamRef.current, options);
-      recordingMimeTypeRef.current = recorder.mimeType || options.mimeType || preferredType || null;
+
+      // Let the browser choose its native encoder. Some Android browsers report
+      // MP4/H.264 as supported but still throw when MediaRecorder starts with it.
+      // Audio mode must receive an audio-only stream: the permission flow may
+      // have acquired camera and microphone together on its first request.
+      const recorder = new MediaRecorder(recordingStream);
+      recordingMimeTypeRef.current = recorder.mimeType || null;
       recordedChunksRef.current = [];
 
       recorder.ondataavailable = (event) => {
@@ -932,7 +910,6 @@ const Camera = () => {
         const blob = new Blob(recordedChunksRef.current, {
           type:
             recordingMimeTypeRef.current ||
-            options.mimeType ||
             (recordingMode === "video" ? "video/webm" : "audio/webm"),
         });
         setRecordingBlob(blob);
