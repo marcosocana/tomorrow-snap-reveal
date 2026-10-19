@@ -25,6 +25,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { convertAudioBlobToWav } from "@/lib/audioToWav";
 
 const getDateLocale = (language: Language) => {
   switch (language) {
@@ -43,10 +44,37 @@ const getExtensionForMimeType = (mimeType: string | null | undefined, mode: "vid
     return "mov";
   }
   if (mime.includes("ogg")) return "ogg";
+  if (mime.includes("wav")) return "wav";
   if (mime.includes("webm")) return "webm";
   if (mime.includes("mpeg")) return "mp3";
   return mode === "audio" ? "webm" : "webm";
 };
+
+// MP4 first: it is the only format iPhone plays back. Some Android browsers
+// report MP4 as supported but throw when the recorder starts, so each candidate
+// is started inside a try and the browser's native encoder is the last resort.
+const MP4_RECORDING_CANDIDATES = {
+  video: ["video/mp4;codecs=avc1,mp4a", "video/mp4;codecs=h264,aac", "video/mp4"],
+  audio: ["audio/mp4;codecs=mp4a.40.2", "audio/mp4"],
+};
+
+const startRecorder = (stream: MediaStream, mode: "video" | "audio") => {
+  for (const mimeType of MP4_RECORDING_CANDIDATES[mode]) {
+    if (typeof MediaRecorder.isTypeSupported === "function" && !MediaRecorder.isTypeSupported(mimeType)) continue;
+    try {
+      const recorder = new MediaRecorder(stream, { mimeType });
+      recorder.start();
+      return recorder;
+    } catch (error) {
+      console.warn(`MediaRecorder could not start with ${mimeType}`, error);
+    }
+  }
+  const recorder = new MediaRecorder(stream);
+  recorder.start();
+  return recorder;
+};
+
+const isUniversallyPlayableAudio = (mimeType: string) => /mp4|mpeg|wav|aac|x-m4a/.test(mimeType.toLowerCase());
 
 const MAX_ATTACHMENT_FILES = 5;
 const MAX_ATTACHMENT_VIDEO_SIZE_BYTES = 50 * 1024 * 1024;
@@ -887,11 +915,9 @@ const Camera = () => {
         throw new Error("No live audio track available");
       }
 
-      // Let the browser choose its native encoder. Some Android browsers report
-      // MP4/H.264 as supported but still throw when MediaRecorder starts with it.
       // Audio mode must receive an audio-only stream: the permission flow may
       // have acquired camera and microphone together on its first request.
-      const recorder = new MediaRecorder(recordingStream);
+      const recorder = startRecorder(recordingStream, recordingMode);
       recordingMimeTypeRef.current = recorder.mimeType || null;
       recordedChunksRef.current = [];
 
@@ -923,7 +949,6 @@ const Camera = () => {
         setRecordingCountdown(0);
       };
 
-      recorder.start();
       mediaRecorderRef.current = recorder;
       recordingStartRef.current = Date.now();
       setIsRecordingMedia(true);
@@ -1034,7 +1059,16 @@ const Camera = () => {
     try {
       const bucket = mode === "video" ? "event-videos" : "event-audios";
       const hash = generateHash();
-      const resolvedMimeType = mimeType || blob.type || null;
+      let resolvedMimeType = mimeType || blob.type || null;
+      // WebM/Ogg audio (Chrome on Android) does not play on iPhone: convert it to WAV.
+      if (mode === "audio" && resolvedMimeType && !isUniversallyPlayableAudio(resolvedMimeType)) {
+        try {
+          blob = await convertAudioBlobToWav(blob);
+          resolvedMimeType = "audio/wav";
+        } catch (conversionError) {
+          console.warn("Audio could not be converted to WAV; uploading the original", conversionError);
+        }
+      }
       const extension = getExtensionForMimeType(resolvedMimeType, mode);
       const fileName = `${eventId}/${hash}_${Date.now()}.${extension}`;
       const { error: uploadError } = await supabase.storage.from(bucket).upload(fileName, blob, {
