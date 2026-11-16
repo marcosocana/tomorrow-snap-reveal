@@ -77,7 +77,11 @@ export const getPhotostripIdentity = (slug: string) => {
     id: crypto.randomUUID(),
     token: bytesToHex(crypto.getRandomValues(new Uint8Array(32))),
   };
-  localStorage.setItem(key, JSON.stringify(identity));
+  try {
+    localStorage.setItem(key, JSON.stringify(identity));
+  } catch {
+    // Almacenamiento bloqueado (navegación privada): la visita sigue sin persistencia.
+  }
   return identity;
 };
 

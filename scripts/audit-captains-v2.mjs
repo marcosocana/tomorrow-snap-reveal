@@ -19,7 +19,7 @@ assert.match(demoSeed, /FROM public\.captains_tables source_table/);
 assert.match(demoSeed, /FROM public\.captains_event_challenges source_challenge/);
 assert.match(demoRetention, /interval '1 hour'/);
 assert.match(demoRetention, /'\* \* \* \* \*'/);
-assert.match(demoPurge, /admin\.storage\.from\(BUCKET\)\.remove\(paths\)/);
+assert.match(demoPurge, /admin\.storage\.from\(BUCKET\)\.remove\(batch\)/);
 const eventId='de100000-0000-4000-8000-000000000001';
 const titles=['Brindis de mesa','Pregunta de pareja','Mensaje secreto','Aliados de otra mesa','Coreografía exprés'];
 const event={id:eventId,name:'Capitanes · Revelao',slug:eventSlug,status:eventAlreadyEnded?'finished':'active',experience_version:experienceVersion,start_time:'2026-01-01T00:00:00Z',end_time:eventAlreadyEnded?'2026-01-02T00:00:00Z':'2099-12-31T00:00:00Z',host_characters_enabled:hostsEnabled,host_tone:'divertido',host_frequency:'normal',wedding_context:hostsEnabled?{partner_1_name:'Carlos',partner_2_name:'Lucía',years_together:8,venue_name:'Finca La Estación',venue_city:'Madrid'}:null,character_1_config:hostsEnabled?{linked_partner:'partner_1',display_name:'Carlos',skin_tone:'medium',hair_style:'short',hair_color:'dark',facial_hair:'none',glasses:'none',head_accessory:'none',outfit:'classic_suit',primary_color:'#26354a',secondary_color:'#fff6ec',accessory:'tie'}:null,character_2_config:hostsEnabled?{linked_partner:'partner_2',display_name:'Lucía',skin_tone:'light',hair_style:'long',hair_color:'brown',facial_hair:'none',glasses:'round',head_accessory:'none',outfit:'modern_dress',primary_color:'#f06a5f',secondary_color:'#fff6ec',accessory:'bouquet'}:null};

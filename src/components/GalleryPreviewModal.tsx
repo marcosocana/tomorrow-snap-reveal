@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllRows, SUPABASE_MAX_ROWS } from "@/lib/fetchAllRows";
 import { Download, Trash2, ChevronLeft, ChevronRight, Share2, ArrowUpDown, Heart, Video, Mic, Image as ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -10,7 +11,6 @@ import { useAdminI18n } from "@/lib/adminI18n";
 import { getSignedUrlCached, getSignedUrlsCached } from "@/lib/signedUrlCache";
 import DeferredImage from "@/components/DeferredImage";
 import DeferredPosterVideo from "@/components/DeferredPosterVideo";
-import JSZip from "jszip";
 import { photoStoragePaths } from "@/lib/photoThumbnails";
 import {
   DropdownMenu,
@@ -455,26 +455,48 @@ export const GalleryPreviewModal = ({
 
     setIsDeletingAll(true);
     try {
+      // Se borra por tandas hasta vaciar la pestaña: una sola consulta se
+      // queda en 1000 filas y un `.in()` con cientos de ids no cabe en la URL.
+      const deleteAllRows = async (
+        table: "photos" | "videos" | "audios",
+        pathColumn: "image_url" | "video_url" | "audio_url",
+        bucket: string,
+        toStoragePaths: (paths: string[]) => string[],
+      ) => {
+        let previousFirstId: string | null = null;
+        for (;;) {
+          const { data, error } = await supabase
+            .from(table as never)
+            .select(`id, ${pathColumn}`)
+            .eq("event_id", eventId)
+            .order("id", { ascending: true })
+            .limit(SUPABASE_MAX_ROWS);
+          if (error) throw error;
+
+          const rows = (data || []) as unknown as Array<Record<string, string>>;
+          // Sin filas, o las mismas que en la vuelta anterior (no se pudieron
+          // borrar): se termina en lugar de repetir indefinidamente.
+          if (rows.length === 0 || rows[0].id === previousFirstId) break;
+          previousFirstId = rows[0].id;
+
+          const storagePaths = toStoragePaths(rows.map((row) => row[pathColumn]).filter(Boolean));
+          for (let index = 0; index < storagePaths.length; index += 500) {
+            const { error: storageError } = await supabase.storage.from(bucket).remove(storagePaths.slice(index, index + 500));
+            if (storageError) throw storageError;
+          }
+          const ids = rows.map((row) => row.id);
+          for (let index = 0; index < ids.length; index += 150) {
+            const { error: dbError } = await supabase.from(table as never).delete().in("id", ids.slice(index, index + 150));
+            if (dbError) throw dbError;
+          }
+
+          if (rows.length < SUPABASE_MAX_ROWS) break;
+        }
+      };
+
       if (activeTab === "photos") {
-        const { data, error } = await supabase
-          .from("photos")
-          .select("id, image_url")
-          .eq("event_id", eventId);
-        if (error) throw error;
-
-        const imageUrls = (data || []).map((photo) => photo.image_url).filter(Boolean);
-        const photoIds = (data || []).map((photo) => photo.id);
-
-        // Fotos y miniaturas, por tandas para no superar el límite por petición.
-        const storagePaths = photoStoragePaths(imageUrls);
-        for (let index = 0; index < storagePaths.length; index += 500) {
-          const { error: storageError } = await supabase.storage.from("event-photos").remove(storagePaths.slice(index, index + 500));
-          if (storageError) throw storageError;
-        }
-        if (photoIds.length > 0) {
-          const { error: dbError } = await supabase.from("photos").delete().in("id", photoIds);
-          if (dbError) throw dbError;
-        }
+        // Fotos y sus miniaturas.
+        await deleteAllRows("photos", "image_url", "event-photos", photoStoragePaths);
 
         setPhotos([]);
         setTotalPhotos(0);
@@ -483,23 +505,7 @@ export const GalleryPreviewModal = ({
       }
 
       if (activeTab === "videos") {
-        const { data, error } = await supabase
-          .from("videos")
-          .select("id, video_url")
-          .eq("event_id", eventId);
-        if (error) throw error;
-
-        const videoUrls = (data || []).map((video) => video.video_url).filter(Boolean);
-        const videoIds = (data || []).map((video) => video.id);
-
-        if (videoUrls.length > 0) {
-          const { error: storageError } = await supabase.storage.from("event-videos").remove(videoUrls);
-          if (storageError) throw storageError;
-        }
-        if (videoIds.length > 0) {
-          const { error: dbError } = await supabase.from("videos").delete().in("id", videoIds);
-          if (dbError) throw dbError;
-        }
+        await deleteAllRows("videos", "video_url", "event-videos", (paths) => paths);
 
         setVideos([]);
         setTotalVideos(0);
@@ -507,23 +513,7 @@ export const GalleryPreviewModal = ({
       }
 
       if (activeTab === "audios") {
-        const { data, error } = await supabase
-          .from("audios")
-          .select("id, audio_url")
-          .eq("event_id", eventId);
-        if (error) throw error;
-
-        const audioUrls = (data || []).map((audio) => audio.audio_url).filter(Boolean);
-        const audioIds = (data || []).map((audio) => audio.id);
-
-        if (audioUrls.length > 0) {
-          const { error: storageError } = await supabase.storage.from("event-audios").remove(audioUrls);
-          if (storageError) throw storageError;
-        }
-        if (audioIds.length > 0) {
-          const { error: dbError } = await supabase.from("audios").delete().in("id", audioIds);
-          if (dbError) throw dbError;
-        }
+        await deleteAllRows("audios", "audio_url", "event-audios", (paths) => paths);
 
         setAudios([]);
         setTotalAudios(0);
@@ -607,32 +597,37 @@ export const GalleryPreviewModal = ({
         description: downloadingAllText,
       });
 
-      const [
-        { data: allPhotos, error: photosError },
-        { data: allVideos, error: videosError },
-        { data: allAudios, error: audiosError },
-      ] = await Promise.all([
-        supabase
-          .from("photos")
-          .select("id,image_url,captured_at")
-          .eq("event_id", eventId)
-          .order("captured_at", { ascending: true }),
-        supabase
-          .from("videos")
-          .select("id,video_url,captured_at")
-          .eq("event_id", eventId)
-          .order("captured_at", { ascending: true }),
-        supabase
-          .from("audios")
-          .select("id,audio_url,captured_at")
-          .eq("event_id", eventId)
-          .order("captured_at", { ascending: true }),
+      // Paginado: una consulta sin rango se queda en las 1000 primeras filas y
+      // el ZIP de un evento grande salía incompleto sin avisar.
+      const [allPhotos, allVideos, allAudios] = await Promise.all([
+        fetchAllRows<{ id: string; image_url: string; captured_at: string }>((from, to) =>
+          supabase
+            .from("photos")
+            .select("id,image_url,captured_at")
+            .eq("event_id", eventId)
+            .order("captured_at", { ascending: true })
+            .order("id", { ascending: true })
+            .range(from, to)),
+        fetchAllRows<{ id: string; video_url: string; captured_at: string }>((from, to) =>
+          supabase
+            .from("videos")
+            .select("id,video_url,captured_at")
+            .eq("event_id", eventId)
+            .order("captured_at", { ascending: true })
+            .order("id", { ascending: true })
+            .range(from, to)),
+        fetchAllRows<{ id: string; audio_url: string; captured_at: string }>((from, to) =>
+          supabase
+            .from("audios")
+            .select("id,audio_url,captured_at")
+            .eq("event_id", eventId)
+            .order("captured_at", { ascending: true })
+            .order("id", { ascending: true })
+            .range(from, to)),
       ]);
 
-      if (photosError) throw photosError;
-      if (videosError) throw videosError;
-      if (audiosError) throw audiosError;
-
+      // JSZip solo se descarga al pedir el ZIP, no con el panel.
+      const { default: JSZip } = await import("jszip");
       const zip = new JSZip();
       let exportedCount = 0;
 

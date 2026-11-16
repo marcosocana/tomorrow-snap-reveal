@@ -45,6 +45,31 @@ const escapeHtml = (value: string) =>
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 
+// Esta función se invoca sin sesión, así que todo lo que llega en el cuerpo se
+// trata como no fiable: el texto se escapa y los enlaces solo se aceptan si
+// apuntan a dominios propios (si no, se usa el valor por defecto).
+const parseHttpsUrl = (value: unknown) => {
+  if (typeof value !== "string" || !value.trim()) return null;
+  try {
+    const parsed = new URL(value.trim());
+    return parsed.protocol === "https:" ? parsed : null;
+  } catch {
+    return null;
+  }
+};
+const hostMatches = (host: string, allowed: string[]) =>
+  allowed.some((domain) => host === domain || host.endsWith(`.${domain}`));
+const safeAppUrl = (value: unknown) => {
+  const parsed = parseHttpsUrl(value);
+  return parsed && hostMatches(parsed.hostname, ["revelao.cam"]) ? parsed.toString() : null;
+};
+const safeQrImageUrl = (value: unknown) => {
+  const parsed = parseHttpsUrl(value);
+  return parsed && hostMatches(parsed.hostname, ["revelao.cam", "quickchart.io", "supabase.co"])
+    ? parsed.toString()
+    : null;
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -58,7 +83,12 @@ serve(async (req) => {
     return json({ error: "Missing RESEND_API_KEY or FROM_EMAIL" }, 500);
   }
 
-  const { event, contactInfo, qrUrl, eventType, planLabel, lang, publicUrl } = (await req.json()) as {
+  const body = await req.json().catch(() => null);
+  if (!body || typeof body !== "object") {
+    return json({ error: "Invalid JSON body" }, 400);
+  }
+
+  const { event, contactInfo, qrUrl, eventType, planLabel, lang, publicUrl } = body as {
     event?: DemoEvent;
     contactInfo?: ContactInfo;
     qrUrl?: string | null;
@@ -68,21 +98,22 @@ serve(async (req) => {
     publicUrl?: string | null;
   };
 
-  if (!event || !contactInfo?.email) {
+  if (!event || typeof contactInfo?.email !== "string" || !contactInfo.email.trim()) {
     return json({ error: "Missing event or contact email" }, 400);
   }
 
   const emailLang: EmailLang = lang === "en" || lang === "it" ? lang : "es";
   const pathPrefix = emailLang === "es" ? "" : `/${emailLang}`;
-  const eventUrl = publicUrl?.trim() || `https://acceso.revelao.cam/events/${event.password_hash}`;
+  const eventUrl = safeAppUrl(publicUrl) ||
+    `https://acceso.revelao.cam/events/${encodeURIComponent(String(event.password_hash ?? ""))}`;
   const credentialEmail = contactInfo.email.trim().toLowerCase();
   const isPhotostrip = eventType === "photostrip";
   const editPath = isPhotostrip && event.id ? `/admin/photostrip/${event.id}/edit` : `${pathPrefix}/event-management`;
   const adminUrl = `https://acceso.revelao.cam${pathPrefix}/admin-login?email=${encodeURIComponent(credentialEmail)}&redirect=${encodeURIComponent(editPath)}`;
   const planUrl = "https://www.revelao.cam";
-  const eventTz = event.timezone || "Europe/Madrid";
+  const eventTz = typeof event.timezone === "string" && event.timezone ? event.timezone : "Europe/Madrid";
   const resolvedQrUrl =
-    qrUrl ||
+    safeQrImageUrl(qrUrl) ||
     `https://quickchart.io/qr?size=220&margin=1&ecLevel=H&text=${encodeURIComponent(
       eventUrl
     )}`;
@@ -249,10 +280,10 @@ serve(async (req) => {
   const html = `
     <div style="font-family: Arial, sans-serif; color: #111; line-height: 1.6; background: #ffffff;">
       <div style="text-align: center; padding: 8px 0 16px;">
-        <img src="${logoSrc}" alt="Revelao" style="height: 96px; width: auto; display: inline-block;" />
+        <img src="${escapeHtml(logoSrc)}" alt="Revelao" style="height: 96px; width: auto; display: inline-block;" />
       </div>
       <p style="font-size: 13px; margin: 0 0 4px;">${isPhotostrip ? t.introPhotostrip : isCapsule ? t.introCapsule : isDemo ? t.introDemo : t.introPaid}</p>
-      <p style="font-size: 20px; font-weight: 700; margin: 0 0 16px;">${event.name}</p>
+      <p style="font-size: 20px; font-weight: 700; margin: 0 0 16px;">${escapeHtml(String(event.name ?? ""))}</p>
       <p style="font-weight: 700; margin: 0 0 8px;">${t.howTitle}</p>
       <ul style="margin: 0 0 16px; padding-left: 20px; color: #444;">
         ${howSteps.map((step) => `<li style="margin-bottom: 6px;">${step}</li>`).join("")}
@@ -261,19 +292,19 @@ serve(async (req) => {
       <div style="margin: 12px 0 20px; padding: 16px; background: #f5f5f5; border-radius: 12px;">
         <div style="text-align: center; margin-bottom: 12px;">
           <p style="font-size: 12px; color: #666; margin: 0 0 6px;">${t.qrLabel}</p>
-          <img src="${resolvedQrUrl}" alt="QR del evento" style="width: 180px; height: 180px; display: inline-block;" />
+          <img src="${escapeHtml(resolvedQrUrl)}" alt="QR del evento" style="width: 180px; height: 180px; display: inline-block;" />
           <p style="margin: 8px 0 0; font-size: 12px; color: #666;">${t.qrHint}</p>
           <p style="margin: 8px 0 0; font-size: 12px; color: #666;">
-            ${t.qrUrlHint} <a href="${eventUrl}">${eventUrl}</a>
+            ${t.qrUrlHint} <a href="${escapeHtml(eventUrl)}">${escapeHtml(eventUrl)}</a>
           </p>
         </div>
-        ${planLabel ? `<p style="margin: 8px 0 0;">${t.plan}: ${planLabel}</p>` : ""}
+        ${planLabel ? `<p style="margin: 8px 0 0;">${t.plan}: ${escapeHtml(String(planLabel))}</p>` : ""}
         <p style="font-weight: 700; margin: 12px 0 6px;">${t.summary}</p>
-        <p style="margin: 6px 0 0;">${t.uploadStart}: ${formatDate(event.upload_start_time)}</p>
-        <p style="margin: 6px 0 0;">${t.uploadEnd}: ${formatDate(event.upload_end_time)}</p>
-        ${isCapsule || isPhotostrip ? "" : `<p style="margin: 6px 0 0;">${t.reveal}: ${formatDate(event.reveal_time)}</p>`}
-        ${isCapsule || isPhotostrip ? "" : `<p style="margin: 6px 0 0;">${t.maxPhotos}: ${event.max_photos}</p>`}
-        <p style="margin: 6px 0 0;">${t.timezone}: ${eventTz}</p>
+        <p style="margin: 6px 0 0;">${t.uploadStart}: ${escapeHtml(formatDate(event.upload_start_time))}</p>
+        <p style="margin: 6px 0 0;">${t.uploadEnd}: ${escapeHtml(formatDate(event.upload_end_time))}</p>
+        ${isCapsule || isPhotostrip ? "" : `<p style="margin: 6px 0 0;">${t.reveal}: ${escapeHtml(formatDate(event.reveal_time))}</p>`}
+        ${isCapsule || isPhotostrip ? "" : `<p style="margin: 6px 0 0;">${t.maxPhotos}: ${escapeHtml(String(event.max_photos ?? ""))}</p>`}
+        <p style="margin: 6px 0 0;">${t.timezone}: ${escapeHtml(eventTz)}</p>
       </div>
       <div style="margin: 16px 0 20px; padding: 16px; background: #fef9c3; border: 1px solid #fde68a; border-radius: 12px;">
         ${
@@ -281,16 +312,16 @@ serve(async (req) => {
             ? `<div style="margin: 0 0 16px; padding: 16px; background: #ffffff; border: 2px solid #f06a5f; border-radius: 10px;">
                 <p style="font-size: 16px; font-weight: 700; margin: 0 0 12px;">${t.credentialsTitle}</p>
                 <p style="margin: 6px 0;"><strong>${t.userLabel}:</strong> <span style="font-family: monospace;">${escapeHtml(credentialEmail)}</span></p>
-                <p style="margin: 6px 0;"><strong>${t.passwordLabel}:</strong> <span style="font-family: monospace; font-size: 18px; font-weight: 800; letter-spacing: 2px;">${escapeHtml(event.admin_password)}</span></p>
+                <p style="margin: 6px 0;"><strong>${t.passwordLabel}:</strong> <span style="font-family: monospace; font-size: 18px; font-weight: 800; letter-spacing: 2px;">${escapeHtml(String(event.admin_password ?? ""))}</span></p>
                 <p style="font-size: 12px; color: #666; margin: 10px 0 0;">${t.credentialsHint}</p>
               </div>`
             : ""
         }
         <p style="margin: 0 0 10px; font-size: 13px; color: #333;">
-          ${t.manageText.replace("{adminUrl}", `<a href="${adminUrl}">${adminUrl}</a>`)}
+          ${t.manageText.replace("{adminUrl}", `<a href="${escapeHtml(adminUrl)}">${escapeHtml(adminUrl)}</a>`)}
         </p>
         <div style="margin: 0 0 12px;">
-          <a href="${adminUrl}" style="display:inline-block;padding:12px 18px;background:#111;color:#fff;border-radius:10px;text-decoration:none;font-weight:700;">
+          <a href="${escapeHtml(adminUrl)}" style="display:inline-block;padding:12px 18px;background:#111;color:#fff;border-radius:10px;text-decoration:none;font-weight:700;">
             ${t.manageButton}
           </a>
         </div>

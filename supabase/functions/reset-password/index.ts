@@ -71,19 +71,39 @@ serve(async (req) => {
       return json({ error: "TOKEN_EXPIRED" }, 400);
     }
 
+    // El token se consume primero y de forma condicional: así es de un solo
+    // uso aunque lleguen dos peticiones a la vez o falle una escritura.
+    const { data: claimed, error: claimError } = await supabaseAdmin
+      .from("password_resets")
+      .update({ used_at: new Date().toISOString() })
+      .eq("id", reset.id)
+      .is("used_at", null)
+      .select("id")
+      .maybeSingle();
+
+    if (claimError) {
+      console.error("reset-password claim error:", claimError);
+      return json({ error: "UNKNOWN_ERROR" }, 500);
+    }
+    if (!claimed) {
+      return json({ error: "TOKEN_USED" }, 400);
+    }
+
     const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
       reset.user_id,
       { password },
     );
 
     if (updateError) {
+      // La contraseña no llegó a cambiarse: se libera el token para que el
+      // usuario pueda reintentar con el mismo enlace, como hasta ahora.
+      const { error: releaseError } = await supabaseAdmin
+        .from("password_resets")
+        .update({ used_at: null })
+        .eq("id", reset.id);
+      if (releaseError) console.error("reset-password release error:", releaseError);
       return json({ error: "UPDATE_FAILED", detail: updateError.message }, 500);
     }
-
-    await supabaseAdmin
-      .from("password_resets")
-      .update({ used_at: new Date().toISOString() })
-      .eq("id", reset.id);
 
     return json({ ok: true });
   } catch (error) {

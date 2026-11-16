@@ -391,6 +391,9 @@ const RedeemEvent = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token) return;
+    // El botón solo se atenúa mientras se envía (no queda deshabilitado), así
+    // que un segundo clic no debe lanzar otro canje con el mismo código.
+    if (isSubmitting) return;
 
     if (requiresAccountSetup) {
       if (!formData.contactEmail.trim() || !isEmail(formData.contactEmail)) {

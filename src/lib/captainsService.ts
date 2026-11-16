@@ -1,6 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
 import { supabasePublic } from "@/integrations/supabase/publicClient";
-import { captainsDefaultChallengeCatalog } from "@/lib/captainsDefaultChallengeCatalog";
 import { getSignedUrlCached } from "@/lib/signedUrlCache";
 import { compressImage } from "@/lib/imageCompression";
 import { Upload } from "tus-js-client";
@@ -40,6 +39,12 @@ import type {
 const db = supabase as any;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const pdb = supabasePublic as any;
+
+// El catálogo local (~48 kB de fuente) solo hace falta en el panel, como
+// respaldo y al añadir retos: se carga bajo demanda para que los invitados que
+// juegan no lo descarguen junto con el servicio.
+const loadDefaultChallengeCatalog = async () =>
+  (await import("@/lib/captainsDefaultChallengeCatalog")).captainsDefaultChallengeCatalog;
 const CAPTAINS_EVIDENCE_BUCKET = "captains-evidence";
 const CAPTAINS_RESUMABLE_THRESHOLD = 6 * 1024 * 1024;
 export const CAPTAINS_MAX_CHALLENGES = 25;
@@ -859,10 +864,10 @@ export const getCaptainsChallengeCatalog = async (activeOnly = true) => {
   const { data, error } = await query;
   if (error) {
     console.warn("Using local captains challenge catalog fallback:", error);
-    return captainsDefaultChallengeCatalog;
+    return loadDefaultChallengeCatalog();
   }
   const catalog = ((data || []) as CaptainsChallengeCatalogItem[]).map(sanitizeCaptainsCatalogItem);
-  return catalog.length > 0 ? catalog : captainsDefaultChallengeCatalog;
+  return catalog.length > 0 ? catalog : loadDefaultChallengeCatalog();
 };
 
 const appendCaptainsChallengesToTables = async (eventId: string, challenges: CaptainsEventChallenge[]) => {
@@ -923,7 +928,7 @@ export const addCatalogChallengesToCaptainsEvent = async (eventId: string, catal
 
   const catalogById = new Map<string, CaptainsChallengeCatalogItem>();
   ((databaseCatalogItems || []) as CaptainsChallengeCatalogItem[]).forEach((item) => catalogById.set(item.id, item));
-  captainsDefaultChallengeCatalog.forEach((item) => {
+  (await loadDefaultChallengeCatalog()).forEach((item) => {
     if (catalogChallengeIds.includes(item.id)) catalogById.set(item.id, item);
   });
   const catalogItems = catalogChallengeIds.map((id) => catalogById.get(id)).filter(Boolean) as CaptainsChallengeCatalogItem[];
@@ -1557,8 +1562,13 @@ export const completeCaptainsQuestionChallenge = async ({
   };
 };
 
-export const recalculateCaptainsTableScore = async (tableId: string) => {
-  const { data: challenges, error } = await pdb
+// `client` es el cliente público por defecto (lo usa el juego de los invitados).
+// Las acciones del panel pasan el cliente con sesión: tras la hora de fin la
+// política pública ya no deja actualizar la mesa y el ranking no se recalculaba
+// (sin error) al moderar evidencias al día siguiente.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const recalculateCaptainsTableScore = async (tableId: string, client: any = pdb) => {
+  const { data: challenges, error } = await client
     .from("captains_table_challenges")
     .select("status, points_awarded")
     .eq("table_id", tableId)
@@ -1573,7 +1583,7 @@ export const recalculateCaptainsTableScore = async (tableId: string) => {
   ).length;
 
   const lastActivityAt = new Date().toISOString();
-  const { error: updateError } = await pdb
+  const { error: updateError } = await client
     .from("captains_tables")
     .update({
       total_points: totalPoints,
@@ -1640,7 +1650,7 @@ export const approveCaptainsEvidence = async (
       automatic_score_calculated: options?.pointsAwarded === undefined,
     })
     .eq("id", evidence.table_challenge_id);
-  await recalculateCaptainsTableScore(evidence.table_id);
+  await recalculateCaptainsTableScore(evidence.table_id, db);
 
   return data as CaptainsEvidence;
 };
@@ -1665,7 +1675,7 @@ export const rejectCaptainsEvidence = async (evidenceId: string, adminComment?: 
     .from("captains_table_challenges")
     .update({ status: "rejected", points_awarded: 0, reviewed_at: reviewedAt })
     .eq("id", evidence.table_challenge_id);
-  await recalculateCaptainsTableScore(evidence.table_id);
+  await recalculateCaptainsTableScore(evidence.table_id, db);
 
   return evidence;
 };
@@ -1696,7 +1706,7 @@ export const deleteCaptainsEvidence = async (evidenceId: string) => {
     .update({ status: "deleted", points_awarded: 0 })
     .eq("id", evidence.table_challenge_id);
   ensureNoError(challengeError);
-  await recalculateCaptainsTableScore(evidence.table_id);
+  await recalculateCaptainsTableScore(evidence.table_id, db);
 
   return evidence;
 };
@@ -1722,7 +1732,7 @@ export const updateCaptainsEvidence = async (
       reviewed_at: new Date().toISOString(),
     })
     .eq("id", evidence.table_challenge_id);
-  await recalculateCaptainsTableScore(evidence.table_id);
+  await recalculateCaptainsTableScore(evidence.table_id, db);
   return evidence;
 };
 
@@ -1730,6 +1740,6 @@ export const recalculateCaptainsRanking = async (eventId: string) => {
   const { data: tables, error } = await db.from("captains_tables").select("id").eq("event_id", eventId);
   ensureNoError(error);
 
-  await Promise.all(((tables || []) as Array<{ id: string }>).map((table) => recalculateCaptainsTableScore(table.id)));
+  await Promise.all(((tables || []) as Array<{ id: string }>).map((table) => recalculateCaptainsTableScore(table.id, db)));
   return getCaptainsRanking(eventId);
 };

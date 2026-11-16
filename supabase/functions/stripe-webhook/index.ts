@@ -165,7 +165,11 @@ const fulfillPaidSession = async (
   event: Stripe.Event,
   session: Stripe.Checkout.Session,
 ) => {
-  if (session.payment_status !== "paid") return "waiting_for_payment";
+  // "no_payment_required" es una compra completada con importe 0 (cupón del
+  // 100 %): también hay que entregarla. Solo "unpaid" sigue a la espera.
+  if (session.payment_status !== "paid" && session.payment_status !== "no_payment_required") {
+    return "waiting_for_payment";
+  }
 
   const userEmail = await resolveCustomerEmail(session);
   if (!userEmail) throw new Error("CUSTOMER_EMAIL_NOT_FOUND");

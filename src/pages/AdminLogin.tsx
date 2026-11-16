@@ -16,7 +16,10 @@ const AdminLogin = () => {
   const { toast } = useToast();
   const { t, pathPrefix } = useAdminI18n();
   const searchParams = new URLSearchParams(location.search);
-  const redirectTo = searchParams.get("redirect");
+  // Solo se aceptan rutas internas ("/algo"): con "//dominio" o "/\dominio"
+  // el router acabaría navegando a un sitio externo justo tras el login.
+  const rawRedirect = searchParams.get("redirect");
+  const redirectTo = rawRedirect && /^\/(?![/\\])/.test(rawRedirect) ? rawRedirect : null;
   const reason = searchParams.get("reason");
   const prefEmail = searchParams.get("email");
   const isGiftLogin = searchParams.get("gift") === "1";
@@ -77,6 +80,12 @@ const AdminLogin = () => {
       if (error || !data?.session) {
         throw error || new Error("INVALID_CREDENTIALS");
       }
+
+      // Al entrar con cuenta se descarta un acceso previo por contraseña de
+      // evento: si esa clave seguía guardada, el panel mostraba solo aquel
+      // evento y lo trataba con los permisos (y límites) del acceso antiguo.
+      localStorage.removeItem("adminEventId");
+      localStorage.removeItem("isDemoMode");
 
       toast({
         title: t("login.successTitle"),

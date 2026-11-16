@@ -2151,7 +2151,9 @@ const EventForm = () => {
                           setFormData({ ...formData, qrPassword: e.target.value })
                         }
                         placeholder="Contraseña para invitados"
-                        required={formData.qrPasswordEnabled}
+                        // Con una contraseña ya guardada el campo puede quedar
+                        // vacío para conservarla (ver la validación del guardado).
+                        required={formData.qrPasswordEnabled && !formData.qrPasswordHash}
                       />
                       {formData.qrPasswordHash && !formData.qrPassword ? (
                         <p className="text-xs text-muted-foreground">

@@ -202,6 +202,7 @@ const CarreteoPublic = () => {
   const streamRef = useRef<MediaStream | null>(null);
   const wheelRef = useRef<HTMLButtonElement>(null);
   const wheelOffset = useRef(0);
+  const shootingRef = useRef(false);
   const windLocked = useRef(false);
   const drag = useRef({ active: false, pointerId: -1, lastX: 0, moved: 0, travel: 0, sinceTick: 0 });
 
@@ -398,7 +399,7 @@ const CarreteoPublic = () => {
     }
   };
 
-  const shoot = async () => {
+  const takeShot = async () => {
     unlockCarreteoAudio();
     if (!canShoot || !event) return;
     const video = videoRef.current;
@@ -460,6 +461,19 @@ const CarreteoPublic = () => {
       }
     } finally {
       setSaving(false);
+    }
+  };
+
+  // `canShoot` es estado de render y `saving` no se activa hasta después de
+  // varias esperas (flash, captura): sin este cerrojo un doble toque gastaba
+  // dos fotos del carrete con un solo avance de rueda.
+  const shoot = async () => {
+    if (shootingRef.current) return;
+    shootingRef.current = true;
+    try {
+      await takeShot();
+    } finally {
+      shootingRef.current = false;
     }
   };
 

@@ -651,8 +651,8 @@ const Camera = () => {
       }
 
       if (!options?.skipReload) {
-        await refreshEventConfig();
-        await loadMediaCounts();
+        // Independientes entre sí: en paralelo el botón se reactiva antes.
+        await Promise.all([refreshEventConfig(), loadMediaCounts()]);
       }
       return true;
     } catch (error) {
@@ -1241,8 +1241,8 @@ const Camera = () => {
         }
       }
 
-      await refreshEventConfig();
-      await loadMediaCounts();
+      // Independientes entre sí: en paralelo el botón se reactiva antes.
+      await Promise.all([refreshEventConfig(), loadMediaCounts()]);
     } finally {
       const remainingLockTime = ATTACHMENT_BUTTON_LOCK_MS - (Date.now() - attachmentLockStartedAt);
       if (remainingLockTime > 0) {

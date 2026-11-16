@@ -66,6 +66,7 @@ const BulkUpload = () => {
     if (!eventId || uploadItems.length === 0) return;
 
     setIsUploading(true);
+    let uploadedNow = 0;
 
     for (let i = 0; i < uploadItems.length; i++) {
       const item = uploadItems[i];
@@ -112,7 +113,15 @@ const BulkUpload = () => {
           metadata: photoMetadataFor(thumbnailPath),
         });
 
-        if (dbError) throw dbError;
+        if (dbError) {
+          // Sin fila en la base de datos el fichero quedaría huérfano y el
+          // reintento subiría otra copia.
+          void supabase.storage
+            .from("event-photos")
+            .remove(thumbnailPath ? [fileName, thumbnailPath] : [fileName]);
+          throw dbError;
+        }
+        uploadedNow += 1;
 
         // Update status to success
         setUploadItems((prev) =>
@@ -136,7 +145,9 @@ const BulkUpload = () => {
     toast({
       title: t("bulk.doneTitle"),
       description: t("bulk.doneDesc", {
-        count: uploadItems.filter((it) => it.status === "success").length,
+        // Se cuenta en local: `uploadItems` aquí es el array de cuando empezó
+        // la tanda y aún no refleja las subidas recién completadas.
+        count: uploadedNow,
       }),
     });
   };

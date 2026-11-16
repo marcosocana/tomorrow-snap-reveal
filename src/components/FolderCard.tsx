@@ -6,7 +6,6 @@ import { Folder, ChevronDown, ChevronRight, Edit, Trash2, Check, X, Image, Setti
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import EditFolderDialog from "./EditFolderDialog";
-import { exportFolderToPdf } from "@/lib/exportFolderPdf";
 import { useAdminI18n } from "@/lib/adminI18n";
 
 export interface EventFolder {
@@ -134,6 +133,8 @@ const FolderCard = ({
 
     setIsExporting(true);
     try {
+      // jsPDF (~425 kB) solo se descarga al exportar, no con el panel.
+      const { exportFolderToPdf } = await import("@/lib/exportFolderPdf");
       await exportFolderToPdf(
         {
           id: folder.id,
