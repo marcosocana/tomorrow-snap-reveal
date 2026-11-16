@@ -326,9 +326,11 @@ serve(async (req) => {
       return json({ error: "CREATE_EVENT_FAILED" }, 500);
     }
 
-    await notifyAdminNewEvent(createdEvent);
-
-    await supabaseAdmin
+    // El canje se cierra de forma condicional (solo si la compra sigue en
+    // "paid"): dos peticiones simultáneas con el mismo código no pueden crear
+    // dos eventos de pago, y si el cierre falla el evento recién creado se
+    // retira en lugar de dejar el código reutilizable.
+    const { data: redeemedPurchase, error: redeemError } = await supabaseAdmin
       .from("purchases")
       .update({
         status: "redeemed",
@@ -336,7 +338,20 @@ serve(async (req) => {
         user_id: ownerId,
         user_email: ownerEmail ?? purchase.user_email ?? null,
       })
-      .eq("id", purchase.id);
+      .eq("id", purchase.id)
+      .eq("status", "paid")
+      .select("id")
+      .maybeSingle();
+
+    if (redeemError || !redeemedPurchase) {
+      if (redeemError) console.error("redeem-create-event redeem update error:", redeemError);
+      await supabaseAdmin.from("events").delete().eq("id", createdEvent.id);
+      return redeemError
+        ? json({ error: "UNKNOWN_ERROR" }, 500)
+        : json({ error: "TOKEN_NOT_ACTIVE" }, 409);
+    }
+
+    await notifyAdminNewEvent(createdEvent);
 
     const summaryEmail = ownerEmail ?? purchase.user_email ?? "";
     const emailSent = summaryEmail

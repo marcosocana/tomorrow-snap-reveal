@@ -11,7 +11,7 @@ const redeemCreate = read("supabase/functions/redeem-create-event/index.ts");
 const migration = read("supabase/migrations/20260804120000_add_revelao_gifts.sql");
 const config = read("supabase/config.toml");
 
-assert.match(management, /Regalar Revelao/);
+assert.match(management, /Regalar \{giftProduct ===[\s\S]*?"Revelao"\}/);
 assert.match(management, /generateGiftPassword[\s\S]*Uint8Array\(8\)/);
 assert.match(management, /Esta cuenta ya existe[\s\S]*contraseña anterior/);
 assert.match(management, /Cancelar[\s\S]*Continuar/);

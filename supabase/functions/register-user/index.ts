@@ -144,7 +144,13 @@ serve(async (req) => {
       return json({ error: "PROFILE_SAVE_FAILED" }, 500);
     }
 
-    await sendWelcomeEmail(cleanEmail);
+    // La cuenta ya existe en este punto: un fallo del email de bienvenida no
+    // debe convertirse en un 500 (el usuario reintentaría y vería "ya existe").
+    try {
+      await sendWelcomeEmail(cleanEmail);
+    } catch (emailError) {
+      console.error("register-user welcome email error:", emailError);
+    }
 
     return json({ ok: true, userId });
   } catch (error) {

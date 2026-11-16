@@ -102,6 +102,23 @@ const findAuthUserByEmail = async (
   return null;
 };
 
+// Topes del plan demo. El cliente puede pedir menos, nunca más: la función se
+// invoca sin sesión y sin este recorte bastaría un POST directo para crear un
+// evento gratuito con límites de plan de pago.
+const DEMO_CEILINGS = {
+  max_photos: 10,
+  max_videos: 3,
+  max_audios: 6,
+  max_video_duration: 15,
+  max_audio_duration: 30,
+} as const;
+const demoLimit = (value: unknown, key: keyof typeof DEMO_CEILINGS) => {
+  const ceiling = DEMO_CEILINGS[key];
+  const requested = Math.floor(Number(value));
+  if (value === null || value === undefined || !Number.isFinite(requested) || requested < 0) return ceiling;
+  return Math.min(requested, ceiling);
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -243,7 +260,7 @@ serve(async (req) => {
         upload_start_time: uploadStartTime.toISOString(),
         upload_end_time: uploadEndTime.toISOString(),
         reveal_time: revealTime.toISOString(),
-        max_photos: event.max_photos ?? 10,
+        max_photos: demoLimit(event.max_photos, "max_photos"),
         custom_image_url: resolvedCustomImageUrl,
         background_image_url: event.background_image_url ?? null,
         filter_type: event.filter_type ?? "none",
@@ -253,9 +270,9 @@ serve(async (req) => {
         type: "demo",
         plan_id: "demo",
         limits_json: {
-          max_photos: event.max_photos ?? 10,
-          max_videos: event.max_videos ?? 3,
-          max_audios: event.max_audios ?? 6,
+          max_photos: demoLimit(event.max_photos, "max_photos"),
+          max_videos: demoLimit(event.max_videos, "max_videos"),
+          max_audios: demoLimit(event.max_audios, "max_audios"),
           created_from: "nuevoeventodemo2",
           admin_event_tab: "new",
           demo_contact: {
@@ -274,11 +291,11 @@ serve(async (req) => {
         allow_image_attachment: true,
         allow_video_attachment: true,
         allow_video_recording: event.allow_video_recording ?? true,
-        max_videos: event.max_videos ?? 3,
-        max_video_duration: event.max_video_duration ?? 15,
+        max_videos: demoLimit(event.max_videos, "max_videos"),
+        max_video_duration: demoLimit(event.max_video_duration, "max_video_duration"),
         allow_audio_recording: event.allow_audio_recording ?? true,
-        max_audios: event.max_audios ?? 6,
-        max_audio_duration: event.max_audio_duration ?? 30,
+        max_audios: demoLimit(event.max_audios, "max_audios"),
+        max_audio_duration: demoLimit(event.max_audio_duration, "max_audio_duration"),
         show_legal_text: false,
         owner_id: userId,
       })

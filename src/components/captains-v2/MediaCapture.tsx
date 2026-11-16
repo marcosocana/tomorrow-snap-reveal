@@ -110,6 +110,9 @@ export default function MediaCapture({ kind, challengeTitle, challengeDescriptio
   const preparingChangeRef = useRef(onPreparingChange);
   const cameraOpenChangeRef = useRef(onCameraOpenChange);
   const mountedRef = useRef(true);
+  // Identifica la petición de cámara vigente: un stream que llegue tarde (doble
+  // toque, o componente ya desmontado) se apaga en vez de quedar encendido.
+  const cameraRequestRef = useRef(0);
   preparingChangeRef.current = onPreparingChange;
   cameraOpenChangeRef.current = onCameraOpenChange;
 
@@ -164,6 +167,8 @@ export default function MediaCapture({ kind, challengeTitle, challengeDescriptio
       return;
     }
     onPreparingChange?.(true);
+    const requestId = ++cameraRequestRef.current;
+    const isStale = () => !mountedRef.current || requestId !== cameraRequestRef.current;
     try {
       stopStream(false);
       const video = { facingMode: { ideal: nextFacing }, width: { ideal: 1280 }, height: { ideal: 720 } };
@@ -181,12 +186,17 @@ export default function MediaCapture({ kind, challengeTitle, challengeDescriptio
       } else {
         stream = await navigator.mediaDevices.getUserMedia({ video, audio: kind === "video" });
       }
+      if (isStale()) {
+        stream.getTracks().forEach(track => track.stop());
+        return;
+      }
       streamRef.current = stream;
       setCameraOpen(true);
       setStreamVersion(value => value + 1);
       cameraOpenChangeRef.current?.(true);
       setSecondsLeft(MAX_VIDEO_SECONDS);
     } catch {
+      if (isStale()) return;
       setError("Necesitamos permiso para usar la cámara y el micrófono.");
       onPreparingChange?.(false);
     }

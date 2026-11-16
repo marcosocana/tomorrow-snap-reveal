@@ -137,6 +137,10 @@ const TimeCapsule = () => {
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  // Identifica la petición de cámara vigente: una respuesta de getUserMedia que
+  // llegue después de otra petición (o de parar la cámara) se descarta y se
+  // apaga, en lugar de quedar encendida sin que nadie la detenga.
+  const cameraRequestRef = useRef(0);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
   const mimeTypeRef = useRef<string | null>(null);
@@ -186,6 +190,7 @@ const TimeCapsule = () => {
   }, []);
 
   const stopStream = useCallback(() => {
+    cameraRequestRef.current += 1;
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
     setIsCameraReady(false);
@@ -259,12 +264,17 @@ const TimeCapsule = () => {
 
   const startCamera = async (cameraFacing: "user" | "environment" = facingMode) => {
     setRecordError(null);
+    stopStream();
+    const requestId = cameraRequestRef.current;
     try {
-      stopStream();
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: { ideal: cameraFacing }, width: { ideal: 1280 }, height: { ideal: 720 } },
         audio: true,
       });
+      if (requestId !== cameraRequestRef.current) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
       streamRef.current = stream;
       setIsCameraReady(true);
       if (videoRef.current) {
@@ -272,6 +282,8 @@ const TimeCapsule = () => {
         await videoRef.current.play().catch(() => undefined);
       }
     } catch {
+      // Un fallo de una petición ya sustituida no debe tapar la cámara vigente.
+      if (requestId !== cameraRequestRef.current) return;
       setIsCameraReady(false);
       setRecordError("Necesitamos permiso para usar la cámara y el micrófono.");
     }
@@ -286,7 +298,9 @@ const TimeCapsule = () => {
 
   useEffect(() => {
     if (step !== "record" || recordedBlob) return;
-    startCamera("user");
+    // Único punto que (re)abre la cámara al entrar en el paso o al descartar
+    // una grabación; conserva la cámara elegida (la inicial es la frontal).
+    startCamera(facingMode);
     return () => {
       clearTimers();
       stopStream();
@@ -365,7 +379,8 @@ const TimeCapsule = () => {
     });
     setRecordedDuration(0);
     setElapsed(0);
-    await startCamera(facingMode);
+    // La cámara la reabre el efecto de [step, recordedBlob] al quedar
+    // `recordedBlob` en null; abrirla también aquí creaba dos streams a la vez.
   };
 
   const sendVideo = async () => {

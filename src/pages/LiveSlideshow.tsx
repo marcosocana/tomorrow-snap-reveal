@@ -118,14 +118,22 @@ const LiveSlideshow = () => {
 
   const loadPhotos = useCallback(async () => {
     if (!eventId) return;
-    const { data, error } = await supabasePublic
-      .from("photos")
-      .select("id,event_id,image_url,captured_at")
-      .eq("event_id", eventId)
-      .order("captured_at", { ascending: true });
-    if (error) throw error;
+    // Paginado: una consulta sin rango se queda en las 1000 primeras fotos.
+    const PAGE_SIZE = 1000;
+    const nextPhotos: SlideshowPhoto[] = [];
+    for (let from = 0; ; from += PAGE_SIZE) {
+      const { data, error } = await supabasePublic
+        .from("photos")
+        .select("id,event_id,image_url,captured_at")
+        .eq("event_id", eventId)
+        .order("captured_at", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, from + PAGE_SIZE - 1);
+      if (error) throw error;
+      nextPhotos.push(...((data || []) as SlideshowPhoto[]));
+      if (!data || data.length < PAGE_SIZE) break;
+    }
 
-    const nextPhotos = (data || []) as SlideshowPhoto[];
     setPhotos(nextPhotos);
     setCurrentPhotoId((current) =>
       current && nextPhotos.some((photo) => photo.id === current)
@@ -186,8 +194,23 @@ const LiveSlideshow = () => {
       .on(
         "postgres_changes",
         { event: "DELETE", schema: "public", table: "photos" },
-        () => {
-          void loadPhotos();
+        (payload) => {
+          // La suscripción a DELETE no admite filtro por evento: llega el
+          // borrado de cualquier foto de cualquier evento. Solo se actúa si la
+          // foto es de este pase, y se retira en local en vez de recargarlo todo.
+          const deletedId = (payload.old as { id?: string } | null)?.id;
+          if (!deletedId) {
+            void loadPhotos().catch(() => undefined);
+            return;
+          }
+          setPhotos((current) => {
+            if (!current.some((item) => item.id === deletedId)) return current;
+            const remaining = current.filter((item) => item.id !== deletedId);
+            setCurrentPhotoId((currentId) =>
+              currentId === deletedId ? remaining[0]?.id ?? null : currentId,
+            );
+            return remaining;
+          });
         },
       )
       .subscribe();

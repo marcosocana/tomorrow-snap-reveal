@@ -47,19 +47,29 @@ const findAuthUserByEmail = async (
   email: string,
 ) => {
   const normalized = email.trim().toLowerCase();
-  const { data, error } = await supabaseAdmin.auth.admin.listUsers({
-    page: 1,
-    perPage: 1000,
-  });
+  // listUsers devuelve como mucho 1000 usuarios por página: hay que recorrerlas
+  // para que las cuentas más allá de la primera también reciban su enlace.
+  for (let page = 1; page <= 20; page += 1) {
+    const { data, error } = await supabaseAdmin.auth.admin.listUsers({
+      page,
+      perPage: 1000,
+    });
 
-  if (error) {
-    console.error("request-password-reset listUsers error:", error.message);
-    return null;
+    if (error) {
+      console.error("request-password-reset listUsers error:", error.message);
+      return null;
+    }
+
+    const users = data?.users || [];
+    const match = users.find(
+      (user: { email?: string | null }) =>
+        user.email?.toLowerCase() === normalized,
+    );
+    if (match) return match;
+    if (users.length < 1000) break;
   }
 
-  return (data?.users || []).find(
-    (user: any) => user.email?.toLowerCase() === normalized,
-  ) ?? null;
+  return null;
 };
 
 const sendResetEmail = async (to: string, resetUrl: string) => {
@@ -195,12 +205,17 @@ serve(async (req) => {
     const tokenHash = await sha256(rawToken);
     const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
 
-    await supabaseAdmin.from("password_resets").insert({
+    const { error: storeError } = await supabaseAdmin.from("password_resets").insert({
       user_id: userId,
       email: cleanEmail,
       token_hash: tokenHash,
       expires_at: expiresAt,
     });
+    if (storeError) {
+      // Sin token guardado el enlace sería inválido: mejor fallar que enviarlo.
+      console.error("request-password-reset store token error:", storeError.message);
+      return json({ error: "UNKNOWN_ERROR" }, 500);
+    }
     console.log("request-password-reset token stored", {
       userId,
       expiresAt,

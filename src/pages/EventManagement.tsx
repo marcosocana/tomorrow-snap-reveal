@@ -31,7 +31,6 @@ import { useAdminI18n } from "@/lib/adminI18n";
 import { PricingPreview } from "@/components/PricingPreview";
 import { deleteRevelaoEventsCompletely } from "@/lib/deleteRevelaoEvents";
 import { AdminEventsCalendar } from "@/components/AdminEventsCalendar";
-import { deleteCaptainsEvent } from "@/lib/captainsService";
 import { CaptainsCheckoutCard } from "@/components/CaptainsCheckoutCard";
 import { TimeCapsuleCheckoutPlans } from "@/components/TimeCapsuleCheckoutPlans";
 import { TIME_CAPSULE_REDEEM_PLANS, type TimeCapsuleRedeemPlanId } from "@/lib/timeCapsule";
@@ -1990,6 +1989,8 @@ const EventManagement = () => {
     }
     if (!window.confirm(`¿Eliminar ${selectedCaptainsIds.size} evento(s) de Capitanes seleccionados?`)) return;
     try {
+      // El servicio de Capitanes (~127 kB) solo hace falta para este borrado.
+      const { deleteCaptainsEvent } = await import("@/lib/captainsService");
       await Promise.all(Array.from(selectedCaptainsIds).map((id) => deleteCaptainsEvent(id)));
       setSelectedCaptainsIds(new Set());
       await loadData();

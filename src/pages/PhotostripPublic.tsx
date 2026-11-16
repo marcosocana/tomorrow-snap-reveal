@@ -133,6 +133,7 @@ const PhotostripGallery = ({ slug }: { slug: string }) => {
 const PhotostripExperience = ({ slug }: { slug: string }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const openingCameraRef = useRef(false);
   const [event, setEvent] = useState<PublicPhotostripEvent | null>(null);
   const [stage, setStage] = useState<Stage>("loading");
   const [mode, setMode] = useState<PhotostripMode>("color");
@@ -241,6 +242,10 @@ const PhotostripExperience = ({ slug }: { slug: string }) => {
 
   const openCamera = async (selectedMode: PhotostripMode) => {
     if (!event) return;
+    // Un doble toque lanzaba dos getUserMedia: el primer stream quedaba
+    // encendido sin que nadie lo parase y se iniciaban dos participaciones.
+    if (openingCameraRef.current) return;
+    openingCameraRef.current = true;
     try {
       setError(null);
       setMode(selectedMode);
@@ -271,6 +276,8 @@ const PhotostripExperience = ({ slug }: { slug: string }) => {
       stopCamera();
       setError(humanError(cameraError instanceof DOMException ? new Error(cameraError.name) : cameraError));
       setStage("landing");
+    } finally {
+      openingCameraRef.current = false;
     }
   };
 

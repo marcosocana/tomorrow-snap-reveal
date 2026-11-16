@@ -12,7 +12,6 @@ import { QRCodeSVG } from "qrcode.react";
 import { ArrowLeft, ArrowRight, Check, Copy, Download, ImagePlus, Loader2, LockKeyhole, Pencil, RefreshCw, Trash2, Video } from "lucide-react";
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 import { format } from "date-fns";
-import JSZip from "jszip";
 import {
   TIME_CAPSULE_MAX_VIDEO_SECONDS,
   TIME_CAPSULE_DEFAULT_DESCRIPTION,
@@ -247,6 +246,8 @@ const TimeCapsuleAdminForm = ({
     if (capsuleVideos.length === 0 || isDownloadingAll) return;
     setIsDownloadingAll(true);
     try {
+      // JSZip solo se descarga al pedir el ZIP, no con el formulario.
+      const { default: JSZip } = await import("jszip");
       const zip = new JSZip();
       for (let index = 0; index < capsuleVideos.length; index += 1) {
         const capsuleVideo = capsuleVideos[index];

@@ -71,7 +71,21 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: "Missing event or contact email" }), { status: 400, headers: jsonHeaders });
   }
 
-  const publicUrl = String(body?.publicUrl || event?.public_url || `${APP_ORIGIN}/capitanes/${event?.slug || ""}`);
+  // La función se invoca sin sesión: el enlace público solo se acepta si apunta
+  // a un dominio propio; en otro caso se reconstruye a partir del slug.
+  const isOwnUrl = (value: unknown) => {
+    try {
+      const parsed = new URL(String(value));
+      return parsed.protocol === "https:" &&
+        (parsed.hostname === "revelao.cam" || parsed.hostname.endsWith(".revelao.cam"));
+    } catch {
+      return false;
+    }
+  };
+  const fallbackPublicUrl = `${APP_ORIGIN}/capitanes/${encodeURIComponent(String(event?.slug || ""))}`;
+  const publicUrl = [body?.publicUrl, event?.public_url]
+    .map((candidate) => String(candidate || "").trim())
+    .find(isOwnUrl) || fallbackPublicUrl;
   const qrImageUrl = getQrImageUrl(publicUrl, body?.qrImageUrl || event?.qr_url);
   const tableCount = Number(body?.tableCount || 0);
   const challengeCount = Number(body?.challengeCount || 0);

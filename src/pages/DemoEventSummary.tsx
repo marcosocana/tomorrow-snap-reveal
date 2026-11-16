@@ -39,6 +39,7 @@ const DemoEventSummary = () => {
   const { toast } = useToast();
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const emailAttemptsRef = useRef(0);
   const [countdownNow, setCountdownNow] = useState(() => Date.now());
   const qrRef = useRef<HTMLDivElement>(null);
   const { lang, t, pathPrefix } = useDemoI18n();
@@ -126,8 +127,12 @@ const DemoEventSummary = () => {
     if (!event || !resolvedContactEmail || !qrImageUrl || isSendingEmail) return;
     const sentKey = `demo-email-sent-${event.id}`;
     if (localStorage.getItem(sentKey)) return;
+    // Tope de intentos: si el envío falla siempre, este efecto se relanzaba
+    // cada ~2 s mientras la pestaña siguiera abierta.
+    if (emailAttemptsRef.current >= 3) return;
 
     const timer = window.setTimeout(async () => {
+      emailAttemptsRef.current += 1;
       setIsSendingEmail(true);
       try {
         const { error } = await supabase.functions.invoke("send-demo-event-email", {

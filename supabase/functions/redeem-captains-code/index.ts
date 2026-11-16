@@ -80,32 +80,13 @@ const resolveManagementAccount = async (
 ) => {
   const existingUser = await findAuthUserByEmail(admin, email);
   let ownerId = existingUser?.id || null;
-  let managementPassword = "";
+  // Solo se genera (y se devuelve) contraseña para cuentas recién creadas.
+  // Quien canjea no ha demostrado ser dueño de una cuenta que ya existía, así
+  // que esa cuenta conserva su contraseña y nunca se expone en la respuesta ni
+  // en el email: el evento simplemente queda asociado a ella.
+  let managementPassword: string | null = null;
 
-  if (ownerId) {
-    const { data: firstOwnedEvent, error: firstOwnedEventError } = await admin
-      .from("events")
-      .select("admin_password")
-      .eq("owner_id", ownerId)
-      .not("admin_password", "is", null)
-      .order("created_at", { ascending: true })
-      .limit(1)
-      .maybeSingle();
-    if (firstOwnedEventError) throw firstOwnedEventError;
-
-    const storedPassword = existingUser?.user_metadata?.management_password;
-    managementPassword = String(firstOwnedEvent?.admin_password || storedPassword || "").trim()
-      || generateManagementPassword();
-
-    const { error: updateUserError } = await admin.auth.admin.updateUserById(ownerId, {
-      password: managementPassword,
-      user_metadata: {
-        ...(existingUser?.user_metadata || {}),
-        management_password: managementPassword,
-      },
-    });
-    if (updateUserError) throw updateUserError;
-  } else {
+  if (!ownerId) {
     managementPassword = generateManagementPassword();
     const { data: createdUser, error: createUserError } = await admin.auth.admin.createUser({
       email,

@@ -3,6 +3,7 @@ import { Navigate, useLocation, useNavigate, useSearchParams } from "react-route
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllRows, type RowsPage } from "@/lib/fetchAllRows";
 import { useToast } from "@/hooks/use-toast";
 import { LogOut, Film, Trash2, Download, Share2, Play, Image, Mic, Video, LayoutGrid, LayoutList, ArrowLeft, Plus } from "lucide-react";
 import StoriesViewer from "@/components/StoriesViewer";
@@ -82,20 +83,7 @@ interface MixedMediaItem {
 const PHOTOS_PER_PAGE = 24;
 // Supabase devuelve como máximo 1000 filas por consulta y una URL con miles de
 // IDs es demasiado larga: Stories pide por páginas y los «me gusta» por tandas.
-const SUPABASE_MAX_ROWS = 1000;
 const LIKE_IDS_PER_REQUEST = 150;
-
-type RowsPage<T> = { data: T[] | null; error: unknown };
-
-const fetchAllRows = async <T,>(fetchPage: (from: number, to: number) => PromiseLike<RowsPage<T>>) => {
-  const rows: T[] = [];
-  for (let from = 0; ; from += SUPABASE_MAX_ROWS) {
-    const { data, error } = await fetchPage(from, from + SUPABASE_MAX_ROWS - 1);
-    if (error) throw error;
-    rows.push(...(data ?? []));
-    if (!data || data.length < SUPABASE_MAX_ROWS) return rows;
-  }
-};
 
 /** Filas de «me gusta» de muchos elementos; como antes, un fallo no rompe Stories. */
 const fetchLikeRows = async (table: "photo_likes" | "video_likes" | "audio_likes", column: string, ids: string[]) => {
@@ -184,6 +172,7 @@ const Gallery = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(0);
+  const [isFetchingMore, setIsFetchingMore] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
   const [selectedMedia, setSelectedMedia] = useState<MixedMediaItem | null>(null);
   const [isAttachModalOpen, setIsAttachModalOpen] = useState(false);
@@ -748,10 +737,14 @@ const Gallery = () => {
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && hasMore && !isLoading) {
+        // Las páginas se piden de una en una: sin `isFetchingMore`, cada
+        // `setPage` recreaba el observador con el centinela aún visible y se
+        // encadenaban peticiones de páginas hasta que respondía la red.
+        if (entries[0].isIntersecting && hasMore && !isLoading && !isFetchingMore) {
           const nextPage = page + 1;
           setPage(nextPage);
-          loadPhotos(nextPage);
+          setIsFetchingMore(true);
+          void loadPhotos(nextPage).finally(() => setIsFetchingMore(false));
         }
       },
       { threshold: 0.1 }
@@ -762,7 +755,7 @@ const Gallery = () => {
     }
 
     return () => observer.disconnect();
-  }, [hasMore, isLoading, page, loadPhotos]);
+  }, [hasMore, isLoading, isFetchingMore, page, loadPhotos]);
 
   const handleLogout = () => {
     localStorage.removeItem("eventId");
@@ -1042,7 +1035,10 @@ const Gallery = () => {
 
       if (dbError) throw dbError;
 
-      setPhotos(photos.filter(p => p.id !== photoId));
+      // Actualización funcional: `photos` puede haber crecido (scroll infinito)
+      // mientras se esperaba la respuesta y no hay que pisar esas páginas.
+      setPhotos(prev => prev.filter(p => p.id !== photoId));
+      setTotalPhotos(count => Math.max(0, count - 1));
       setSelectedPhoto(null);
       
       toast({
@@ -1090,20 +1086,18 @@ const Gallery = () => {
       }
 
       // Update UI
-      setPhotos(photos.map(p => 
+      // Actualización funcional: `photos` puede haber crecido (scroll infinito)
+      // o recibido otro «me gusta» mientras se esperaba la respuesta.
+      setPhotos(prev => prev.map(p => 
         p.id === photoId 
           ? { ...p, likeCount: (p.likeCount || 0) + 1, hasLiked: true }
           : p
       ));
 
       // Update selected photo if it's the one being liked
-      if (selectedPhoto && selectedPhoto.id === photoId) {
-        setSelectedPhoto({
-          ...selectedPhoto,
-          likeCount: (selectedPhoto.likeCount || 0) + 1,
-          hasLiked: true
-        });
-      }
+      setSelectedPhoto(prev => prev && prev.id === photoId
+        ? { ...prev, likeCount: (prev.likeCount || 0) + 1, hasLiked: true }
+        : prev);
     } catch (error) {
       console.error("Error liking photo:", error);
     }
@@ -1488,32 +1482,40 @@ const Gallery = () => {
         description: downloadingAllText,
       });
 
-      const [
-        { data: allPhotos, error: photosError },
-        { data: allVideos, error: videosError },
-        { data: allAudios, error: audiosError },
-      ] = await Promise.all([
-        supabase
-          .from("photos")
-          .select("id,image_url,captured_at")
-          .eq("event_id", eventId)
-          .order("captured_at", { ascending: true }),
-        supabase
-          .from("videos")
-          .select("id,video_url,captured_at")
-          .eq("event_id", eventId)
-          .order("captured_at", { ascending: true }),
-        supabase
-          .from("audios")
-          .select("id,audio_url,captured_at")
-          .eq("event_id", eventId)
-          .order("captured_at", { ascending: true }),
+      // Paginado: una consulta sin rango se queda en las 1000 primeras filas y
+      // el ZIP de un evento grande salía incompleto sin avisar. El desempate
+      // por `id` mantiene estable el orden entre páginas.
+      const [allPhotos, allVideos, allAudios] = await Promise.all([
+        fetchAllRows<{ id: string; image_url: string; captured_at: string }>((from, to) =>
+          supabase
+            .from("photos")
+            .select("id,image_url,captured_at")
+            .eq("event_id", eventId)
+            .order("captured_at", { ascending: true })
+            .order("id", { ascending: true })
+            .range(from, to)),
+        fetchAllRows<{ id: string; video_url: string; captured_at: string }>((from, to) =>
+          supabase
+            .from("videos")
+            .select("id,video_url,captured_at")
+            .eq("event_id", eventId)
+            .order("captured_at", { ascending: true })
+            .order("id", { ascending: true })
+            .range(from, to)),
+        fetchAllRows<{ id: string; audio_url: string; captured_at: string }>((from, to) =>
+          supabase
+            .from("audios")
+            .select("id,audio_url,captured_at")
+            .eq("event_id", eventId)
+            .order("captured_at", { ascending: true })
+            .order("id", { ascending: true })
+            .range(from, to)).catch((audiosError) => {
+              // Como antes: un fallo al leer audios solo aborta si el evento los usa.
+              if (allowAudioRecording) throw audiosError;
+              return [];
+            }),
       ]);
-
-      if (photosError) throw photosError;
-      if (videosError) throw videosError;
-      if (allowAudioRecording && audiosError) throw audiosError;
-      const visibleAudios = allowAudioRecording ? (allAudios || []) : [];
+      const visibleAudios = allowAudioRecording ? allAudios : [];
 
       const { default: JSZip } = await import("jszip");
       const zip = new JSZip();
@@ -1534,6 +1536,7 @@ const Gallery = () => {
             blob = await applyFilterToCanvas(signedUrl, filterType);
           } else {
             const response = await fetch(signedUrl);
+            if (!response.ok) throw new Error(`Photo download failed: ${response.status}`);
             blob = await response.blob();
           }
           
@@ -2233,7 +2236,12 @@ const Gallery = () => {
                   alt={enlargedPhotoText}
                   className={`w-full h-auto max-h-[70vh] object-contain ${getFilterClass(filterType)} rounded-lg`}
                   onError={(e) => {
-                    e.currentTarget.src = (selectedPhoto as any).thumbnailUrl;
+                    // Un solo intento con la miniatura: si también falla no se
+                    // reasigna el mismo `src` en bucle.
+                    const thumbnailUrl = (selectedPhoto as any).thumbnailUrl;
+                    if (thumbnailUrl && e.currentTarget.src !== thumbnailUrl) {
+                      e.currentTarget.src = thumbnailUrl;
+                    }
                   }}
                 />
                 
